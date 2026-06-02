@@ -1,5 +1,5 @@
 {
-  "name": "markline",
+  "name": "@markline/markline",
   "version": "0.1.0",
   "description": "Open-source, self-hostable documentation framework with first-class OpenAPI, search, and an interactive API playground.",
   "license": "MIT",
@@ -12,6 +12,10 @@
     "nextjs",
     "static-site"
   ],
+  "homepage": "https://github.com/markline/markline",
+  "repository": { "type": "git", "url": "https://github.com/markline/markline.git" },
+  "bugs": { "url": "https://github.com/markline/markline/issues" },
+  "publishConfig": { "access": "public" },
   "bin": {
     "markline": "bin/markline.mjs"
   },

@@ -8,6 +8,6 @@
     "export": "markline export"
   },
   "dependencies": {
-    "markline": "^0.1.0"
+    "@markline/markline": "^0.1.0"
   }
 }

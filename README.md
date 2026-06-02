@@ -6,7 +6,7 @@ search, and an interactive API playground. A fully open alternative to Scalar an
 ## Quickstart
 
 ```bash
-npm install markline
+npm install @markline/markline
 npx markline init      # scaffold docs.json + sample content in the current dir
 npx markline dev       # preview at http://localhost:3000
 ```
@@ -177,7 +177,7 @@ Available in any MDX page without an import:
 <Note>Heads up — this is worth knowing.</Note>
 
 <Steps>
-  <Step title="Install">Run `npm install markline`.</Step>
+  <Step title="Install">Run `npm install @markline/markline`.</Step>
   <Step title="Develop">Run `markline dev`.</Step>
 </Steps>
 ```

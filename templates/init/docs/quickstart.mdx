@@ -1,0 +1,37 @@
+---
+title: Quickstart
+lede: Get your docs running in under a minute.
+toc:
+  - id: install
+    label: Install
+  - id: develop
+    label: Develop
+  - id: ship
+    label: Ship
+---
+
+## Install
+
+```bash
+npm install markline
+npx markline init
+```
+
+## Develop
+
+```bash
+npx markline dev
+```
+
+Open the printed URL and edit files under `docs/`. Update `docs.json` to change
+navigation, branding, and the API base URL.
+
+## Ship
+
+```bash
+# Static HTML for any CDN / GitHub Pages / S3:
+npx markline export
+
+# Or a Node server for Docker / Vercel:
+npx markline build && npx markline start
+```

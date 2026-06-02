@@ -1,12 +1,18 @@
 import type { Config } from "tailwindcss";
+import path from "node:path";
+
+// Scan the active content dir (set by the CLI / .env.local) so utility classes
+// used inside authored MDX aren't purged, wherever the consumer's docs live.
+const contentEnv = process.env.MARKLINE_CONTENT;
+const contentGlob = contentEnv
+  ? path.join(path.isAbsolute(contentEnv) ? contentEnv : path.join(process.cwd(), contentEnv), "**/*.{md,mdx}")
+  : "../_docs/**/*.{md,mdx}";
 
 const config: Config = {
   content: [
     "./app/**/*.{ts,tsx,md,mdx}",
     "./components/**/*.{ts,tsx}",
-    // Private content lives outside the repo (see MARKLINE_CONTENT). Scan it so
-    // utility classes used inside authored MDX aren't purged.
-    "../_docs/**/*.{md,mdx}",
+    contentGlob,
   ],
   darkMode: ["class", '[data-theme="dark"]'],
   theme: {

@@ -1,0 +1,46 @@
+{
+  "name": "My Docs",
+  "theme": {
+    "logo": { "text": "My Docs" },
+    "colors": { "primary": "#4f46e5", "primaryDark": "#818cf8" },
+    "appearance": "system"
+  },
+  "topbar": {
+    "links": [{ "label": "GitHub ↗", "href": "https://github.com" }],
+    "cta": { "label": "Get started", "href": "/quickstart" }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "id": "documentation",
+        "label": "Documentation",
+        "href": "/",
+        "match": ["__default__"],
+        "groups": [
+          {
+            "group": "Get started",
+            "pages": [
+              { "href": "/", "label": "Introduction" },
+              { "href": "/quickstart", "label": "Quickstart" }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "api-reference",
+        "label": "API reference",
+        "href": "/api-reference",
+        "match": ["/api-reference"],
+        "openapi": true
+      }
+    ]
+  },
+  "api": {
+    "baseUrl": "https://api.example.com",
+    "playground": { "enabled": true, "proxy": "auto" }
+  },
+  "seo": {
+    "title": "My Docs",
+    "description": "Documentation built with Markline."
+  }
+}

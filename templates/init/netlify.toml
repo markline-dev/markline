@@ -1,0 +1,4 @@
+# Deploy a static Markline build to Netlify.
+[build]
+  command = "npm install && npx markline export"
+  publish = "out"

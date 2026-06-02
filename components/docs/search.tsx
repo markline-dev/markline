@@ -15,11 +15,13 @@ type Pagefind = {
 };
 
 // The Pagefind bundle is generated into /public/pagefind at build time and
-// served as a static asset — it must not be resolved by the bundler.
+// served as a static asset — it must not be resolved by the bundler. Respect a
+// configured base path so it resolves under sub-path deployments.
 async function loadPagefind(): Promise<Pagefind | null> {
   try {
-    // @ts-expect-error - runtime-only module, served from /pagefind after build
-    const pf: Pagefind = await import(/* webpackIgnore: true */ "/pagefind/pagefind.js");
+    const base = process.env.NEXT_PUBLIC_MARKLINE_BASE_PATH || "";
+    // Runtime-only module, served from <base>/pagefind after build.
+    const pf: Pagefind = await import(/* webpackIgnore: true */ `${base}/pagefind/pagefind.js`);
     await pf.init?.();
     return pf;
   } catch {

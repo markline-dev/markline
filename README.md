@@ -35,11 +35,38 @@ my-docs/
 
 ## Hosting
 
-- **Static** — `markline export` → upload `out/` anywhere. The API playground runs in
-  direct-fetch mode (set `api.playground.proxy` to `"never"`).
-- **Node / Docker** — `markline build && markline start`. Enables the playground's
-  server-side proxy for APIs that don't send CORS headers.
-- **Vercel / Netlify** — build with `markline build`.
+`markline init` scaffolds ready-to-use deploy configs (`Dockerfile`, `netlify.toml`,
+`.github/workflows/deploy.yml`).
+
+### Static (any CDN / GitHub Pages / Netlify / S3)
+
+```bash
+markline export   # → ./out
+```
+
+Upload `out/` to any static host. The API playground runs in direct-fetch mode (set
+`api.playground.proxy` to `"never"` if your API lacks CORS).
+
+- **GitHub Pages** — the scaffolded workflow exports and deploys on push to `main`.
+  Project sites are served under `/<repo>`, so it builds with
+  `MARKLINE_BASE_PATH=/<repo>`. For a user/org root site or custom domain, remove that env.
+- **Netlify** — `netlify.toml` sets `command = "npm install && npx markline export"`
+  and `publish = "out"`.
+- **Sub-path hosting** — set `MARKLINE_BASE_PATH=/prefix` so assets and the search bundle
+  resolve correctly.
+
+### Node server (Docker / Vercel — full features)
+
+```bash
+markline build && markline start   # serves on :3000
+```
+
+Enables the playground's server-side proxy for APIs without CORS. The scaffolded
+`Dockerfile` builds and serves the site:
+
+```bash
+docker build -t my-docs . && docker run -p 3000:3000 my-docs
+```
 
 ## Configuration (`docs.json`)
 

@@ -1,0 +1,13 @@
+{
+  "name": "my-docs",
+  "private": true,
+  "scripts": {
+    "dev": "markline dev",
+    "build": "markline build",
+    "start": "markline start",
+    "export": "markline export"
+  },
+  "dependencies": {
+    "markline": "^0.1.0"
+  }
+}

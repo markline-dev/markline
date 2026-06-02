@@ -3,6 +3,11 @@ import type { MDXComponents } from "mdx/types";
 import { Callout, DocsH2, DocsP } from "./page";
 import { CodeBlock, type CodeSnippet } from "./code-block";
 import { EndpointList } from "./api/endpoint-list";
+import {
+  Note, Info, Tip, Check, Warning, Danger,
+  Card, CardGroup, Steps, Step, ParamField, ResponseField,
+} from "./authoring";
+import { Tabs, Tab, Accordion, AccordionGroup } from "./authoring-client";
 
 function slugify(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -167,4 +172,22 @@ export const mdxComponents: MDXComponents = {
   MigrationCallout,
   EndpointList,
   Link,
+
+  // Authoring component library
+  Note,
+  Info,
+  Tip,
+  Check,
+  Warning,
+  Danger,
+  Card,
+  CardGroup,
+  Steps,
+  Step,
+  Tabs,
+  Tab,
+  Accordion,
+  AccordionGroup,
+  ParamField,
+  ResponseField,
 };

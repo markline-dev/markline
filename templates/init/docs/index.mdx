@@ -17,6 +17,16 @@ files in `docs/`, describe your navigation and branding in `docs.json`, and run
 Markline renders MDX, highlights code, and turns an OpenAPI spec into a full,
 interactive API reference — with a live "Try it" playground on every endpoint.
 
+<Note>
+  Rich authoring components — callouts, cards, steps, tabs, accordions, and
+  param fields — are available in any MDX page without an import.
+</Note>
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" href="/quickstart">Go from zero to a running site in a minute.</Card>
+  <Card title="API reference" href="/api-reference">Your OpenAPI spec, rendered and interactive.</Card>
+</CardGroup>
+
 ```ts
 // Everything is just MDX + an OpenAPI file.
 export const hello = "world";

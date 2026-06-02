@@ -80,6 +80,24 @@ my-docs/
 - Static full-text search (Pagefind) — zero search infrastructure.
 - Dark mode, table of contents, responsive layout.
 
+## Authoring components
+
+Available in any MDX page without an import:
+
+- **Callouts** — `<Note>`, `<Info>`, `<Tip>`, `<Check>`, `<Warning>`, `<Danger>`
+- **Layout** — `<Card>`, `<CardGroup cols={2}>`, `<Steps>` / `<Step title>`
+- **Interactive** — `<Tabs>` / `<Tab title>`, `<AccordionGroup>` / `<Accordion title>`
+- **API** — `<ParamField path|query|header|body type required>`, `<ResponseField>`
+
+```mdx
+<Note>Heads up — this is worth knowing.</Note>
+
+<Steps>
+  <Step title="Install">Run `npm install markline`.</Step>
+  <Step title="Develop">Run `markline dev`.</Step>
+</Steps>
+```
+
 ## License
 
 MIT

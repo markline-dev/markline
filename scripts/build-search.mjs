@@ -77,15 +77,15 @@ function docRecords(root, versionId) {
   });
 }
 
-/** Non-default version ids declared in docs.json. */
-function nonDefaultVersionIds(root) {
+/** Non-default content prefix ids (versions + locales) declared in docs.json. */
+function contentPrefixIds(root) {
   const configPath = process.env.MARKLINE_CONFIG
     ? (path.isAbsolute(process.env.MARKLINE_CONFIG) ? process.env.MARKLINE_CONFIG : path.join(process.cwd(), process.env.MARKLINE_CONFIG))
     : path.join(root, "docs.json");
   try {
     const cfg = JSON.parse(fs.readFileSync(configPath, "utf8"));
-    if (!Array.isArray(cfg.versions) || cfg.versions.length <= 1) return [];
-    return cfg.versions.slice(1).map((v) => v.id);
+    const tail = (arr) => (Array.isArray(arr) && arr.length > 1 ? arr.slice(1).map((v) => v.id) : []);
+    return [...tail(cfg.versions), ...tail(cfg.i18n?.locales)];
   } catch {
     return [];
   }
@@ -120,10 +120,10 @@ function apiRecords(root) {
 
 async function main() {
   const root = contentRoot();
-  const versions = nonDefaultVersionIds(root);
+  const prefixes = contentPrefixIds(root);
   const records = [
     ...docRecords(root),
-    ...versions.flatMap((v) => docRecords(root, v)),
+    ...prefixes.flatMap((p) => docRecords(root, p)),
     ...apiRecords(root),
   ];
 

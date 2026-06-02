@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { DocsTopBar, DocsSidebar } from "@/components/docs/nav";
-import { getVersionedNav } from "@/components/docs/sections";
+import { getNav } from "@/components/docs/sections";
 import { loadConfig, hexToRgbTriple } from "@/lib/config";
 import { Analytics } from "@/components/docs/analytics";
 
@@ -37,7 +37,7 @@ function brandColorCss(): string | null {
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const nav = getVersionedNav(config);
+  const nav = getNav(config);
   const brand = {
     name: config.name,
     logo: config.theme.logo,

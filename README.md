@@ -105,6 +105,29 @@ my-docs/
     └── docs/        # v1            -> /v1/quickstart
 ```
 
+### Localization (i18n)
+
+Identical mechanism to versioning, via `i18n.locales`. The first locale is the
+default (unprefixed); others are served under their id with content in
+`<id>/docs/` and their own (translated) navigation. A topbar language switcher
+appears automatically. A project uses versions **or** locales (not both).
+
+```jsonc
+"i18n": {
+  "locales": [
+    { "id": "en", "label": "English" },
+    { "id": "es", "label": "Español", "navigation": { "tabs": [ /* /es hrefs */ ] } }
+  ]
+}
+```
+
+```
+my-docs/
+├── docs/            # en (default)  -> /quickstart
+└── es/
+    └── docs/        # es            -> /es/quickstart
+```
+
 ## Features
 
 - Config-driven navigation, theming, and branding — no code to fork.

@@ -14,23 +14,24 @@ export type DocSection = { title: string; links: DocLink[] };
 export type TopTab = { id: string; label: string; href: string; matchPrefixes: string[] };
 export type TopTabWithSections = TopTab & { sections: DocSection[] };
 
-export type VersionMeta = { id: string; label: string };
-export type VersionedNav = {
-  versions: VersionMeta[];
-  defaultVersionId: string;
-  tabsByVersion: Record<string, TopTabWithSections[]>;
+export type VariantMeta = { id: string; label: string };
+export type NavData = {
+  versions: VariantMeta[];
+  locales: VariantMeta[];
+  defaultId: string;
+  tabsByVariant: Record<string, TopTabWithSections[]>;
 };
 
-/** Active version id for a pathname (first path segment if it's a non-default version). */
-export function pickVersionId(nav: VersionedNav, pathname: string): string {
+/** Active variant id for a pathname (first path segment if it's a non-default version/locale). */
+export function pickVariantId(nav: NavData, pathname: string): string {
   const seg = pathname.split("/").filter(Boolean)[0];
-  const match = nav.versions.find((v) => v.id === seg && v.id !== nav.defaultVersionId);
-  return match ? match.id : nav.defaultVersionId;
+  const match = [...nav.versions, ...nav.locales].find((v) => v.id === seg && v.id !== nav.defaultId);
+  return match ? match.id : nav.defaultId;
 }
 
-/** Home path for a version: "/" for the default, "/<id>" otherwise. */
-function versionHome(nav: VersionedNav, id: string): string {
-  return id === nav.defaultVersionId ? "/" : `/${id}`;
+/** Home path for a variant: "/" for the default, "/<id>" otherwise. */
+function variantHome(nav: NavData, id: string): string {
+  return id === nav.defaultId ? "/" : `/${id}`;
 }
 
 export type Brand = {
@@ -57,10 +58,10 @@ function BrandMark({ brand }: { brand: Brand }) {
   return <span className="text-16 font-semibold tracking-tight text-ink">{logo?.text ?? name}</span>;
 }
 
-export function DocsTopBar({ nav, brand }: { nav: VersionedNav; brand: Brand }) {
+export function DocsTopBar({ nav, brand }: { nav: NavData; brand: Brand }) {
   const pathname = usePathname();
-  const activeVersion = pickVersionId(nav, pathname);
-  const tabs = nav.tabsByVersion[activeVersion] ?? [];
+  const activeVariant = pickVariantId(nav, pathname);
+  const tabs = nav.tabsByVariant[activeVariant] ?? [];
   const activeId = pickActiveTabId(tabs, pathname);
   return (
     <header className="docs-top sticky top-0 z-20 bg-paper border-b border-slate-3">
@@ -71,7 +72,10 @@ export function DocsTopBar({ nav, brand }: { nav: VersionedNav; brand: Brand }) 
           <BrandMark brand={brand} />
         </Link>
         {nav.versions.length > 1 && (
-          <VersionSwitcher nav={nav} activeVersion={activeVersion} />
+          <VariantSwitcher nav={nav} active={activeVariant} ariaLabel="Version" options={nav.versions} />
+        )}
+        {nav.locales.length > 1 && (
+          <VariantSwitcher nav={nav} active={activeVariant} ariaLabel="Language" options={nav.locales} />
         )}
         <nav className="hidden md:flex items-center gap-1">
           {tabs.map((t) => {
@@ -170,9 +174,9 @@ function SidebarSections({
   );
 }
 
-export function DocsSidebar({ nav }: { nav: VersionedNav }) {
+export function DocsSidebar({ nav }: { nav: NavData }) {
   const pathname = usePathname();
-  const tabs = nav.tabsByVersion[pickVersionId(nav, pathname)] ?? [];
+  const tabs = nav.tabsByVariant[pickVariantId(nav, pathname)] ?? [];
   const activeId = pickActiveTabId(tabs, pathname);
   const activeTab = tabs.find((t) => t.id === activeId) ?? tabs[0];
   const sections = activeTab?.sections ?? [];
@@ -185,7 +189,7 @@ export function DocsSidebar({ nav }: { nav: VersionedNav }) {
 }
 
 /** Hamburger + slide-over drawer for navigation on small screens. */
-function MobileNav({ nav }: { nav: VersionedNav }) {
+function MobileNav({ nav }: { nav: NavData }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -204,7 +208,7 @@ function MobileNav({ nav }: { nav: VersionedNav }) {
     };
   }, [open]);
 
-  const tabs = nav.tabsByVersion[pickVersionId(nav, pathname)] ?? [];
+  const tabs = nav.tabsByVariant[pickVariantId(nav, pathname)] ?? [];
   if (tabs.length === 0) return null;
   const activeId = pickActiveTabId(tabs, pathname);
   const activeTab = tabs.find((t) => t.id === activeId) ?? tabs[0];
@@ -284,19 +288,30 @@ function SidebarMethod({ method }: { method: string }) {
   );
 }
 
-/** Dropdown to switch documentation versions; selecting navigates to that version's home. */
-function VersionSwitcher({ nav, activeVersion }: { nav: VersionedNav; activeVersion: string }) {
+/** Dropdown to switch a content variant (version or locale); selecting navigates to its home. */
+function VariantSwitcher({
+  nav,
+  active,
+  ariaLabel,
+  options,
+}: {
+  nav: NavData;
+  active: string;
+  ariaLabel: string;
+  options: VariantMeta[];
+}) {
   const router = useRouter();
-  const active = nav.versions.find((v) => v.id === activeVersion) ?? nav.versions[0];
+  // Only react when the change targets one of this switcher's options.
+  const value = options.some((o) => o.id === active) ? active : nav.defaultId;
   return (
     <div className="relative">
       <select
-        aria-label="Version"
-        value={activeVersion}
-        onChange={(e) => router.push(versionHome(nav, e.target.value))}
+        aria-label={ariaLabel}
+        value={value}
+        onChange={(e) => router.push(variantHome(nav, e.target.value))}
         className="appearance-none cursor-pointer bg-paper-2 border border-slate-3 rounded-1 text-12 font-medium text-ink pl-2.5 pr-7 py-1 hover:border-slate-4 focus:outline-none focus:border-brand"
       >
-        {nav.versions.map((v) => (
+        {options.map((v) => (
           <option key={v.id} value={v.id}>{v.label}</option>
         ))}
       </select>
@@ -307,7 +322,6 @@ function VersionSwitcher({ nav, activeVersion }: { nav: VersionedNav; activeVers
       >
         <path d="m4 6 4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
-      <span className="sr-only">{active?.label}</span>
     </div>
   );
 }

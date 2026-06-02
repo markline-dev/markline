@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
 import { contentRoot } from "./paths";
-import { loadConfig, nonDefaultVersionIds } from "./config";
+import { loadConfig, contentPrefixIds } from "./config";
 
 export type TocItem = { id: string; label: string };
 
@@ -20,13 +20,13 @@ export type Doc = {
   fm: DocFrontmatter;
   body: string;
   sourcePath: string;      // path of the source file relative to the content root
-  version?: string;        // non-default version id, when this doc belongs to one
+  variant?: string;        // non-default version/locale id, when this doc belongs to one
 };
 
-/** Docs root for a version. The default (undefined) version lives at <root>/docs. */
-function docsRoot(versionId?: string): string {
-  return versionId
-    ? path.join(contentRoot(), versionId, "docs")
+/** Docs root for a content variant (version or locale). The default lives at <root>/docs. */
+function docsRoot(variantId?: string): string {
+  return variantId
+    ? path.join(contentRoot(), variantId, "docs")
     : path.join(contentRoot(), "docs");
 }
 
@@ -61,12 +61,12 @@ function slugFromFile(root: string, filePath: string): string[] {
   return parts[parts.length - 1] === "index" ? parts.slice(0, -1) : parts;
 }
 
-function listVersionDocs(versionId?: string): Doc[] {
-  const root = docsRoot(versionId);
+function listVariantDocs(variantId?: string): Doc[] {
+  const root = docsRoot(variantId);
   if (!fs.existsSync(root)) return [];
   return walk(root).map((filePath) => {
     const rel = slugFromFile(root, filePath);
-    const slug = versionId ? [versionId, ...rel] : rel;
+    const slug = variantId ? [variantId, ...rel] : rel;
     const { fm, body } = readMdx(filePath);
     return {
       slug,
@@ -74,22 +74,22 @@ function listVersionDocs(versionId?: string): Doc[] {
       fm,
       body,
       sourcePath: path.relative(contentRoot(), filePath),
-      version: versionId,
+      variant: variantId,
     };
   });
 }
 
 export function listDocs(): Doc[] {
-  const versions = nonDefaultVersionIds(loadConfig());
-  return [listVersionDocs(undefined), ...versions.map((v) => listVersionDocs(v))].flat();
+  const prefixes = contentPrefixIds(loadConfig());
+  return [listVariantDocs(undefined), ...prefixes.map((p) => listVariantDocs(p))].flat();
 }
 
 export function getDoc(slug: string[] | undefined): Doc | undefined {
   const s = slug ?? [];
-  const versions = nonDefaultVersionIds(loadConfig());
-  const versionId = s.length > 0 && versions.includes(s[0]) ? s[0] : undefined;
-  const rest = versionId ? s.slice(1) : s;
-  const root = docsRoot(versionId);
+  const prefixes = contentPrefixIds(loadConfig());
+  const variantId = s.length > 0 && prefixes.includes(s[0]) ? s[0] : undefined;
+  const rest = variantId ? s.slice(1) : s;
+  const root = docsRoot(variantId);
 
   const candidates: string[] = [];
   if (rest.length === 0) {
@@ -107,6 +107,6 @@ export function getDoc(slug: string[] | undefined): Doc | undefined {
     fm,
     body,
     sourcePath: path.relative(contentRoot(), found),
-    version: versionId,
+    variant: variantId,
   };
 }

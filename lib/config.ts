@@ -54,6 +54,16 @@ export type Version = {
   navigation?: { tabs: NavTab[] };
 };
 
+/**
+ * A locale (same shape as a version): first is the default, served unprefixed;
+ * others under `/<id>/...` with content in `<root>/<id>/docs` and their own
+ * (translated) navigation. Versioning and i18n share the URL-prefix mechanism;
+ * a project uses one dimension or the other.
+ */
+export type Locale = Version;
+
+export type I18nConfig = { locales: Locale[] };
+
 export type SeoConfig = {
   title?: string;
   titleTemplate?: string;
@@ -98,6 +108,8 @@ export type MarklineConfig = {
   feedback?: { endpoint?: string };
   /** Documentation versions. First is the default (unprefixed). */
   versions?: Version[];
+  /** Localizations. First locale is the default (unprefixed). */
+  i18n?: I18nConfig;
 };
 
 const DEFAULT_CONFIG: MarklineConfig = {
@@ -143,6 +155,7 @@ function mergeConfig(base: MarklineConfig, user: Partial<MarklineConfig>): Markl
     analytics: user.analytics ?? base.analytics,
     feedback: { ...base.feedback, ...user.feedback },
     versions: user.versions ?? base.versions,
+    i18n: user.i18n ?? base.i18n,
   };
 }
 
@@ -150,6 +163,17 @@ function mergeConfig(base: MarklineConfig, user: Partial<MarklineConfig>): Markl
 export function nonDefaultVersionIds(config: MarklineConfig): string[] {
   if (!config.versions || config.versions.length <= 1) return [];
   return config.versions.slice(1).map((v) => v.id);
+}
+
+/** Non-default locale ids (those served under a path prefix). */
+export function nonDefaultLocaleIds(config: MarklineConfig): string[] {
+  if (!config.i18n?.locales || config.i18n.locales.length <= 1) return [];
+  return config.i18n.locales.slice(1).map((l) => l.id);
+}
+
+/** All non-default content prefix ids (versions + locales). */
+export function contentPrefixIds(config: MarklineConfig): string[] {
+  return [...nonDefaultVersionIds(config), ...nonDefaultLocaleIds(config)];
 }
 
 let _cache: MarklineConfig | undefined;

@@ -87,9 +87,26 @@ const METHODS = ["get", "post", "put", "patch", "delete", "options", "head"] as 
 
 let _cache: OpenAPIDoc | undefined;
 
+const EMPTY_DOC: OpenAPIDoc = {
+  info: { title: "", version: "" },
+  servers: [],
+  tags: [],
+  operationsById: {},
+  securitySchemes: {},
+};
+
+/** Whether the content has an OpenAPI spec (docs-only sites don't). */
+export function hasOpenApiSpec(): boolean {
+  return fs.existsSync(path.join(contentRoot(), "api", "openapi.json"));
+}
+
 export function loadOpenApi(): OpenAPIDoc {
   if (_cache) return _cache;
   const file = path.join(contentRoot(), "api", "openapi.json");
+  if (!fs.existsSync(file)) {
+    _cache = EMPTY_DOC;
+    return _cache;
+  }
   const raw = JSON.parse(fs.readFileSync(file, "utf8"));
   _cache = normalize(raw);
   return _cache;

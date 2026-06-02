@@ -1,0 +1,46 @@
+---
+title: CLI
+lede: The markline command runs your docs project from its own docs.json and content.
+toc:
+  - id: commands
+    label: Commands
+  - id: how-it-works
+    label: How it works
+---
+
+## Commands
+
+| Command | Description |
+| --- | --- |
+| `markline init [dir]` | Scaffold a new docs project. |
+| `markline dev` | Start the dev server against `./docs.json`. |
+| `markline build` | Build a production Node server bundle. |
+| `markline start` | Serve a production build. |
+| `markline export` | Build a static HTML site into `./out`. |
+
+## How it works
+
+The Markline package ships the rendering app; the CLI launches it pointed at the
+content in your current directory. You never fork or edit the framework — you
+upgrade it like any dependency.
+
+<Tabs>
+  <Tab title="Develop">
+    ```bash
+    npx markline dev
+    ```
+    Live preview on http://localhost:3000.
+  </Tab>
+  <Tab title="Static">
+    ```bash
+    npx markline export
+    ```
+    Outputs `./out` for any static host.
+  </Tab>
+  <Tab title="Server">
+    ```bash
+    npx markline build && npx markline start
+    ```
+    A Node server with full features.
+  </Tab>
+</Tabs>

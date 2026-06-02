@@ -1,0 +1,49 @@
+{
+  "name": "Markline",
+  "theme": {
+    "logo": { "text": "Markline" },
+    "colors": { "primary": "#6366f1", "primaryDark": "#a5b4fc" },
+    "appearance": "system"
+  },
+  "topbar": {
+    "links": [{ "label": "GitHub ↗", "href": "https://github.com/markline/markline" }],
+    "cta": { "label": "Get started", "href": "/quickstart" }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "id": "documentation",
+        "label": "Documentation",
+        "href": "/",
+        "match": ["__default__"],
+        "groups": [
+          {
+            "group": "Getting started",
+            "pages": [
+              { "href": "/", "label": "Introduction" },
+              { "href": "/quickstart", "label": "Quickstart" },
+              { "href": "/cli", "label": "CLI" }
+            ]
+          },
+          {
+            "group": "Authoring",
+            "pages": [
+              { "href": "/configuration", "label": "Configuration" },
+              { "href": "/components", "label": "Components" }
+            ]
+          },
+          {
+            "group": "Ship",
+            "pages": [{ "href": "/deployment", "label": "Deployment" }]
+          }
+        ]
+      }
+    ]
+  },
+  "editUrl": "https://github.com/markline/markline/edit/main/site",
+  "seo": {
+    "title": "Markline — open-source docs framework",
+    "titleTemplate": "%s · Markline",
+    "description": "Open-source, self-hostable documentation framework with first-class OpenAPI, search, and an interactive API playground."
+  }
+}

@@ -5,7 +5,7 @@ import path from "node:path";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import rehypePrettyCode from "rehype-pretty-code";
-import { loadOpenApi } from "@/lib/openapi";
+import { loadOpenApi, hasOpenApiSpec } from "@/lib/openapi";
 import { ApiOperationPage } from "@/components/docs/api/operation-page";
 import { ApiIntroPage } from "@/components/docs/api/intro-page";
 import { ApiIntroMdxPage } from "@/components/docs/api/intro-mdx-page";
@@ -27,6 +27,7 @@ const INTRO_MDX = path.join(contentRoot(), "api", "introduction.mdx");
 
 function loadRaw() {
   const file = path.join(contentRoot(), "api", "openapi.json");
+  if (!fs.existsSync(file)) return {};
   return JSON.parse(fs.readFileSync(file, "utf8"));
 }
 
@@ -54,6 +55,7 @@ function loadOperationMdx(operationId: string): string | null {
 }
 
 export function generateStaticParams(): { slug?: string[] }[] {
+  if (!hasOpenApiSpec()) return [];
   const doc = loadOpenApi();
   const params: { slug?: string[] }[] = [{ slug: undefined }];
   for (const id of Object.keys(doc.operationsById)) {
@@ -77,6 +79,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug?: st
 }
 
 export default async function ApiReferencePage({ params }: { params: Promise<{ slug?: string[] }> }) {
+  if (!hasOpenApiSpec()) return notFound();
   const { slug } = await params;
   const doc = loadOpenApi();
   const root = loadRaw();

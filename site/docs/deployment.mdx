@@ -1,0 +1,54 @@
+---
+title: Deployment
+lede: Ship your docs as static HTML or a Node server — markline init scaffolds the configs.
+toc:
+  - id: static
+    label: Static hosting
+  - id: server
+    label: Node server
+  - id: base-path
+    label: Sub-path hosting
+---
+
+## Static hosting
+
+```bash
+markline export   # → ./out
+```
+
+Upload `out/` to any static host — a CDN, GitHub Pages, Netlify, or S3.
+
+<Tabs>
+  <Tab title="GitHub Pages">
+    The scaffolded `.github/workflows/deploy.yml` exports and deploys on push to
+    `main`, building under `/<repo>` for project sites.
+  </Tab>
+  <Tab title="Netlify">
+    `netlify.toml` sets the build command to `npx markline export` and publishes `out`.
+  </Tab>
+</Tabs>
+
+<Note>On static hosts the API playground runs in direct-fetch mode. Set
+`api.playground.proxy` to `"never"`.</Note>
+
+## Node server
+
+```bash
+markline build && markline start
+```
+
+This enables the playground's server-side proxy for APIs without CORS. The
+scaffolded `Dockerfile` builds and serves the site:
+
+```bash
+docker build -t my-docs . && docker run -p 3000:3000 my-docs
+```
+
+## Sub-path hosting
+
+Serving under a path prefix (e.g. a GitHub Pages project site)? Set the base path
+so assets and search resolve correctly:
+
+```bash
+MARKLINE_BASE_PATH=/my-repo markline export
+```

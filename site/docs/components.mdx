@@ -1,0 +1,54 @@
+---
+title: Components
+lede: Rich components available in any MDX page — no import required.
+toc:
+  - id: callouts
+    label: Callouts
+  - id: cards
+    label: Cards
+  - id: steps
+    label: Steps
+  - id: tabs-accordions
+    label: Tabs & accordions
+  - id: fields
+    label: Param fields
+---
+
+## Callouts
+
+<Note>A neutral note.</Note>
+<Tip title="Tip">A helpful suggestion.</Tip>
+<Warning>Something to watch out for.</Warning>
+<Danger>A destructive or irreversible action.</Danger>
+<Check>A confirmation of success.</Check>
+
+## Cards
+
+<CardGroup cols={2}>
+  <Card title="Quickstart" href="/quickstart">Link cards group neatly.</Card>
+  <Card title="CLI" href="/cli">Use them for navigation.</Card>
+</CardGroup>
+
+## Steps
+
+<Steps>
+  <Step title="First">Describe the first action.</Step>
+  <Step title="Then">Describe the next one.</Step>
+</Steps>
+
+## Tabs & accordions
+
+<Tabs>
+  <Tab title="One">First tab content.</Tab>
+  <Tab title="Two">Second tab content.</Tab>
+</Tabs>
+
+<AccordionGroup>
+  <Accordion title="Can I nest content?">Yes — any MDX works inside these components.</Accordion>
+  <Accordion title="Do they work in static export?">Yes, including the interactive ones.</Accordion>
+</AccordionGroup>
+
+## Param fields
+
+<ParamField path="id" type="string" required>The unique identifier.</ParamField>
+<ParamField query="limit" type="integer" default={20}>Maximum number of results.</ParamField>

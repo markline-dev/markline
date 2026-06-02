@@ -1,0 +1,54 @@
+---
+title: Quickstart
+lede: Create and run a documentation site in under a minute.
+toc:
+  - id: install
+    label: Install & scaffold
+  - id: structure
+    label: Project structure
+  - id: develop
+    label: Develop
+---
+
+## Install & scaffold
+
+<Steps>
+  <Step title="Install Markline">
+    ```bash
+    npm install markline
+    ```
+  </Step>
+  <Step title="Scaffold a project">
+    ```bash
+    npx markline init
+    ```
+    This creates a `docs.json`, sample MDX pages, an example OpenAPI spec, and
+    ready-to-use deploy configs.
+  </Step>
+  <Step title="Start the dev server">
+    ```bash
+    npx markline dev
+    ```
+  </Step>
+</Steps>
+
+## Project structure
+
+Your repository holds only content and configuration:
+
+```text
+my-docs/
+├── docs.json          # navigation, theme, branding, API settings
+├── docs/              # your pages (*.mdx)
+│   ├── index.mdx
+│   └── quickstart.mdx
+└── api/
+    └── openapi.json   # rendered as an interactive API reference
+```
+
+<Note>The OpenAPI file is optional — Markline works as a docs-only site too.</Note>
+
+## Develop
+
+Edit files under `docs/` and update `docs.json` to change navigation, branding,
+and the API base URL. When you're ready, see [Deployment](/deployment).

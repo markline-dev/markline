@@ -6,9 +6,18 @@ search, and an interactive API playground. A fully open alternative to Scalar an
 ## Quickstart
 
 ```bash
+npm create @markline@latest my-docs   # scaffold a new project
+cd my-docs
+npm install
+npm run dev                           # preview at http://localhost:3000
+```
+
+Or add Markline to an existing project:
+
+```bash
 npm install @markline/markline
 npx markline init      # scaffold docs.json + sample content in the current dir
-npx markline dev       # preview at http://localhost:3000
+npx markline dev
 ```
 
 Your project holds only content + config:

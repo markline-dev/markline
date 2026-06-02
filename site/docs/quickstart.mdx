@@ -13,24 +13,23 @@ toc:
 ## Install & scaffold
 
 <Steps>
-  <Step title="Install Markline">
-    ```bash
-    npm install @markline/markline
-    ```
-  </Step>
   <Step title="Scaffold a project">
     ```bash
-    npx markline init
+    npm create @markline@latest my-docs
     ```
     This creates a `docs.json`, sample MDX pages, an example OpenAPI spec, and
     ready-to-use deploy configs.
   </Step>
-  <Step title="Start the dev server">
+  <Step title="Install & run">
     ```bash
-    npx markline dev
+    cd my-docs
+    npm install
+    npm run dev
     ```
   </Step>
 </Steps>
+
+<Note>Already have a project? `npm install @markline/markline` then `npx markline init`.</Note>
 
 ## Project structure
 

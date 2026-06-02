@@ -1,0 +1,3 @@
+# Copied from ../templates/init at publish time (prepublishOnly).
+/templates
+/node_modules

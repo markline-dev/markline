@@ -1,0 +1,16 @@
+{
+  "name": "@markline/create",
+  "version": "0.1.0",
+  "description": "Scaffold a new Markline documentation project.",
+  "license": "MIT",
+  "keywords": ["markline", "documentation", "scaffold", "create"],
+  "homepage": "https://github.com/markline/markline",
+  "repository": { "type": "git", "url": "https://github.com/markline/markline.git", "directory": "create" },
+  "type": "module",
+  "bin": { "create-markline": "index.mjs" },
+  "files": ["index.mjs", "templates"],
+  "scripts": {
+    "prepublishOnly": "rm -rf templates && cp -r ../templates/init templates"
+  },
+  "publishConfig": { "access": "public" }
+}

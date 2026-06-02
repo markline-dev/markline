@@ -1,0 +1,322 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Fonts loaded via next/font/google in layout.tsx — CSS vars: --font-geist, --font-geist-mono */
+
+:root {
+  /* Brand */
+  --c-brand:       62 89 243;
+  --c-brand-deep:  26 54 217;
+  --c-brand-mute: 208 221 252;
+
+  /* Text */
+  --c-ink:       14 20 27;     /* #0E141B */
+  --c-ink-soft:  36 43 49;     /* #242B31 */
+  --c-ink-2:     52 58 64;     /* #343A40 */
+  --c-ink-3:     74 80 86;     /* #4A5056 */
+
+  /* Surfaces */
+  --c-paper:    255 255 255;
+  --c-paper-2: 246 247 250;
+
+  /* Neutrals (light → dark) */
+  --c-slate-0: 255 255 255;
+  --c-slate-1: 246 247 250;
+  --c-slate-2: 236 238 243;
+  --c-slate-3: 215 218 223;
+  --c-slate-4: 199 203 209;
+  --c-slate-5: 142 149 156;
+  --c-slate-6: 100 106 113;
+  --c-slate-7: 74 80 86;
+  --c-slate-8: 52 58 64;
+
+  /* Inline-code pill */
+  --code-bg: #ECEEF3;
+  --code-fg: #0E141B;
+  --border:  #D7DADF;
+  --radius-1: 6px;
+
+  /* API reference code/response panels (Mintlify-style always-dark surface in light mode,
+     subtly elevated panel in dark mode). */
+  --c-panel-bg:      14 20 27;     /* #0E141B */
+  --c-panel-border:  52 58 64;     /* #343A40 */
+  --c-panel-fg:     215 218 223;   /* #D7DADF */
+  --c-panel-muted:  142 149 156;   /* #8E959C */
+}
+
+.dark, [data-theme="dark"] {
+  /* Brand stays the same hue, slightly brighter for dark surfaces */
+  --c-brand:      110 134 250;
+  --c-brand-deep:  62  89 243;
+  --c-brand-mute:  40  60 110;
+
+  /* Text inverted: light type on dark surfaces */
+  --c-ink:       246 247 250;
+  --c-ink-soft:  215 218 223;
+  --c-ink-2:     199 203 209;
+  --c-ink-3:     142 149 156;
+
+  /* Surfaces: midnight palette */
+  --c-paper:    14 20 27;     /* midnight-1100 */
+  --c-paper-2:  26 33 41;     /* slightly lighter card */
+
+  /* Neutrals inverted */
+  --c-slate-0:  14 20 27;
+  --c-slate-1:  26 33 41;
+  --c-slate-2:  36 43 49;
+  --c-slate-3:  52 58 64;
+  --c-slate-4:  74 80 86;
+  --c-slate-5: 142 149 156;
+  --c-slate-6: 199 203 209;
+  --c-slate-7: 215 218 223;
+  --c-slate-8: 236 238 243;
+
+  --code-bg: rgba(36, 43, 49, 0.6);
+  --code-fg: #D7DADF;
+  --border:  #343A40;
+
+  /* Dark theme: code panel as a slightly elevated card that complements --c-paper */
+  --c-panel-bg:      19 26 34;     /* sits just above --c-paper (#0E141B) */
+  --c-panel-border:  36 43 49;     /* #242B31 */
+  --c-panel-fg:     230 233 238;
+  --c-panel-muted:  142 149 156;
+}
+
+/* ── Base ── */
+@layer base {
+  html {
+    @apply bg-paper text-ink font-sans;
+    font-feature-settings: "ss01", "cv11", "tnum";
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  code, kbd, samp, pre, .mono {
+    font-family: theme('fontFamily.mono');
+    font-feature-settings: "tnum", "zero", "ss01";
+  }
+
+  /* Inline-code pill. Scoped with :not(pre *) so the rule never applies to
+     <code> elements inside a fenced <pre> block — those carry their own
+     Shiki-themed colors on a dark background and must not be re-styled. */
+  :not(pre) > code, .code-inline, .ci {
+    background: var(--code-bg);
+    color: var(--code-fg);
+    font-size: 0.92em;
+    padding: 0.12em 0.36em;
+    border-radius: var(--radius-1);
+    border: 1px solid var(--border);
+  }
+
+  /* Hard reset so the cascade can never paint a pill on code inside <pre>. */
+  pre code,
+  pre code * {
+    background: transparent !important;
+    border: 0 !important;
+    padding: 0 !important;
+    border-radius: 0 !important;
+    font-size: inherit;
+  }
+
+  /* MDX fenced code blocks (rendered server-side by rehype-pretty-code) get
+     the same panel chrome as <CodeBlock> and the API code panels so theming
+     is consistent across the docs. Scoped to `pre[data-language]` so we only
+     style rehype-pretty-code's own <pre> — NOT the bare <pre> inside our
+     <CodeBlock>/<CodeTabs> panel (which already brings its own chrome). */
+  pre[data-language] {
+    background: rgb(var(--c-panel-bg)) !important;
+    border: 1px solid rgb(var(--c-panel-border));
+    border-radius: 16px;
+    color: rgb(var(--c-panel-fg));
+    margin: 1.5rem 0;
+    padding: 1.25rem;
+    overflow-x: auto;
+    font-size: 13px;
+    line-height: 1.7;
+  }
+
+  ::selection {
+    background: #3E59F3;
+    color: #FFFFFF;
+  }
+
+  body {
+    @apply m-0;
+  }
+}
+
+/* ── Typography ── */
+@layer components {
+  .h1 { @apply font-sans text-64 leading-tight tracking-tight font-semibold text-ink text-balance; }
+  .h2 { @apply font-sans text-48 leading-tight tracking-tight font-semibold text-ink text-balance; }
+  .h3 { @apply font-sans text-28 leading-tight tracking-[-0.01em] font-semibold text-ink; }
+  .h4 { @apply font-sans text-20 font-semibold text-ink; }
+  .h5 { @apply font-sans text-15 font-semibold text-ink; }
+
+  .eyebrow {
+    @apply font-mono text-12 tracking-wide uppercase text-slate-5 font-medium;
+  }
+  .eyebrow-line::before {
+    content: "";
+    display: inline-block;
+    width: 18px;
+    height: 1px;
+    background: currentColor;
+    vertical-align: middle;
+    margin-right: 10px;
+  }
+
+  .p-body { @apply text-15 leading-[1.5] text-ink max-w-prose text-pretty; }
+  .p-lg   { @apply text-17 leading-[1.55] text-ink; }
+  .p-sm   { @apply text-14; }
+  .p-mute { @apply text-slate-6; }
+}
+
+/* ── Chrome: Nav ── */
+@layer components {
+  .site-nav {
+    @apply sticky top-0 z-50 flex items-center justify-between h-16 px-8;
+    background: color-mix(in oklab, #F7F6F1 86%, transparent);
+    backdrop-filter: saturate(140%) blur(12px);
+    border-bottom: 1px solid #E6E5DF;
+  }
+  .dark .site-nav {
+    background: color-mix(in oklab, #0F0F0E 86%, transparent);
+    border-color: #26261F;
+  }
+  @media (max-width: 720px) {
+    .site-nav { @apply px-5; }
+  }
+
+  .brand { @apply inline-flex items-center gap-2.5 no-underline text-ink; }
+  .brand:hover { text-decoration: none; }
+
+  .navlinks { @apply flex gap-1 items-center; }
+  .navlink {
+    @apply px-3s py-2s text-14 no-underline text-slate-7 rounded-1;
+  }
+  .navlink:hover { @apply text-ink bg-slate-2 no-underline; }
+
+  .navcta { @apply flex gap-2s items-center; }
+  @media (max-width: 880px) {
+    .navlinks { @apply hidden; }
+  }
+}
+
+/* ── Chrome: Footer ── */
+@layer components {
+  .site-footer {
+    @apply border-t border-slate-3 bg-paper-2 pt-14 pb-8 mt-24;
+  }
+  .site-footer .footgrid {
+    @apply max-w-marketing mx-auto px-8 grid gap-10;
+    grid-template-columns: 1.6fr repeat(4, 1fr);
+  }
+  @media (max-width: 880px) {
+    .site-footer .footgrid { grid-template-columns: 1fr 1fr; }
+  }
+  .footbrand { @apply flex gap-3s items-start max-w-[280px]; }
+  .footwords { @apply flex flex-col gap-1.5; }
+  .footname { @apply font-semibold text-16; }
+  .foottag { @apply text-13 text-slate-6 leading-[1.5]; }
+  .footh {
+    @apply font-mono text-11 tracking-wide uppercase text-slate-6 mb-3s;
+  }
+  .site-footer a { @apply block no-underline text-slate-7 text-14 py-1; }
+  .site-footer a:hover { @apply text-ink; }
+
+  .footbase {
+    @apply max-w-marketing mx-auto mt-10 pt-6 px-8 border-t border-slate-3;
+    @apply flex justify-between items-center flex-wrap gap-4;
+  }
+  .small-mono { @apply font-mono text-12 text-slate-6; }
+  .region .dot {
+    @apply inline-block w-1.5 h-1.5 rounded-full mr-1.5 align-[1px];
+    background: #15A66B;
+  }
+}
+
+/* ── Layout helpers ── */
+@layer components {
+  .wrap {
+    @apply mx-auto max-w-marketing px-8;
+  }
+  @media (max-width: 720px) { .wrap { @apply px-5; } }
+
+  .cta-row { @apply flex gap-3 flex-wrap; }
+
+  .sec-head {
+    @apply flex flex-col gap-3 mb-12;
+    max-width: 720px;
+  }
+  .sec-head h2 { font-size: 40px; letter-spacing: -0.02em; }
+  .sec-head .p-mute { font-size: 17px; line-height: 1.5; }
+
+  .stats {
+    @apply grid border-t border-b border-slate-3;
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .stats > div { @apply px-6 py-6 border-r border-slate-3; }
+  .stats > div:last-child { @apply border-r-0; }
+  .stats .num { font-size: 36px; font-weight: 600; letter-spacing: -0.02em; line-height: 1; }
+  .stats .lbl {
+    @apply font-mono text-slate-5 uppercase mt-2.5;
+    font-size: 11px; letter-spacing: 0.08em;
+  }
+  @media (max-width: 720px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .stats > div:nth-child(2) { @apply border-r-0; }
+    .stats > div:nth-child(1), .stats > div:nth-child(2) { @apply border-b border-slate-3; }
+  }
+}
+
+/* ── Partner logo hover ── */
+.partner-logo {
+  transition: color 150ms ease, transform 150ms ease;
+  display: inline-block;
+  cursor: pointer;
+}
+.partner-logo:hover {
+  color: var(--brand) !important;
+  transform: scale(1.07);
+}
+
+/* ── Chrome: Buttons ── */
+@layer components {
+  .btn {
+    @apply inline-flex items-center justify-center gap-2 font-sans font-medium rounded-2;
+    @apply transition-all duration-160 ease-sharp;
+    @apply text-15 leading-none no-underline;
+  }
+  .btn-sm { @apply text-14 px-3s py-2s; }
+  .btn-md { @apply text-15 px-5s py-3s; }
+  .btn-lg { @apply text-17 px-6s py-4s; }
+
+  .btn-primary {
+    background: rgb(var(--c-brand));
+    color: #FFFFFF;
+  }
+  .btn-primary:hover {
+    background: rgb(var(--c-brand-deep));
+    text-decoration: none;
+    color: #FFFFFF;
+  }
+
+  .btn-ghost {
+    @apply bg-transparent text-slate-7;
+  }
+  .btn-ghost:hover {
+    @apply bg-slate-2 text-ink no-underline;
+  }
+
+  .btn-outline {
+    @apply bg-transparent border border-slate-4 text-ink;
+  }
+  .btn-outline:hover {
+    @apply border-slate-7 no-underline;
+  }
+}
+
+

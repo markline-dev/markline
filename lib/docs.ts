@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
 import { contentRoot } from "./paths";
+import { loadConfig, nonDefaultVersionIds } from "./config";
 
 export type TocItem = { id: string; label: string };
 
@@ -19,9 +20,15 @@ export type Doc = {
   fm: DocFrontmatter;
   body: string;
   sourcePath: string;      // path of the source file relative to the content root
+  version?: string;        // non-default version id, when this doc belongs to one
 };
 
-const ROOT = path.join(contentRoot(), "docs");
+/** Docs root for a version. The default (undefined) version lives at <root>/docs. */
+function docsRoot(versionId?: string): string {
+  return versionId
+    ? path.join(contentRoot(), versionId, "docs")
+    : path.join(contentRoot(), "docs");
+}
 
 function readMdx(filePath: string): { fm: DocFrontmatter; body: string } {
   const raw = fs.readFileSync(filePath, "utf8");
@@ -46,17 +53,20 @@ function walk(dir: string): string[] {
   return out;
 }
 
-function slugFromFile(filePath: string): string[] {
-  const rel = path.relative(ROOT, filePath).replace(/\.mdx$/, "");
+/** Relative slug within a version's docs root ([] for its index). */
+function slugFromFile(root: string, filePath: string): string[] {
+  const rel = path.relative(root, filePath).replace(/\.mdx$/, "");
   if (rel === "index") return [];
   const parts = rel.split(path.sep);
   return parts[parts.length - 1] === "index" ? parts.slice(0, -1) : parts;
 }
 
-export function listDocs(): Doc[] {
-  if (!fs.existsSync(ROOT)) return [];
-  return walk(ROOT).map((filePath) => {
-    const slug = slugFromFile(filePath);
+function listVersionDocs(versionId?: string): Doc[] {
+  const root = docsRoot(versionId);
+  if (!fs.existsSync(root)) return [];
+  return walk(root).map((filePath) => {
+    const rel = slugFromFile(root, filePath);
+    const slug = versionId ? [versionId, ...rel] : rel;
     const { fm, body } = readMdx(filePath);
     return {
       slug,
@@ -64,18 +74,29 @@ export function listDocs(): Doc[] {
       fm,
       body,
       sourcePath: path.relative(contentRoot(), filePath),
+      version: versionId,
     };
   });
 }
 
+export function listDocs(): Doc[] {
+  const versions = nonDefaultVersionIds(loadConfig());
+  return [listVersionDocs(undefined), ...versions.map((v) => listVersionDocs(v))].flat();
+}
+
 export function getDoc(slug: string[] | undefined): Doc | undefined {
   const s = slug ?? [];
+  const versions = nonDefaultVersionIds(loadConfig());
+  const versionId = s.length > 0 && versions.includes(s[0]) ? s[0] : undefined;
+  const rest = versionId ? s.slice(1) : s;
+  const root = docsRoot(versionId);
+
   const candidates: string[] = [];
-  if (s.length === 0) {
-    candidates.push(path.join(ROOT, "index.mdx"));
+  if (rest.length === 0) {
+    candidates.push(path.join(root, "index.mdx"));
   } else {
-    candidates.push(path.join(ROOT, `${s.join(path.sep)}.mdx`));
-    candidates.push(path.join(ROOT, s.join(path.sep), "index.mdx"));
+    candidates.push(path.join(root, `${rest.join(path.sep)}.mdx`));
+    candidates.push(path.join(root, rest.join(path.sep), "index.mdx"));
   }
   const found = candidates.find((c) => fs.existsSync(c));
   if (!found) return undefined;
@@ -86,5 +107,6 @@ export function getDoc(slug: string[] | undefined): Doc | undefined {
     fm,
     body,
     sourcePath: path.relative(contentRoot(), found),
+    version: versionId,
   };
 }

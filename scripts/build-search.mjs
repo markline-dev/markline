@@ -65,15 +65,30 @@ function slugToUrl(root, file) {
   return "/" + trimmed.join("/");
 }
 
-function docRecords(root) {
-  const docsDir = path.join(root, "docs");
+function docRecords(root, versionId) {
+  const docsDir = versionId ? path.join(root, versionId, "docs") : path.join(root, "docs");
   return walk(docsDir).map((file) => {
     const { data, content } = matter(fs.readFileSync(file, "utf8"));
-    const url = slugToUrl(docsDir, file);
+    const rel = slugToUrl(docsDir, file); // "/" or "/quickstart"
+    const url = versionId ? `/${versionId}${rel === "/" ? "" : rel}` : rel;
     const title = String(data.title ?? url);
     const lede = data.lede ? String(data.lede) + " " : "";
-    return { url, title, content: lede + toPlainText(content) };
+    return { url, title, content: lede + toPlainText(content), meta: versionId ? versionId : undefined };
   });
+}
+
+/** Non-default version ids declared in docs.json. */
+function nonDefaultVersionIds(root) {
+  const configPath = process.env.MARKLINE_CONFIG
+    ? (path.isAbsolute(process.env.MARKLINE_CONFIG) ? process.env.MARKLINE_CONFIG : path.join(process.cwd(), process.env.MARKLINE_CONFIG))
+    : path.join(root, "docs.json");
+  try {
+    const cfg = JSON.parse(fs.readFileSync(configPath, "utf8"));
+    if (!Array.isArray(cfg.versions) || cfg.versions.length <= 1) return [];
+    return cfg.versions.slice(1).map((v) => v.id);
+  } catch {
+    return [];
+  }
 }
 
 function slugifyOpId(method, pathStr) {
@@ -105,7 +120,12 @@ function apiRecords(root) {
 
 async function main() {
   const root = contentRoot();
-  const records = [...docRecords(root), ...apiRecords(root)];
+  const versions = nonDefaultVersionIds(root);
+  const records = [
+    ...docRecords(root),
+    ...versions.flatMap((v) => docRecords(root, v)),
+    ...apiRecords(root),
+  ];
 
   const { index } = await pagefind.createIndex();
   for (const r of records) {

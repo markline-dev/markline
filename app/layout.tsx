@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { DocsTopBar, DocsSidebar } from "@/components/docs/nav";
-import { getDocsTabs } from "@/components/docs/sections";
+import { getVersionedNav } from "@/components/docs/sections";
 import { loadConfig, hexToRgbTriple } from "@/lib/config";
 import { Analytics } from "@/components/docs/analytics";
 
@@ -37,8 +37,7 @@ function brandColorCss(): string | null {
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const tabs = getDocsTabs();
-  const topTabs = tabs.map(({ id, label, href, matchPrefixes }) => ({ id, label, href, matchPrefixes }));
+  const nav = getVersionedNav(config);
   const brand = {
     name: config.name,
     logo: config.theme.logo,
@@ -59,7 +58,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-screen flex flex-col m-0 bg-paper text-ink font-sans">
         <Analytics config={config.analytics} />
-        <DocsTopBar tabs={topTabs} brand={brand} mobileTabs={tabs} />
+        <DocsTopBar nav={nav} brand={brand} />
         <div className="docs-shell grid min-h-[calc(100vh-56px)]">
           <style>{`
             .docs-shell { grid-template-columns: 260px minmax(0, 1fr) 300px; }
@@ -77,7 +76,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               .docs-shell > .docs-side { display: none !important; }
             }
           `}</style>
-          <DocsSidebar tabs={tabs} />
+          <DocsSidebar nav={nav} />
           {children}
         </div>
       </body>

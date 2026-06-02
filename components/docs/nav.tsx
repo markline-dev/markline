@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ThemeToggle } from "./theme-toggle";
 import { TocList } from "./toc";
 import { FeedbackWidget } from "./feedback";
@@ -13,6 +13,25 @@ export type DocSection = { title: string; links: DocLink[] };
 
 export type TopTab = { id: string; label: string; href: string; matchPrefixes: string[] };
 export type TopTabWithSections = TopTab & { sections: DocSection[] };
+
+export type VersionMeta = { id: string; label: string };
+export type VersionedNav = {
+  versions: VersionMeta[];
+  defaultVersionId: string;
+  tabsByVersion: Record<string, TopTabWithSections[]>;
+};
+
+/** Active version id for a pathname (first path segment if it's a non-default version). */
+export function pickVersionId(nav: VersionedNav, pathname: string): string {
+  const seg = pathname.split("/").filter(Boolean)[0];
+  const match = nav.versions.find((v) => v.id === seg && v.id !== nav.defaultVersionId);
+  return match ? match.id : nav.defaultVersionId;
+}
+
+/** Home path for a version: "/" for the default, "/<id>" otherwise. */
+function versionHome(nav: VersionedNav, id: string): string {
+  return id === nav.defaultVersionId ? "/" : `/${id}`;
+}
 
 export type Brand = {
   name: string;
@@ -38,25 +57,22 @@ function BrandMark({ brand }: { brand: Brand }) {
   return <span className="text-16 font-semibold tracking-tight text-ink">{logo?.text ?? name}</span>;
 }
 
-export function DocsTopBar({
-  tabs,
-  brand,
-  mobileTabs = [],
-}: {
-  tabs: TopTab[];
-  brand: Brand;
-  mobileTabs?: TopTabWithSections[];
-}) {
+export function DocsTopBar({ nav, brand }: { nav: VersionedNav; brand: Brand }) {
   const pathname = usePathname();
+  const activeVersion = pickVersionId(nav, pathname);
+  const tabs = nav.tabsByVersion[activeVersion] ?? [];
   const activeId = pickActiveTabId(tabs, pathname);
   return (
     <header className="docs-top sticky top-0 z-20 bg-paper border-b border-slate-3">
       <div className="h-14 px-6 flex items-center justify-between">
       <div className="flex items-center gap-6">
-        <MobileNav tabs={mobileTabs} />
+        <MobileNav nav={nav} />
         <Link href="/" className="brand inline-flex items-center gap-2.5 no-underline text-ink font-semibold text-15">
           <BrandMark brand={brand} />
         </Link>
+        {nav.versions.length > 1 && (
+          <VersionSwitcher nav={nav} activeVersion={activeVersion} />
+        )}
         <nav className="hidden md:flex items-center gap-1">
           {tabs.map((t) => {
             const active = t.id === activeId;
@@ -154,8 +170,9 @@ function SidebarSections({
   );
 }
 
-export function DocsSidebar({ tabs }: { tabs: TopTabWithSections[] }) {
+export function DocsSidebar({ nav }: { nav: VersionedNav }) {
   const pathname = usePathname();
+  const tabs = nav.tabsByVersion[pickVersionId(nav, pathname)] ?? [];
   const activeId = pickActiveTabId(tabs, pathname);
   const activeTab = tabs.find((t) => t.id === activeId) ?? tabs[0];
   const sections = activeTab?.sections ?? [];
@@ -168,7 +185,7 @@ export function DocsSidebar({ tabs }: { tabs: TopTabWithSections[] }) {
 }
 
 /** Hamburger + slide-over drawer for navigation on small screens. */
-function MobileNav({ tabs }: { tabs: TopTabWithSections[] }) {
+function MobileNav({ nav }: { nav: VersionedNav }) {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
 
@@ -187,6 +204,7 @@ function MobileNav({ tabs }: { tabs: TopTabWithSections[] }) {
     };
   }, [open]);
 
+  const tabs = nav.tabsByVersion[pickVersionId(nav, pathname)] ?? [];
   if (tabs.length === 0) return null;
   const activeId = pickActiveTabId(tabs, pathname);
   const activeTab = tabs.find((t) => t.id === activeId) ?? tabs[0];
@@ -263,6 +281,34 @@ function SidebarMethod({ method }: { method: string }) {
     <span className="font-mono text-[9px] uppercase tracking-[0.04em] w-9 flex-shrink-0" style={{ color: color[m] ?? "#7882A0" }}>
       {m}
     </span>
+  );
+}
+
+/** Dropdown to switch documentation versions; selecting navigates to that version's home. */
+function VersionSwitcher({ nav, activeVersion }: { nav: VersionedNav; activeVersion: string }) {
+  const router = useRouter();
+  const active = nav.versions.find((v) => v.id === activeVersion) ?? nav.versions[0];
+  return (
+    <div className="relative">
+      <select
+        aria-label="Version"
+        value={activeVersion}
+        onChange={(e) => router.push(versionHome(nav, e.target.value))}
+        className="appearance-none cursor-pointer bg-paper-2 border border-slate-3 rounded-1 text-12 font-medium text-ink pl-2.5 pr-7 py-1 hover:border-slate-4 focus:outline-none focus:border-brand"
+      >
+        {nav.versions.map((v) => (
+          <option key={v.id} value={v.id}>{v.label}</option>
+        ))}
+      </select>
+      <svg
+        width={12} height={12} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.6}
+        className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-slate-5"
+        aria-hidden
+      >
+        <path d="m4 6 4 4 4-4" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+      <span className="sr-only">{active?.label}</span>
+    </div>
   );
 }
 

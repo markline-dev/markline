@@ -81,6 +81,30 @@ my-docs/
 - **`feedback.endpoint`** — the "Was this page helpful?" widget POSTs
   `{ answer, reason, comment, path }` here (logs to console when unset).
 
+### Versioning
+
+Declare multiple versions to get a version switcher in the topbar. The first
+version is the default and is served unprefixed; others are served under their
+id and read content from `<id>/docs/`.
+
+```jsonc
+"versions": [
+  { "id": "v2", "label": "v2 (latest)" },
+  {
+    "id": "v1",
+    "label": "v1",
+    "navigation": { "tabs": [ /* hrefs prefixed with /v1 */ ] }
+  }
+]
+```
+
+```
+my-docs/
+├── docs/            # v2 (default)  -> /quickstart
+└── v1/
+    └── docs/        # v1            -> /v1/quickstart
+```
+
 ## Features
 
 - Config-driven navigation, theming, and branding — no code to fork.

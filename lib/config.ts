@@ -41,6 +41,19 @@ export type NavTab = {
 
 export type TopbarLink = { label: string; href: string };
 
+/**
+ * A documentation version. The first version in the list is the default and is
+ * served unprefixed (e.g. /quickstart). Others are served under their id as a
+ * path prefix (e.g. /v1/quickstart) with content in `<root>/<id>/docs`.
+ * Provide a per-version `navigation` (with already-prefixed hrefs); it falls
+ * back to the top-level navigation otherwise.
+ */
+export type Version = {
+  id: string;
+  label: string;
+  navigation?: { tabs: NavTab[] };
+};
+
 export type SeoConfig = {
   title?: string;
   titleTemplate?: string;
@@ -83,6 +96,8 @@ export type MarklineConfig = {
   analytics?: AnalyticsConfig;
   /** POST endpoint for the "Was this page helpful?" widget. Logs to console when unset. */
   feedback?: { endpoint?: string };
+  /** Documentation versions. First is the default (unprefixed). */
+  versions?: Version[];
 };
 
 const DEFAULT_CONFIG: MarklineConfig = {
@@ -127,7 +142,14 @@ function mergeConfig(base: MarklineConfig, user: Partial<MarklineConfig>): Markl
     editUrl: user.editUrl ?? base.editUrl,
     analytics: user.analytics ?? base.analytics,
     feedback: { ...base.feedback, ...user.feedback },
+    versions: user.versions ?? base.versions,
   };
+}
+
+/** Non-default version ids (those served under a path prefix). */
+export function nonDefaultVersionIds(config: MarklineConfig): string[] {
+  if (!config.versions || config.versions.length <= 1) return [];
+  return config.versions.slice(1).map((v) => v.id);
 }
 
 let _cache: MarklineConfig | undefined;

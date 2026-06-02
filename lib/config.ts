@@ -50,12 +50,28 @@ export type SeoConfig = {
   ogImage?: string;
 };
 
+export type ApiConfig = {
+  /** Base URL the interactive playground sends requests to (overrides the spec's servers). */
+  baseUrl?: string;
+  playground?: {
+    enabled?: boolean;
+    /**
+     * How the playground reaches the API:
+     * - "never":  always a direct browser fetch (required for static export).
+     * - "always": always route through the /api/playground server proxy.
+     * - "auto":   direct first, fall back to the proxy on CORS/network failure.
+     */
+    proxy?: "auto" | "always" | "never";
+  };
+};
+
 export type MarklineConfig = {
   name: string;
   theme: ThemeConfig;
   topbar: { links: TopbarLink[]; cta?: TopbarLink };
   navigation: { tabs: NavTab[] };
   seo: SeoConfig;
+  api: ApiConfig;
 };
 
 const DEFAULT_CONFIG: MarklineConfig = {
@@ -71,6 +87,7 @@ const DEFAULT_CONFIG: MarklineConfig = {
     ],
   },
   seo: {},
+  api: { playground: { enabled: true, proxy: "auto" } },
 };
 
 /** Deep-ish merge: user config overrides defaults, nested objects merged one level. */
@@ -91,6 +108,11 @@ function mergeConfig(base: MarklineConfig, user: Partial<MarklineConfig>): Markl
       tabs: user.navigation?.tabs ?? base.navigation.tabs,
     },
     seo: { ...base.seo, ...user.seo },
+    api: {
+      ...base.api,
+      ...user.api,
+      playground: { ...base.api.playground, ...user.api?.playground },
+    },
   };
 }
 

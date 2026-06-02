@@ -1,10 +1,59 @@
-import type { OpenAPIDoc, OpenAPIOperation } from "@/lib/openapi";
-import { resolveSchema } from "@/lib/openapi";
+import type { OpenAPIDoc, OpenAPIOperation, JSONSchema } from "@/lib/openapi";
+import { resolveSchema, sampleFromSchema } from "@/lib/openapi";
 import { curlSample, responseSampleJson } from "@/lib/openapi-samples";
+import { loadConfig } from "@/lib/config";
 import { MethodBadge } from "./method-badge";
 import { EndpointPath } from "./endpoint-path";
 import { SchemaTable, ParamRow } from "./schema-table";
 import { RequestPanel, ResponsePanel } from "./code-panel";
+import { Playground, type PlaygroundSpec } from "./playground";
+
+/** Best-effort placeholder value for a parameter input. */
+function sampleParam(schema?: JSONSchema): string {
+  if (!schema) return "";
+  if (schema.example !== undefined) return String(schema.example);
+  if (schema.enum?.length) return String(schema.enum[0]);
+  if (schema.default !== undefined) return String(schema.default);
+  if (schema.type === "integer" || schema.type === "number") return "1";
+  if (schema.type === "boolean") return "true";
+  return "";
+}
+
+function buildPlaygroundSpec(op: OpenAPIOperation, doc: OpenAPIDoc, root: any): PlaygroundSpec {
+  const cfg = loadConfig();
+  const servers = [cfg.api.baseUrl, ...doc.servers.map((s) => s.url)].filter(Boolean) as string[];
+  return {
+    method: op.method,
+    path: op.path,
+    servers,
+    pathParams: op.parameters.path.map((p) => ({
+      name: p.name,
+      required: p.required ?? true,
+      sample: sampleParam(p.schema),
+      description: p.description,
+    })),
+    queryParams: op.parameters.query.map((p) => ({
+      name: p.name,
+      required: p.required ?? false,
+      sample: sampleParam(p.schema),
+      description: p.description,
+    })),
+    headerParams: op.parameters.header.map((p) => ({
+      name: p.name,
+      required: p.required ?? false,
+      sample: sampleParam(p.schema),
+      description: p.description,
+    })),
+    bearer: op.security.some((s) => s.scheme.type === "http" && s.scheme.scheme === "bearer"),
+    apiKeyHeaders: op.security
+      .filter((s) => s.scheme.type === "apiKey" && s.scheme.in === "header" && s.scheme.name)
+      .map((s) => ({ name: s.scheme.name as string })),
+    bodySample: op.requestBody?.schema
+      ? JSON.stringify(sampleFromSchema(op.requestBody.schema, root), null, 2)
+      : undefined,
+    proxy: cfg.api.playground?.proxy ?? "auto",
+  };
+}
 
 type Crumb = { label: string; href?: string };
 
@@ -23,6 +72,9 @@ export function ApiOperationPage({
   extendedContent?: React.ReactNode;
 }) {
   const reqSchema = op.requestBody?.schema ? resolveSchema(op.requestBody.schema, root) : undefined;
+  const cfg = loadConfig();
+  const playgroundEnabled = cfg.api.playground?.enabled !== false;
+  const playgroundSpec = playgroundEnabled ? buildPlaygroundSpec(op, doc, root) : null;
 
   const responseTabs = op.responses.map((r) => ({
     status: r.status,
@@ -148,6 +200,7 @@ export function ApiOperationPage({
         className="api-side px-6 py-8 sticky self-start overflow-y-auto"
         style={{ top: 56, height: "calc(100vh - 56px)" }}
       >
+        {playgroundSpec && <Playground spec={playgroundSpec} />}
         <RequestPanel
           title={op.summary ?? op.operationId}
           snippets={[{ lang: "curl", label: "cURL", code: curlSample(op, doc, root) }]}

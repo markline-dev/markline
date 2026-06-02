@@ -1,5 +1,5 @@
 import { createHighlighter, type Highlighter, type ShikiTransformer } from "shiki";
-import { propellerDark } from "./shiki-theme";
+import { marklineDark } from "./shiki-theme";
 
 // Shared bundle-aware highlighter. Single instance, cached across server
 // renders. Used by:
@@ -18,7 +18,7 @@ export const SHIKI_LANGS = [
 export async function getHighlighter(): Promise<Highlighter> {
   if (!_highlighter) {
     _highlighter = await createHighlighter({
-      themes: [propellerDark],
+      themes: [marklineDark],
       langs: SHIKI_LANGS as unknown as string[],
     });
   }
@@ -55,7 +55,7 @@ const SHELL_LANGS = new Set(["bash", "shell", "sh", "console", "ansi"]);
 
 export function shellEnhancer(): ShikiTransformer {
   return {
-    name: "propeller-shell-enhancer",
+    name: "markline-shell-enhancer",
     tokens(lines) {
       // `this.options.lang` is the resolved grammar name for this block.
       const lang = (this as unknown as { options?: { lang?: string } }).options?.lang ?? "";
@@ -85,7 +85,7 @@ export async function highlightToHtml(code: string, lang: string): Promise<strin
 
   const html = hl.codeToHtml(code, {
     lang: final,
-    theme: "propeller-dark",
+    theme: "markline-dark",
     transformers: [shellEnhancer()],
   });
 

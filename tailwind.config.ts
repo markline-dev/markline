@@ -4,7 +4,9 @@ const config: Config = {
   content: [
     "./app/**/*.{ts,tsx,md,mdx}",
     "./components/**/*.{ts,tsx}",
-    "./content/**/*.{md,mdx}",
+    // Private content lives outside the repo (see MARKLINE_CONTENT). Scan it so
+    // utility classes used inside authored MDX aren't purged.
+    "../_docs/**/*.{md,mdx}",
   ],
   darkMode: ["class", '[data-theme="dark"]'],
   theme: {

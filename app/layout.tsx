@@ -3,32 +3,52 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { DocsTopBar, DocsSidebar } from "@/components/docs/nav";
 import { getDocsTabs } from "@/components/docs/sections";
+import { loadConfig, hexToRgbTriple } from "@/lib/config";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
 
+const config = loadConfig();
+
 export const metadata: Metadata = {
-  metadataBase: new URL("https://hyphenmoney.com"),
-  title: {
-    default: "Propeller — China–Africa payment corridor",
-    template: "%s · Propeller",
-  },
-  description:
-    "Propeller is the Merchant of Record for the China–Africa payment corridor. Naira in, USDC out — compliance, FX, and settlement handled end-to-end.",
+  ...(config.seo.metadataBase ? { metadataBase: new URL(config.seo.metadataBase) } : {}),
+  title: config.seo.title
+    ? { default: config.seo.title, template: config.seo.titleTemplate ?? `%s · ${config.name}` }
+    : config.name,
+  description: config.seo.description,
   openGraph: {
     type: "website",
-    siteName: "Propeller",
-    images: ["/og.png"],
+    siteName: config.seo.siteName ?? config.name,
+    ...(config.seo.ogImage ? { images: [config.seo.ogImage] } : {}),
   },
   twitter: { card: "summary_large_image" },
 };
 
+/** CSS that overrides the brand accent from config (doubled :root specificity to win over globals.css). */
+function brandColorCss(): string | null {
+  const primary = config.theme.colors?.primary ? hexToRgbTriple(config.theme.colors.primary) : null;
+  const primaryDark = config.theme.colors?.primaryDark ? hexToRgbTriple(config.theme.colors.primaryDark) : null;
+  if (!primary && !primaryDark) return null;
+  const rules: string[] = [];
+  if (primary) rules.push(`:root:root{--c-brand:${primary};--c-brand-deep:${primaryDark ?? primary};}`);
+  if (primaryDark) rules.push(`:root.dark,:root[data-theme="dark"]{--c-brand:${primaryDark};}`);
+  return rules.join("");
+}
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const tabs = getDocsTabs();
   const topTabs = tabs.map(({ id, label, href, matchPrefixes }) => ({ id, label, href, matchPrefixes }));
+  const brand = {
+    name: config.name,
+    logo: config.theme.logo,
+    links: config.topbar.links,
+    cta: config.topbar.cta,
+  };
+  const brandCss = brandColorCss();
   return (
     <html lang="en" className={`antialiased ${geist.variable} ${geistMono.variable}`} suppressHydrationWarning>
       <head>
+        {brandCss && <style dangerouslySetInnerHTML={{ __html: brandCss }} />}
         <script
           // Inline pre-paint script: applies the saved (or system) theme before the page renders to avoid FOUC.
           dangerouslySetInnerHTML={{
@@ -37,7 +57,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="min-h-screen flex flex-col m-0 bg-paper text-ink font-sans">
-        <DocsTopBar tabs={topTabs} />
+        <DocsTopBar tabs={topTabs} brand={brand} />
         <div className="docs-shell grid min-h-[calc(100vh-56px)]">
           <style>{`
             .docs-shell { grid-template-columns: 260px minmax(0, 1fr) 300px; }

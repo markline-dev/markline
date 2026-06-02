@@ -15,7 +15,7 @@ import { contentRoot } from "@/lib/paths";
 
 const shellTransformer = shellEnhancer();
 const prettyCodeOptions = {
-  theme: "propeller-dark",
+  theme: "markline-dark",
   keepBackground: false,
   defaultLang: "plaintext",
   bypassInlineCode: true,

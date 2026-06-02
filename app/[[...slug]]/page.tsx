@@ -12,7 +12,7 @@ import { getHighlighter, shellEnhancer } from "@/lib/shiki";
 const shellTransformer = shellEnhancer();
 
 const prettyCodeOptions = {
-  theme: "propeller-dark",
+  theme: "markline-dark",
   keepBackground: false,
   defaultLang: "plaintext",
   bypassInlineCode: true,

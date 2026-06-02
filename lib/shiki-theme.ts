@@ -1,4 +1,4 @@
-// Custom Shiki theme matching the Propeller brand palette.
+// Custom Shiki theme matching the Markline default dark palette.
 // Indigo-blue keywords, cool-gray text, muted italic comments, soft-blue
 // functions/types. Background is set to midnight-1100.
 import type { ThemeRegistrationRaw } from "shiki";
@@ -17,8 +17,8 @@ const PUNCT    = "#8E959C";
 
 // Shiki reads `settings` (TextMate-style). Some loaders ignore the VS-Code-style
 // `tokenColors` field, so we author rules directly in `settings`.
-export const propellerDark: ThemeRegistrationRaw = {
-  name: "propeller-dark",
+export const marklineDark: ThemeRegistrationRaw = {
+  name: "markline-dark",
   type: "dark",
   colors: {
     "editor.background":           "#0E141B",

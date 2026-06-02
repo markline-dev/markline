@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { PropellerLogo, PropellerWordmark } from "@/components/chrome";
 import { ThemeToggle } from "./theme-toggle";
 import { TocList } from "./toc";
 import { FeedbackWidget } from "./feedback";
@@ -13,16 +12,39 @@ export type DocSection = { title: string; links: DocLink[] };
 export type TopTab = { id: string; label: string; href: string; matchPrefixes: string[] };
 export type TopTabWithSections = TopTab & { sections: DocSection[] };
 
-export function DocsTopBar({ tabs }: { tabs: TopTab[] }) {
+export type Brand = {
+  name: string;
+  logo?: { light?: string; dark?: string; text?: string };
+  links: { label: string; href: string }[];
+  cta?: { label: string; href: string };
+};
+
+function BrandMark({ brand }: { brand: Brand }) {
+  const { logo, name } = brand;
+  if (logo?.light || logo?.dark) {
+    const light = logo.light ?? logo.dark!;
+    const dark = logo.dark ?? logo.light!;
+    return (
+      <>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={light} alt={name} className="h-6 w-auto block dark:hidden" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={dark} alt={name} className="h-6 w-auto hidden dark:block" />
+      </>
+    );
+  }
+  return <span className="text-16 font-semibold tracking-tight text-ink">{logo?.text ?? name}</span>;
+}
+
+export function DocsTopBar({ tabs, brand }: { tabs: TopTab[]; brand: Brand }) {
   const pathname = usePathname();
   const activeId = pickActiveTabId(tabs, pathname);
   return (
     <header className="docs-top sticky top-0 z-20 bg-paper border-b border-slate-3">
       <div className="h-14 px-6 flex items-center justify-between">
       <div className="flex items-center gap-6">
-        <Link href="/" className="brand inline-flex items-start  gap-2.5 no-underline text-ink font-semibold text-15">
-          <PropellerLogo size={20} />
-          <PropellerWordmark size={110} />
+        <Link href="/" className="brand inline-flex items-center gap-2.5 no-underline text-ink font-semibold text-15">
+          <BrandMark brand={brand} />
         </Link>
         <nav className="hidden md:flex items-center gap-1">
           {tabs.map((t) => {
@@ -59,8 +81,12 @@ export function DocsTopBar({ tabs }: { tabs: TopTab[] }) {
             ⌘K
           </kbd>
         </div>
-        <Link className="navlink hidden sm:inline-flex" href="https://hyphenmoney.com">hyphenmoney.com ↗</Link>
-        <Link className="btn btn-primary btn-sm" href="https://app.hyphenmoney.com">Dashboard</Link>
+        {brand.links.map((l) => (
+          <Link key={l.href} className="navlink hidden sm:inline-flex" href={l.href}>{l.label}</Link>
+        ))}
+        {brand.cta && (
+          <Link className="btn btn-primary btn-sm" href={brand.cta.href}>{brand.cta.label}</Link>
+        )}
         <ThemeToggle />
       </div>
       </div>

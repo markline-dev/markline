@@ -65,6 +65,12 @@ export type ApiConfig = {
   };
 };
 
+export type AnalyticsConfig = {
+  plausible?: { domain: string; src?: string };
+  googleAnalytics?: { measurementId: string };
+  posthog?: { apiKey: string; apiHost?: string };
+};
+
 export type MarklineConfig = {
   name: string;
   theme: ThemeConfig;
@@ -72,6 +78,11 @@ export type MarklineConfig = {
   navigation: { tabs: NavTab[] };
   seo: SeoConfig;
   api: ApiConfig;
+  /** Base URL for "Edit this page" links; the page's content-relative path is appended. */
+  editUrl?: string;
+  analytics?: AnalyticsConfig;
+  /** POST endpoint for the "Was this page helpful?" widget. Logs to console when unset. */
+  feedback?: { endpoint?: string };
 };
 
 const DEFAULT_CONFIG: MarklineConfig = {
@@ -113,6 +124,9 @@ function mergeConfig(base: MarklineConfig, user: Partial<MarklineConfig>): Markl
       ...user.api,
       playground: { ...base.api.playground, ...user.api?.playground },
     },
+    editUrl: user.editUrl ?? base.editUrl,
+    analytics: user.analytics ?? base.analytics,
+    feedback: { ...base.feedback, ...user.feedback },
   };
 }
 

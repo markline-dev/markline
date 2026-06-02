@@ -4,13 +4,15 @@ export type Crumb = { label: string; href?: string };
 export type TocItem = { id: string; label: string };
 
 export function DocsPage({
-  crumbs, title, lede, toc, lastUpdated, children,
+  crumbs, title, lede, toc, lastUpdated, editUrl, feedbackEndpoint, children,
 }: {
   crumbs: Crumb[];
   title: string;
   lede?: React.ReactNode;
   toc: TocItem[];
   lastUpdated?: string;
+  editUrl?: string;
+  feedbackEndpoint?: string;
   children: React.ReactNode;
 }) {
   return (
@@ -40,14 +42,22 @@ export function DocsPage({
 
         <div className="docs-prose">{children}</div>
 
-        {lastUpdated && (
-          <div className="mt-12 pt-6 border-t border-slate-3 font-mono text-12 text-slate-5">
-            <span>Last updated · {lastUpdated}</span>
+        {(lastUpdated || editUrl) && (
+          <div className="mt-12 pt-6 border-t border-slate-3 flex items-center justify-between gap-4 font-mono text-12 text-slate-5">
+            <span>{lastUpdated ? `Last updated · ${lastUpdated}` : ""}</span>
+            {editUrl && (
+              <a href={editUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-slate-5 no-underline hover:text-ink">
+                <svg width={13} height={13} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden>
+                  <path d="M11.5 2.5 13.5 4.5 6 12l-2.5.5L4 10l7.5-7.5Z" strokeLinejoin="round" />
+                </svg>
+                Edit this page
+              </a>
+            )}
           </div>
         )}
       </main>
 
-      <DocsToc items={toc} />
+      <DocsToc items={toc} feedbackEndpoint={feedbackEndpoint} />
     </>
   );
 }

@@ -67,9 +67,19 @@ my-docs/
     "baseUrl": "https://api.example.com",
     "playground": { "enabled": true, "proxy": "auto" }
   },
+  "editUrl": "https://github.com/me/repo/edit/main",
+  "analytics": { "plausible": { "domain": "docs.example.com" } },
+  "feedback": { "endpoint": "https://example.com/api/docs-feedback" },
   "seo": { "title": "My API", "description": "..." }
 }
 ```
+
+- **`editUrl`** — adds an "Edit this page" link; the page's content-relative path
+  is appended (e.g. `docs/quickstart.mdx`).
+- **`analytics`** — opt-in `plausible`, `googleAnalytics` (`measurementId`), or
+  `posthog` (`apiKey`, `apiHost`).
+- **`feedback.endpoint`** — the "Was this page helpful?" widget POSTs
+  `{ answer, reason, comment, path }` here (logs to console when unset).
 
 ## Features
 

@@ -4,6 +4,7 @@ import "./globals.css";
 import { DocsTopBar, DocsSidebar } from "@/components/docs/nav";
 import { getDocsTabs } from "@/components/docs/sections";
 import { loadConfig, hexToRgbTriple } from "@/lib/config";
+import { Analytics } from "@/components/docs/analytics";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
@@ -57,7 +58,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className="min-h-screen flex flex-col m-0 bg-paper text-ink font-sans">
-        <DocsTopBar tabs={topTabs} brand={brand} />
+        <Analytics config={config.analytics} />
+        <DocsTopBar tabs={topTabs} brand={brand} mobileTabs={tabs} />
         <div className="docs-shell grid min-h-[calc(100vh-56px)]">
           <style>{`
             .docs-shell { grid-template-columns: 260px minmax(0, 1fr) 300px; }

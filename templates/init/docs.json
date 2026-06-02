@@ -39,6 +39,7 @@
     "baseUrl": "https://api.example.com",
     "playground": { "enabled": true, "proxy": "auto" }
   },
+  "editUrl": "https://github.com/me/my-docs/edit/main",
   "seo": {
     "title": "My Docs",
     "description": "Documentation built with Markline."

@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ThemeToggle } from "./theme-toggle";
@@ -37,13 +38,22 @@ function BrandMark({ brand }: { brand: Brand }) {
   return <span className="text-16 font-semibold tracking-tight text-ink">{logo?.text ?? name}</span>;
 }
 
-export function DocsTopBar({ tabs, brand }: { tabs: TopTab[]; brand: Brand }) {
+export function DocsTopBar({
+  tabs,
+  brand,
+  mobileTabs = [],
+}: {
+  tabs: TopTab[];
+  brand: Brand;
+  mobileTabs?: TopTabWithSections[];
+}) {
   const pathname = usePathname();
   const activeId = pickActiveTabId(tabs, pathname);
   return (
     <header className="docs-top sticky top-0 z-20 bg-paper border-b border-slate-3">
       <div className="h-14 px-6 flex items-center justify-between">
       <div className="flex items-center gap-6">
+        <MobileNav tabs={mobileTabs} />
         <Link href="/" className="brand inline-flex items-center gap-2.5 no-underline text-ink font-semibold text-15">
           <BrandMark brand={brand} />
         </Link>
@@ -96,14 +106,17 @@ function pickActiveTabId(tabs: TopTab[], pathname: string): string {
   return tabs.find((t) => t.matchPrefixes.includes("__default__"))?.id ?? tabs[0]?.id ?? "";
 }
 
-export function DocsSidebar({ tabs }: { tabs: TopTabWithSections[] }) {
-  const pathname = usePathname();
-  const activeId = pickActiveTabId(tabs, pathname);
-  const activeTab = tabs.find((t) => t.id === activeId) ?? tabs[0];
-  const sections = activeTab?.sections ?? [];
+function SidebarSections({
+  sections,
+  pathname,
+  onNavigate,
+}: {
+  sections: DocSection[];
+  pathname: string;
+  onNavigate?: () => void;
+}) {
   return (
-    <aside className="docs-side border-r border-slate-3 px-4 py-6 sticky self-start overflow-y-auto"
-           style={{ top: 56, height: "calc(100vh - 56px)" }}>
+    <>
       {sections.map((sec, si) => (
         <div key={sec.title}>
           <h5 className={`font-mono text-10 uppercase tracking-[0.08em] text-slate-5 font-medium px-2 pb-1.5 ${si === 0 ? "pt-0" : "pt-4"}`}>
@@ -115,6 +128,7 @@ export function DocsSidebar({ tabs }: { tabs: TopTabWithSections[] }) {
               <Link
                 key={l.href}
                 href={l.href}
+                onClick={onNavigate}
                 className={`flex items-center gap-2 px-2.5 py-1.5 text-13 no-underline rounded-1 leading-[1.4] ${
                   active ? "text-ink font-medium" : "text-slate-6 hover:text-ink hover:bg-slate-2"
                 }`}
@@ -136,7 +150,103 @@ export function DocsSidebar({ tabs }: { tabs: TopTabWithSections[] }) {
           })}
         </div>
       ))}
+    </>
+  );
+}
+
+export function DocsSidebar({ tabs }: { tabs: TopTabWithSections[] }) {
+  const pathname = usePathname();
+  const activeId = pickActiveTabId(tabs, pathname);
+  const activeTab = tabs.find((t) => t.id === activeId) ?? tabs[0];
+  const sections = activeTab?.sections ?? [];
+  return (
+    <aside className="docs-side border-r border-slate-3 px-4 py-6 sticky self-start overflow-y-auto"
+           style={{ top: 56, height: "calc(100vh - 56px)" }}>
+      <SidebarSections sections={sections} pathname={pathname} />
     </aside>
+  );
+}
+
+/** Hamburger + slide-over drawer for navigation on small screens. */
+function MobileNav({ tabs }: { tabs: TopTabWithSections[] }) {
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+
+  // Close the drawer whenever the route changes.
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  // Lock body scroll while the drawer is open.
+  useEffect(() => {
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
+  }, [open]);
+
+  if (tabs.length === 0) return null;
+  const activeId = pickActiveTabId(tabs, pathname);
+  const activeTab = tabs.find((t) => t.id === activeId) ?? tabs[0];
+  const sections = activeTab?.sections ?? [];
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        aria-label="Open navigation"
+        className="md:hidden inline-flex items-center justify-center -ml-1 w-9 h-9 rounded-1 text-ink hover:bg-slate-2"
+      >
+        <svg width={18} height={18} viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth={1.6} aria-hidden>
+          <path d="M2.5 4.5h13M2.5 9h13M2.5 13.5h13" strokeLinecap="round" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="md:hidden fixed inset-0 z-40 bg-black/40" onClick={() => setOpen(false)}>
+          <nav
+            className="absolute left-0 top-0 bottom-0 w-[280px] max-w-[80vw] bg-paper border-r border-slate-3 overflow-y-auto p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <span className="font-mono text-10 uppercase tracking-[0.08em] text-slate-5">Menu</span>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                aria-label="Close navigation"
+                className="w-8 h-8 inline-flex items-center justify-center rounded-1 text-slate-6 hover:bg-slate-2"
+              >
+                <svg width={16} height={16} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.6} aria-hidden>
+                  <path d="m4 4 8 8M12 4l-8 8" strokeLinecap="round" />
+                </svg>
+              </button>
+            </div>
+
+            {tabs.length > 1 && (
+              <div className="flex flex-col gap-0.5 pb-3 mb-3 border-b border-slate-3">
+                {tabs.map((t) => (
+                  <Link
+                    key={t.id}
+                    href={t.href}
+                    onClick={() => setOpen(false)}
+                    className={`px-2.5 py-1.5 text-13 no-underline rounded-1 ${
+                      t.id === activeId ? "text-ink font-medium bg-slate-2" : "text-slate-6 hover:text-ink hover:bg-slate-2"
+                    }`}
+                  >
+                    {t.label}
+                  </Link>
+                ))}
+              </div>
+            )}
+
+            <SidebarSections sections={sections} pathname={pathname} onNavigate={() => setOpen(false)} />
+          </nav>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -156,14 +266,22 @@ function SidebarMethod({ method }: { method: string }) {
   );
 }
 
-export function DocsToc({ items, helpful = true }: { items: { id: string; label: string }[]; helpful?: boolean }) {
+export function DocsToc({
+  items,
+  helpful = true,
+  feedbackEndpoint,
+}: {
+  items: { id: string; label: string }[];
+  helpful?: boolean;
+  feedbackEndpoint?: string;
+}) {
   return (
     <aside className="toc px-6 py-6 sticky self-start overflow-y-auto" style={{ top: 56, height: "calc(100vh - 56px)" }}>
       <h6 className="font-mono text-10 uppercase tracking-[0.08em] text-slate-5 font-medium mb-2">
         On this page
       </h6>
       <TocList items={items} />
-      {helpful && <FeedbackWidget />}
+      {helpful && <FeedbackWidget endpoint={feedbackEndpoint} />}
     </aside>
   );
 }

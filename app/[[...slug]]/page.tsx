@@ -7,6 +7,7 @@ import { getDoc, listDocs } from "@/lib/docs";
 import { DocsPage } from "@/components/docs/page";
 import { mdxComponents } from "@/components/docs/mdx";
 import { getHighlighter, shellEnhancer } from "@/lib/shiki";
+import { loadConfig } from "@/lib/config";
 
 // One transformer instance reused across all blocks — it's stateless.
 const shellTransformer = shellEnhancer();
@@ -43,6 +44,10 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
   const doc = getDoc(slug);
   if (!doc) return notFound();
   const crumbs = doc.fm.crumbs ?? deriveCrumbs(doc.slug, doc.fm.title);
+  const config = loadConfig();
+  const editUrl = config.editUrl
+    ? `${config.editUrl.replace(/\/$/, "")}/${doc.sourcePath}`
+    : undefined;
 
   return (
     <DocsPage
@@ -51,6 +56,8 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
       lede={doc.fm.lede}
       toc={doc.fm.toc ?? []}
       lastUpdated={doc.fm.last_updated}
+      editUrl={editUrl}
+      feedbackEndpoint={config.feedback?.endpoint}
     >
       <MDXRemote
         source={doc.body}

@@ -18,6 +18,7 @@ export type Doc = {
   pathname: string;        // "/" or "/concepts/ledger"
   fm: DocFrontmatter;
   body: string;
+  sourcePath: string;      // path of the source file relative to the content root
 };
 
 const ROOT = path.join(contentRoot(), "docs");
@@ -62,6 +63,7 @@ export function listDocs(): Doc[] {
       pathname: slug.length === 0 ? "/" : `/${slug.join("/")}`,
       fm,
       body,
+      sourcePath: path.relative(contentRoot(), filePath),
     };
   });
 }
@@ -83,5 +85,6 @@ export function getDoc(slug: string[] | undefined): Doc | undefined {
     pathname: s.length === 0 ? "/" : `/${s.join("/")}`,
     fm,
     body,
+    sourcePath: path.relative(contentRoot(), found),
   };
 }

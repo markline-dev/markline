@@ -13,7 +13,7 @@ const REASONS = [
   "Something else",
 ];
 
-export function FeedbackWidget() {
+export function FeedbackWidget({ endpoint }: { endpoint?: string }) {
   const [answer, setAnswer] = useState<Answer | null>(null);
   const [stage, setStage] = useState<Stage>("idle");
   const [reason, setReason] = useState<string | null>(null);
@@ -27,15 +27,24 @@ export function FeedbackWidget() {
 
   const submit = async () => {
     setSubmitting(true);
+    const payload = {
+      answer,
+      reason,
+      comment,
+      path: typeof window !== "undefined" ? window.location.pathname : null,
+    };
     try {
-      // Hook up a real endpoint later; for now we just log so dev can verify.
-      // eslint-disable-next-line no-console
-      console.log("[docs feedback]", {
-        answer,
-        reason,
-        comment,
-        path: typeof window !== "undefined" ? window.location.pathname : null,
-      });
+      if (endpoint) {
+        await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      } else {
+        // No endpoint configured — log so the operator can verify wiring.
+        // eslint-disable-next-line no-console
+        console.log("[docs feedback]", payload);
+      }
       setStage("done");
     } finally {
       setSubmitting(false);

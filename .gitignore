@@ -13,6 +13,9 @@ next-env.d.ts
 # production
 /dist
 
+# generated search index (built by scripts/build-search.mjs)
+/public/pagefind
+
 # misc
 .DS_Store
 *.pem

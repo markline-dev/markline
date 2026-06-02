@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { ThemeToggle } from "./theme-toggle";
 import { TocList } from "./toc";
 import { FeedbackWidget } from "./feedback";
+import { DocsSearch } from "./search";
 
 export type DocLink = { href: string; label: string; badge?: "new" | "beta"; method?: string };
 export type DocSection = { title: string; links: DocLink[] };
@@ -67,20 +68,7 @@ export function DocsTopBar({ tabs, brand }: { tabs: TopTab[]; brand: Brand }) {
         </nav>
       </div>
       <div className="flex items-center gap-3">
-        <div className="relative w-[360px] h-[34px] hidden md:block docs-search">
-          <svg className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-5"
-               width={14} height={14} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
-            <circle cx="7" cy="7" r="4.5" />
-            <path d="m11 11 3 3" />
-          </svg>
-          <input
-            placeholder="Search docs…"
-            className="w-full h-full pl-[34px] pr-14 bg-paper-2 border border-slate-4 rounded-2 text-13 text-ink focus:outline-none focus:border-slate-7"
-          />
-          <kbd className="absolute right-2 top-1/2 -translate-y-1/2 font-mono text-11 px-1.5 py-0.5 border border-slate-3 rounded text-slate-5">
-            ⌘K
-          </kbd>
-        </div>
+        <DocsSearch />
         {brand.links.map((l) => (
           <Link key={l.href} className="navlink hidden sm:inline-flex" href={l.href}>{l.label}</Link>
         ))}

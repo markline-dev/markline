@@ -110,7 +110,7 @@ export type AnalyticsConfig = {
 export type MarklineConfig = {
   name: string;
   theme: ThemeConfig;
-  topbar: { links: TopbarLink[]; cta?: TopbarLink };
+  topbar: { links: TopbarLink[]; cta?: TopbarLink; badge?: string };
   navigation: { tabs: NavTab[] };
   seo: SeoConfig;
   api: ApiConfig;
@@ -154,6 +154,7 @@ function mergeConfig(base: MarklineConfig, user: Partial<MarklineConfig>): Markl
     topbar: {
       links: user.topbar?.links ?? base.topbar.links,
       cta: user.topbar?.cta ?? base.topbar.cta,
+      badge: user.topbar?.badge ?? base.topbar.badge,
     },
     navigation: {
       tabs: user.navigation?.tabs ?? base.navigation.tabs,

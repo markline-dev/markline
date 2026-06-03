@@ -61,6 +61,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     logo: config.theme.logo,
     links: config.topbar.links,
     cta: config.topbar.cta,
+    badge: config.topbar.badge,
   };
   const brandCss = themeCss();
   return (

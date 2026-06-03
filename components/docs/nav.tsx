@@ -39,6 +39,7 @@ export type Brand = {
   logo?: { light?: string; dark?: string; text?: string; icon?: string };
   links: { label: string; href: string }[];
   cta?: { label: string; href: string };
+  badge?: string;
 };
 
 function BrandMark({ brand }: { brand: Brand }) {
@@ -82,6 +83,11 @@ export function DocsTopBar({ nav, brand }: { nav: NavData; brand: Brand }) {
         <Link href="/" className="brand inline-flex items-center gap-2.5 no-underline text-ink font-semibold text-15">
           <BrandMark brand={brand} />
         </Link>
+        {brand.badge && (
+          <span className="hidden sm:inline-flex items-center font-mono text-12 text-slate-5 border border-slate-3 rounded-1 px-2 py-0.5 bg-paper-2 whitespace-nowrap">
+            {brand.badge}
+          </span>
+        )}
         {nav.versions.length > 1 && (
           <VariantSwitcher nav={nav} active={activeVariant} ariaLabel="Version" options={nav.versions} />
         )}

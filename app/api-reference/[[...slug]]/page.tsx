@@ -54,12 +54,17 @@ function loadOperationMdx(operationId: string): string | null {
   }
 }
 
+// Only the params from generateStaticParams exist (keeps `output: export` happy).
+export const dynamicParams = false;
+
 export function generateStaticParams(): { slug?: string[] }[] {
-  if (!hasOpenApiSpec()) return [];
-  const doc = loadOpenApi();
+  // Always include the base path so `output: export` has at least one path to
+  // generate; on a docs-only site (no spec) the page renders notFound().
   const params: { slug?: string[] }[] = [{ slug: undefined }];
-  for (const id of Object.keys(doc.operationsById)) {
-    params.push({ slug: [id] });
+  if (hasOpenApiSpec()) {
+    for (const id of Object.keys(loadOpenApi().operationsById)) {
+      params.push({ slug: [id] });
+    }
   }
   return params;
 }

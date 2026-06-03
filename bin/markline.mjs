@@ -7,15 +7,55 @@ import { spawn } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { createRequire } from "node:module";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const APP_DIR = path.resolve(__dirname, ".."); // the Next app (this package root)
 const CONTENT_DIR = process.cwd(); // the consumer's project
 const CONFIG_PATH = path.join(CONTENT_DIR, "docs.json");
 
-const NEXT_BIN = path.join(APP_DIR, "node_modules", ".bin", "next");
-const SEARCH_SCRIPT = path.join(APP_DIR, "scripts", "build-search.mjs");
+// Next won't compile an app that lives inside node_modules, so we copy the app
+// into a working dir in the consumer's project and run Next from there.
+const WORK_DIR = path.join(CONTENT_DIR, ".markline");
+const SEARCH_SCRIPT = path.join(WORK_DIR, "scripts", "build-search.mjs");
 const TEMPLATE_DIR = path.join(APP_DIR, "templates", "init");
+
+// App source to stage into WORK_DIR (everything Next needs except node_modules).
+const APP_FILES = [
+  "app", "components", "lib", "scripts",
+  "next.config.mjs", "tailwind.config.ts", "postcss.config.mjs",
+  "tsconfig.json", "next-env.d.ts", "package.json",
+];
+
+// Resolve Next's CLI entry via Node module resolution rather than a fixed
+// node_modules/.bin path: when @markline/markline is installed as a dependency,
+// npm hoists `next` to the consumer's top-level node_modules, not under our
+// package. Resolving from APP_DIR walks up to wherever `next` actually lives.
+function resolveNextBin() {
+  const req = createRequire(path.join(APP_DIR, "package.json"));
+  const nextPkg = req.resolve("next/package.json");
+  return path.join(path.dirname(nextPkg), "dist", "bin", "next");
+}
+
+/**
+ * Stage the app into WORK_DIR (real files outside node_modules so Next compiles
+ * them) and point its node_modules at the consumer's installed dependencies.
+ */
+function syncApp() {
+  fs.mkdirSync(WORK_DIR, { recursive: true });
+  for (const name of APP_FILES) {
+    const src = path.join(APP_DIR, name);
+    if (!fs.existsSync(src)) continue;
+    const dest = path.join(WORK_DIR, name);
+    fs.rmSync(dest, { recursive: true, force: true });
+    fs.cpSync(src, dest, { recursive: true });
+  }
+  const nm = path.join(WORK_DIR, "node_modules");
+  const deps = path.join(CONTENT_DIR, "node_modules");
+  if (!fs.existsSync(nm) && fs.existsSync(deps)) {
+    fs.symlinkSync(deps, nm, "junction");
+  }
+}
 
 function readPkgVersion() {
   try {
@@ -42,6 +82,11 @@ function run(cmd, args, { env = baseEnv(), cwd = APP_DIR } = {}) {
   });
 }
 
+/** Run the Next CLI via `node <next-bin>` from the staged WORK_DIR. */
+function runNext(args, opts = {}) {
+  return run(process.execPath, [resolveNextBin(), ...args], { cwd: WORK_DIR, ...opts });
+}
+
 function requireConfig() {
   if (!fs.existsSync(CONFIG_PATH)) {
     console.error(
@@ -62,7 +107,7 @@ function copyDir(src, dest) {
 }
 
 async function buildSearch(env) {
-  await run(process.execPath, [SEARCH_SCRIPT], { env });
+  await run(process.execPath, [SEARCH_SCRIPT], { env, cwd: WORK_DIR });
 }
 
 const COMMANDS = {
@@ -86,28 +131,32 @@ const COMMANDS = {
 
   async dev() {
     requireConfig();
-    await run(NEXT_BIN, ["dev"], { env: baseEnv() });
+    syncApp();
+    await runNext(["dev"], { env: baseEnv() });
   },
 
   async build() {
     requireConfig();
+    syncApp();
     const env = baseEnv();
     await buildSearch(env);
-    await run(NEXT_BIN, ["build"], { env });
+    await runNext(["build"], { env });
   },
 
   async start() {
     requireConfig();
-    await run(NEXT_BIN, ["start"], { env: baseEnv() });
+    syncApp();
+    await runNext(["start"], { env: baseEnv() });
   },
 
   async export() {
     requireConfig();
+    syncApp();
     const env = baseEnv({ MARKLINE_EXPORT: "1" });
     await buildSearch(env);
-    await run(NEXT_BIN, ["build"], { env });
-    // Next writes the static site to <app>/out; move it into the consumer's project.
-    const from = path.join(APP_DIR, "out");
+    await runNext(["build"], { env });
+    // Next writes the static site to <work>/out; move it into the consumer's project.
+    const from = path.join(WORK_DIR, "out");
     const to = path.join(CONTENT_DIR, "out");
     if (fs.existsSync(from) && from !== to) {
       fs.rmSync(to, { recursive: true, force: true });

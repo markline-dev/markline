@@ -3,6 +3,12 @@
 Open-source, self-hostable documentation framework with first-class OpenAPI, full-text
 search, and an interactive API playground. A fully open alternative to Scalar and Mintlify.
 
+[![npm](https://img.shields.io/npm/v/@markline/markline.svg)](https://www.npmjs.com/package/@markline/markline)
+[![CI](https://github.com/markline-dev/markline/actions/workflows/ci.yml/badge.svg)](https://github.com/markline-dev/markline/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
+
+**[markline.dev](https://markline.dev)** — built with Markline.
+
 ## Quickstart
 
 ```bash

@@ -10,6 +10,7 @@ import {
 import { Tabs, Tab, Accordion, AccordionGroup } from "./authoring-client";
 import {
   Hero, CTAButton, FeatureGrid, Feature, CTASection, CodeShowcase,
+  Eyebrow, SectionHead, StatStrip, Stat, Bento, BentoCard,
 } from "@/components/landing/landing";
 
 function slugify(s: string) {
@@ -201,4 +202,10 @@ export const mdxComponents: MDXComponents = {
   Feature,
   CTASection,
   CodeShowcase,
+  Eyebrow,
+  SectionHead,
+  StatStrip,
+  Stat,
+  Bento,
+  BentoCard,
 };

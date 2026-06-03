@@ -17,7 +17,7 @@ toc:
     ```bash
     npm create @markline@latest my-docs
     ```
-    This creates a `docs.json`, sample MDX pages, an example OpenAPI spec, and
+    This creates a `markline.json`, sample MDX pages, an example OpenAPI spec, and
     ready-to-use deploy configs.
   </Step>
   <Step title="Install & run">
@@ -37,8 +37,8 @@ Your repository holds only content and configuration:
 
 ```text
 my-docs/
-├── docs.json          # navigation, theme, branding, API settings
-├── docs/              # your pages (*.mdx)
+├── markline.json     # navigation, theme, branding, API settings
+├── docs/             # your pages (*.mdx)
 │   ├── index.mdx
 │   └── quickstart.mdx
 └── api/
@@ -49,5 +49,5 @@ my-docs/
 
 ## Develop
 
-Edit files under `docs/` and update `docs.json` to change navigation, branding,
+Edit files under `docs/` and update `markline.json` to change navigation, branding,
 and the API base URL. When you're ready, see [Deployment](/deployment).

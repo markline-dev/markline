@@ -332,3 +332,41 @@
 .docs-shell:has(.landing) > .toc {
   display: none;
 }
+
+/* ── Steel-inspired blueprint motifs ─────────────────────────────────────── */
+
+/* Faint engineering-grid background (square graph paper). */
+.blueprint-grid {
+  background-image:
+    linear-gradient(to right, rgb(var(--c-slate-3) / 0.6) 1px, transparent 1px),
+    linear-gradient(to bottom, rgb(var(--c-slate-3) / 0.6) 1px, transparent 1px);
+  background-size: 32px 32px;
+  background-position: center;
+}
+/* Fade the hero grid out toward the edges so it reads as a vignette. */
+.blueprint-fade {
+  -webkit-mask-image: radial-gradient(75% 60% at 50% 30%, #000 0%, transparent 78%);
+  mask-image: radial-gradient(75% 60% at 50% 30%, #000 0%, transparent 78%);
+  opacity: 0.7;
+}
+
+/* Blueprint corner ticks (a `+` mark at opposing corners of a panel). */
+.bento-tick {
+  position: absolute;
+  width: 9px;
+  height: 9px;
+  opacity: 0;
+  transition: opacity 0.18s ease;
+  pointer-events: none;
+}
+.bento-tick::before,
+.bento-tick::after {
+  content: "";
+  position: absolute;
+  background: rgb(var(--c-brand));
+}
+.bento-tick::before { left: 4px; top: 0; width: 1px; height: 9px; }
+.bento-tick::after { top: 4px; left: 0; height: 1px; width: 9px; }
+.bento-tick[data-c="tl"] { left: 8px; top: 8px; }
+.bento-tick[data-c="br"] { right: 8px; bottom: 8px; }
+.group:hover .bento-tick { opacity: 0.8; }

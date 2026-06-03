@@ -1,3 +1,4 @@
+import React from "react";
 import Link from "next/link";
 import { highlightToHtml } from "@/lib/shiki";
 
@@ -26,6 +27,117 @@ function accentColor(a?: string) {
 
 function Section({ className = "", children }: { className?: string; children: React.ReactNode }) {
   return <section className={`w-full px-6 ${className}`}>{<div className="mx-auto max-w-[1100px]">{children}</div>}</section>;
+}
+
+/* ── Steel-inspired primitives ─────────────────────────────────────────────
+ * Monospace bracket kickers, blueprint grids, hairline bento panels with
+ * corner ticks, and a stats band. Engineering-blueprint aesthetic. */
+
+/** Monospace bracketed kicker, e.g. `[ OPENAPI ]`. */
+export function Eyebrow({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="inline-flex items-center gap-1.5 font-mono text-11 uppercase tracking-[0.16em] text-slate-6">
+      <span className="text-brand">[</span>
+      {children}
+      <span className="text-brand">]</span>
+    </span>
+  );
+}
+
+/** Section heading with a mono kicker above a tight grotesque title. */
+export function SectionHead({
+  kicker,
+  title,
+  subtitle,
+  align = "center",
+}: {
+  kicker?: string;
+  title: React.ReactNode;
+  subtitle?: React.ReactNode;
+  align?: "center" | "left";
+}) {
+  return (
+    <div className={`mb-10 ${align === "center" ? "text-center" : "text-left"}`}>
+      {kicker && <div className="mb-3"><Eyebrow>{kicker}</Eyebrow></div>}
+      <h2 className="text-28 font-semibold tracking-[-0.02em] text-ink" style={{ textWrap: "balance" }}>{title}</h2>
+      {subtitle && (
+        <p className={`mt-2.5 text-15 leading-[1.55] text-slate-6 ${align === "center" ? "mx-auto max-w-[56ch]" : "max-w-[56ch]"}`} style={{ textWrap: "balance" }}>
+          {subtitle}
+        </p>
+      )}
+    </div>
+  );
+}
+
+/** Horizontal band of big metric figures separated by hairline rules. */
+export function StatStrip({ children }: { children: React.ReactNode }) {
+  const n = Math.max(1, React.Children.count(children));
+  return (
+    <Section className="py-4">
+      <div
+        className="grid statstrip overflow-hidden rounded-3 border border-slate-3 bg-paper-2 blueprint-grid"
+        style={{ gridTemplateColumns: `repeat(${n}, minmax(0,1fr))` }}
+      >
+        <style>{`@media (max-width: 640px) { .statstrip { grid-template-columns: 1fr 1fr !important; } }`}</style>
+        {children}
+      </div>
+    </Section>
+  );
+}
+
+export function Stat({ value, label }: { value: React.ReactNode; label: string }) {
+  return (
+    <div className="px-6 py-7 text-center border-slate-3 [&:not(:first-child)]:border-l">
+      <div className="font-semibold text-ink tracking-[-0.02em]" style={{ fontSize: "clamp(26px,3.4vw,38px)", fontFeatureSettings: '"tnum"' }}>
+        {value}
+      </div>
+      <div className="mt-1.5 font-mono text-11 uppercase tracking-[0.12em] text-slate-5">{label}</div>
+    </div>
+  );
+}
+
+/** Bento layout — asymmetric hairline-bordered cells. */
+export function Bento({ children }: { children: React.ReactNode }) {
+  return (
+    <Section className="py-4">
+      <div className="grid gap-4 bento" style={{ gridTemplateColumns: "repeat(6, minmax(0,1fr))" }}>
+        <style>{`@media (max-width: 760px) { .bento { grid-template-columns: 1fr !important; } .bento > * { grid-column: auto !important; } }`}</style>
+        {children}
+      </div>
+    </Section>
+  );
+}
+
+/** A single bento cell. `span` is out of 6 columns (default 3 = half). */
+export function BentoCard({
+  kicker,
+  title,
+  span = 3,
+  href,
+  children,
+}: {
+  kicker?: string;
+  title?: React.ReactNode;
+  span?: number;
+  href?: string;
+  children?: React.ReactNode;
+}) {
+  const inner = (
+    <>
+      <span aria-hidden className="bento-tick" data-c="tl" />
+      <span aria-hidden className="bento-tick" data-c="br" />
+      {kicker && <div className="mb-3"><Eyebrow>{kicker}</Eyebrow></div>}
+      {title && <h3 className="text-18 font-semibold tracking-[-0.01em] text-ink">{title}</h3>}
+      {children && <div className="mt-2 text-14 leading-[1.6] text-slate-6">{children}</div>}
+    </>
+  );
+  const cls =
+    "group relative overflow-hidden rounded-3 border border-slate-3 bg-paper-2 p-6 no-underline text-ink transition-colors hover:border-brand";
+  return href ? (
+    <Link href={href} className={cls} style={{ gridColumn: `span ${span}` }}>{inner}</Link>
+  ) : (
+    <div className={cls} style={{ gridColumn: `span ${span}` }}>{inner}</div>
+  );
 }
 
 export function CTAButton({
@@ -68,6 +180,7 @@ export function Hero({
   actions,
   media,
   gradient,
+  grid,
 }: {
   eyebrow?: string;
   title: React.ReactNode;
@@ -75,9 +188,13 @@ export function Hero({
   actions?: React.ReactNode;
   media?: React.ReactNode;
   gradient?: boolean;
+  grid?: boolean;
 }) {
   return (
-    <Section className="relative pt-20 pb-16 text-center overflow-hidden">
+    <Section className="relative pt-24 pb-16 text-center overflow-hidden">
+      {grid && (
+        <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 blueprint-grid blueprint-fade" />
+      )}
       {gradient && (
         <div
           aria-hidden
@@ -88,9 +205,7 @@ export function Hero({
           }}
         />
       )}
-      {eyebrow && (
-        <div className="mb-4 inline-block font-mono text-12 uppercase tracking-[0.1em] text-brand">{eyebrow}</div>
-      )}
+      {eyebrow && <div className="mb-5 flex justify-center"><Eyebrow>{eyebrow}</Eyebrow></div>}
       <h1
         className="mx-auto max-w-[18ch] font-semibold text-ink"
         style={{ fontSize: "clamp(34px, 6vw, 60px)", lineHeight: 1.05, letterSpacing: "-0.03em", textWrap: "balance" }}
@@ -176,27 +291,38 @@ export function CTASection({
   subtitle,
   actions,
   gradient,
+  grid,
 }: {
   title: string;
   subtitle?: string;
   actions?: React.ReactNode;
   gradient?: boolean;
+  grid?: boolean;
 }) {
   return (
     <Section className="py-20 text-center">
       <div
-        className="rounded-3 border border-slate-3 px-6 py-14"
+        className={`relative overflow-hidden rounded-3 border border-slate-3 px-6 py-14 ${grid ? "blueprint-grid" : ""}`}
         style={
           gradient
             ? { background: "radial-gradient(80% 120% at 50% 0%, color-mix(in oklab, rgb(var(--c-brand)) 12%, transparent), transparent 70%)" }
             : undefined
         }
       >
+        {grid && (
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-0"
+            style={{ background: "radial-gradient(80% 120% at 50% 0%, color-mix(in oklab, rgb(var(--c-brand)) 14%, transparent), transparent 72%)" }}
+          />
+        )}
+        <div className="relative">
         <h2 className="mx-auto max-w-[20ch] text-32 font-semibold tracking-[-0.02em] text-ink" style={{ textWrap: "balance" }}>
           {title}
         </h2>
         {subtitle && <p className="mx-auto mt-3 max-w-[46ch] text-15 text-slate-6">{subtitle}</p>}
         {actions && <div className="mt-7 flex flex-wrap items-center justify-center gap-3">{actions}</div>}
+        </div>
       </div>
     </Section>
   );

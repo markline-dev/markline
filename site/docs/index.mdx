@@ -1,36 +1,70 @@
 ---
 title: Markline — open-source docs framework
-description: An open-source, self-hostable documentation framework with first-class OpenAPI, search, and an interactive API playground.
+description: An open-source, self-hostable documentation framework with first-class OpenAPI, full-text search, and an interactive API playground.
 layout: landing
 ---
 
 <Hero
-  eyebrow="Open source"
-  title="Documentation that ships itself"
-  subtitle="A self-hostable docs framework with first-class OpenAPI, full-text search, and an interactive API playground. A fully open alternative to Scalar and Mintlify."
-  gradient
+  grid
+  eyebrow="Open source · MIT"
+  title="The docs framework you actually own"
+  subtitle="Markline is a self-hostable documentation platform with first-class OpenAPI, full-text search, and an interactive API playground. Everything Scalar and Mintlify do — fully open."
   actions={<>
     <CTAButton href="/quickstart" variant="primary" size="lg">Get started</CTAButton>
     <CTAButton href="https://github.com/markline-dev/markline" variant="secondary" size="lg" external>Star on GitHub</CTAButton>
   </>}
-  media={<CodeShowcase lang="bash" title="terminal" code="npm create @markline@latest my-docs" />}
+  media={<CodeShowcase lang="bash" title="bash" code="npm create @markline@latest my-docs" />}
 />
 
+<StatStrip>
+  <Stat value="1" label="config file" />
+  <Stat value="0" label="search infra" />
+  <Stat value="4" label="deploy targets" />
+  <Stat value="MIT" label="free forever" />
+</StatStrip>
+
+<Bento>
+  <BentoCard span={4} kicker="OpenAPI" title="A live API reference from one openapi.json">
+    Drop in a spec and get operation pages, schema tables, and an interactive
+    "Try it" playground on every endpoint — inline, Stripe-style explorer, or both.
+
+    <CodeShowcase lang="bash" title="api/openapi.json → /api-reference" code={`GET  /projects
+POST /projects
+GET  /projects/{id}
+POST /projects/{id}/deployments`} />
+  </BentoCard>
+
+  <BentoCard span={2} kicker="Search" title="Instant ⌘K search">
+    Static full-text search powered by Pagefind. Built at compile time — no
+    search service, no query bills, works on a plain CDN.
+  </BentoCard>
+
+  <BentoCard span={3} kicker="Authoring" title="MDX with batteries included">
+    Callouts, cards, steps, tabs, accordions, and param fields — every component
+    available in any page with no imports.
+  </BentoCard>
+
+  <BentoCard span={3} kicker="Self-host" title="Static, Node, or Docker">
+    Export static HTML to any CDN, or run the Node server for live API proxying.
+    No vendor, no lock-in — yours to own forever.
+  </BentoCard>
+</Bento>
+
 <FeatureGrid cols={3} title="Everything you need, nothing you don't">
-  <Feature icon="◆" title="Config-driven" accent="brand">Navigation, theming, and branding from a single `docs.json` — no code to fork.</Feature>
-  <Feature icon="⚡" title="OpenAPI native" accent="amber">Operation pages, schema tables, and a live "Try it" playground on every endpoint.</Feature>
-  <Feature icon="⌕" title="Built-in search" accent="blue">Static full-text search with zero infrastructure.</Feature>
-  <Feature icon="✎" title="Rich authoring" accent="violet">Callouts, cards, steps, tabs, accordions, and param fields — no imports.</Feature>
-  <Feature icon="⌥" title="Versioning & i18n" accent="green">Multiple versions and locales with a built-in switcher.</Feature>
-  <Feature icon="↗" title="Self-hostable" accent="red">Static HTML, a Node server, Docker, or any platform. Yours to own.</Feature>
+  <Feature icon="◆" title="Config-driven" accent="brand">Navigation, theming, and branding from a single `markline.json` — no code to fork.</Feature>
+  <Feature icon="◑" title="Theming & dark mode" accent="violet">Full palette control via CSS variables, with light, dark, and system modes.</Feature>
+  <Feature icon="⌥" title="Versioning & i18n" accent="green">Multiple versions and locales with a built-in switcher in the topbar.</Feature>
+  <Feature icon="⚡" title="Playground modes" accent="amber">Inline, explorer, full, or off — pick the "Try it" experience per project.</Feature>
+  <Feature icon="✎" title="Edit on GitHub" accent="blue">Every page links back to its source for one-click contributions.</Feature>
+  <Feature icon="↗" title="Analytics-ready" accent="red">Opt-in Plausible, GA, or PostHog, plus a built-in feedback widget.</Feature>
 </FeatureGrid>
 
 <CTASection
-  title="What are you waiting for?"
+  grid
+  title="Ship docs you control"
   subtitle="Open source. Self-hostable. Free forever."
-  gradient
   actions={<>
     <CTAButton href="/quickstart" variant="primary" size="lg">Build your docs</CTAButton>
-    <CTAButton href="/configuration" variant="ghost" size="lg">Read the docs →</CTAButton>
+    <CTAButton href="/api-reference" variant="ghost" size="lg">See the API reference →</CTAButton>
   </>}
 />

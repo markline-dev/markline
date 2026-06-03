@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Markline CLI — run a docs site from the consumer's own docs.json + content
+// Markline CLI — run a docs site from the consumer's own markline.json + content
 // without forking the framework. The Next app ships inside this package; the
 // CLI launches it pointed at the current working directory's content.
 
@@ -12,7 +12,10 @@ import { createRequire } from "node:module";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const APP_DIR = path.resolve(__dirname, ".."); // the Next app (this package root)
 const CONTENT_DIR = process.cwd(); // the consumer's project
-const CONFIG_PATH = path.join(CONTENT_DIR, "docs.json");
+// Prefer a branded markline.json, fall back to docs.json (Mintlify-compatible).
+const CONFIG_PATH = fs.existsSync(path.join(CONTENT_DIR, "markline.json"))
+  ? path.join(CONTENT_DIR, "markline.json")
+  : path.join(CONTENT_DIR, "docs.json");
 
 // Next won't compile an app that lives inside node_modules, so we copy the app
 // into a working dir in the consumer's project and run Next from there.
@@ -96,7 +99,7 @@ function runNext(args, opts = {}) {
 function requireConfig() {
   if (!fs.existsSync(CONFIG_PATH)) {
     console.error(
-      `\n  No docs.json found in ${CONTENT_DIR}.\n  Run \`markline init\` to scaffold a new docs project here.\n`,
+      `\n  No markline.json (or docs.json) found in ${CONTENT_DIR}.\n  Run \`markline init\` to scaffold a new docs project here.\n`,
     );
     process.exit(1);
   }
@@ -123,8 +126,8 @@ const COMMANDS = {
       console.error(`  Template directory missing: ${TEMPLATE_DIR}`);
       process.exit(1);
     }
-    if (fs.existsSync(path.join(target, "docs.json"))) {
-      console.error(`  docs.json already exists in ${target} — refusing to overwrite.`);
+    if (fs.existsSync(path.join(target, "markline.json")) || fs.existsSync(path.join(target, "docs.json"))) {
+      console.error(`  A markline.json/docs.json already exists in ${target} — refusing to overwrite.`);
       process.exit(1);
     }
     copyDir(TEMPLATE_DIR, target);
@@ -183,15 +186,15 @@ const COMMANDS = {
   Usage: markline <command>
 
   Commands:
-    init [dir]   Scaffold a new docs project (docs.json + sample content)
-    dev          Start the dev server against ./docs.json
+    init [dir]   Scaffold a new docs project (markline.json + sample content)
+    dev          Start the dev server against ./markline.json
     build        Build a production server bundle (Docker / Vercel / start)
     start        Serve a production build
     export       Build a static HTML site into ./out (any CDN / Pages / S3)
     version      Print the Markline version
     help         Show this help
 
-  Content lives in the current directory: docs.json, docs/*.mdx, api/openapi.json
+  Content lives in the current directory: markline.json, docs/*.mdx, api/openapi.json
 `);
   },
 };

@@ -16,7 +16,7 @@ Or add Markline to an existing project:
 
 ```bash
 npm install @markline/markline
-npx markline init      # scaffold docs.json + sample content in the current dir
+npx markline init      # scaffold markline.json + sample content in the current dir
 npx markline dev
 ```
 
@@ -24,7 +24,7 @@ Your project holds only content + config:
 
 ```
 my-docs/
-├── docs.json          # navigation, theme, branding, API settings
+├── markline.json      # navigation, theme, branding, API settings
 ├── docs/              # your pages (*.mdx)
 │   ├── index.mdx
 │   └── quickstart.mdx
@@ -37,7 +37,7 @@ my-docs/
 | Command | Description |
 | --- | --- |
 | `markline init [dir]` | Scaffold a new docs project. |
-| `markline dev` | Start the dev server against `./docs.json`. |
+| `markline dev` | Start the dev server against `./markline.json`. |
 | `markline build` | Build a production Node server bundle (Docker / Vercel). |
 | `markline start` | Serve a production build. |
 | `markline export` | Build a static HTML site into `./out` (any CDN / GitHub Pages / S3). |
@@ -77,7 +77,11 @@ Enables the playground's server-side proxy for APIs without CORS. The scaffolded
 docker build -t my-docs . && docker run -p 3000:3000 my-docs
 ```
 
-## Configuration (`docs.json`)
+## Configuration (`markline.json`)
+
+Config is read from `markline.json` (a `docs.json` is also accepted, for
+Mintlify-style projects). `theme.appearance` sets the default color scheme —
+`"dark"`, `"light"`, or `"system"` (follows the OS; the default).
 
 ```jsonc
 {

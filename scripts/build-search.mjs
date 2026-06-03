@@ -77,11 +77,13 @@ function docRecords(root, versionId) {
   });
 }
 
-/** Non-default content prefix ids (versions + locales) declared in docs.json. */
+/** Non-default content prefix ids (versions + locales) declared in the config. */
 function contentPrefixIds(root) {
-  const configPath = process.env.MARKLINE_CONFIG
-    ? (path.isAbsolute(process.env.MARKLINE_CONFIG) ? process.env.MARKLINE_CONFIG : path.join(process.cwd(), process.env.MARKLINE_CONFIG))
-    : path.join(root, "docs.json");
+  const env = process.env.MARKLINE_CONFIG;
+  const branded = path.join(root, "markline.json");
+  const configPath = env
+    ? (path.isAbsolute(env) ? env : path.join(process.cwd(), env))
+    : (fs.existsSync(branded) ? branded : path.join(root, "docs.json"));
   try {
     const cfg = JSON.parse(fs.readFileSync(configPath, "utf8"));
     const tail = (arr) => (Array.isArray(arr) && arr.length > 1 ? arr.slice(1).map((v) => v.id) : []);

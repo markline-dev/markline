@@ -71,14 +71,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     badge: config.topbar.badge,
   };
   const brandCss = themeCss();
+  const appearance = config.theme.appearance ?? "system";
   return (
     <html lang="en" className={`antialiased ${geist.variable} ${geistMono.variable}`} suppressHydrationWarning>
       <head>
         {brandCss && <style dangerouslySetInnerHTML={{ __html: brandCss }} />}
         <script
-          // Inline pre-paint script: applies the saved (or system) theme before the page renders to avoid FOUC.
+          // Inline pre-paint script: applies the saved theme, else the configured
+          // default appearance ("light"/"dark"), else the system preference — before
+          // paint, to avoid a flash.
           dangerouslySetInnerHTML={{
-            __html: `(function(){try{var t=localStorage.getItem('docs-theme');if(!t){t=window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light';}document.documentElement.setAttribute('data-theme',t);if(t==='dark')document.documentElement.classList.add('dark');}catch(e){}})();`,
+            __html: `(function(){try{var t=localStorage.getItem('docs-theme');if(!t){var d='${appearance}';t=(d==='dark'||d==='light')?d:(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');}document.documentElement.setAttribute('data-theme',t);if(t==='dark')document.documentElement.classList.add('dark');}catch(e){}})();`,
           }}
         />
       </head>

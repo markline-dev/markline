@@ -190,20 +190,33 @@ export function contentPrefixIds(config: MarklineConfig): string[] {
   return [...nonDefaultVersionIds(config), ...nonDefaultLocaleIds(config)];
 }
 
+/**
+ * Resolve the config file path. Honors MARKLINE_CONFIG, else prefers a branded
+ * `markline.json`, falling back to `docs.json` (Mintlify-compatible). Returns
+ * the `markline.json` path even if neither exists (so a default still boots).
+ */
+export function resolveConfigPath(): string {
+  const configured = process.env.MARKLINE_CONFIG;
+  if (configured) return path.isAbsolute(configured) ? configured : path.join(process.cwd(), configured);
+  const root = contentRoot();
+  const branded = path.join(root, "markline.json");
+  if (fs.existsSync(branded)) return branded;
+  const legacy = path.join(root, "docs.json");
+  if (fs.existsSync(legacy)) return legacy;
+  return branded;
+}
+
 let _cache: MarklineConfig | undefined;
 
 export function loadConfig(): MarklineConfig {
   if (_cache) return _cache;
-  const configured = process.env.MARKLINE_CONFIG;
-  const file = configured
-    ? (path.isAbsolute(configured) ? configured : path.join(process.cwd(), configured))
-    : path.join(contentRoot(), "docs.json");
+  const file = resolveConfigPath();
 
   let user: Partial<MarklineConfig> = {};
   try {
     user = JSON.parse(fs.readFileSync(file, "utf8")) as Partial<MarklineConfig>;
   } catch {
-    // No docs.json (or invalid) — fall back to defaults so the app still boots.
+    // No config file (or invalid) — fall back to defaults so the app still boots.
   }
   _cache = mergeConfig(DEFAULT_CONFIG, user);
   return _cache;

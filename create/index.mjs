@@ -17,7 +17,7 @@ function resolveTemplates() {
     path.join(__dirname, "templates"),
     path.join(__dirname, "..", "templates", "init"),
   ];
-  const found = candidates.find((p) => fs.existsSync(path.join(p, "docs.json")));
+  const found = candidates.find((p) => fs.existsSync(path.join(p, "markline.json")));
   if (!found) throw new Error("Markline starter templates not found.");
   return found;
 }
@@ -41,8 +41,8 @@ function main() {
   const target = arg ? path.resolve(process.cwd(), arg) : process.cwd();
   const name = path.basename(target);
 
-  if (fs.existsSync(path.join(target, "docs.json"))) {
-    console.error(`\n  ${target} already contains a docs.json — refusing to overwrite.\n`);
+  if (fs.existsSync(path.join(target, "markline.json")) || fs.existsSync(path.join(target, "docs.json"))) {
+    console.error(`\n  ${target} already contains a markline.json/docs.json — refusing to overwrite.\n`);
     process.exit(1);
   }
 

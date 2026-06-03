@@ -8,6 +8,9 @@ import {
   Card, CardGroup, Steps, Step, ParamField, ResponseField,
 } from "./authoring";
 import { Tabs, Tab, Accordion, AccordionGroup } from "./authoring-client";
+import {
+  Hero, CTAButton, FeatureGrid, Feature, CTASection, CodeShowcase,
+} from "@/components/landing/landing";
 
 function slugify(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -190,4 +193,12 @@ export const mdxComponents: MDXComponents = {
   AccordionGroup,
   ParamField,
   ResponseField,
+
+  // Landing-page components (layout: landing)
+  Hero,
+  CTAButton,
+  FeatureGrid,
+  Feature,
+  CTASection,
+  CodeShowcase,
 };

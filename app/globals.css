@@ -320,3 +320,14 @@
 }
 
 
+
+/* Landing pages (layout: landing) — drop the docs sidebar/TOC and go full-width.
+   The page renders a `.landing` wrapper; these unlayered rules win over the
+   Tailwind grid utilities on .docs-shell. */
+.docs-shell:has(.landing) {
+  display: block;
+}
+.docs-shell:has(.landing) > .docs-side,
+.docs-shell:has(.landing) > .toc {
+  display: none;
+}

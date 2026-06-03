@@ -12,6 +12,8 @@ export type DocFrontmatter = {
   toc?: TocItem[];
   last_updated?: string;
   crumbs?: { label: string; href?: string }[];
+  /** Page layout: "doc" (default, sidebar+TOC) or "landing" (full-width marketing). */
+  layout?: "doc" | "landing";
 };
 
 export type Doc = {
@@ -39,6 +41,7 @@ function readMdx(filePath: string): { fm: DocFrontmatter; body: string } {
     toc: Array.isArray(data.toc) ? data.toc as TocItem[] : undefined,
     last_updated: data.last_updated ? String(data.last_updated) : undefined,
     crumbs: Array.isArray(data.crumbs) ? data.crumbs : undefined,
+    layout: data.layout === "landing" ? "landing" : undefined,
   };
   return { fm, body: content };
 }

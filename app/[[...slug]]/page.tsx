@@ -8,6 +8,7 @@ import { DocsPage } from "@/components/docs/page";
 import { mdxComponents } from "@/components/docs/mdx";
 import { getHighlighter, shellEnhancer } from "@/lib/shiki";
 import { loadConfig } from "@/lib/config";
+import { LandingPage } from "@/components/landing/landing";
 
 // One transformer instance reused across all blocks — it's stateless.
 const shellTransformer = shellEnhancer();
@@ -49,6 +50,25 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
     ? `${config.editUrl.replace(/\/$/, "")}/${doc.sourcePath}`
     : undefined;
 
+  const content = (
+    <MDXRemote
+      source={doc.body}
+      components={mdxComponents}
+      options={{
+        mdxOptions: {
+          format: "mdx",
+          remarkPlugins: [remarkGfm],
+          rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]],
+        },
+        blockJS: false,
+      }}
+    />
+  );
+
+  if (doc.fm.layout === "landing") {
+    return <LandingPage>{content}</LandingPage>;
+  }
+
   return (
     <DocsPage
       crumbs={crumbs}
@@ -59,18 +79,7 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
       editUrl={editUrl}
       feedbackEndpoint={config.feedback?.endpoint}
     >
-      <MDXRemote
-        source={doc.body}
-        components={mdxComponents}
-        options={{
-          mdxOptions: {
-            format: "mdx",
-            remarkPlugins: [remarkGfm],
-            rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]],
-          },
-          blockJS: false,
-        }}
-      />
+      {content}
     </DocsPage>
   );
 }

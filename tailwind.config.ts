@@ -13,6 +13,10 @@ const config: Config = {
     "./app/**/*.{ts,tsx,md,mdx}",
     "./components/**/*.{ts,tsx}",
     contentGlob,
+    // The content dir is the consumer's project root — don't scan its deps/build.
+    "!**/node_modules/**",
+    "!**/.markline/**",
+    "!**/out/**",
   ],
   darkMode: ["class", '[data-theme="dark"]'],
   theme: {

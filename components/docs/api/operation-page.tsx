@@ -200,11 +200,14 @@ export function ApiOperationPage({
         className="api-side px-6 py-8 sticky self-start overflow-y-auto"
         style={{ top: 56, height: "calc(100vh - 56px)" }}
       >
-        {playgroundSpec && <Playground spec={playgroundSpec} />}
-        <RequestPanel
-          title={op.summary ?? op.operationId}
-          snippets={[{ lang: "curl", label: "cURL", code: curlSample(op, doc, root) }]}
-        />
+        {playgroundSpec ? (
+          <Playground spec={playgroundSpec} />
+        ) : (
+          <RequestPanel
+            title={op.summary ?? op.operationId}
+            snippets={[{ lang: "curl", label: "cURL", code: curlSample(op, doc, root) }]}
+          />
+        )}
         {responseTabs.length > 0 && <ResponsePanel tabs={responseTabs} />}
       </aside>
     </>

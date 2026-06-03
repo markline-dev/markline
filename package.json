@@ -1,6 +1,6 @@
 {
   "name": "@markline/markline",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Open-source, self-hostable documentation framework with first-class OpenAPI, search, and an interactive API playground.",
   "license": "MIT",
   "keywords": [
@@ -13,9 +13,16 @@
     "static-site"
   ],
   "homepage": "https://github.com/markline-dev/markline",
-  "repository": { "type": "git", "url": "https://github.com/markline-dev/markline.git" },
-  "bugs": { "url": "https://github.com/markline-dev/markline/issues" },
-  "publishConfig": { "access": "public" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/markline-dev/markline.git"
+  },
+  "bugs": {
+    "url": "https://github.com/markline-dev/markline/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "bin": {
     "markline": "bin/markline.mjs"
   },

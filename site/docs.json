@@ -6,7 +6,7 @@
     "appearance": "system"
   },
   "topbar": {
-    "links": [{ "label": "GitHub ↗", "href": "https://github.com/markline/markline" }],
+    "links": [{ "label": "GitHub ↗", "href": "https://github.com/markline-dev/markline" }],
     "cta": { "label": "Get started", "href": "/quickstart" }
   },
   "navigation": {
@@ -40,7 +40,7 @@
       }
     ]
   },
-  "editUrl": "https://github.com/markline/markline/edit/main/site",
+  "editUrl": "https://github.com/markline-dev/markline/edit/main/site",
   "seo": {
     "title": "Markline — open-source docs framework",
     "titleTemplate": "%s · Markline",

@@ -12,9 +12,9 @@
     "nextjs",
     "static-site"
   ],
-  "homepage": "https://github.com/markline/markline",
-  "repository": { "type": "git", "url": "https://github.com/markline/markline.git" },
-  "bugs": { "url": "https://github.com/markline/markline/issues" },
+  "homepage": "https://github.com/markline-dev/markline",
+  "repository": { "type": "git", "url": "https://github.com/markline-dev/markline.git" },
+  "bugs": { "url": "https://github.com/markline-dev/markline/issues" },
   "publishConfig": { "access": "public" },
   "bin": {
     "markline": "bin/markline.mjs"

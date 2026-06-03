@@ -39,6 +39,10 @@ jobs:
           echo 'markline.dev' > out/CNAME
           touch out/.nojekyll
       - uses: actions/configure-pages@v5
+        with:
+          # Create/enable the Pages site from the workflow if it isn't already,
+          # so the first deploy doesn't require toggling Settings → Pages by hand.
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: out

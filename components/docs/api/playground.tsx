@@ -352,9 +352,9 @@ export function ApiExplorer() {
       </button>
 
       {open && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45" onMouseDown={() => setOpen(false)}>
+        <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-20 pb-8 bg-black/45" onMouseDown={() => setOpen(false)}>
           <div
-            className="w-[min(1200px,96vw)] h-[min(88vh,880px)] bg-paper rounded-3 border border-slate-3 shadow-elev-2 flex flex-col overflow-hidden"
+            className="w-[min(1200px,96vw)] h-[min(84vh,840px)] max-h-[calc(100vh-7rem)] bg-paper rounded-3 border border-slate-3 shadow-elev-2 flex flex-col overflow-hidden"
             onMouseDown={(e) => e.stopPropagation()}
           >
             {/* top bar: endpoint selector · url bar · send · close */}

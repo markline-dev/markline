@@ -25,6 +25,14 @@ function sampleParam(schema?: JSONSchema): string {
 function buildPlaygroundSpec(op: OpenAPIOperation, doc: OpenAPIDoc, root: any): PlaygroundSpec {
   const cfg = loadConfig();
   const servers = [cfg.api.baseUrl, ...doc.servers.map((s) => s.url)].filter(Boolean) as string[];
+  const allSchemes = Object.values(doc.securitySchemes ?? {});
+  const schemeBearer = allSchemes.some((s) => s.type === "http" && s.scheme === "bearer");
+  const apiKeyHeaderNames = [
+    ...new Set([
+      ...op.security.filter((s) => s.scheme.type === "apiKey" && s.scheme.in === "header" && s.scheme.name).map((s) => s.scheme.name as string),
+      ...allSchemes.filter((s) => s.type === "apiKey" && s.in === "header" && s.name).map((s) => s.name as string),
+    ]),
+  ];
   const param = (p: { name: string; required?: boolean; schema?: JSONSchema; description?: string }, reqDefault: boolean) => ({
     name: p.name,
     required: p.required ?? reqDefault,
@@ -40,10 +48,10 @@ function buildPlaygroundSpec(op: OpenAPIOperation, doc: OpenAPIDoc, root: any): 
     pathParams: op.parameters.path.map((p) => param(p, true)),
     queryParams: op.parameters.query.map((p) => param(p, false)),
     headerParams: op.parameters.header.map((p) => param(p, false)),
-    bearer: op.security.some((s) => s.scheme.type === "http" && s.scheme.scheme === "bearer"),
-    apiKeyHeaders: op.security
-      .filter((s) => s.scheme.type === "apiKey" && s.scheme.in === "header" && s.scheme.name)
-      .map((s) => ({ name: s.scheme.name as string })),
+    // Offer auth whenever the spec *defines* a bearer/apiKey scheme, even if this
+    // operation under-declares its security (common in generated specs).
+    bearer: schemeBearer || op.security.some((s) => s.scheme.type === "http" && s.scheme.scheme === "bearer"),
+    apiKeyHeaders: apiKeyHeaderNames.map((name) => ({ name })),
     bodySample: op.requestBody?.schema
       ? JSON.stringify(sampleFromSchema(op.requestBody.schema, root), null, 2)
       : undefined,
@@ -127,12 +135,35 @@ export function ApiOperationPage({
 
         {extendedContent && <div className="docs-prose mb-6">{extendedContent}</div>}
 
-        {op.security.length > 0 && (
-          <Section id="authorizations" title="Authorizations">
-            {op.security.map((s) => {
-              const isBearer = s.scheme.type === "http" && s.scheme.scheme === "bearer";
-              const headerName = s.scheme.in === "header" ? s.scheme.name : undefined;
-              return (
+        {playgroundSpec ? (
+          (playgroundSpec.bearer || playgroundSpec.apiKeyHeaders.length > 0) && (
+            <Section id="authorizations" title="Authorizations">
+              {playgroundSpec.bearer && (
+                <ParamRow
+                  name="Authorization"
+                  description="Bearer authentication header of the form `Bearer <token>`."
+                  location="header"
+                  required
+                  schema={{ type: "string" }}
+                  control={showInline ? <AuthInput /> : undefined}
+                />
+              )}
+              {playgroundSpec.apiKeyHeaders.map((ak) => (
+                <ParamRow
+                  key={ak.name}
+                  name={ak.name}
+                  location="header"
+                  required
+                  schema={{ type: "string" }}
+                  control={showInline ? <ParamInput location="header" name={ak.name} /> : undefined}
+                />
+              ))}
+            </Section>
+          )
+        ) : (
+          op.security.length > 0 && (
+            <Section id="authorizations" title="Authorizations">
+              {op.security.map((s) => (
                 <ParamRow
                   key={s.name}
                   name={describeSecurityName(s)}
@@ -140,17 +171,10 @@ export function ApiOperationPage({
                   location="header"
                   required
                   schema={{ type: "string" }}
-                  control={
-                    showInline
-                      ? isBearer
-                        ? <AuthInput />
-                        : <ParamInput location="header" name={headerName ?? s.name} />
-                      : undefined
-                  }
                 />
-              );
-            })}
-          </Section>
+              ))}
+            </Section>
+          )
         )}
 
         {op.parameters.path.length > 0 && (

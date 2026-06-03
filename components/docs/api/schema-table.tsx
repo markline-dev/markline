@@ -124,7 +124,7 @@ export function SchemaTable({ schema }: { schema?: JSONSchema }) {
   return <ParamRow name="(value)" schema={schema} />;
 }
 
-function describeType(schema?: JSONSchema): string | null {
+export function describeType(schema?: JSONSchema): string | null {
   if (!schema) return null;
   if (schema.enum) return "enum";
   if (schema.type === "array") {

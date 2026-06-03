@@ -1,12 +1,16 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 
-export type PlaygroundParam = { name: string; required: boolean; sample: string; description?: string };
+export type PlaygroundParam = { name: string; required: boolean; sample: string; description?: string; type?: string };
+
+export type PlaygroundEndpoint = { method: string; label: string; href: string };
 
 export type PlaygroundSpec = {
   method: string;
   path: string;
+  summary?: string;
   servers: string[];
   pathParams: PlaygroundParam[];
   queryParams: PlaygroundParam[];
@@ -14,6 +18,11 @@ export type PlaygroundSpec = {
   bearer: boolean;
   apiKeyHeaders: { name: string }[];
   bodySample?: string;
+  /** Example responses from the spec, for the response panel's status tabs. */
+  responses?: { status: string; body: string }[];
+  /** All operations, for the endpoint switcher. */
+  endpoints?: PlaygroundEndpoint[];
+  currentHref?: string;
   proxy: "auto" | "always" | "never";
 };
 
@@ -111,7 +120,7 @@ export function PlaygroundProvider({ spec, children }: { spec: PlaygroundSpec; c
   const hasBody = body.trim() !== "" && !["get", "head"].includes(spec.method.toLowerCase());
 
   const targetUrl = useMemo(() => {
-    const p = spec.path.replace(/\{([^}]+)\}/g, (_, n) => encodeURIComponent(pathVals[n] || `{${n}}`));
+    const p = spec.path.replace(/\{([^}]+)\}/g, (_, n) => (pathVals[n] ? encodeURIComponent(pathVals[n]) : `{${n}}`));
     const qs = Object.entries(queryVals)
       .filter(([, v]) => v !== "")
       .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(v)}`)
@@ -304,6 +313,18 @@ export function ApiExplorer() {
   const { spec } = pg;
   const [open, setOpen] = useState(false);
 
+  // Re-open after an in-explorer endpoint switch (which navigates to a new page).
+  useEffect(() => {
+    try {
+      if (sessionStorage.getItem("ml-explorer-open") === "1") {
+        sessionStorage.removeItem("ml-explorer-open");
+        setOpen(true);
+      }
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
@@ -313,7 +334,6 @@ export function ApiExplorer() {
     return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = prev; };
   }, [open]);
 
-  const accent = methodColor(spec.method);
   const requiredQuery = spec.queryParams.filter((p) => p.required);
   const optionalQuery = spec.queryParams.filter((p) => !p.required);
 
@@ -334,25 +354,25 @@ export function ApiExplorer() {
       {open && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45" onMouseDown={() => setOpen(false)}>
           <div
-            className="w-[min(980px,94vw)] h-[min(82vh,780px)] bg-paper rounded-3 border border-slate-3 shadow-elev-2 flex flex-col overflow-hidden"
+            className="w-[min(1200px,96vw)] h-[min(88vh,880px)] bg-paper rounded-3 border border-slate-3 shadow-elev-2 flex flex-col overflow-hidden"
             onMouseDown={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center gap-3 px-4 h-14 border-b border-slate-3 bg-paper-2 shrink-0">
-              <span className="text-13 font-semibold text-ink">API Explorer</span>
-              <span className="font-mono text-10 font-bold uppercase tracking-[0.04em] px-1.5 py-1 rounded-1 text-white" style={{ background: accent }}>{spec.method}</span>
-              <span className="font-mono text-12 text-slate-6 truncate flex-1 min-w-0">{highlightPath(spec.path)}</span>
-              <button type="button" onClick={pg.send} disabled={pg.loading} className="btn btn-primary btn-sm disabled:opacity-60">
-                {pg.loading ? "Running…" : "Run request"}
+            {/* top bar: endpoint selector · url bar · send · close */}
+            <div className="flex items-center gap-3 px-3 h-16 border-b border-slate-3 bg-paper-2 shrink-0">
+              <EndpointSelector spec={spec} />
+              <UrlBar method={spec.method} path={spec.path} />
+              <button type="button" onClick={pg.send} disabled={pg.loading} className="btn btn-primary btn-sm disabled:opacity-60 shrink-0 inline-flex items-center gap-1.5">
+                {pg.loading ? "Running…" : <>Send <svg width={11} height={11} viewBox="0 0 16 16" fill="currentColor" aria-hidden><path d="M3 2.5 13.5 8 3 13.5 5 8 3 2.5Z" /></svg></>}
               </button>
-              <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="w-8 h-8 inline-flex items-center justify-center rounded-1 text-slate-6 hover:bg-slate-2">
+              <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="shrink-0 w-8 h-8 inline-flex items-center justify-center rounded-1 text-slate-6 hover:bg-slate-2">
                 <svg width={16} height={16} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.6} aria-hidden><path d="m4 4 8 8M12 4l-8 8" strokeLinecap="round" /></svg>
               </button>
             </div>
 
             <div className="flex-1 flex min-h-0 explorer-body">
-              <style>{`@media (max-width: 760px){ .explorer-body{ flex-direction:column } .explorer-body > div{ width:100% !important } }`}</style>
+              <style>{`@media (max-width: 820px){ .explorer-body{ flex-direction:column } .explorer-body > div{ width:100% !important } }`}</style>
               {/* request builder */}
-              <div className="w-1/2 overflow-y-auto border-r border-slate-3">
+              <div className="w-[54%] overflow-y-auto px-5 py-4">
                 <ExplorerField label="Server">
                   {spec.servers.length > 1 ? (
                     <select value={pg.baseUrl} onChange={(e) => pg.setBaseUrl(e.target.value)} className={inputCls}>
@@ -365,51 +385,50 @@ export function ApiExplorer() {
 
                 {(spec.bearer || spec.apiKeyHeaders.length > 0) && (
                   <ExplorerSection title="Authorization">
-                    {spec.bearer && <ExplorerRow name="Bearer token" required><AuthInput /></ExplorerRow>}
+                    {spec.bearer && <ExplorerRow name="Authorization" type="string<bearer>" required><AuthInput /></ExplorerRow>}
                     {spec.apiKeyHeaders.map((ak) => (
-                      <ExplorerRow key={ak.name} name={ak.name} required><ParamInput location="header" name={ak.name} /></ExplorerRow>
+                      <ExplorerRow key={ak.name} name={ak.name} type="string" required><ParamInput location="header" name={ak.name} /></ExplorerRow>
                     ))}
                   </ExplorerSection>
                 )}
                 {spec.pathParams.length > 0 && (
                   <ExplorerSection title="Path">
                     {spec.pathParams.map((p) => (
-                      <ExplorerRow key={p.name} name={p.name} required={p.required}><ParamInput location="path" name={p.name} sample={p.sample} /></ExplorerRow>
+                      <ExplorerRow key={p.name} name={p.name} type={p.type} required={p.required} description={p.description}><ParamInput location="path" name={p.name} sample={p.sample} /></ExplorerRow>
                     ))}
                   </ExplorerSection>
                 )}
                 {spec.queryParams.length > 0 && (
                   <ExplorerSection title="Query">
                     {requiredQuery.map((p) => (
-                      <ExplorerRow key={p.name} name={p.name} required><ParamInput location="query" name={p.name} sample={p.sample} /></ExplorerRow>
+                      <ExplorerRow key={p.name} name={p.name} type={p.type} required description={p.description}><ParamInput location="query" name={p.name} sample={p.sample} /></ExplorerRow>
                     ))}
                     {optionalQuery.map((p) => (
-                      <ExplorerRow key={p.name} name={p.name}><ParamInput location="query" name={p.name} sample={p.sample} /></ExplorerRow>
+                      <ExplorerRow key={p.name} name={p.name} type={p.type} description={p.description}><ParamInput location="query" name={p.name} sample={p.sample} /></ExplorerRow>
                     ))}
                   </ExplorerSection>
                 )}
                 {spec.headerParams.length > 0 && (
                   <ExplorerSection title="Headers">
                     {spec.headerParams.map((p) => (
-                      <ExplorerRow key={p.name} name={p.name} required={p.required}><ParamInput location="header" name={p.name} sample={p.sample} /></ExplorerRow>
+                      <ExplorerRow key={p.name} name={p.name} type={p.type} required={p.required} description={p.description}><ParamInput location="header" name={p.name} sample={p.sample} /></ExplorerRow>
                     ))}
                   </ExplorerSection>
                 )}
                 {spec.bodySample !== undefined && (
-                  <ExplorerSection title="Body">
+                  <ExplorerSection title="Body" defaultOpen>
                     <BodyEditor />
                   </ExplorerSection>
                 )}
               </div>
 
               {/* code + response */}
-              <div className="w-1/2 overflow-y-auto flex flex-col" style={{ background: "rgb(var(--c-panel-bg))" }}>
-                <CodePreview code={pg.curl} />
-                {pg.response || pg.error ? (
-                  <ResponseBlock response={pg.response} error={pg.error} />
-                ) : (
-                  <p className="px-3 py-4 text-12" style={{ color: "rgb(var(--c-panel-muted))" }}>Run the request to see the response.</p>
-                )}
+              <div className="w-[46%] overflow-y-auto p-4 flex flex-col gap-4 border-l border-slate-3" style={{ background: "rgb(var(--c-panel-bg))" }}>
+                <Panel title={spec.summary ?? "Request"}>
+                  <CodeHeader code={pg.curl} />
+                  <pre className="m-0 px-4 py-3 overflow-x-auto text-12 leading-[1.6] font-mono" style={{ color: "rgb(var(--c-panel-fg))" }} dangerouslySetInnerHTML={{ __html: colorizeCurl(pg.curl) }} />
+                </Panel>
+                <ResponseTabs responses={spec.responses} live={pg.response} error={pg.error} />
               </div>
             </div>
           </div>
@@ -419,30 +438,191 @@ export function ApiExplorer() {
   );
 }
 
+function MethodTag({ method, small }: { method: string; small?: boolean }) {
+  return (
+    <span
+      className={`font-mono font-bold uppercase tracking-[0.03em] rounded-1 text-white shrink-0 ${small ? "text-9 px-1 py-0.5" : "text-10 px-1.5 py-1"}`}
+      style={{ background: methodColor(method) }}
+    >
+      {method}
+    </span>
+  );
+}
+
+function EndpointSelector({ spec }: { spec: PlaygroundSpec }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const endpoints = spec.endpoints ?? [];
+  const filtered = endpoints.filter((e) => e.label.toLowerCase().includes(q.toLowerCase()));
+  const go = (href: string) => {
+    try { sessionStorage.setItem("ml-explorer-open", "1"); } catch { /* ignore */ }
+    setOpen(false);
+    router.push(href);
+  };
+  if (endpoints.length === 0) {
+    return (
+      <div className="flex items-center gap-2 h-9 px-2.5 shrink-0">
+        <MethodTag method={spec.method} />
+        <span className="text-13 font-medium text-ink truncate max-w-[200px]">{spec.summary}</span>
+      </div>
+    );
+  }
+  return (
+    <div className="relative shrink-0">
+      <button type="button" onClick={() => setOpen((o) => !o)} className="flex items-center gap-2 h-9 px-2.5 rounded-2 border border-slate-3 bg-paper hover:border-slate-4 min-w-[220px] max-w-[300px]">
+        <MethodTag method={spec.method} />
+        <span className="text-13 font-medium text-ink truncate flex-1 text-left">{spec.summary}</span>
+        <svg width={12} height={12} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.6} className="text-slate-5" aria-hidden><path d="m4 6 4 4 4-4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+      </button>
+      {open && (
+        <div className="absolute left-0 top-full mt-1.5 w-[340px] max-h-[420px] bg-paper border border-slate-3 rounded-2 shadow-elev-2 z-10 flex flex-col overflow-hidden" onMouseDown={(e) => e.stopPropagation()}>
+          <div className="p-2 border-b border-slate-3">
+            <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search for endpoint…" className="w-full h-8 px-2.5 bg-paper-2 border border-slate-3 rounded-1 text-13 text-ink placeholder:text-slate-5 focus:outline-none focus:border-brand" />
+          </div>
+          <div className="overflow-y-auto py-1">
+            {filtered.map((e) => {
+              const active = e.href === spec.currentHref;
+              return (
+                <button key={e.href} type="button" onClick={() => go(e.href)} className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-left ${active ? "bg-slate-2" : "hover:bg-slate-2"}`}>
+                  <MethodTag method={e.method} />
+                  <span className={`text-13 truncate ${active ? "text-brand font-medium" : "text-slate-7"}`}>{e.label}</span>
+                </button>
+              );
+            })}
+            {filtered.length === 0 && <p className="px-3 py-3 text-12 text-slate-5">No endpoints match.</p>}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function UrlBar({ method, path }: { method: string; path: string }) {
+  const segs = path.split("/").filter(Boolean);
+  return (
+    <div className="flex items-center gap-2 h-9 px-2.5 rounded-2 border border-slate-3 bg-paper flex-1 min-w-0 overflow-x-auto">
+      <MethodTag method={method} />
+      <span className="font-mono text-12 flex items-center whitespace-nowrap">
+        {segs.map((s, i) => (
+          <span key={i} className="flex items-center">
+            <span className="text-slate-4 px-1">/</span>
+            {s.startsWith("{") ? (
+              <span className="px-1.5 py-0.5 rounded-1 text-brand font-medium" style={{ background: "color-mix(in oklab, rgb(var(--c-brand)) 16%, transparent)" }}>{s}</span>
+            ) : (
+              <span className="text-slate-7">{s}</span>
+            )}
+          </span>
+        ))}
+      </span>
+    </div>
+  );
+}
+
 function ExplorerField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="flex flex-col gap-1 px-4 py-3 border-b border-slate-3">
+    <label className="flex flex-col gap-1 pb-4 mb-2 border-b border-slate-3">
       <span className="font-mono text-10 uppercase tracking-[0.06em] text-slate-5">{label}</span>
       {children}
     </label>
   );
 }
 
-function ExplorerSection({ title, children }: { title: string; children: React.ReactNode }) {
+function ExplorerSection({ title, defaultOpen = true, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border-b border-slate-3">
-      <div className="px-4 pt-3 pb-1 text-12 font-semibold text-ink">{title}</div>
-      <div className="flex flex-col gap-3 px-4 pb-3">{children}</div>
+    <div className="border-b border-slate-3 last:border-0">
+      <button type="button" onClick={() => setOpen((o) => !o)} className="w-full flex items-center gap-2 py-3 text-left">
+        <svg width={11} height={11} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.8} className={`text-slate-5 transition-transform ${open ? "rotate-90" : ""}`} aria-hidden><path d="m6 4 4 4-4 4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        <span className="text-13 font-semibold text-ink">{title}</span>
+      </button>
+      {open && <div className="pb-2">{children}</div>}
     </div>
   );
 }
 
-function ExplorerRow({ name, required, children }: { name: string; required?: boolean; children: React.ReactNode }) {
+function ExplorerRow({ name, type, required, description, children }: { name: string; type?: string; required?: boolean; description?: string; children: React.ReactNode }) {
   return (
-    <label className="flex flex-col gap-1">
-      <span className="font-mono text-11 text-slate-7">{name}{required && <span className="text-[#E14F4F]"> *</span>}</span>
+    <div className="flex gap-5 items-start py-3 border-t border-slate-3 first:border-t-0 explorer-row">
+      <style>{`@media (max-width: 560px){ .explorer-row{ flex-direction:column } .explorer-row > .er-input{ width:100% !important } }`}</style>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 flex-wrap">
+          <code className="font-mono text-12 font-medium text-ink">{name}</code>
+          {type && <span className="font-mono text-11 text-slate-5">{type}</span>}
+          {required && <span className="font-mono text-10 uppercase tracking-[0.04em] text-[#E14F4F]">required</span>}
+        </div>
+        {description && <p className="text-12 text-slate-6 leading-[1.5] mt-1.5">{description}</p>}
+      </div>
+      <div className="er-input w-[44%] shrink-0 pt-0.5">{children}</div>
+    </div>
+  );
+}
+
+function Panel({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-2 overflow-hidden border" style={{ borderColor: "rgb(var(--c-panel-border))", background: "rgb(var(--c-panel-bg))" }}>
+      <div className="px-4 py-2.5 border-b text-12 font-semibold" style={{ borderColor: "rgb(var(--c-panel-border))", color: "rgb(var(--c-panel-fg))" }}>{title}</div>
       {children}
-    </label>
+    </div>
+  );
+}
+
+function CodeHeader({ code }: { code: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <div className="flex items-center px-4 py-2 border-b" style={{ borderColor: "rgb(var(--c-panel-border))" }}>
+      <span className="font-mono text-10 uppercase tracking-[0.08em]" style={{ color: "rgb(var(--c-panel-muted))" }}>cURL</span>
+      <button type="button" onClick={() => { navigator.clipboard?.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 1200); }} className="ml-auto font-mono text-10" style={{ color: "rgb(var(--c-panel-muted))" }}>{copied ? "copied" : "copy"}</button>
+    </div>
+  );
+}
+
+function ResponseTabs({ responses, live, error }: { responses?: { status: string; body: string }[]; live: ResponseState; error: string | null }) {
+  const [active, setActive] = useState(0);
+  const [copied, setCopied] = useState(false);
+  const tabs = responses ?? [];
+  const liveMode = !!(live || error);
+  const statuses = liveMode ? [live ? String(live.status) : "ERR"] : tabs.map((t) => t.status);
+  const bodyText = liveMode ? (error ?? live?.body ?? "") : (tabs[active]?.body ?? "");
+  const copy = () => { navigator.clipboard?.writeText(bodyText); setCopied(true); setTimeout(() => setCopied(false), 1200); };
+  if (!liveMode && tabs.length === 0) return null;
+  return (
+    <div className="rounded-2 overflow-hidden border" style={{ borderColor: "rgb(var(--c-panel-border))", background: "rgb(var(--c-panel-bg))" }}>
+      <div className="flex items-center gap-4 px-4 border-b" style={{ borderColor: "rgb(var(--c-panel-border))" }}>
+        {statuses.map((s, i) => {
+          const isActive = liveMode || i === active;
+          return (
+            <button key={s + i} type="button" onClick={() => !liveMode && setActive(i)} className="py-2.5 -mb-px border-b-2 font-mono text-12 font-medium" style={{ borderColor: isActive ? statusColor(s) : "transparent", color: isActive ? statusColor(s) : "rgb(var(--c-panel-muted))" }}>
+              {s}
+            </button>
+          );
+        })}
+        {live && <span className="ml-2 font-mono text-11" style={{ color: "rgb(var(--c-panel-muted))" }}>{live.durationMs}ms · {live.via}</span>}
+        <button type="button" onClick={copy} className="ml-auto font-mono text-10" style={{ color: "rgb(var(--c-panel-muted))" }}>{copied ? "copied" : "copy"}</button>
+      </div>
+      {error ? (
+        <p className="px-4 py-3 text-12 text-[#E14F4F] leading-[1.5]">{error}</p>
+      ) : (
+        <pre className="m-0 px-4 py-3 overflow-auto text-12 leading-[1.6] font-mono max-h-[50vh]" style={{ color: "rgb(var(--c-panel-fg))" }} dangerouslySetInnerHTML={{ __html: colorizeJson(bodyText || "(empty response)") }} />
+      )}
+    </div>
+  );
+}
+
+function statusColor(s: string) {
+  return s.startsWith("2") ? "#3CC88C" : s.startsWith("4") ? "#EE7A4B" : s.startsWith("5") ? "#E14F4F" : "#7882A0";
+}
+
+function colorizeJson(s: string): string {
+  const esc = s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return esc.replace(
+    /("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g,
+    (m, str, colon, kw, num) => {
+      if (str) return colon ? `<span style="color:#9CDCFE">${str}</span>${colon}` : `<span style="color:#3CC88C">${str}</span>`;
+      if (kw) return `<span style="color:#C792EA">${kw}</span>`;
+      if (num) return `<span style="color:#E8951F">${num}</span>`;
+      return m;
+    },
   );
 }
 

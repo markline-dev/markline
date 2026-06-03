@@ -1,10 +1,10 @@
 import type { OpenAPIDoc, OpenAPIOperation, JSONSchema } from "@/lib/openapi";
-import { resolveSchema, sampleFromSchema } from "@/lib/openapi";
+import { resolveSchema, sampleFromSchema, operationHref } from "@/lib/openapi";
 import { curlSample, responseSampleJson } from "@/lib/openapi-samples";
 import { loadConfig, playgroundMode } from "@/lib/config";
 import { MethodBadge } from "./method-badge";
 import { EndpointPath } from "./endpoint-path";
-import { SchemaTable, ParamRow } from "./schema-table";
+import { SchemaTable, ParamRow, describeType } from "./schema-table";
 import { RequestPanel, ResponsePanel } from "./code-panel";
 import {
   PlaygroundProvider, RequestConsole, ParamInput, AuthInput, BodyEditor,
@@ -25,28 +25,21 @@ function sampleParam(schema?: JSONSchema): string {
 function buildPlaygroundSpec(op: OpenAPIOperation, doc: OpenAPIDoc, root: any): PlaygroundSpec {
   const cfg = loadConfig();
   const servers = [cfg.api.baseUrl, ...doc.servers.map((s) => s.url)].filter(Boolean) as string[];
+  const param = (p: { name: string; required?: boolean; schema?: JSONSchema; description?: string }, reqDefault: boolean) => ({
+    name: p.name,
+    required: p.required ?? reqDefault,
+    sample: sampleParam(p.schema),
+    description: p.description,
+    type: describeType(p.schema) ?? undefined,
+  });
   return {
     method: op.method,
     path: op.path,
+    summary: op.summary,
     servers,
-    pathParams: op.parameters.path.map((p) => ({
-      name: p.name,
-      required: p.required ?? true,
-      sample: sampleParam(p.schema),
-      description: p.description,
-    })),
-    queryParams: op.parameters.query.map((p) => ({
-      name: p.name,
-      required: p.required ?? false,
-      sample: sampleParam(p.schema),
-      description: p.description,
-    })),
-    headerParams: op.parameters.header.map((p) => ({
-      name: p.name,
-      required: p.required ?? false,
-      sample: sampleParam(p.schema),
-      description: p.description,
-    })),
+    pathParams: op.parameters.path.map((p) => param(p, true)),
+    queryParams: op.parameters.query.map((p) => param(p, false)),
+    headerParams: op.parameters.header.map((p) => param(p, false)),
     bearer: op.security.some((s) => s.scheme.type === "http" && s.scheme.scheme === "bearer"),
     apiKeyHeaders: op.security
       .filter((s) => s.scheme.type === "apiKey" && s.scheme.in === "header" && s.scheme.name)
@@ -54,6 +47,18 @@ function buildPlaygroundSpec(op: OpenAPIOperation, doc: OpenAPIDoc, root: any): 
     bodySample: op.requestBody?.schema
       ? JSON.stringify(sampleFromSchema(op.requestBody.schema, root), null, 2)
       : undefined,
+    responses: op.responses.map((r) => ({
+      status: r.status,
+      body: r.example
+        ? JSON.stringify(r.example, null, 2)
+        : r.schema
+          ? responseSampleJson(resolveSchema(r.schema, root), root)
+          : "",
+    })),
+    endpoints: doc.tags.flatMap((t) =>
+      t.operations.map((o) => ({ method: o.method, label: o.summary ?? o.operationId, href: operationHref(o) })),
+    ),
+    currentHref: operationHref(op),
     proxy: cfg.api.playground?.proxy ?? "auto",
   };
 }

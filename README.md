@@ -105,7 +105,7 @@ Mintlify-style projects). `theme.appearance` sets the default color scheme —
   },
   "api": {
     "baseUrl": "https://api.example.com",
-    "playground": { "enabled": true, "proxy": "auto" }
+    "playground": { "mode": "full", "proxy": "auto" }
   },
   "editUrl": "https://github.com/me/repo/edit/main",
   "analytics": { "plausible": { "domain": "docs.example.com" } },
@@ -114,6 +114,10 @@ Mintlify-style projects). `theme.appearance` sets the default color scheme —
 }
 ```
 
+- **`api.playground.mode`** — the "Try it" experience: `"full"` (inline param
+  inputs + live console + API Explorer modal), `"inline"` (Mintlify-style, no
+  modal), `"explorer"` (read-only docs + console + Explorer modal, Stripe-style),
+  or `"off"` (static cURL panel).
 - **`editUrl`** — adds an "Edit this page" link; the page's content-relative path
   is appended (e.g. `docs/quickstart.mdx`).
 - **`analytics`** — opt-in `plausible`, `googleAnalytics` (`measurementId`), or

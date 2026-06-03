@@ -243,7 +243,7 @@ export function BodyEditor() {
 
 /* ── Rail request console (Send + live cURL + response) ── */
 
-export function RequestConsole() {
+export function RequestConsole({ explorer = true }: { explorer?: boolean }) {
   const { spec, baseUrl, setBaseUrl, send, loading, response, error, curl } = usePlayground();
   const accent = methodColor(spec.method);
   return (
@@ -253,7 +253,7 @@ export function RequestConsole() {
           {spec.method}
         </span>
         <span className="font-mono text-12 text-slate-7 truncate flex-1 min-w-0">{highlightPath(spec.path)}</span>
-        <ApiExplorer />
+        {explorer && <ApiExplorer />}
         <button type="button" onClick={send} disabled={loading} className="btn btn-primary btn-sm disabled:opacity-60 shrink-0">
           {loading ? "Sending…" : "Send"}
         </button>

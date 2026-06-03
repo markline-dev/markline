@@ -90,6 +90,15 @@ export type ApiConfig = {
   /** Base URL the interactive playground sends requests to (overrides the spec's servers). */
   baseUrl?: string;
   playground?: {
+    /**
+     * Which "Try it" surfaces to render:
+     * - "full"     (default): inline param inputs + rail console + API Explorer modal.
+     * - "inline"   : inline param inputs + rail console (no modal) — Mintlify-style.
+     * - "explorer" : read-only docs + rail console + API Explorer modal — Stripe-style.
+     * - "off"      : a static cURL code panel, no interactivity.
+     */
+    mode?: "full" | "inline" | "explorer" | "off";
+    /** Deprecated alias: `enabled: false` === `mode: "off"`. */
     enabled?: boolean;
     /**
      * How the playground reaches the API:
@@ -100,6 +109,14 @@ export type ApiConfig = {
     proxy?: "auto" | "always" | "never";
   };
 };
+
+/** Resolve the effective playground mode (honors the deprecated `enabled` flag). */
+export function playgroundMode(api: ApiConfig): "full" | "inline" | "explorer" | "off" {
+  const pg = api.playground;
+  if (pg?.mode) return pg.mode;
+  if (pg?.enabled === false) return "off";
+  return "full";
+}
 
 export type AnalyticsConfig = {
   plausible?: { domain: string; src?: string };

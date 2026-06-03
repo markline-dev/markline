@@ -1,7 +1,7 @@
 import type { OpenAPIDoc, OpenAPIOperation, JSONSchema } from "@/lib/openapi";
 import { resolveSchema, sampleFromSchema } from "@/lib/openapi";
 import { curlSample, responseSampleJson } from "@/lib/openapi-samples";
-import { loadConfig } from "@/lib/config";
+import { loadConfig, playgroundMode } from "@/lib/config";
 import { MethodBadge } from "./method-badge";
 import { EndpointPath } from "./endpoint-path";
 import { SchemaTable, ParamRow } from "./schema-table";
@@ -76,9 +76,11 @@ export function ApiOperationPage({
 }) {
   const reqSchema = op.requestBody?.schema ? resolveSchema(op.requestBody.schema, root) : undefined;
   const cfg = loadConfig();
-  const playgroundEnabled = cfg.api.playground?.enabled !== false;
-  const playgroundSpec = playgroundEnabled ? buildPlaygroundSpec(op, doc, root) : null;
-  const interactive = !!playgroundSpec; // inline inputs in the param docs
+  const mode = playgroundMode(cfg.api);
+  const playgroundSpec = mode !== "off" ? buildPlaygroundSpec(op, doc, root) : null;
+  const interactive = !!playgroundSpec;
+  const showInline = mode === "full" || mode === "inline"; // editable inputs in the param docs
+  const showExplorer = mode === "full" || mode === "explorer"; // the API Explorer modal
 
   const responseTabs = op.responses.map((r) => ({
     status: r.status,
@@ -134,7 +136,7 @@ export function ApiOperationPage({
                   required
                   schema={{ type: "string" }}
                   control={
-                    interactive
+                    showInline
                       ? isBearer
                         ? <AuthInput />
                         : <ParamInput location="header" name={headerName ?? s.name} />
@@ -155,7 +157,7 @@ export function ApiOperationPage({
                 schema={p.schema}
                 required={p.required ?? true}
                 description={p.description}
-                control={interactive ? <ParamInput location="path" name={p.name} sample={sampleParam(p.schema)} /> : undefined}
+                control={showInline ? <ParamInput location="path" name={p.name} sample={sampleParam(p.schema)} /> : undefined}
               />
             ))}
           </Section>
@@ -170,7 +172,7 @@ export function ApiOperationPage({
                 schema={p.schema}
                 required={p.required}
                 description={p.description}
-                control={interactive ? <ParamInput location="query" name={p.name} sample={sampleParam(p.schema)} /> : undefined}
+                control={showInline ? <ParamInput location="query" name={p.name} sample={sampleParam(p.schema)} /> : undefined}
               />
             ))}
           </Section>
@@ -185,7 +187,7 @@ export function ApiOperationPage({
                 schema={p.schema}
                 required={p.required}
                 description={p.description}
-                control={interactive ? <ParamInput location="header" name={p.name} sample={sampleParam(p.schema)} /> : undefined}
+                control={showInline ? <ParamInput location="header" name={p.name} sample={sampleParam(p.schema)} /> : undefined}
               />
             ))}
           </Section>
@@ -194,7 +196,7 @@ export function ApiOperationPage({
         {reqSchema && (
           <Section id="body" title="Body">
             <p className="font-mono text-11 text-slate-5 mb-1">application/json</p>
-            {interactive && <BodyEditor />}
+            {showInline && <BodyEditor />}
             <SchemaTable schema={reqSchema} />
           </Section>
         )}
@@ -220,7 +222,7 @@ export function ApiOperationPage({
         style={{ top: 56, height: "calc(100vh - 56px)" }}
       >
         {interactive ? (
-          <RequestConsole />
+          <RequestConsole explorer={showExplorer} />
         ) : (
           <RequestPanel
             title={op.summary ?? op.operationId}

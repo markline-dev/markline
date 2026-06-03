@@ -65,6 +65,7 @@ const config: Config = {
         brand:      "rgb(var(--c-brand) / <alpha-value>)",
         "brand-deep":"rgb(var(--c-brand-deep) / <alpha-value>)",
         "brand-mute":"rgb(var(--c-brand-mute) / <alpha-value>)",
+        "on-brand":  "rgb(var(--c-on-brand) / <alpha-value>)",
 
         ink:       "rgb(var(--c-ink) / <alpha-value>)",
         "ink-soft":"rgb(var(--c-ink-soft) / <alpha-value>)",

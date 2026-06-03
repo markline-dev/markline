@@ -33,7 +33,7 @@ export function Path({
   return (
     <Link href={href}
           className="group flex flex-col gap-2 p-5 border border-slate-3 rounded-3 bg-paper-2 no-underline text-ink hover:border-brand transition-colors">
-      <span className="w-[26px] h-[26px] rounded-1 bg-brand text-white flex items-center justify-center font-mono font-semibold text-13">
+      <span className="w-[26px] h-[26px] rounded-1 bg-brand text-on-brand flex items-center justify-center font-mono font-semibold text-13">
         {num}
       </span>
       <h3 className="text-16 font-semibold m-0">{title}</h3>
@@ -71,8 +71,8 @@ export function ApiRefs({ items }: { items: { verb: Verb; ep: string; desc?: str
 export function MigrationCallout({ children }: { children?: React.ReactNode }) {
   return (
     <div className="my-6 flex items-start gap-3.5 px-5 py-4 rounded-3 border border-brand"
-         style={{ background: "color-mix(in oklab, #3E59F3 12%, #F6F7FA)" }}>
-      <span className="font-mono font-bold text-12 w-[22px] h-[22px] rounded-full bg-brand text-white flex items-center justify-center flex-shrink-0">↗</span>
+         style={{ background: "color-mix(in oklab, rgb(var(--c-brand)) 12%, rgb(var(--c-paper-2)))" }}>
+      <span className="font-mono font-bold text-12 w-[22px] h-[22px] rounded-full bg-brand text-on-brand flex items-center justify-center flex-shrink-0">↗</span>
       <div>
         <strong className="text-ink">Migrating from OpenAI?</strong>
         <div className="text-14 text-slate-6 leading-[1.55] mt-0.5">{children}</div>

@@ -46,7 +46,7 @@ export function CTAButton({
   const sizes = size === "lg" ? "h-12 px-6 text-15" : "h-10 px-4 text-14";
   const variants =
     variant === "primary"
-      ? "bg-brand text-white hover:opacity-90"
+      ? "bg-brand text-on-brand hover:opacity-90"
       : variant === "secondary"
         ? "border border-slate-4 text-ink hover:border-slate-6 bg-paper"
         : "text-brand hover:underline";

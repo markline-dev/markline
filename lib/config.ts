@@ -11,11 +11,24 @@ import { contentRoot } from "./paths";
  */
 
 export type ThemeConfig = {
-  /** Logo image paths (served from /public) or a text wordmark fallback. */
-  logo?: { light?: string; dark?: string; text?: string };
+  /**
+   * Logo: a small `icon` (shown next to the name) and/or a `text` wordmark, or
+   * full `light`/`dark` images. Image paths are served from /public.
+   */
+  logo?: { light?: string; dark?: string; text?: string; icon?: string };
   /** Brand accent as hex; `primaryDark` is used on dark surfaces. */
   colors?: { primary?: string; primaryDark?: string };
   appearance?: "light" | "dark" | "system";
+  /** Favicon path (served from /public). */
+  favicon?: string;
+  /** Font family overrides (the font must be system-available or self-loaded). */
+  font?: { sans?: string; mono?: string };
+  /**
+   * Raw CSS custom-property overrides for full palette theming — keyed by var
+   * name (e.g. "--c-paper") to a value (RGB triple "247 246 241" for color
+   * tokens). Applied to `:root` (light) and the dark selector respectively.
+   */
+  cssVariables?: { light?: Record<string, string>; dark?: Record<string, string> };
 };
 
 export type NavLink = {

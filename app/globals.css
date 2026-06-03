@@ -9,6 +9,7 @@
   --c-brand:       62 89 243;
   --c-brand-deep:  26 54 217;
   --c-brand-mute: 208 221 252;
+  --c-on-brand:   255 255 255;  /* text/icon color on brand-colored surfaces */
 
   /* Text */
   --c-ink:       14 20 27;     /* #0E141B */
@@ -296,12 +297,12 @@
 
   .btn-primary {
     background: rgb(var(--c-brand));
-    color: #FFFFFF;
+    color: rgb(var(--c-on-brand));
   }
   .btn-primary:hover {
     background: rgb(var(--c-brand-deep));
     text-decoration: none;
-    color: #FFFFFF;
+    color: rgb(var(--c-on-brand));
   }
 
   .btn-ghost {

@@ -81,7 +81,7 @@ export function Callout({
   title?: string;
   children: React.ReactNode;
 }) {
-  const accent = tone === "warn" ? "#EE7A4B" : "#3E59F3";
+  const accent = tone === "warn" ? "#EE7A4B" : "rgb(var(--c-brand))";
   return (
     <div className="my-5 flex gap-3 p-4 rounded-2 border border-slate-3 bg-paper-2">
       <div className="w-1.5 rounded-full flex-shrink-0" style={{ background: accent }} />

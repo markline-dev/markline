@@ -50,6 +50,12 @@ function syncApp() {
     fs.rmSync(dest, { recursive: true, force: true });
     fs.cpSync(src, dest, { recursive: true });
   }
+  // Serve the consumer's own static assets (logo, favicon, images) from /public.
+  const pub = path.join(CONTENT_DIR, "public");
+  if (fs.existsSync(pub)) {
+    fs.cpSync(pub, path.join(WORK_DIR, "public"), { recursive: true });
+  }
+
   const nm = path.join(WORK_DIR, "node_modules");
   const deps = path.join(CONTENT_DIR, "node_modules");
   if (!fs.existsSync(nm) && fs.existsSync(deps)) {

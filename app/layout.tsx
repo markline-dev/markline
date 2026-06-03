@@ -17,6 +17,7 @@ export const metadata: Metadata = {
     ? { default: config.seo.title, template: config.seo.titleTemplate ?? `%s · ${config.name}` }
     : config.name,
   description: config.seo.description,
+  ...(config.theme.favicon ? { icons: { icon: config.theme.favicon } } : {}),
   openGraph: {
     type: "website",
     siteName: config.seo.siteName ?? config.name,
@@ -25,15 +26,32 @@ export const metadata: Metadata = {
   twitter: { card: "summary_large_image" },
 };
 
-/** CSS that overrides the brand accent from config (doubled :root specificity to win over globals.css). */
-function brandColorCss(): string | null {
-  const primary = config.theme.colors?.primary ? hexToRgbTriple(config.theme.colors.primary) : null;
-  const primaryDark = config.theme.colors?.primaryDark ? hexToRgbTriple(config.theme.colors.primaryDark) : null;
-  if (!primary && !primaryDark) return null;
-  const rules: string[] = [];
-  if (primary) rules.push(`:root:root{--c-brand:${primary};--c-brand-deep:${primaryDark ?? primary};}`);
-  if (primaryDark) rules.push(`:root.dark,:root[data-theme="dark"]{--c-brand:${primaryDark};}`);
-  return rules.join("");
+/**
+ * Theme CSS from config: brand accent, font families, and arbitrary CSS-var
+ * overrides (full palette). Doubled :root specificity wins over globals.css.
+ */
+function themeCss(): string | null {
+  const t = config.theme;
+  const light: string[] = [];
+  const dark: string[] = [];
+
+  const primary = t.colors?.primary ? hexToRgbTriple(t.colors.primary) : null;
+  const primaryDark = t.colors?.primaryDark ? hexToRgbTriple(t.colors.primaryDark) : null;
+  if (primary) {
+    light.push(`--c-brand:${primary}`, `--c-brand-deep:${primaryDark ?? primary}`);
+  }
+  if (primaryDark) dark.push(`--c-brand:${primaryDark}`);
+
+  if (t.font?.sans) light.push(`--font-geist:${t.font.sans}`);
+  if (t.font?.mono) light.push(`--font-geist-mono:${t.font.mono}`);
+
+  for (const [k, v] of Object.entries(t.cssVariables?.light ?? {})) light.push(`${k}:${v}`);
+  for (const [k, v] of Object.entries(t.cssVariables?.dark ?? {})) dark.push(`${k}:${v}`);
+
+  const out: string[] = [];
+  if (light.length) out.push(`:root:root{${light.join(";")}}`);
+  if (dark.length) out.push(`:root.dark,:root[data-theme="dark"]{${dark.join(";")}}`);
+  return out.length ? out.join("") : null;
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -44,7 +62,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     links: config.topbar.links,
     cta: config.topbar.cta,
   };
-  const brandCss = brandColorCss();
+  const brandCss = themeCss();
   return (
     <html lang="en" className={`antialiased ${geist.variable} ${geistMono.variable}`} suppressHydrationWarning>
       <head>

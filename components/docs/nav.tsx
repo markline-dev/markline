@@ -36,13 +36,24 @@ function variantHome(nav: NavData, id: string): string {
 
 export type Brand = {
   name: string;
-  logo?: { light?: string; dark?: string; text?: string };
+  logo?: { light?: string; dark?: string; text?: string; icon?: string };
   links: { label: string; href: string }[];
   cta?: { label: string; href: string };
 };
 
 function BrandMark({ brand }: { brand: Brand }) {
   const { logo, name } = brand;
+  // Icon + wordmark (the common docs pattern).
+  if (logo?.icon) {
+    return (
+      <>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={logo.icon} alt="" className="h-7 w-7 shrink-0" />
+        <span className="text-17 font-semibold tracking-[-0.01em] text-ink">{logo.text ?? name}</span>
+      </>
+    );
+  }
+  // Full logo image (light/dark variants).
   if (logo?.light || logo?.dark) {
     const light = logo.light ?? logo.dark!;
     const dark = logo.dark ?? logo.light!;
@@ -159,7 +170,7 @@ function SidebarSections({
                 {l.badge && (
                   <span className={`ml-auto font-mono text-[9px] px-1.5 py-px rounded-sm tracking-[0.04em] uppercase ${
                     l.badge === "new"
-                      ? "bg-brand text-white"
+                      ? "bg-brand text-on-brand"
                       : "bg-[#FBEACB] text-[#9A6A1A]"
                   }`}>
                     {l.badge}

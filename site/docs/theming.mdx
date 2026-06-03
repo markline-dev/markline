@@ -1,0 +1,155 @@
+---
+title: Theming
+lede: Brand your docs entirely from markline.json — logo, favicon, fonts, colors, and the full palette. No code to fork.
+toc:
+  - id: config-file
+    label: The config file
+  - id: default-theme
+    label: Default theme
+  - id: logo-and-favicon
+    label: Logo & favicon
+  - id: accent-color
+    label: Accent color
+  - id: full-palette
+    label: Full palette
+  - id: fonts
+    label: Fonts
+  - id: label-pill
+    label: Label pill
+  - id: example
+    label: Worked example
+---
+
+Everything visual is driven by the `theme` block (and a couple of `topbar`
+fields) in your config — no component overrides required.
+
+## The config file
+
+Markline reads **`markline.json`**, falling back to **`docs.json`** for
+Mintlify-style projects.
+
+<Note>All theming lives under `theme` in that file. Image paths (`logo`,
+`favicon`) are served from your project's `public/` directory.</Note>
+
+## Default theme
+
+<ParamField path="theme.appearance" type='"system" | "light" | "dark"'>
+  The default color scheme. `"system"` follows the OS (the default); set
+  `"dark"` or `"light"` to force one. Visitors can still toggle, and their
+  choice is remembered.
+</ParamField>
+
+```jsonc
+"theme": { "appearance": "dark" }   // open in dark mode by default
+```
+
+## Logo & favicon
+
+The logo can be an **icon + wordmark** (the common docs pattern), light/dark
+**images**, or just **text**.
+
+<ParamField path="theme.logo.icon" type="string">Small mark shown next to the name (e.g. `/logo-mark.svg`).</ParamField>
+<ParamField path="theme.logo.text" type="string">Wordmark text shown beside the icon (defaults to `name`).</ParamField>
+<ParamField path="theme.logo.light / theme.logo.dark" type="string">Full logo images, swapped by color scheme. Used when no `icon` is set.</ParamField>
+<ParamField path="theme.favicon" type="string">Favicon path, e.g. `/favicon.svg`.</ParamField>
+
+```jsonc
+"theme": {
+  "logo": { "icon": "/logo-mark.svg", "text": "acme" },
+  "favicon": "/favicon.svg"
+}
+```
+
+## Accent color
+
+<ParamField path="theme.colors.primary" type="string">Brand accent (hex) for light mode.</ParamField>
+<ParamField path="theme.colors.primaryDark" type="string">Brand accent for dark mode (and hover).</ParamField>
+
+```jsonc
+"theme": { "colors": { "primary": "#4f46e5", "primaryDark": "#818cf8" } }
+```
+
+<Warning>
+  Using a **light** accent (e.g. lime or yellow)? White text on it is invisible.
+  Set the on-accent text color with the `--c-on-brand` variable (see below) — it
+  controls text/icons on brand-colored surfaces (buttons, badges, numbered
+  cards).
+</Warning>
+
+## Full palette
+
+For deeper theming, override any CSS custom property via
+`theme.cssVariables`, split into `light` and `dark`. **Color values are
+space-separated RGB triples** (e.g. `247 246 241`), not hex.
+
+<Note>Always provide both `light` and `dark` if you customize the palette —
+otherwise dark mode falls back to Markline's default dark.</Note>
+
+The tokens you'll reach for most:
+
+| Token | Meaning |
+| --- | --- |
+| `--c-brand`, `--c-brand-deep` | Accent + hover (also set via `colors`) |
+| `--c-on-brand` | Text/icon color on brand surfaces |
+| `--c-paper`, `--c-paper-2` | Page and raised surface backgrounds |
+| `--c-ink`, `--c-ink-soft`, `--c-ink-2`, `--c-ink-3` | Text shades |
+| `--c-slate-0` … `--c-slate-8` | Neutral scale (borders, muted text) |
+
+```jsonc
+"theme": {
+  "cssVariables": {
+    "light": {
+      "--c-paper": "247 246 241",
+      "--c-ink": "15 15 14",
+      "--c-on-brand": "15 15 14"
+    },
+    "dark": {
+      "--c-paper": "18 18 14",
+      "--c-ink": "232 231 224",
+      "--c-on-brand": "15 15 14"
+    }
+  }
+}
+```
+
+## Fonts
+
+<ParamField path="theme.font.sans / theme.font.mono" type="string">
+  Font-family overrides. The font must be system-available or self-loaded (e.g.
+  via a `@font-face` in a stylesheet you include). Defaults to Geist.
+</ParamField>
+
+```jsonc
+"theme": { "font": { "sans": "Inter", "mono": "JetBrains Mono" } }
+```
+
+## Label pill
+
+<ParamField path="topbar.badge" type="string">
+  A small bordered pill shown next to the logo — handy for a version or status
+  label, e.g. `"docs · v1"` or `"beta"`.
+</ParamField>
+
+## Worked example
+
+A complete warm, lime-accented theme that defaults to dark:
+
+```jsonc
+{
+  "name": "acme",
+  "theme": {
+    "appearance": "dark",
+    "logo": { "icon": "/mark.svg", "text": "acme" },
+    "favicon": "/mark.svg",
+    "colors": { "primary": "#D7FC50", "primaryDark": "#C2E63D" },
+    "cssVariables": {
+      "light": { "--c-on-brand": "15 15 14", "--c-paper": "247 246 241", "--c-ink": "15 15 14" },
+      "dark":  { "--c-on-brand": "15 15 14", "--c-paper": "18 18 14",  "--c-ink": "232 231 224" }
+    }
+  },
+  "topbar": { "badge": "docs · v1" }
+}
+```
+
+<Tip>Changing `theme` values takes effect on the next `markline dev` reload —
+no rebuild of the framework, ever.</Tip>

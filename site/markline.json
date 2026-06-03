@@ -29,6 +29,7 @@
             "group": "Authoring",
             "pages": [
               { "href": "/configuration", "label": "Configuration" },
+              { "href": "/theming", "label": "Theming" },
               { "href": "/components", "label": "Components" }
             ]
           },

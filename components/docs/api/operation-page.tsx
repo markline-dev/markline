@@ -6,7 +6,10 @@ import { MethodBadge } from "./method-badge";
 import { EndpointPath } from "./endpoint-path";
 import { SchemaTable, ParamRow } from "./schema-table";
 import { RequestPanel, ResponsePanel } from "./code-panel";
-import { Playground, type PlaygroundSpec } from "./playground";
+import {
+  PlaygroundProvider, RequestConsole, ParamInput, AuthInput, BodyEditor,
+  type PlaygroundSpec,
+} from "./playground";
 
 /** Best-effort placeholder value for a parameter input. */
 function sampleParam(schema?: JSONSchema): string {
@@ -75,6 +78,7 @@ export function ApiOperationPage({
   const cfg = loadConfig();
   const playgroundEnabled = cfg.api.playground?.enabled !== false;
   const playgroundSpec = playgroundEnabled ? buildPlaygroundSpec(op, doc, root) : null;
+  const interactive = !!playgroundSpec; // inline inputs in the param docs
 
   const responseTabs = op.responses.map((r) => ({
     status: r.status,
@@ -85,7 +89,7 @@ export function ApiOperationPage({
         : "",
   }));
 
-  return (
+  const page = (
     <>
       <main className="api-main px-12 pt-8 pb-24 api-main-pad">
         <style>{`@media (max-width: 720px) { .api-main-pad { padding-left: 20px !important; padding-right: 20px !important; } }`}</style>
@@ -118,16 +122,27 @@ export function ApiOperationPage({
 
         {op.security.length > 0 && (
           <Section id="authorizations" title="Authorizations">
-            {op.security.map((s) => (
-              <ParamRow
-                key={s.name}
-                name={describeSecurityName(s)}
-                description={s.scheme.description}
-                location="header"
-                required
-                schema={{ type: "string" }}
-              />
-            ))}
+            {op.security.map((s) => {
+              const isBearer = s.scheme.type === "http" && s.scheme.scheme === "bearer";
+              const headerName = s.scheme.in === "header" ? s.scheme.name : undefined;
+              return (
+                <ParamRow
+                  key={s.name}
+                  name={describeSecurityName(s)}
+                  description={s.scheme.description}
+                  location="header"
+                  required
+                  schema={{ type: "string" }}
+                  control={
+                    interactive
+                      ? isBearer
+                        ? <AuthInput />
+                        : <ParamInput location="header" name={headerName ?? s.name} />
+                      : undefined
+                  }
+                />
+              );
+            })}
           </Section>
         )}
 
@@ -140,6 +155,7 @@ export function ApiOperationPage({
                 schema={p.schema}
                 required={p.required ?? true}
                 description={p.description}
+                control={interactive ? <ParamInput location="path" name={p.name} sample={sampleParam(p.schema)} /> : undefined}
               />
             ))}
           </Section>
@@ -154,6 +170,7 @@ export function ApiOperationPage({
                 schema={p.schema}
                 required={p.required}
                 description={p.description}
+                control={interactive ? <ParamInput location="query" name={p.name} sample={sampleParam(p.schema)} /> : undefined}
               />
             ))}
           </Section>
@@ -168,6 +185,7 @@ export function ApiOperationPage({
                 schema={p.schema}
                 required={p.required}
                 description={p.description}
+                control={interactive ? <ParamInput location="header" name={p.name} sample={sampleParam(p.schema)} /> : undefined}
               />
             ))}
           </Section>
@@ -176,6 +194,7 @@ export function ApiOperationPage({
         {reqSchema && (
           <Section id="body" title="Body">
             <p className="font-mono text-11 text-slate-5 mb-1">application/json</p>
+            {interactive && <BodyEditor />}
             <SchemaTable schema={reqSchema} />
           </Section>
         )}
@@ -200,8 +219,8 @@ export function ApiOperationPage({
         className="api-side px-6 py-8 sticky self-start overflow-y-auto"
         style={{ top: 56, height: "calc(100vh - 56px)" }}
       >
-        {playgroundSpec ? (
-          <Playground spec={playgroundSpec} />
+        {interactive ? (
+          <RequestConsole />
         ) : (
           <RequestPanel
             title={op.summary ?? op.operationId}
@@ -212,6 +231,8 @@ export function ApiOperationPage({
       </aside>
     </>
   );
+
+  return playgroundSpec ? <PlaygroundProvider spec={playgroundSpec}>{page}</PlaygroundProvider> : page;
 }
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {

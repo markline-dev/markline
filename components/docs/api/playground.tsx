@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 
 export type PlaygroundParam = { name: string; required: boolean; sample: string; description?: string };
 
 export type PlaygroundSpec = {
   method: string;
   path: string;
-  /** Candidate base URLs (config override first, then the spec's servers). */
   servers: string[];
   pathParams: PlaygroundParam[];
   queryParams: PlaygroundParam[];
@@ -18,6 +17,8 @@ export type PlaygroundSpec = {
   proxy: "auto" | "always" | "never";
 };
 
+type Loc = "path" | "query" | "header";
+
 type ResponseState = {
   status: number;
   statusText: string;
@@ -26,12 +27,37 @@ type ResponseState = {
   via: "direct" | "proxy";
 } | null;
 
+type Ctx = {
+  spec: PlaygroundSpec;
+  baseUrl: string;
+  setBaseUrl: (v: string) => void;
+  token: string;
+  setToken: (v: string) => void;
+  body: string;
+  setBody: (v: string) => void;
+  getParam: (loc: Loc, name: string) => string;
+  setParam: (loc: Loc, name: string, val: string) => void;
+  send: () => void;
+  response: ResponseState;
+  loading: boolean;
+  error: string | null;
+  curl: string;
+  targetUrl: string;
+};
+
+const PlaygroundCtx = createContext<Ctx | null>(null);
+export function usePlayground() {
+  const c = useContext(PlaygroundCtx);
+  if (!c) throw new Error("usePlayground must be used within PlaygroundProvider");
+  return c;
+}
+
 const TOKEN_KEY = "markline-playground-token";
 
 const METHOD_COLORS: Record<string, string> = {
   get: "#3CC88C", post: "#6E86FA", put: "#EE7A4B", patch: "#EE7A4B", delete: "#E14F4F",
 };
-const methodColor = (m: string) => METHOD_COLORS[m.toLowerCase()] ?? "#7882A0";
+export const methodColor = (m: string) => METHOD_COLORS[m.toLowerCase()] ?? "#7882A0";
 
 function prettyMaybeJson(text: string): string {
   try {
@@ -40,12 +66,11 @@ function prettyMaybeJson(text: string): string {
     return text;
   }
 }
-
 function shellQuote(s: string) {
   return `'${s.replace(/'/g, "'\\''")}'`;
 }
 
-export function Playground({ spec }: { spec: PlaygroundSpec }) {
+export function PlaygroundProvider({ spec, children }: { spec: PlaygroundSpec; children: React.ReactNode }) {
   const [baseUrl, setBaseUrl] = useState(spec.servers[0] ?? "");
   const [token, setToken] = useState("");
   const [pathVals, setPathVals] = useState<Record<string, string>>(() =>
@@ -56,7 +81,7 @@ export function Playground({ spec }: { spec: PlaygroundSpec }) {
   );
   const [headerVals, setHeaderVals] = useState<Record<string, string>>({});
   const [body, setBody] = useState(spec.bodySample ?? "");
-  const [resp, setResp] = useState<ResponseState>(null);
+  const [response, setResponse] = useState<ResponseState>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -75,6 +100,13 @@ export function Playground({ spec }: { spec: PlaygroundSpec }) {
       /* ignore */
     }
   }, [token]);
+
+  const getParam = (loc: Loc, name: string) =>
+    (loc === "path" ? pathVals : loc === "query" ? queryVals : headerVals)[name] ?? "";
+  const setParam = (loc: Loc, name: string, val: string) => {
+    const setter = loc === "path" ? setPathVals : loc === "query" ? setQueryVals : setHeaderVals;
+    setter((v) => ({ ...v, [name]: val }));
+  };
 
   const hasBody = body.trim() !== "" && !["get", "head"].includes(spec.method.toLowerCase());
 
@@ -96,7 +128,6 @@ export function Playground({ spec }: { spec: PlaygroundSpec }) {
     return h;
   }
 
-  // Live cURL that mirrors exactly what Send will issue.
   const curl = useMemo(() => {
     const headers = buildHeaders();
     const lines = [`curl --request ${spec.method.toUpperCase()} \\`, `  --url ${shellQuote(targetUrl)}`];
@@ -114,15 +145,10 @@ export function Playground({ spec }: { spec: PlaygroundSpec }) {
 
   async function direct(headers: Record<string, string>): Promise<ResponseState> {
     const start = performance.now();
-    const r = await fetch(targetUrl, {
-      method: spec.method.toUpperCase(),
-      headers,
-      body: hasBody ? body : undefined,
-    });
+    const r = await fetch(targetUrl, { method: spec.method.toUpperCase(), headers, body: hasBody ? body : undefined });
     const text = await r.text();
     return { status: r.status, statusText: r.statusText, durationMs: Math.round(performance.now() - start), body: prettyMaybeJson(text), via: "direct" };
   }
-
   async function viaProxy(headers: Record<string, string>): Promise<ResponseState> {
     const r = await fetch("/api/playground", {
       method: "POST",
@@ -138,13 +164,12 @@ export function Playground({ spec }: { spec: PlaygroundSpec }) {
   async function send() {
     setLoading(true);
     setError(null);
-    setResp(null);
+    setResponse(null);
     const headers = buildHeaders();
     try {
       let result: ResponseState;
-      if (spec.proxy === "always") {
-        result = await viaProxy(headers);
-      } else {
+      if (spec.proxy === "always") result = await viaProxy(headers);
+      else {
         try {
           result = await direct(headers);
         } catch (e) {
@@ -153,7 +178,7 @@ export function Playground({ spec }: { spec: PlaygroundSpec }) {
           } else throw e;
         }
       }
-      setResp(result);
+      setResponse(result);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
       setError(
@@ -166,122 +191,98 @@ export function Playground({ spec }: { spec: PlaygroundSpec }) {
     }
   }
 
-  const accent = methodColor(spec.method);
-  const requiredQuery = spec.queryParams.filter((p) => p.required);
-  const optionalQuery = spec.queryParams.filter((p) => !p.required);
-  const headerLike = [...spec.headerParams, ...spec.apiKeyHeaders];
+  const value: Ctx = { spec, baseUrl, setBaseUrl, token, setToken, body, setBody, getParam, setParam, send, response, loading, error, curl, targetUrl };
+  return <PlaygroundCtx.Provider value={value}>{children}</PlaygroundCtx.Provider>;
+}
 
+/* ── Inline field controls (rendered in the parameter docs) ── */
+
+const inputCls =
+  "w-full h-8 px-2.5 bg-paper border border-slate-4 rounded-1 text-12 font-mono text-ink placeholder:text-slate-5 focus:outline-none focus:border-brand";
+
+export function ParamInput({ location, name, sample }: { location: Loc; name: string; sample?: string }) {
+  const { getParam, setParam } = usePlayground();
   return (
-    <div className="mb-5 rounded-3 border border-slate-3 overflow-hidden bg-paper">
-      {/* Request line */}
+    <input
+      value={getParam(location, name)}
+      onChange={(e) => setParam(location, name, e.target.value)}
+      placeholder={sample || "value"}
+      className={inputCls}
+      aria-label={name}
+    />
+  );
+}
+
+export function AuthInput() {
+  const { token, setToken } = usePlayground();
+  return (
+    <input
+      value={token}
+      onChange={(e) => setToken(e.target.value)}
+      type="password"
+      placeholder="bearer token…"
+      className={inputCls}
+      aria-label="Bearer token"
+    />
+  );
+}
+
+export function BodyEditor() {
+  const { body, setBody } = usePlayground();
+  return (
+    <textarea
+      value={body}
+      onChange={(e) => setBody(e.target.value)}
+      rows={Math.min(16, Math.max(6, body.split("\n").length + 1))}
+      spellCheck={false}
+      className={`${inputCls} h-auto py-2 leading-[1.55] resize-y mb-2`}
+      aria-label="Request body"
+    />
+  );
+}
+
+/* ── Rail request console (Send + live cURL + response) ── */
+
+export function RequestConsole() {
+  const { spec, baseUrl, setBaseUrl, send, loading, response, error, curl } = usePlayground();
+  const accent = methodColor(spec.method);
+  return (
+    <div className="mb-5 rounded-3 border border-slate-3 overflow-hidden bg-paper sticky" style={{ top: 8 }}>
       <div className="flex items-center gap-2.5 px-3 py-2.5 bg-paper-2 border-b border-slate-3">
-        <span
-          className="font-mono text-10 font-bold uppercase tracking-[0.04em] px-1.5 py-1 rounded-1 text-white"
-          style={{ background: accent }}
-        >
+        <span className="font-mono text-10 font-bold uppercase tracking-[0.04em] px-1.5 py-1 rounded-1 text-white" style={{ background: accent }}>
           {spec.method}
         </span>
-        <span className="font-mono text-12 text-slate-7 truncate flex-1 min-w-0">
-          {highlightPath(spec.path)}
-        </span>
-        <button
-          type="button"
-          onClick={send}
-          disabled={loading}
-          className="btn btn-primary btn-sm disabled:opacity-60 shrink-0"
-        >
+        <span className="font-mono text-12 text-slate-7 truncate flex-1 min-w-0">{highlightPath(spec.path)}</span>
+        <button type="button" onClick={send} disabled={loading} className="btn btn-primary btn-sm disabled:opacity-60 shrink-0">
           {loading ? "Sending…" : "Send"}
         </button>
       </div>
 
-      <div className="flex flex-col">
-        <Field label="Server">
-          {spec.servers.length > 1 ? (
-            <select value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} className={inputCls}>
-              {spec.servers.map((s) => <option key={s} value={s}>{s}</option>)}
-            </select>
-          ) : (
-            <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="https://api.example.com" className={inputCls} />
-          )}
-        </Field>
-
-        {(spec.bearer || spec.apiKeyHeaders.length > 0) && (
-          <Section title="Authorization" defaultOpen>
-            {spec.bearer && (
-              <Row name="Bearer token" required>
-                <input value={token} onChange={(e) => setToken(e.target.value)} type="password" placeholder="paste token…" className={inputCls} />
-              </Row>
-            )}
-            {spec.apiKeyHeaders.map((ak) => (
-              <Row key={ak.name} name={ak.name} required>
-                <input value={headerVals[ak.name] ?? ""} onChange={(e) => setHeaderVals((v) => ({ ...v, [ak.name]: e.target.value }))} className={inputCls} />
-              </Row>
-            ))}
-          </Section>
+      <label className="flex flex-col gap-1 px-3 py-3 border-b border-slate-3">
+        <span className="font-mono text-10 uppercase tracking-[0.06em] text-slate-5">Server</span>
+        {spec.servers.length > 1 ? (
+          <select value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} className={inputCls}>
+            {spec.servers.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+        ) : (
+          <input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} placeholder="https://api.example.com" className={inputCls} />
         )}
+      </label>
 
-        {spec.pathParams.length > 0 && (
-          <Section title="Path" count={spec.pathParams.length} defaultOpen>
-            {spec.pathParams.map((p) => (
-              <Row key={p.name} name={p.name} required={p.required}>
-                <input value={pathVals[p.name] ?? ""} onChange={(e) => setPathVals((v) => ({ ...v, [p.name]: e.target.value }))} placeholder={p.sample} className={inputCls} />
-              </Row>
-            ))}
-          </Section>
-        )}
-
-        {spec.queryParams.length > 0 && (
-          <Section title="Query" count={spec.queryParams.length} defaultOpen={requiredQuery.length > 0}>
-            {requiredQuery.map((p) => (
-              <Row key={p.name} name={p.name} required>
-                <input value={queryVals[p.name] ?? ""} onChange={(e) => setQueryVals((v) => ({ ...v, [p.name]: e.target.value }))} placeholder={p.sample} className={inputCls} />
-              </Row>
-            ))}
-            <Optional items={optionalQuery} values={queryVals} onChange={(name, val) => setQueryVals((v) => ({ ...v, [name]: val }))} />
-          </Section>
-        )}
-
-        {headerLike.length > spec.apiKeyHeaders.length && (
-          <Section title="Headers" count={spec.headerParams.length}>
-            {spec.headerParams.map((p) => (
-              <Row key={p.name} name={p.name} required={p.required}>
-                <input value={headerVals[p.name] ?? ""} onChange={(e) => setHeaderVals((v) => ({ ...v, [p.name]: e.target.value }))} placeholder={p.sample} className={inputCls} />
-              </Row>
-            ))}
-          </Section>
-        )}
-
-        {spec.bodySample !== undefined && (
-          <Section title="Body" defaultOpen>
-            <div className="px-3 pb-3">
-              <textarea
-                value={body}
-                onChange={(e) => setBody(e.target.value)}
-                rows={8}
-                spellCheck={false}
-                className={`${inputCls} h-auto py-2 font-mono text-12 leading-[1.55] resize-y`}
-              />
-            </div>
-          </Section>
-        )}
-      </div>
-
-      {/* Live request preview */}
       <CodePreview code={curl} />
 
-      {/* Response */}
-      {(resp || error) && (
+      {(response || error) && (
         <div className="border-t" style={{ borderColor: "rgb(var(--c-panel-border))" }}>
           {error && <p className="px-3 py-3 text-12 text-[#E14F4F] leading-[1.5]">{error}</p>}
-          {resp && (
+          {response && (
             <>
               <div className="flex items-center gap-2 px-3 py-2" style={{ background: "rgb(var(--c-panel-bg))" }}>
-                <StatusPill status={resp.status} />
-                <span className="text-12" style={{ color: "rgb(var(--c-panel-muted))" }}>{resp.statusText}</span>
-                <span className="ml-auto font-mono text-11" style={{ color: "rgb(var(--c-panel-muted))" }}>{resp.durationMs}ms · {resp.via}</span>
+                <StatusPill status={response.status} />
+                <span className="text-12" style={{ color: "rgb(var(--c-panel-muted))" }}>{response.statusText}</span>
+                <span className="ml-auto font-mono text-11" style={{ color: "rgb(var(--c-panel-muted))" }}>{response.durationMs}ms · {response.via}</span>
               </div>
               <pre className="m-0 px-3 py-3 overflow-x-auto text-12 leading-[1.55] font-mono max-h-[40vh]" style={{ background: "rgb(var(--c-panel-bg))", color: "rgb(var(--c-panel-fg))" }}>
-                {resp.body || "(empty response)"}
+                {response.body || "(empty response)"}
               </pre>
             </>
           )}
@@ -291,102 +292,23 @@ export function Playground({ spec }: { spec: PlaygroundSpec }) {
   );
 }
 
-/* ── pieces ── */
-
-const inputCls =
-  "w-full h-8 px-2.5 bg-paper border border-slate-4 rounded-1 text-12 text-ink placeholder:text-slate-5 focus:outline-none focus:border-brand";
-
 function highlightPath(path: string) {
   return path.split(/(\{[^}]+\})/g).map((seg, i) =>
-    seg.startsWith("{") ? (
-      <span key={i} className="text-brand font-medium">{seg}</span>
-    ) : (
-      <span key={i}>{seg}</span>
-    ),
-  );
-}
-
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1 px-3 py-3 border-b border-slate-3">
-      <span className="font-mono text-10 uppercase tracking-[0.06em] text-slate-5">{label}</span>
-      {children}
-    </label>
-  );
-}
-
-function Section({ title, count, defaultOpen, children }: { title: string; count?: number; defaultOpen?: boolean; children: React.ReactNode }) {
-  const [open, setOpen] = useState(!!defaultOpen);
-  return (
-    <div className="border-b border-slate-3">
-      <button type="button" onClick={() => setOpen((o) => !o)} className="w-full flex items-center gap-2 px-3 py-2.5 text-left hover:bg-slate-2">
-        <Chevron open={open} />
-        <span className="text-12 font-semibold text-ink">{title}</span>
-        {count !== undefined && <span className="font-mono text-10 text-slate-5">{count}</span>}
-      </button>
-      {open && <div className="flex flex-col gap-3 px-3 pb-3">{children}</div>}
-    </div>
-  );
-}
-
-function Row({ name, required, children }: { name: string; required?: boolean; children: React.ReactNode }) {
-  return (
-    <label className="flex flex-col gap-1">
-      <span className="font-mono text-11 text-slate-7">
-        {name}
-        {required && <span className="text-[#E14F4F]"> *</span>}
-      </span>
-      {children}
-    </label>
-  );
-}
-
-function Optional({ items, values, onChange }: { items: PlaygroundParam[]; values: Record<string, string>; onChange: (name: string, val: string) => void }) {
-  const [show, setShow] = useState(false);
-  if (items.length === 0) return null;
-  if (!show) {
-    return (
-      <button type="button" onClick={() => setShow(true)} className="self-start font-mono text-11 text-brand hover:underline">
-        + {items.length} optional
-      </button>
-    );
-  }
-  return (
-    <>
-      {items.map((p) => (
-        <Row key={p.name} name={p.name}>
-          <input value={values[p.name] ?? ""} onChange={(e) => onChange(p.name, e.target.value)} placeholder={p.sample} className={inputCls} />
-        </Row>
-      ))}
-    </>
-  );
-}
-
-function Chevron({ open }: { open: boolean }) {
-  return (
-    <svg width={11} height={11} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.8} className={`text-slate-5 transition-transform ${open ? "rotate-90" : ""}`} aria-hidden>
-      <path d="m6 4 4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
+    seg.startsWith("{") ? <span key={i} className="text-brand font-medium">{seg}</span> : <span key={i}>{seg}</span>,
   );
 }
 
 function CodePreview({ code }: { code: string }) {
   const [copied, setCopied] = useState(false);
   return (
-    <div style={{ background: "rgb(var(--c-panel-bg))" }} className="border-t" >
+    <div style={{ background: "rgb(var(--c-panel-bg))" }}>
       <div className="flex items-center px-3 py-2 border-b" style={{ borderColor: "rgb(var(--c-panel-border))" }}>
         <span className="font-mono text-10 uppercase tracking-[0.08em]" style={{ color: "rgb(var(--c-panel-muted))" }}>cURL</span>
-        <button
-          type="button"
-          onClick={() => { navigator.clipboard?.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 1200); }}
-          className="ml-auto font-mono text-10"
-          style={{ color: "rgb(var(--c-panel-muted))" }}
-        >
+        <button type="button" onClick={() => { navigator.clipboard?.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 1200); }} className="ml-auto font-mono text-10" style={{ color: "rgb(var(--c-panel-muted))" }}>
           {copied ? "copied" : "copy"}
         </button>
       </div>
-      <pre className="m-0 px-3 py-3 overflow-x-auto text-12 leading-[1.6] font-mono" style={{ color: "rgb(var(--c-panel-fg))" }}
-        dangerouslySetInnerHTML={{ __html: colorizeCurl(code) }} />
+      <pre className="m-0 px-3 py-3 overflow-x-auto text-12 leading-[1.6] font-mono" style={{ color: "rgb(var(--c-panel-fg))" }} dangerouslySetInnerHTML={{ __html: colorizeCurl(code) }} />
     </div>
   );
 }

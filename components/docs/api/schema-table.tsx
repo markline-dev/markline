@@ -6,70 +6,63 @@ export function ParamRow({
   required,
   description,
   location,
+  control,
 }: {
   name: string;
   schema?: JSONSchema;
   required?: boolean;
   description?: string;
   location?: string;
+  /** Inline input rendered on the right (turns the param doc into a form field). */
+  control?: React.ReactNode;
 }) {
   const typeLabel = describeType(schema);
   const enumValues = schema?.enum?.map((e) => String(e));
-  return (
-    <div className="py-5 border-t border-slate-3">
+  const info = (
+    <>
       <div className="flex items-center gap-2 flex-wrap">
-        <span
-          className="font-mono text-13 font-medium"
-          style={{ color: "#3CC88C" }}
-        >
+        <span className="font-mono text-13 font-medium" style={{ color: "#3CC88C" }}>
           {name}
         </span>
         {typeLabel && (
-          <span className="font-mono text-11 text-slate-6 px-1.5 py-0.5 rounded-sm bg-slate-2">
-            {typeLabel}
-          </span>
+          <span className="font-mono text-11 text-slate-6 px-1.5 py-0.5 rounded-sm bg-slate-2">{typeLabel}</span>
         )}
         {location && (
-          <span className="font-mono text-11 text-slate-6 px-1.5 py-0.5 rounded-sm bg-slate-2">
-            {location}
-          </span>
+          <span className="font-mono text-11 text-slate-6 px-1.5 py-0.5 rounded-sm bg-slate-2">{location}</span>
         )}
         {required && (
-          <span
-            className="font-mono text-11 px-1.5 py-0.5 rounded-sm"
-            style={{ background: "rgba(225,79,79,0.12)", color: "#E14F4F" }}
-          >
+          <span className="font-mono text-11 px-1.5 py-0.5 rounded-sm" style={{ background: "rgba(225,79,79,0.12)", color: "#E14F4F" }}>
             required
           </span>
         )}
-        {schema?.format && (
-          <span className="font-mono text-11 text-slate-5">· {schema.format}</span>
-        )}
+        {schema?.format && <span className="font-mono text-11 text-slate-5">· {schema.format}</span>}
       </div>
       {(description || schema?.description) && (
-        <p className="text-13 text-slate-6 leading-[1.55] mt-2 mb-0">
-          {description ?? schema?.description}
-        </p>
+        <p className="text-13 text-slate-6 leading-[1.55] mt-2 mb-0">{description ?? schema?.description}</p>
       )}
       {enumValues && enumValues.length > 0 && (
         <div className="mt-2 flex gap-1.5 flex-wrap">
           <span className="font-mono text-11 text-slate-5">enum:</span>
           {enumValues.map((v) => (
-            <span
-              key={v}
-              className="font-mono text-11 px-1.5 py-0.5 rounded-sm bg-slate-2 text-slate-6"
-            >
-              {v}
-            </span>
+            <span key={v} className="font-mono text-11 px-1.5 py-0.5 rounded-sm bg-slate-2 text-slate-6">{v}</span>
           ))}
         </div>
       )}
-      {schema?.type === "object" && schema.properties && (
-        <NestedObject schema={schema} />
+    </>
+  );
+  return (
+    <div className="py-5 border-t border-slate-3">
+      {control ? (
+        <div className="flex gap-6 items-start param-row">
+          <style>{`@media (max-width: 720px) { .param-row { flex-direction: column; } .param-row > .param-control { width: 100% !important; } }`}</style>
+          <div className="flex-1 min-w-0">{info}</div>
+          <div className="param-control w-[240px] shrink-0 pt-0.5">{control}</div>
+        </div>
+      ) : (
+        info
       )}
-      {schema?.type === "array" && schema.items && (
-        <NestedArray items={schema.items} />
-      )}
+      {schema?.type === "object" && schema.properties && <NestedObject schema={schema} />}
+      {schema?.type === "array" && schema.items && <NestedArray items={schema.items} />}
     </div>
   );
 }

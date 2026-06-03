@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 
 export type PlaygroundParam = { name: string; required: boolean; sample: string; description?: string; type?: string };
@@ -351,8 +352,8 @@ export function ApiExplorer() {
         </svg>
       </button>
 
-      {open && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-20 pb-8 bg-black/45" onMouseDown={() => setOpen(false)}>
+      {open && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-20 pb-8 bg-black/55" onMouseDown={() => setOpen(false)}>
           <div
             className="w-[min(1200px,96vw)] h-[min(84vh,840px)] max-h-[calc(100vh-7rem)] bg-paper rounded-3 border border-slate-3 shadow-elev-2 flex flex-col overflow-hidden"
             onMouseDown={(e) => e.stopPropagation()}
@@ -432,7 +433,8 @@ export function ApiExplorer() {
               </div>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </>
   );
@@ -585,7 +587,14 @@ function ResponseTabs({ responses, live, error }: { responses?: { status: string
   const statuses = liveMode ? [live ? String(live.status) : "ERR"] : tabs.map((t) => t.status);
   const bodyText = liveMode ? (error ?? live?.body ?? "") : (tabs[active]?.body ?? "");
   const copy = () => { navigator.clipboard?.writeText(bodyText); setCopied(true); setTimeout(() => setCopied(false), 1200); };
-  if (!liveMode && tabs.length === 0) return null;
+  const hasExamples = tabs.some((t) => t.body.trim() !== "");
+  if (!liveMode && !hasExamples) {
+    return (
+      <div className="rounded-2 border px-4 py-6 text-12 text-center" style={{ borderColor: "rgb(var(--c-panel-border))", background: "rgb(var(--c-panel-bg))", color: "rgb(var(--c-panel-muted))" }}>
+        Send the request to see the response.
+      </div>
+    );
+  }
   return (
     <div className="rounded-2 overflow-hidden border" style={{ borderColor: "rgb(var(--c-panel-border))", background: "rgb(var(--c-panel-bg))" }}>
       <div className="flex items-center gap-4 px-4 border-b" style={{ borderColor: "rgb(var(--c-panel-border))" }}>

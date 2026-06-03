@@ -258,7 +258,7 @@ export function ApiOperationPage({
             snippets={[{ lang: "curl", label: "cURL", code: curlSample(op, doc, root) }]}
           />
         )}
-        {responseTabs.length > 0 && <ResponsePanel tabs={responseTabs} />}
+        {responseTabs.some((t) => t.body.trim() !== "") && <ResponsePanel tabs={responseTabs} />}
       </aside>
     </>
   );

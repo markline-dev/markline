@@ -253,6 +253,7 @@ export function RequestConsole() {
           {spec.method}
         </span>
         <span className="font-mono text-12 text-slate-7 truncate flex-1 min-w-0">{highlightPath(spec.path)}</span>
+        <ApiExplorer />
         <button type="button" onClick={send} disabled={loading} className="btn btn-primary btn-sm disabled:opacity-60 shrink-0">
           {loading ? "Sending…" : "Send"}
         </button>
@@ -270,25 +271,178 @@ export function RequestConsole() {
       </label>
 
       <CodePreview code={curl} />
+      <ResponseBlock response={response} error={error} />
+    </div>
+  );
+}
 
-      {(response || error) && (
-        <div className="border-t" style={{ borderColor: "rgb(var(--c-panel-border))" }}>
-          {error && <p className="px-3 py-3 text-12 text-[#E14F4F] leading-[1.5]">{error}</p>}
-          {response && (
-            <>
-              <div className="flex items-center gap-2 px-3 py-2" style={{ background: "rgb(var(--c-panel-bg))" }}>
-                <StatusPill status={response.status} />
-                <span className="text-12" style={{ color: "rgb(var(--c-panel-muted))" }}>{response.statusText}</span>
-                <span className="ml-auto font-mono text-11" style={{ color: "rgb(var(--c-panel-muted))" }}>{response.durationMs}ms · {response.via}</span>
-              </div>
-              <pre className="m-0 px-3 py-3 overflow-x-auto text-12 leading-[1.55] font-mono max-h-[40vh]" style={{ background: "rgb(var(--c-panel-bg))", color: "rgb(var(--c-panel-fg))" }}>
-                {response.body || "(empty response)"}
-              </pre>
-            </>
-          )}
-        </div>
+function ResponseBlock({ response, error }: { response: ResponseState; error: string | null }) {
+  if (!response && !error) return null;
+  return (
+    <div className="border-t" style={{ borderColor: "rgb(var(--c-panel-border))" }}>
+      {error && <p className="px-3 py-3 text-12 text-[#E14F4F] leading-[1.5]">{error}</p>}
+      {response && (
+        <>
+          <div className="flex items-center gap-2 px-3 py-2" style={{ background: "rgb(var(--c-panel-bg))" }}>
+            <StatusPill status={response.status} />
+            <span className="text-12" style={{ color: "rgb(var(--c-panel-muted))" }}>{response.statusText}</span>
+            <span className="ml-auto font-mono text-11" style={{ color: "rgb(var(--c-panel-muted))" }}>{response.durationMs}ms · {response.via}</span>
+          </div>
+          <pre className="m-0 px-3 py-3 overflow-x-auto text-12 leading-[1.55] font-mono max-h-[40vh]" style={{ background: "rgb(var(--c-panel-bg))", color: "rgb(var(--c-panel-fg))" }}>
+            {response.body || "(empty response)"}
+          </pre>
+        </>
       )}
     </div>
+  );
+}
+
+/* ── Centered API Explorer (roomy request builder; shares the playground state) ── */
+
+export function ApiExplorer() {
+  const pg = usePlayground();
+  const { spec } = pg;
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    window.addEventListener("keydown", onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = prev; };
+  }, [open]);
+
+  const accent = methodColor(spec.method);
+  const requiredQuery = spec.queryParams.filter((p) => p.required);
+  const optionalQuery = spec.queryParams.filter((p) => !p.required);
+
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        title="Open API Explorer"
+        aria-label="Open API Explorer"
+        className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-1 text-slate-5 hover:text-ink hover:bg-slate-2"
+      >
+        <svg width={15} height={15} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden>
+          <path d="M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+
+      {open && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/45" onMouseDown={() => setOpen(false)}>
+          <div
+            className="w-[min(980px,94vw)] h-[min(82vh,780px)] bg-paper rounded-3 border border-slate-3 shadow-elev-2 flex flex-col overflow-hidden"
+            onMouseDown={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3 px-4 h-14 border-b border-slate-3 bg-paper-2 shrink-0">
+              <span className="text-13 font-semibold text-ink">API Explorer</span>
+              <span className="font-mono text-10 font-bold uppercase tracking-[0.04em] px-1.5 py-1 rounded-1 text-white" style={{ background: accent }}>{spec.method}</span>
+              <span className="font-mono text-12 text-slate-6 truncate flex-1 min-w-0">{highlightPath(spec.path)}</span>
+              <button type="button" onClick={pg.send} disabled={pg.loading} className="btn btn-primary btn-sm disabled:opacity-60">
+                {pg.loading ? "Running…" : "Run request"}
+              </button>
+              <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="w-8 h-8 inline-flex items-center justify-center rounded-1 text-slate-6 hover:bg-slate-2">
+                <svg width={16} height={16} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.6} aria-hidden><path d="m4 4 8 8M12 4l-8 8" strokeLinecap="round" /></svg>
+              </button>
+            </div>
+
+            <div className="flex-1 flex min-h-0 explorer-body">
+              <style>{`@media (max-width: 760px){ .explorer-body{ flex-direction:column } .explorer-body > div{ width:100% !important } }`}</style>
+              {/* request builder */}
+              <div className="w-1/2 overflow-y-auto border-r border-slate-3">
+                <ExplorerField label="Server">
+                  {spec.servers.length > 1 ? (
+                    <select value={pg.baseUrl} onChange={(e) => pg.setBaseUrl(e.target.value)} className={inputCls}>
+                      {spec.servers.map((s) => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                  ) : (
+                    <input value={pg.baseUrl} onChange={(e) => pg.setBaseUrl(e.target.value)} className={inputCls} />
+                  )}
+                </ExplorerField>
+
+                {(spec.bearer || spec.apiKeyHeaders.length > 0) && (
+                  <ExplorerSection title="Authorization">
+                    {spec.bearer && <ExplorerRow name="Bearer token" required><AuthInput /></ExplorerRow>}
+                    {spec.apiKeyHeaders.map((ak) => (
+                      <ExplorerRow key={ak.name} name={ak.name} required><ParamInput location="header" name={ak.name} /></ExplorerRow>
+                    ))}
+                  </ExplorerSection>
+                )}
+                {spec.pathParams.length > 0 && (
+                  <ExplorerSection title="Path">
+                    {spec.pathParams.map((p) => (
+                      <ExplorerRow key={p.name} name={p.name} required={p.required}><ParamInput location="path" name={p.name} sample={p.sample} /></ExplorerRow>
+                    ))}
+                  </ExplorerSection>
+                )}
+                {spec.queryParams.length > 0 && (
+                  <ExplorerSection title="Query">
+                    {requiredQuery.map((p) => (
+                      <ExplorerRow key={p.name} name={p.name} required><ParamInput location="query" name={p.name} sample={p.sample} /></ExplorerRow>
+                    ))}
+                    {optionalQuery.map((p) => (
+                      <ExplorerRow key={p.name} name={p.name}><ParamInput location="query" name={p.name} sample={p.sample} /></ExplorerRow>
+                    ))}
+                  </ExplorerSection>
+                )}
+                {spec.headerParams.length > 0 && (
+                  <ExplorerSection title="Headers">
+                    {spec.headerParams.map((p) => (
+                      <ExplorerRow key={p.name} name={p.name} required={p.required}><ParamInput location="header" name={p.name} sample={p.sample} /></ExplorerRow>
+                    ))}
+                  </ExplorerSection>
+                )}
+                {spec.bodySample !== undefined && (
+                  <ExplorerSection title="Body">
+                    <BodyEditor />
+                  </ExplorerSection>
+                )}
+              </div>
+
+              {/* code + response */}
+              <div className="w-1/2 overflow-y-auto flex flex-col" style={{ background: "rgb(var(--c-panel-bg))" }}>
+                <CodePreview code={pg.curl} />
+                {pg.response || pg.error ? (
+                  <ResponseBlock response={pg.response} error={pg.error} />
+                ) : (
+                  <p className="px-3 py-4 text-12" style={{ color: "rgb(var(--c-panel-muted))" }}>Run the request to see the response.</p>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
+
+function ExplorerField({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <label className="flex flex-col gap-1 px-4 py-3 border-b border-slate-3">
+      <span className="font-mono text-10 uppercase tracking-[0.06em] text-slate-5">{label}</span>
+      {children}
+    </label>
+  );
+}
+
+function ExplorerSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="border-b border-slate-3">
+      <div className="px-4 pt-3 pb-1 text-12 font-semibold text-ink">{title}</div>
+      <div className="flex flex-col gap-3 px-4 pb-3">{children}</div>
+    </div>
+  );
+}
+
+function ExplorerRow({ name, required, children }: { name: string; required?: boolean; children: React.ReactNode }) {
+  return (
+    <label className="flex flex-col gap-1">
+      <span className="font-mono text-11 text-slate-7">{name}{required && <span className="text-[#E14F4F]"> *</span>}</span>
+      {children}
+    </label>
   );
 }
 

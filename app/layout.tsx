@@ -28,10 +28,16 @@ export const metadata: Metadata = {
 
 /**
  * Theme CSS from config: brand accent, font families, and arbitrary CSS-var
- * overrides (full palette). Doubled :root specificity wins over globals.css.
+ * overrides (full palette).
+ *
+ * Light overrides are scoped to `:root:not(.dark):not([data-theme=dark])` so
+ * they do NOT leak into dark mode (a plain `:root:root` would out-specify the
+ * `.dark` selector and bleed light colors into dark). Dark overrides use
+ * `:root.dark` to out-specify globals.css. Fonts are mode-independent.
  */
 function themeCss(): string | null {
   const t = config.theme;
+  const independent: string[] = [];
   const light: string[] = [];
   const dark: string[] = [];
 
@@ -40,16 +46,17 @@ function themeCss(): string | null {
   if (primary) {
     light.push(`--c-brand:${primary}`, `--c-brand-deep:${primaryDark ?? primary}`);
   }
-  if (primaryDark) dark.push(`--c-brand:${primaryDark}`);
+  if (primaryDark) dark.push(`--c-brand:${primaryDark}`, `--c-brand-deep:${primaryDark}`);
 
-  if (t.font?.sans) light.push(`--font-geist:${t.font.sans}`);
-  if (t.font?.mono) light.push(`--font-geist-mono:${t.font.mono}`);
+  if (t.font?.sans) independent.push(`--font-geist:${t.font.sans}`);
+  if (t.font?.mono) independent.push(`--font-geist-mono:${t.font.mono}`);
 
   for (const [k, v] of Object.entries(t.cssVariables?.light ?? {})) light.push(`${k}:${v}`);
   for (const [k, v] of Object.entries(t.cssVariables?.dark ?? {})) dark.push(`${k}:${v}`);
 
   const out: string[] = [];
-  if (light.length) out.push(`:root:root{${light.join(";")}}`);
+  if (independent.length) out.push(`:root:root{${independent.join(";")}}`);
+  if (light.length) out.push(`:root:not(.dark):not([data-theme="dark"]){${light.join(";")}}`);
   if (dark.length) out.push(`:root.dark,:root[data-theme="dark"]{${dark.join(";")}}`);
   return out.length ? out.join("") : null;
 }

@@ -38,8 +38,19 @@
             "pages": [{ "href": "/deployment", "label": "Deployment" }]
           }
         ]
+      },
+      {
+        "id": "api-reference",
+        "label": "API reference",
+        "href": "/api-reference",
+        "match": ["/api-reference"],
+        "openapi": true
       }
     ]
+  },
+  "api": {
+    "baseUrl": "https://api.markline.dev",
+    "playground": { "mode": "explorer", "proxy": "auto" }
   },
   "editUrl": "https://github.com/markline-dev/markline/edit/main/site",
   "seo": {

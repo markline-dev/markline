@@ -18,8 +18,8 @@
   --ink: #f4f4f6; --ink-2: #b7b7c0; --ink-3: #7d7d88; --ink-4: #54545d;
   --line: rgba(255,255,255,0.09); --line-2: rgba(255,255,255,0.14); --line-soft: rgba(255,255,255,0.045);
   --grid: rgba(255,255,255,0.028);
-  --accent: #9e8cfc; --accent-ink: #c4b6ff; --accent-dim: rgba(158,140,252,0.16); --accent-line: rgba(158,140,252,0.45);
-  --on-accent: #15102b; --ok: #30a46c; --warn: #f6d908;
+  --accent: #004aad; --accent-ink: #6ba5ff; --accent-dim: rgba(107,165,255,0.14); --accent-line: rgba(107,165,255,0.42);
+  --on-accent: #ffffff; --logo: #4f8ef0; --ok: #30a46c; --warn: #f6d908;
   --shadow: 0 24px 70px -30px rgba(0,0,0,0.8);
   --chat-w: 410px;
 
@@ -40,8 +40,8 @@
   --ink: #16151c; --ink-2: #45434f; --ink-3: #6c6a78; --ink-4: #9a98a6;
   --line: rgba(20,18,32,0.12); --line-2: rgba(20,18,32,0.2); --line-soft: rgba(20,18,32,0.06);
   --grid: rgba(20,18,32,0.04);
-  --accent: #7257f5; --accent-ink: #5b3fe0; --accent-dim: rgba(114,87,245,0.1); --accent-line: rgba(114,87,245,0.4);
-  --on-accent: #ffffff; --ok: #18794e; --warn: #b78108;
+  --accent: #004aad; --accent-ink: #0a4fa6; --accent-dim: rgba(0,74,173,0.09); --accent-line: rgba(0,74,173,0.38);
+  --on-accent: #ffffff; --logo: #004aad; --ok: #18794e; --warn: #b78108;
   --shadow: 0 24px 60px -32px rgba(30,24,60,0.26);
 }
 
@@ -88,8 +88,10 @@ body:has(.ml-apiref) { background: #08080a; }
 /* ---------- top nav ---------- */
 .ml-apiref .nav { position: sticky; top: 0; z-index: 50; background: color-mix(in srgb, var(--bg) 78%, transparent); backdrop-filter: blur(14px) saturate(1.2); border-bottom: 1px solid var(--line); }
 .ml-apiref .nav-in { display: flex; align-items: center; gap: 26px; height: 60px; }
-.ml-apiref .brand { display: flex; align-items: baseline; gap: 1px; font-weight: 600; font-size: 17px; letter-spacing: -0.022em; color: var(--ink); }
-.ml-apiref .brand .caret { width: 3px; height: 0.92em; background: var(--accent); border-radius: 1.5px; display: inline-block; margin-left: 3px; transform: translateY(1px); }
+.ml-apiref .brand { display: inline-flex; align-items: center; color: var(--ink); }
+.ml-apiref .brand .mk-word { height: 22px; width: auto; display: block; }
+.ml-apiref .brand .mk-word .mk-mark path, .ml-apiref .brand .mk-word .mk-mark rect { fill: var(--logo); }
+.ml-apiref .brand .mk-word .mk-letters path { fill: currentColor; }
 .ml-apiref .nav-links { display: flex; align-items: center; gap: 4px; }
 .ml-apiref .nav-links a { font-size: 14px; color: var(--ink-2); padding: 7px 11px; border-radius: 8px; white-space: nowrap; transition: color .15s, background .15s; }
 .ml-apiref .nav-links a:hover { color: var(--ink); background: var(--panel-hi); }

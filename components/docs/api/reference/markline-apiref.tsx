@@ -6,6 +6,7 @@ import type { ApiRefView, AttrView, EndpointView, NavGroup } from "@/lib/apiref-
 import type { AiPublicConfig } from "@/lib/config";
 import { PlaygroundProvider, usePlayground } from "../playground";
 import { AskDock, openAskPanel } from "../../ai/ask-dock";
+import { Wordmark } from "../../../landing/home/wordmark";
 import {
   SearchPalette,
   VersionSelector,
@@ -240,9 +241,8 @@ export function MarklineApiRef({
           <button className="btn btn-ghost btn-sm docnav-toggle" data-docnav-toggle aria-label="Open navigation" style={{ padding: 8 }}>
             <Ico d="M3 6h18M3 12h18M3 18h18" />
           </button>
-          <Link className="brand" href="/">
-            {view.title.split(" ")[0] || "Markline"}
-            <span className="caret" />
+          <Link className="brand" href="/" aria-label="Markline home">
+            <Wordmark />
           </Link>
           <nav className="nav-links">
             <Link href="/">Documentation</Link>

@@ -1,8 +1,8 @@
 {
   "name": "Markline",
   "theme": {
-    "logo": { "text": "Markline" },
-    "colors": { "primary": "#6366f1", "primaryDark": "#a5b4fc" },
+    "logo": { "light": "/brand/logo-lockup-light.svg", "dark": "/brand/logo-lockup-dark.svg", "text": "Markline" },
+    "colors": { "primary": "#004AAD", "primaryDark": "#4f8ef0" },
     "appearance": "system"
   },
   "topbar": {

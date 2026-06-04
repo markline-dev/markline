@@ -54,6 +54,43 @@ function loadOperationMdx(operationId: string): string | null {
   }
 }
 
+/** Slugify a tag/section name for matching a content file. */
+function sectionSlug(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+/**
+ * Per-section (tag/resource) MDX summary. If
+ * `content/api/sections/<tag-slug>.mdx` exists, its content renders as the
+ * resource intro on the API reference — richer than the OpenAPI tag
+ * `description` (callouts, tables, links, components), Stripe-style.
+ */
+function loadSectionMdx(tagName: string): string | null {
+  const file = path.join(contentRoot(), "api", "sections", `${sectionSlug(tagName)}.mdx`);
+  try {
+    return fs.readFileSync(file, "utf8");
+  } catch {
+    return null;
+  }
+}
+
+/** Render an MDX source string with the shared options. */
+function renderMdx(source: string) {
+  return (
+    <MDXRemote
+      source={source}
+      components={mdxComponents}
+      options={{
+        mdxOptions: {
+          format: "mdx",
+          remarkPlugins: [remarkGfm],
+          rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]],
+        },
+      }}
+    />
+  );
+}
+
 // Only the params from generateStaticParams exist (keeps `output: export` happy).
 export const dynamicParams = false;
 
@@ -92,23 +129,16 @@ export default async function ApiReferencePage({ params }: { params: Promise<{ s
   if (!slug || slug.length === 0) {
     const mdx = loadIntroMdx();
     if (mdx) {
-      return (
-        <ApiIntroMdxPage>
-          <MDXRemote
-            source={mdx}
-            components={mdxComponents}
-            options={{
-              mdxOptions: {
-                format: "mdx",
-                remarkPlugins: [remarkGfm],
-                rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]],
-              },
-            }}
-          />
-        </ApiIntroMdxPage>
-      );
+      return <ApiIntroMdxPage>{renderMdx(mdx)}</ApiIntroMdxPage>;
     }
-    return <ApiIntroPage doc={doc} />;
+    // Per-section MDX summaries: render any api/sections/<tag>.mdx into a map
+    // keyed by tag name, rendered as each resource's intro on the landing page.
+    const sections: Record<string, React.ReactNode> = {};
+    for (const tag of doc.tags) {
+      const src = loadSectionMdx(tag.name);
+      if (src) sections[tag.name] = renderMdx(src);
+    }
+    return <ApiIntroPage doc={doc} sections={sections} />;
   }
 
   const op = doc.operationsById[slug[0]];
@@ -122,19 +152,7 @@ export default async function ApiReferencePage({ params }: { params: Promise<{ s
   ];
 
   const overlay = loadOperationMdx(op.operationId);
-  const extendedContent = overlay ? (
-    <MDXRemote
-      source={overlay}
-      components={mdxComponents}
-      options={{
-        mdxOptions: {
-          format: "mdx",
-          remarkPlugins: [remarkGfm],
-          rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]],
-        },
-      }}
-    />
-  ) : undefined;
+  const extendedContent = overlay ? renderMdx(overlay) : undefined;
 
   return (
     <ApiOperationPage

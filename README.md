@@ -124,6 +124,25 @@ Mintlify-style projects). `theme.appearance` sets the default color scheme —
   inputs + live console + API Explorer modal), `"inline"` (Mintlify-style, no
   modal), `"explorer"` (read-only docs + console + Explorer modal, Stripe-style),
   or `"off"` (static cURL panel).
+
+### API reference content (MDX overlays)
+
+The reference is generated from `api/openapi.json`, but you can layer authored
+MDX on top — full components (callouts, tables, tabs) included:
+
+```
+api/
+├── openapi.json
+├── introduction.mdx              # replaces the auto API landing page
+├── sections/<tag>.mdx            # rich summary for an OpenAPI tag/resource
+└── operations/<operationId>.mdx  # extra prose on a single operation page
+```
+
+- **`sections/<tag>.mdx`** renders as the resource intro on the reference
+  landing (Stripe-style), overriding the OpenAPI tag `description`. The filename
+  is the slugified tag (e.g. `Payment Methods` → `payment-methods.mdx`).
+- **`operations/<operationId>.mdx`** renders between the endpoint path and the
+  auto-generated parameters on that operation's page.
 - **`editUrl`** — adds an "Edit this page" link; the page's content-relative path
   is appended (e.g. `docs/quickstart.mdx`).
 - **`analytics`** — opt-in `plausible`, `googleAnalytics` (`measurementId`), or

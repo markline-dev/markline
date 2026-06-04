@@ -3,7 +3,14 @@ import type { OpenAPIDoc, OpenAPITag } from "@/lib/openapi";
 import { operationHref } from "@/lib/openapi";
 import { MethodBadge } from "./method-badge";
 
-export function ApiIntroPage({ doc }: { doc: OpenAPIDoc }) {
+export function ApiIntroPage({
+  doc,
+  sections,
+}: {
+  doc: OpenAPIDoc;
+  /** Rendered per-section MDX summaries, keyed by tag name (api/sections/<tag>.mdx). */
+  sections?: Record<string, React.ReactNode>;
+}) {
   return (
     <>
       <main className="api-main px-12 pt-8 pb-24 api-main-pad">
@@ -43,7 +50,7 @@ export function ApiIntroPage({ doc }: { doc: OpenAPIDoc }) {
 
         <div className="divide-y divide-slate-3">
           {doc.tags.map((tag) => (
-            <TagSection key={tag.name} tag={tag} />
+            <TagSection key={tag.name} tag={tag} summary={sections?.[tag.name]} />
           ))}
         </div>
       </main>
@@ -52,19 +59,23 @@ export function ApiIntroPage({ doc }: { doc: OpenAPIDoc }) {
   );
 }
 
-function TagSection({ tag }: { tag: OpenAPITag }) {
+function TagSection({ tag, summary }: { tag: OpenAPITag; summary?: React.ReactNode }) {
   return (
-    <section className="py-8 first:pt-0 last:pb-0">
+    <section id={tagSlug(tag.name)} className="py-8 first:pt-0 last:pb-0 scroll-mt-20">
       <h2
         className="font-semibold text-ink mb-1"
         style={{ fontSize: 20, letterSpacing: "-0.01em" }}
       >
         {capitalize(tag.name)}
       </h2>
-      {tag.description && (
-        <p className="text-14 text-slate-6 leading-[1.55] mb-4 max-w-[60ch]">
-          {tag.description}
-        </p>
+      {summary ? (
+        <div className="docs-prose mb-4 max-w-[62ch]">{summary}</div>
+      ) : (
+        tag.description && (
+          <p className="text-14 text-slate-6 leading-[1.55] mb-4 max-w-[60ch]">
+            {tag.description}
+          </p>
+        )
       )}
       <ul className="flex flex-col">
         {tag.operations.map((op) => (
@@ -88,6 +99,10 @@ function TagSection({ tag }: { tag: OpenAPITag }) {
       </ul>
     </section>
   );
+}
+
+function tagSlug(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
 function capitalize(s: string): string {

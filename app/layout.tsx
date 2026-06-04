@@ -1,13 +1,13 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Instrument_Serif, Schibsted_Grotesk } from "next/font/google";
 import localFont from "next/font/local";
+import "./markline-tokens.css";
 import "./globals.css";
 import "./home.css";
 import "./api-reference.css";
 import "./docs.css";
-import { DocsTopBar, DocsSidebar } from "@/components/docs/nav";
-import { getNav } from "@/components/docs/sections";
-import { loadConfig, hexToRgbTriple, aiConfig } from "@/lib/config";
+import { SiteNav } from "@/components/site-nav";
+import { loadConfig, hexToRgbTriple } from "@/lib/config";
 import { Analytics } from "@/components/docs/analytics";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
@@ -77,15 +77,12 @@ function themeCss(): string | null {
   return out.length ? out.join("") : null;
 }
 
+/** GitHub repo URL from the topbar links (for the shared nav badge), if any. */
+function githubUrl(): string | undefined {
+  return config.topbar.links?.find((l) => /github\.com/.test(l.href))?.href;
+}
+
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const nav = getNav(config);
-  const brand = {
-    name: config.name,
-    logo: config.theme.logo,
-    links: config.topbar.links,
-    cta: config.topbar.cta,
-    badge: config.topbar.badge,
-  };
   const brandCss = themeCss();
   const appearance = config.theme.appearance ?? "system";
   return (
@@ -101,29 +98,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
       </head>
-      <body className="min-h-screen flex flex-col m-0 bg-paper text-ink font-sans">
+      <body className="min-h-screen flex flex-col m-0 font-sans">
         <Analytics config={config.analytics} />
-        <DocsTopBar nav={nav} brand={brand} />
-        <div className="docs-shell grid min-h-[calc(100vh-56px)]">
-          <style>{`
-            .docs-shell { grid-template-columns: 256px minmax(0, 1fr) 220px; align-items: start; }
-            /* When the right column is the API request/response panel, give it real estate. */
-            .docs-shell:has(> .api-side) { grid-template-columns: 256px minmax(0, 1fr) 460px; }
-            @media (max-width: 1280px) {
-              .docs-shell:has(> .api-side) { grid-template-columns: 240px minmax(0, 1fr) 400px; }
-            }
-            @media (max-width: 1080px) {
-              .docs-shell { grid-template-columns: 240px minmax(0, 1fr) !important; }
-              .docs-shell > .docs-toc, .docs-shell > .api-side { display: none !important; }
-            }
-            @media (max-width: 720px) {
-              .docs-shell { grid-template-columns: 1fr !important; }
-              .docs-shell > .docs-side { display: none !important; }
-            }
-          `}</style>
-          <DocsSidebar nav={nav} ai={aiConfig()} />
-          {children}
-        </div>
+        <SiteNav githubUrl={githubUrl()} cta={config.topbar.cta} />
+        {children}
       </body>
     </html>
   );

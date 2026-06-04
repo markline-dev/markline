@@ -44,11 +44,6 @@
   --shadow: 0 24px 60px -32px rgba(30,24,60,0.26);
 }
 
-/* Take over the page chrome: hide the framework topbar, paint the body. */
-body:has(.ml-home) .docs-top { display: none !important; }
-body:has(.ml-home) { background: #08080a; }
-[data-theme="light"] body:has(.ml-home) { background: #f7f7f5; }
-
 .ml-home *, .ml-home *::before, .ml-home *::after { box-sizing: border-box; }
 .ml-home ::selection { background: var(--accent); color: #fff; }
 .ml-home a { color: inherit; text-decoration: none; }

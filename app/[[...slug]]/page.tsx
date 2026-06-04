@@ -5,10 +5,11 @@ import remarkGfm from "remark-gfm";
 import rehypePrettyCode from "rehype-pretty-code";
 import { getDoc, listDocs } from "@/lib/docs";
 import { DocsPage } from "@/components/docs/page";
+import { DocsShell } from "@/components/docs/nav";
 import { mdxComponents } from "@/components/docs/mdx";
 import { getHighlighter, shellEnhancer } from "@/lib/shiki";
 import { loadConfig, aiConfig } from "@/lib/config";
-import { getDocsTabs, pickActiveTab } from "@/components/docs/sections";
+import { getDocsTabs, pickActiveTab, getNav } from "@/components/docs/sections";
 import { LandingPage } from "@/components/landing/landing";
 import type { PageNavLink } from "@/components/docs/page";
 
@@ -76,21 +77,26 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
     return <LandingPage>{content}</LandingPage>;
   }
 
+  // The docs 3-pane shell (sidebar · main · toc) renders BELOW the shared
+  // SiteNav. Only docs routes mount it — the home + API reference render their
+  // own full-width content.
   return (
-    <DocsPage
-      crumbs={crumbs}
-      title={doc.fm.title}
-      lede={doc.fm.lede}
-      toc={doc.fm.toc ?? []}
-      lastUpdated={doc.fm.last_updated}
-      editUrl={editUrl}
-      feedbackEndpoint={config.feedback?.endpoint}
-      aiEnabled={aiConfig() != null}
-      prev={prev}
-      next={next}
-    >
-      {content}
-    </DocsPage>
+    <DocsShell nav={getNav(config)} ai={aiConfig()}>
+      <DocsPage
+        crumbs={crumbs}
+        title={doc.fm.title}
+        lede={doc.fm.lede}
+        toc={doc.fm.toc ?? []}
+        lastUpdated={doc.fm.last_updated}
+        editUrl={editUrl}
+        feedbackEndpoint={config.feedback?.endpoint}
+        aiEnabled={aiConfig() != null}
+        prev={prev}
+        next={next}
+      >
+        {content}
+      </DocsPage>
+    </DocsShell>
   );
 }
 

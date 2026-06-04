@@ -12,7 +12,7 @@ import { buildApiRefView, tagSlug } from "@/lib/apiref-view";
 import { mdxComponents } from "@/components/docs/mdx";
 import { getHighlighter, shellEnhancer } from "@/lib/shiki";
 import { contentRoot } from "@/lib/paths";
-import { loadConfig, aiConfig } from "@/lib/config";
+import { aiConfig } from "@/lib/config";
 
 const shellTransformer = shellEnhancer();
 const prettyCodeOptions = {
@@ -28,12 +28,6 @@ function loadRaw() {
   const file = path.join(contentRoot(), "api", "openapi.json");
   if (!fs.existsSync(file)) return {};
   return JSON.parse(fs.readFileSync(file, "utf8"));
-}
-
-/** GitHub repo URL from the topbar links (for the nav badge), if any. */
-function githubUrl(): string | undefined {
-  const links = loadConfig().topbar.links ?? [];
-  return links.find((l) => /github\.com/.test(l.href))?.href;
 }
 
 /**
@@ -145,7 +139,7 @@ export default async function ApiReferencePage({ params }: { params: Promise<{ s
     const view = buildApiRefView(doc, root, tagSlug(matchedTag.name));
     const sectionSrc = loadSectionMdx(matchedTag.name);
     const summary = sectionSrc ? renderMdx(sectionSrc) : undefined;
-    return <MarklineApiRef view={view} summary={summary} githubUrl={githubUrl()} ai={aiConfig()} />;
+    return <MarklineApiRef view={view} summary={summary} ai={aiConfig()} />;
   }
 
   const op = first ? doc.operationsById[first] : undefined;

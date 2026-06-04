@@ -6,7 +6,6 @@ import type { ApiRefView, AttrView, EndpointView, NavGroup } from "@/lib/apiref-
 import type { AiPublicConfig } from "@/lib/config";
 import { PlaygroundProvider, usePlayground } from "../playground";
 import { AskDock, openAskPanel } from "../../ai/ask-dock";
-import { Wordmark } from "../../../landing/home/wordmark";
 import {
   SearchPalette,
   VersionSelector,
@@ -31,15 +30,11 @@ import {
 export function MarklineApiRef({
   view,
   summary,
-  githubUrl,
-  stars,
   ai,
 }: {
   view: ApiRefView;
   /** Server-rendered per-resource MDX summary (api/sections/<tag>.mdx), if any. */
   summary?: React.ReactNode;
-  githubUrl?: string;
-  stars?: string;
   /** Sanitized AI config; when present the docked Ask-AI panel is mounted and
    *  the Ask-AI affordances render. Null/undefined → no AI UI at all. */
   ai?: AiPublicConfig | null;
@@ -235,49 +230,8 @@ export function MarklineApiRef({
 
   return (
     <div className="ml-apiref" ref={root}>
-      {/* ============ NAV ============ */}
-      <header className="nav">
-        <div className="wrap nav-in" style={{ maxWidth: "none", paddingInline: 22 }}>
-          <button className="btn btn-ghost btn-sm docnav-toggle" data-docnav-toggle aria-label="Open navigation" style={{ padding: 8 }}>
-            <Ico d="M3 6h18M3 12h18M3 18h18" />
-          </button>
-          <Link className="brand" href="/" aria-label="Markline home">
-            <Wordmark />
-          </Link>
-          <nav className="nav-links">
-            <Link href="/">Documentation</Link>
-            <Link href="/api-reference" className="active">
-              API reference
-            </Link>
-          </nav>
-          <div className="nav-right">
-            {githubUrl && (
-              <a className="ghbadge" href={githubUrl} target="_blank" rel="noopener noreferrer">
-                <Gh />
-                {stars && (
-                  <>
-                    <span className="star">★</span>
-                    <span className="lbl">{stars}</span>
-                  </>
-                )}
-              </a>
-            )}
-            <button className="theme-btn" data-theme-toggle aria-label="Toggle theme">
-              <svg className="ico moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
-              </svg>
-              <svg className="ico sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <circle cx="12" cy="12" r="4.2" />
-                <path d="M12 2v2.4M12 19.6V22M4.2 4.2l1.7 1.7M18.1 18.1l1.7 1.7M2 12h2.4M19.6 12H22M4.2 19.8l1.7-1.7M18.1 5.9l1.7-1.7" />
-              </svg>
-            </button>
-            <Link className="btn btn-primary btn-sm" href="/">
-              Get started
-            </Link>
-          </div>
-        </div>
-      </header>
-
+      {/* NAV is the shared <SiteNav/> rendered once in app/layout.tsx. The mobile
+          drawer toggle for the API sidebar lives in the api-tools row below. */}
       <div className="docnav-scrim" data-docnav-close />
 
       <div className="api">
@@ -809,14 +763,6 @@ function CopyIco() {
     </svg>
   );
 }
-function Gh() {
-  return (
-    <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-      <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z" />
-    </svg>
-  );
-}
-
 /* ── helpers ───────────────────────────────────────────────────────────── */
 function verbClass(verb: string): string {
   const v = verb.toLowerCase();

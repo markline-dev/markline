@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import type { SearchEntry, VersionEntry } from "@/lib/apiref-view";
 import { openAskPanel } from "../../ai/ask-dock";
 
@@ -14,6 +15,7 @@ export function openMarkdown(md: string) {
 
 /* ═══════════════════════ ⌘K / "/" search palette ═══════════════════════ */
 export function SearchPalette({ index, aiEnabled }: { index: SearchEntry[]; aiEnabled: boolean }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [active, setActive] = useState(0);
@@ -81,7 +83,8 @@ export function SearchPalette({ index, aiEnabled }: { index: SearchEntry[]; aiEn
         return;
       }
     }
-    location.href = href;
+    // Client-side navigation — keeps Home ↔ Docs ↔ API reference instant.
+    router.push(href);
   }
 
   function choose(i: number) {
@@ -212,6 +215,7 @@ function highlight(s: string, q: string): string {
 
 /* ═══════════════════════ version selector ═══════════════════════ */
 export function VersionSelector({ versions, buttonLabel }: { versions: VersionEntry[]; buttonLabel: string }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [label, setLabel] = useState(buttonLabel);
   const [toast, setToast] = useState<string | null>(null);
@@ -249,7 +253,7 @@ export function VersionSelector({ versions, buttonLabel }: { versions: VersionEn
     setOpen(false);
     const next = v.sub ? `${v.label} · ${v.sub}` : v.label;
     if (v.href && v.href !== location.pathname) {
-      location.href = v.href;
+      router.push(v.href);
       return;
     }
     setLabel(next);

@@ -1,0 +1,210 @@
+/* ============================================================
+   MARKLINE — unified design tokens + shared chrome (SiteNav)
+   ------------------------------------------------------------
+   ONE palette for all three surfaces (Home, Docs, API reference).
+   The DESIGN palette (markline vars: --bg/--ink/--accent/--line/--code-*…)
+   is hoisted to global scope here so the docs shell — not just the
+   .ml-home / .ml-apiref takeovers — renders on the same colors. The
+   framework's RGB-triple --c-* tokens are ALSO re-pointed at this same
+   palette so the Tailwind-based docs shell + deep components (mdx prose,
+   playground, schema-table) match in BOTH themes.
+
+   Imported FIRST (before globals.css) — globals.css's @tailwind base and
+   the --c-* defaults are then overridden by the values here.
+   Values copied verbatim from app/home.css's .ml-home (dark) and
+   [data-theme="light"] .ml-home (light) blocks.
+   ============================================================ */
+
+/* ---------- DESIGN palette (global) — DARK is the default ---------- */
+:root {
+  --sans: var(--font-geist), "Helvetica Neue", Arial, system-ui, sans-serif;
+  --mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  --serif: var(--font-instrument-serif), "Spectral", Georgia, serif;
+  --display: var(--font-schibsted), var(--font-geist), system-ui, sans-serif;
+  --brand-face: var(--font-cooper), var(--font-schibsted), var(--font-geist), system-ui, sans-serif;
+
+  --c-green: #30a46c; --c-pink: #d6409f; --c-orange: #f76809; --c-tan: #daa16e;
+  --c-purple: #9e8cfc; --c-red: #e5484d; --c-yellow: #f6d908; --c-cyan: #67ddfd;
+
+  --bg: #08080a; --bg-2: #0c0c0f; --panel: #0f0f12; --panel-2: #131317; --panel-hi: #17171c;
+  --ink: #f4f4f6; --ink-2: #b7b7c0; --ink-3: #7d7d88; --ink-4: #54545d;
+  --line: rgba(255,255,255,0.09); --line-2: rgba(255,255,255,0.14); --line-soft: rgba(255,255,255,0.045);
+  --grid: rgba(255,255,255,0.028);
+  --accent: #004aad; --accent-ink: #6ba5ff; --accent-dim: rgba(107,165,255,0.14); --accent-line: rgba(107,165,255,0.42);
+  --on-accent: #ffffff; --logo: #4f8ef0; --ok: #30a46c; --warn: #f6d908;
+  --shadow: 0 24px 70px -30px rgba(0,0,0,0.8);
+  --code-bg: #0d0d11; --code-line: rgba(255,255,255,0.08); --code-ink: #c7c7d1;
+  --code-k: #c792ea; --code-s: #9fd69c; --code-f: #82aaff; --code-c: #6b6b78;
+}
+
+/* light overrides — keyed off the framework's theme contract. Scoped with
+   :not(.dark) so a plain :root never bleeds light values into dark mode. */
+:root:not(.dark):not([data-theme="dark"]) {
+  --bg: #f7f7f5; --bg-2: #f0f0ec; --panel: #ffffff; --panel-2: #fbfbf9; --panel-hi: #f2f2ee;
+  --ink: #16151c; --ink-2: #45434f; --ink-3: #6c6a78; --ink-4: #9a98a6;
+  --line: rgba(20,18,32,0.12); --line-2: rgba(20,18,32,0.2); --line-soft: rgba(20,18,32,0.06);
+  --grid: rgba(20,18,32,0.04);
+  --accent: #004aad; --accent-ink: #0a4fa6; --accent-dim: rgba(0,74,173,0.09); --accent-line: rgba(0,74,173,0.38);
+  --on-accent: #ffffff; --logo: #004aad; --ok: #18794e; --warn: #b78108;
+  --shadow: 0 24px 60px -32px rgba(30,24,60,0.26);
+}
+/* explicit dark restate so a later :root cannot win the cascade */
+:root.dark, :root[data-theme="dark"] {
+  --bg: #08080a; --bg-2: #0c0c0f; --panel: #0f0f12; --panel-2: #131317; --panel-hi: #17171c;
+  --ink: #f4f4f6; --ink-2: #b7b7c0; --ink-3: #7d7d88; --ink-4: #54545d;
+  --line: rgba(255,255,255,0.09); --line-2: rgba(255,255,255,0.14); --line-soft: rgba(255,255,255,0.045);
+  --grid: rgba(255,255,255,0.028);
+  --accent: #004aad; --accent-ink: #6ba5ff; --accent-dim: rgba(107,165,255,0.14); --accent-line: rgba(107,165,255,0.42);
+  --on-accent: #ffffff; --logo: #4f8ef0; --ok: #30a46c; --warn: #f6d908;
+  --shadow: 0 24px 70px -30px rgba(0,0,0,0.8);
+  --code-bg: #0d0d11; --code-line: rgba(255,255,255,0.08); --code-ink: #c7c7d1;
+}
+
+/* ---------- framework --c-* tokens → SAME design palette ----------
+   These re-point the Tailwind token system (rgb(var(--c-*)) consumers) at the
+   unified palette so the docs shell + deep components render on home/apiref
+   colors. Mapping:
+     --c-paper ← --bg          --c-paper-2 ← --panel
+     --c-ink   ← --ink         --c-ink-soft/2 ← --ink-2   --c-ink-3 ← --ink-3
+     --c-slate ramp ← panel/line/ink ramp
+     --c-brand ← accent (dark #6ba5ff brightened, light #004aad)
+     --c-panel-* ← the --code-* set
+*/
+:root:not(.dark):not([data-theme="dark"]) {
+  --c-brand:       0 74 173;
+  --c-brand-deep:  0 74 173;
+  --c-brand-mute:  208 221 252;
+  --c-on-brand:   255 255 255;
+
+  --c-ink:       22 21 28;     /* --ink  #16151c */
+  --c-ink-soft:  69 67 79;     /* --ink-2 */
+  --c-ink-2:     69 67 79;
+  --c-ink-3:     108 106 120;  /* --ink-3 */
+
+  --c-paper:    247 247 245;   /* --bg   #f7f7f5 */
+  --c-paper-2:  255 255 255;   /* --panel */
+
+  /* light → dark ramp built from panel / line / ink */
+  --c-slate-0: 255 255 255;    /* --panel */
+  --c-slate-1: 251 251 249;    /* --panel-2 */
+  --c-slate-2: 242 242 238;    /* --panel-hi */
+  --c-slate-3: 224 223 217;    /* hairline (≈ --line on paper) */
+  --c-slate-4: 205 204 198;    /* --line-2 */
+  --c-slate-5: 154 152 166;    /* --ink-4 */
+  --c-slate-6: 108 106 120;    /* --ink-3 */
+  --c-slate-7: 69 67 79;       /* --ink-2 */
+  --c-slate-8: 22 21 28;       /* --ink */
+
+  --code-bg: #f2f2ee;
+  --code-fg: #16151c;
+  --border:  #e0dfd9;
+
+  /* code/response panels = the design's fixed-dark code rail */
+  --c-panel-bg:      13 13 17;     /* --code-bg #0d0d11 */
+  --c-panel-border:  34 34 40;     /* ≈ --code-line on dark */
+  --c-panel-fg:     199 199 209;   /* --code-ink */
+  --c-panel-muted:  125 125 136;   /* --ink-3 (dark) */
+}
+:root.dark, :root[data-theme="dark"] {
+  --c-brand:      107 165 255;     /* --accent-ink (brightened) #6ba5ff */
+  --c-brand-deep:  79 142 240;     /* --logo */
+  --c-brand-mute:  40 60 110;
+  --c-on-brand:   255 255 255;
+
+  --c-ink:       244 244 246;      /* --ink #f4f4f6 */
+  --c-ink-soft:  183 183 192;      /* --ink-2 */
+  --c-ink-2:     183 183 192;
+  --c-ink-3:     125 125 136;      /* --ink-3 */
+
+  --c-paper:    8 8 10;            /* --bg #08080a */
+  --c-paper-2: 15 15 18;           /* --panel #0f0f12 */
+
+  --c-slate-0:  15 15 18;          /* --panel */
+  --c-slate-1:  19 19 23;          /* --panel-2 */
+  --c-slate-2:  23 23 28;          /* --panel-hi */
+  --c-slate-3:  38 38 44;          /* hairline (≈ --line on dark) */
+  --c-slate-4:  60 60 68;          /* --line-2 */
+  --c-slate-5:  84 84 93;          /* --ink-4 */
+  --c-slate-6: 125 125 136;        /* --ink-3 */
+  --c-slate-7: 183 183 192;        /* --ink-2 */
+  --c-slate-8: 244 244 246;        /* --ink */
+
+  --code-bg: #0d0d11;
+  --code-fg: #c7c7d1;
+  --border:  #26262c;
+
+  --c-panel-bg:      13 13 17;     /* --code-bg */
+  --c-panel-border:  34 34 40;
+  --c-panel-fg:     199 199 209;
+  --c-panel-muted:  125 125 136;
+}
+
+/* ============================================================
+   ONE BACKGROUND — every surface paints the unified --bg/--ink.
+   ============================================================ */
+body {
+  background: var(--bg);
+  color: var(--ink);
+}
+
+/* ============================================================
+   SHARED CHROME — the design's `.nav` header, GLOBAL (unscoped) so the
+   single <SiteNav/> is styled on every route. Moved out of the
+   .ml-home / .ml-apiref blocks. Brand lockup + buttons are global too.
+   ============================================================ */
+
+/* brand lockup (used by <Wordmark/> in SiteNav + page footers) */
+.brand { display: inline-flex; align-items: center; color: var(--ink); text-decoration: none; }
+.brand .mk-word { height: 24px; width: auto; display: block; }
+.brand .mk-word .mk-mark path, .brand .mk-word .mk-mark rect { fill: var(--logo); }
+.brand .mk-word .mk-letters path { fill: currentColor; }
+
+/* buttons — glossy primary from the home design */
+.btn { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; line-height: 1; padding: 12px 18px; border-radius: 999px; border: 1px solid transparent; white-space: nowrap; cursor: pointer; text-decoration: none; transition: background .18s, border-color .18s, color .18s, transform .18s; }
+.btn:active { transform: translateY(1px); }
+.btn-primary {
+  position: relative; isolation: isolate;
+  color: #0a0b0f; font-weight: 600; border-color: transparent;
+  background:
+    radial-gradient(130% 165% at 22% -12%, rgba(255,255,255,0.55), rgba(255,255,255,0) 55%),
+    linear-gradient(100deg, #b1bcf3 0%, #8fb3f3 40%, #9ecaf0 66%, #d7edf5 100%);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 10px 26px -14px rgba(0,46,140,0.5);
+}
+.btn-primary::before {
+  content: ""; position: absolute; inset: 0; border-radius: inherit; z-index: -1;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 140px 140px; mix-blend-mode: soft-light; opacity: 0.7;
+}
+.btn-primary:hover { filter: brightness(1.035) saturate(1.06); box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 14px 30px -14px rgba(0,46,140,0.6); }
+.btn-ghost { background: transparent; color: var(--ink); border-color: var(--line-2); }
+.btn-ghost:hover { background: var(--panel-hi); border-color: var(--ink-4); }
+.btn-sm { padding: 9px 14px; font-size: 13px; }
+.btn .ico { width: 15px; height: 15px; }
+
+/* the shared sticky nav (60px) */
+.nav { position: sticky; top: 0; z-index: 60; background: color-mix(in srgb, var(--bg) 78%, transparent); backdrop-filter: blur(14px) saturate(1.2); border-bottom: 1px solid var(--line); }
+.nav-in { display: flex; align-items: center; gap: 26px; height: 60px; }
+.nav-links { display: flex; align-items: center; gap: 4px; }
+.nav-links a { font-size: 14px; color: var(--ink-2); padding: 7px 11px; border-radius: 8px; transition: color .15s, background .15s; white-space: nowrap; text-decoration: none; }
+.nav-links a:hover { color: var(--ink); background: var(--panel-hi); }
+.nav-links a.active { color: var(--ink); }
+.nav-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+.ghbadge { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); border: 1px solid var(--line); border-radius: 999px; padding: 7px 12px; transition: border-color .15s, color .15s; text-decoration: none; }
+.ghbadge:hover { border-color: var(--ink-4); color: var(--ink); }
+.ghbadge .star { color: var(--warn); }
+.theme-btn { width: 36px; height: 36px; display: grid; place-items: center; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--ink-2); transition: border-color .15s, color .15s; }
+.theme-btn:hover { color: var(--ink); border-color: var(--ink-4); }
+.theme-btn .ico { width: 16px; height: 16px; }
+/* theme-toggle icon swap: show moon on dark, sun on light */
+.theme-btn .sun { display: none; }
+.theme-btn .moon { display: block; }
+:root:not(.dark):not([data-theme="dark"]) .theme-btn .moon { display: none; }
+:root:not(.dark):not([data-theme="dark"]) .theme-btn .sun { display: block; }
+
+/* nav wrap (constrains content width, matches the design) */
+.nav .wrap { width: 100%; max-width: 1240px; margin-inline: auto; padding-inline: 32px; }
+
+@media (max-width: 880px) {
+  .nav .wrap { padding-inline: 20px; }
+  .nav-links, .ghbadge .lbl { display: none; }
+}

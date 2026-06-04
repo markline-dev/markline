@@ -29,7 +29,7 @@ async function loadPagefind(): Promise<Pagefind | null> {
   }
 }
 
-export function DocsSearch() {
+export function DocsSearch({ triggerless = false }: { triggerless?: boolean } = {}) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
@@ -121,24 +121,26 @@ export function DocsSearch() {
 
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        aria-label="Search docs"
-        className="docs-search relative w-[360px] h-[34px] hidden md:flex items-center pl-[34px] pr-14 bg-paper-2 border border-slate-4 rounded-2 text-13 text-slate-5 hover:border-slate-6"
-      >
-        <svg
-          className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-5"
-          width={14} height={14} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}
+      {!triggerless && (
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          aria-label="Search docs"
+          className="docs-search relative w-[360px] h-[34px] hidden md:flex items-center pl-[34px] pr-14 bg-paper-2 border border-slate-4 rounded-2 text-13 text-slate-5 hover:border-slate-6"
         >
-          <circle cx="7" cy="7" r="4.5" />
-          <path d="m11 11 3 3" />
-        </svg>
-        Search docs…
-        <kbd className="absolute right-2 top-1/2 -translate-y-1/2 font-mono text-11 px-1.5 py-0.5 border border-slate-3 rounded text-slate-5">
-          ⌘K
-        </kbd>
-      </button>
+          <svg
+            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-5"
+            width={14} height={14} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}
+          >
+            <circle cx="7" cy="7" r="4.5" />
+            <path d="m11 11 3 3" />
+          </svg>
+          Search docs…
+          <kbd className="absolute right-2 top-1/2 -translate-y-1/2 font-mono text-11 px-1.5 py-0.5 border border-slate-3 rounded text-slate-5">
+            ⌘K
+          </kbd>
+        </button>
+      )}
 
       {open && (
         <div

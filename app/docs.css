@@ -7,6 +7,24 @@
    API-reference takeover (which hide the shell) are never affected.
    ============================================================ */
 
+/* 3-pane grid (sidebar · main · toc), sitting below the shared 60px SiteNav.
+   Previously inlined in app/layout.tsx; now lives with the rest of the docs
+   shell styles. */
+.docs-shell {
+  display: grid;
+  grid-template-columns: 256px minmax(0, 1fr) 220px;
+  align-items: start;
+  min-height: calc(100vh - 60px);
+}
+@media (max-width: 1080px) {
+  .docs-shell { grid-template-columns: 240px minmax(0, 1fr) !important; }
+  .docs-shell > .docs-toc { display: none !important; }
+}
+@media (max-width: 720px) {
+  .docs-shell { grid-template-columns: 1fr !important; }
+  .docs-shell > .docs-side { display: none !important; }
+}
+
 .docs-shell {
   /* Design var aliases → framework tokens. Local to the docs shell so they
      don't leak into the apiref/home takeovers (which define their own). */

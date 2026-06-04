@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import Link from "next/link";
 import { Wordmark } from "./wordmark";
 
 /**
@@ -168,39 +169,7 @@ export function MarklineHome() {
 
   return (
     <div className="ml-home" ref={root}>
-      {/* ===== NAV ===== */}
-      <header className="nav">
-        <div className="wrap nav-in">
-          <a className="brand" href="/" aria-label="Markline home">
-            <Wordmark />
-          </a>
-          <nav className="nav-links">
-            <a href="/quickstart">Documentation</a>
-            <a href="/api-reference">API reference</a>
-            <a href="#own">Why Markline</a>
-            <a href="#made">Showcase</a>
-          </nav>
-          <div className="nav-right">
-            <a className="ghbadge" href="https://github.com/markline-dev/markline" target="_blank" rel="noopener noreferrer">
-              <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
-                <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z" />
-              </svg>
-              <span className="star">★</span>
-              <span className="lbl">4.2k</span>
-            </a>
-            <button className="theme-btn" data-theme-toggle aria-label="Toggle theme">
-              <svg className="ico moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z" />
-              </svg>
-              <svg className="ico sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-                <circle cx="12" cy="12" r="4.2" />
-                <path d="M12 2v2.4M12 19.6V22M4.2 4.2l1.7 1.7M18.1 18.1l1.7 1.7M2 12h2.4M19.6 12H22M4.2 19.8l1.7-1.7M18.1 5.9l1.7-1.7" />
-              </svg>
-            </button>
-            <a className="btn btn-primary btn-sm" href="/quickstart">Get started</a>
-          </div>
-        </div>
-      </header>
+      {/* NAV is the shared <SiteNav/> rendered once in app/layout.tsx. */}
 
       {/* ===== HERO ===== */}
       <section className="hero grid-bg">
@@ -216,13 +185,13 @@ export function MarklineHome() {
                 own key — open source and self-hostable. No SaaS. No seats. No lock-in.
               </p>
               <div className="hero-cta">
-                <a className="btn btn-primary" href="/quickstart">
+                <Link className="btn btn-primary" href="/quickstart">
                   Get started
                   <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2">
                     <path d="M5 12h14M13 6l6 6-6 6" />
                   </svg>
-                </a>
-                <a className="btn btn-ghost" href="/quickstart">Read the docs</a>
+                </Link>
+                <Link className="btn btn-ghost" href="/quickstart">Read the docs</Link>
               </div>
 
               <div className="term-wrap reveal">
@@ -359,7 +328,7 @@ export function MarklineHome() {
 
           <div className="bento">
             <article className="cell c-wide reveal k-cyan">
-              <a className="card-link" href="/api-reference" aria-label="OpenAPI reference" />
+              <Link className="card-link" href="/api-reference" aria-label="OpenAPI reference" />
               <div className="tex tex-fade">
                 <div className="tex-grid" style={{ position: "absolute", inset: 0 }} />
                 <div className="mini-doc">
@@ -376,7 +345,7 @@ export function MarklineHome() {
             </article>
 
             <article className="cell c-third reveal k-purple">
-              <a className="card-link" href="/api-reference" aria-label="Try-it playground" />
+              <Link className="card-link" href="/api-reference" aria-label="Try-it playground" />
               <div className="tex tex-grad" />
               <div className="body">
                 <h3>Try-it playground</h3>
@@ -385,7 +354,7 @@ export function MarklineHome() {
             </article>
 
             <article className="cell c-third reveal k-green">
-              <a className="card-link" href="/quickstart" aria-label="Static search docs" />
+              <Link className="card-link" href="/quickstart" aria-label="Static search docs" />
               <div className="tex">
                 <div className="tex-dots" style={{ position: "absolute", inset: 0, opacity: 0.5 }} />
                 <div className="mini-search">
@@ -401,7 +370,7 @@ export function MarklineHome() {
             </article>
 
             <article className="cell c-third reveal k-orange">
-              <a className="card-link" href="/deployment" aria-label="Self-hosting docs" />
+              <Link className="card-link" href="/deployment" aria-label="Self-hosting docs" />
               <div className="tex tex-lines tex-fade" />
               <div className="body">
                 <h3>Self-host anywhere</h3>
@@ -410,7 +379,7 @@ export function MarklineHome() {
             </article>
 
             <article className="cell c-third reveal k-pink">
-              <a className="card-link" href="/theming" aria-label="Theming docs" />
+              <Link className="card-link" href="/theming" aria-label="Theming docs" />
               <div className="tex tex-lines-w tex-fade" />
               <div className="body">
                 <h3>Theme is a feature</h3>
@@ -419,7 +388,7 @@ export function MarklineHome() {
             </article>
 
             <article className="cell c-third reveal k-tan">
-              <a className="card-link" href="/components" aria-label="Components and MDX docs" />
+              <Link className="card-link" href="/components" aria-label="Components and MDX docs" />
               <div className="tex tex-grid tex-fade" />
               <div className="body">
                 <h3>Components &amp; MDX</h3>
@@ -613,8 +582,8 @@ export function MarklineHome() {
               </button>
             </div>
             <div className="closing-cta">
-              <a className="btn btn-primary" href="/quickstart">Get started</a>
-              <a className="btn btn-ghost" href="/api-reference">See the API reference</a>
+              <Link className="btn btn-primary" href="/quickstart">Get started</Link>
+              <Link className="btn btn-ghost" href="/api-reference">See the API reference</Link>
             </div>
           </div>
         </div>
@@ -625,7 +594,7 @@ export function MarklineHome() {
         <div className="wrap">
           <div className="footer-in">
             <div>
-              <a className="brand" href="/" aria-label="Markline home" style={{ marginBottom: 14, display: "inline-flex" }}><Wordmark /></a>
+              <Link className="brand" href="/" aria-label="Markline home" style={{ marginBottom: 14, display: "inline-flex" }}><Wordmark /></Link>
               <p style={{ fontSize: 13, color: "var(--ink-3)", maxWidth: 260, marginTop: 4 }}>
                 The docs framework you actually own. MIT-licensed, self-hostable, no lock-in.
               </p>
@@ -633,19 +602,19 @@ export function MarklineHome() {
             <div>
               <h5>Product</h5>
               <ul>
-                <li><a href="/quickstart">Documentation</a></li>
-                <li><a href="/api-reference">API reference</a></li>
-                <li><a href="#own">Why Markline</a></li>
-                <li><a href="#made">Showcase</a></li>
+                <li><Link href="/quickstart">Documentation</Link></li>
+                <li><Link href="/api-reference">API reference</Link></li>
+                <li><Link href="/#own">Why Markline</Link></li>
+                <li><Link href="/#made">Showcase</Link></li>
               </ul>
             </div>
             <div>
               <h5>Resources</h5>
               <ul>
-                <li><a href="/quickstart">Getting started</a></li>
-                <li><a href="/configuration">Configuration</a></li>
-                <li><a href="/deployment">Deployment</a></li>
-                <li><a href="/theming">Theming</a></li>
+                <li><Link href="/quickstart">Getting started</Link></li>
+                <li><Link href="/configuration">Configuration</Link></li>
+                <li><Link href="/deployment">Deployment</Link></li>
+                <li><Link href="/theming">Theming</Link></li>
               </ul>
             </div>
             <div>

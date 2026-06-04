@@ -168,7 +168,7 @@ body {
 /* buttons — solid, driven by the config brand color (--c-brand). The glossy
    Markline gradient is scoped to the marketing landing (.ml-home) so consumers
    get a normal button in their own theme color. */
-.btn { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; line-height: 1; padding: 12px 18px; border-radius: 999px; border: 1px solid transparent; white-space: nowrap; cursor: pointer; text-decoration: none; transition: background .18s, border-color .18s, color .18s, transform .18s; }
+.btn { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; line-height: 1; padding: 12px 18px; border-radius: var(--btn-radius, 999px); border: 1px solid transparent; white-space: nowrap; cursor: pointer; text-decoration: none; transition: background .18s, border-color .18s, color .18s, transform .18s; }
 .btn:active { transform: translateY(1px); }
 .btn-primary {
   background: rgb(var(--c-brand));

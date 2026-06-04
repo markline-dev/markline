@@ -67,6 +67,7 @@ function themeCss(): string | null {
 
   if (t.font?.sans) independent.push(`--font-geist:${t.font.sans}`);
   if (t.font?.mono) independent.push(`--font-geist-mono:${t.font.mono}`);
+  if (t.buttonRadius) independent.push(`--btn-radius:${t.buttonRadius}`);
 
   for (const [k, v] of Object.entries(t.cssVariables?.light ?? {})) light.push(`${k}:${v}`);
   for (const [k, v] of Object.entries(t.cssVariables?.dark ?? {})) dark.push(`${k}:${v}`);

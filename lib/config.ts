@@ -23,6 +23,9 @@ export type ThemeConfig = {
   favicon?: string;
   /** Font family overrides (the font must be system-available or self-loaded). */
   font?: { sans?: string; mono?: string };
+  /** Corner radius of buttons (the topbar CTA + primary buttons). Any CSS length,
+   *  e.g. "8px", "0.5rem", or "999px" for a full pill. Defaults to a pill. */
+  buttonRadius?: string;
   /**
    * Raw CSS custom-property overrides for full palette theming — keyed by var
    * name (e.g. "--c-paper") to a value (RGB triple "247 246 241" for color

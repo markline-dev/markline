@@ -165,23 +165,18 @@ body {
 [data-theme="dark"] .brand .brand-logo--dark { display: block; }
 .brand .brand-text { font-weight: 600; font-size: 17px; letter-spacing: -0.022em; color: var(--ink); }
 
-/* buttons — glossy primary from the home design */
+/* buttons — solid, driven by the config brand color (--c-brand). The glossy
+   Markline gradient is scoped to the marketing landing (.ml-home) so consumers
+   get a normal button in their own theme color. */
 .btn { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; line-height: 1; padding: 12px 18px; border-radius: 999px; border: 1px solid transparent; white-space: nowrap; cursor: pointer; text-decoration: none; transition: background .18s, border-color .18s, color .18s, transform .18s; }
 .btn:active { transform: translateY(1px); }
 .btn-primary {
-  position: relative; isolation: isolate;
-  color: #0a0b0f; font-weight: 600; border-color: transparent;
-  background:
-    radial-gradient(130% 165% at 22% -12%, rgba(255,255,255,0.55), rgba(255,255,255,0) 55%),
-    linear-gradient(100deg, #b1bcf3 0%, #8fb3f3 40%, #9ecaf0 66%, #d7edf5 100%);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.4), 0 10px 26px -14px rgba(0,46,140,0.5);
+  background: rgb(var(--c-brand));
+  color: rgb(var(--c-on-brand));
+  font-weight: 600; border-color: transparent;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.08);
 }
-.btn-primary::before {
-  content: ""; position: absolute; inset: 0; border-radius: inherit; z-index: -1;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-size: 140px 140px; mix-blend-mode: soft-light; opacity: 0.7;
-}
-.btn-primary:hover { filter: brightness(1.035) saturate(1.06); box-shadow: inset 0 1px 0 rgba(255,255,255,0.6), 0 14px 30px -14px rgba(0,46,140,0.6); }
+.btn-primary:hover { background: color-mix(in srgb, rgb(var(--c-brand)) 88%, #000); }
 .btn-ghost { background: transparent; color: var(--ink); border-color: var(--line-2); }
 .btn-ghost:hover { background: var(--panel-hi); border-color: var(--ink-4); }
 .btn-sm { padding: 9px 14px; font-size: 13px; }

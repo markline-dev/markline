@@ -303,6 +303,8 @@
 .ml-home .cmp table { width: 100%; border-collapse: collapse; }
 .ml-home .cmp th, .ml-home .cmp td { text-align: left; padding: 15px 22px; border-top: 1px solid var(--line); font-size: 14px; }
 .ml-home .cmp thead th { border-top: 0; font-family: var(--mono); font-size: 11px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-3); font-weight: 500; }
+/* Provider headers (MARKLINE / SCALAR / MINTLIFY) center over their column's dots. */
+.ml-home .cmp thead th:not(:first-child) { text-align: center; }
 .ml-home .cmp thead .me { color: var(--ink); }
 .ml-home .cmp tbody td:first-child, .ml-home .cmp thead th:first-child { color: var(--ink-2); width: 38%; }
 .ml-home .cmp td.col { text-align: center; width: 20.6%; }

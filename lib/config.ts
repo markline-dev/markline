@@ -237,7 +237,17 @@ export type AnalyticsConfig = {
 export type MarklineConfig = {
   name: string;
   theme: ThemeConfig;
-  topbar: { links: TopbarLink[]; cta?: TopbarLink; badge?: string };
+  topbar: {
+    links: TopbarLink[];
+    cta?: TopbarLink;
+    badge?: string;
+    /** Topbar layout on docs + API reference: "full" (edge-to-edge, default) or
+     *  "contained" (centered max-width, aligned to page content). */
+    width?: "full" | "contained";
+    /** Topbar layout on the homepage ("/") — independent from `width`.
+     *  Defaults to "contained" so the marketing nav aligns with the hero. */
+    homeWidth?: "full" | "contained";
+  };
   navigation: { tabs: NavTab[] };
   seo: SeoConfig;
   api: ApiConfig;
@@ -284,6 +294,8 @@ function mergeConfig(base: MarklineConfig, user: Partial<MarklineConfig>): Markl
       links: user.topbar?.links ?? base.topbar.links,
       cta: user.topbar?.cta ?? base.topbar.cta,
       badge: user.topbar?.badge ?? base.topbar.badge,
+      width: user.topbar?.width ?? base.topbar.width ?? "full",
+      homeWidth: user.topbar?.homeWidth ?? base.topbar.homeWidth ?? "contained",
     },
     navigation: {
       tabs: user.navigation?.tabs ?? base.navigation.tabs,

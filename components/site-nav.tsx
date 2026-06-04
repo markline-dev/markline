@@ -24,6 +24,8 @@ export function SiteNav({
   githubUrl,
   stars,
   cta,
+  width = "full",
+  homeWidth = "contained",
 }: {
   /** Repo URL for the GitHub badge (from config topbar links). */
   githubUrl?: string;
@@ -31,13 +33,19 @@ export function SiteNav({
   stars?: string;
   /** Primary CTA (from config topbar.cta). */
   cta?: SiteNavLink;
+  /** Topbar layout on docs + API reference. */
+  width?: "full" | "contained";
+  /** Topbar layout on the homepage ("/") — independent from `width`. */
+  homeWidth?: "full" | "contained";
 }) {
   const pathname = usePathname();
   const onApiRef = pathname === "/api-reference" || pathname.startsWith("/api-reference/");
+  // The homepage ("/") uses its own width knob; every other route uses `width`.
+  const layout = pathname === "/" ? homeWidth : width;
 
   return (
     <header className="nav">
-      <div className="wrap nav-in">
+      <div className={`nav-in nav-in--${layout}`}>
         <Link className="brand" href="/" aria-label="Markline home">
           <Wordmark />
         </Link>

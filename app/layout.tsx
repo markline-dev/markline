@@ -101,7 +101,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="ml-body">
         <Analytics config={config.analytics} />
-        <SiteNav githubUrl={githubUrl()} cta={config.topbar.cta} />
+        <SiteNav githubUrl={githubUrl()} cta={config.topbar.cta} width={config.topbar.width} homeWidth={config.topbar.homeWidth} />
         {children}
       </body>
     </html>

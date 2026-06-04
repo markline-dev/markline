@@ -329,7 +329,7 @@
   display: block;
 }
 .docs-shell:has(.landing) > .docs-side,
-.docs-shell:has(.landing) > .toc {
+.docs-shell:has(.landing) > .docs-toc {
   display: none;
 }
 

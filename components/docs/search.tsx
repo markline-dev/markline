@@ -39,7 +39,8 @@ export function DocsSearch() {
   const pagefindRef = useRef<Pagefind | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Global ⌘K / Ctrl+K to open.
+  // Global ⌘K / Ctrl+K to open, plus an explicit open event from the docs
+  // sidebar search trigger.
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -49,8 +50,13 @@ export function DocsSearch() {
         setOpen(false);
       }
     }
+    const onOpenEvent = () => setOpen(true);
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("ml-docs-search-open", onOpenEvent);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("ml-docs-search-open", onOpenEvent);
+    };
   }, []);
 
   // Lazy-load the index the first time the modal opens.

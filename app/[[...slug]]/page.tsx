@@ -7,8 +7,10 @@ import { getDoc, listDocs } from "@/lib/docs";
 import { DocsPage } from "@/components/docs/page";
 import { mdxComponents } from "@/components/docs/mdx";
 import { getHighlighter, shellEnhancer } from "@/lib/shiki";
-import { loadConfig } from "@/lib/config";
+import { loadConfig, aiConfig } from "@/lib/config";
+import { getDocsTabs, pickActiveTab } from "@/components/docs/sections";
 import { LandingPage } from "@/components/landing/landing";
+import type { PageNavLink } from "@/components/docs/page";
 
 // One transformer instance reused across all blocks — it's stateless.
 const shellTransformer = shellEnhancer();
@@ -50,6 +52,11 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
     ? `${config.editUrl.replace(/\/$/, "")}/${doc.sourcePath}`
     : undefined;
 
+  // Previous/Next derived from the real flattened sidebar order of the active
+  // (documentation) tab — no fabricated links.
+  const pathname = doc.slug.length ? `/${doc.slug.join("/")}` : "/";
+  const { prev, next } = pageNeighbors(pathname);
+
   const content = (
     <MDXRemote
       source={doc.body}
@@ -78,10 +85,34 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
       lastUpdated={doc.fm.last_updated}
       editUrl={editUrl}
       feedbackEndpoint={config.feedback?.endpoint}
+      aiEnabled={aiConfig() != null}
+      prev={prev}
+      next={next}
     >
       {content}
     </DocsPage>
   );
+}
+
+/**
+ * Find the previous/next doc relative to a pathname by flattening the active
+ * tab's sidebar sections into document order. Only internal doc links (not the
+ * OpenAPI tab) participate, so prev/next stay within the docs nav.
+ */
+function pageNeighbors(pathname: string): { prev?: PageNavLink; next?: PageNavLink } {
+  const tabs = getDocsTabs();
+  const tab = pickActiveTab(tabs, pathname);
+  if (!tab || tab.id === "api-reference") return {};
+  const flat: PageNavLink[] = [];
+  for (const sec of tab.sections) {
+    for (const l of sec.links) flat.push({ href: l.href, label: l.label });
+  }
+  const i = flat.findIndex((l) => l.href === pathname);
+  if (i < 0) return {};
+  return {
+    prev: i > 0 ? flat[i - 1] : undefined,
+    next: i < flat.length - 1 ? flat[i + 1] : undefined,
+  };
 }
 
 function deriveCrumbs(slug: string[], title: string) {

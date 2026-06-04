@@ -5,8 +5,12 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ThemeToggle } from "./theme-toggle";
 import { TocList } from "./toc";
-import { FeedbackWidget } from "./feedback";
+import { DocsRate } from "./feedback";
 import { DocsSearch } from "./search";
+import { SidebarAskButton, SidebarSearchTrigger } from "./doc-actions";
+import { AskDock } from "./ai/ask-dock";
+import { MarkdownModal } from "./api/reference/apiref-extras";
+import type { AiPublicConfig } from "@/lib/config";
 
 export type DocLink = { href: string; label: string; badge?: "new" | "beta"; method?: string };
 export type DocSection = { title: string; links: DocLink[] };
@@ -143,6 +147,8 @@ function pickActiveTabId(tabs: TopTab[], pathname: string): string {
   return tabs.find((t) => t.matchPrefixes.includes("__default__"))?.id ?? tabs[0]?.id ?? "";
 }
 
+/** Numbered nav groups (the design's .docs-nav): "01 Get started", etc. The
+ *  index is derived from the section's position. Method/badge chips are kept. */
 function SidebarSections({
   sections,
   pathname,
@@ -153,12 +159,12 @@ function SidebarSections({
   onNavigate?: () => void;
 }) {
   return (
-    <>
+    <nav className="docs-nav">
       {sections.map((sec, si) => (
-        <div key={sec.title}>
-          <h5 className={`font-mono text-10 uppercase tracking-[0.08em] text-slate-5 font-medium px-2 pb-1.5 ${si === 0 ? "pt-0" : "pt-4"}`}>
-            {sec.title}
-          </h5>
+        <div key={sec.title} className="docs-nav-grp">
+          <div className="t">
+            <span className="n">{String(si + 1).padStart(2, "0")}</span> {sec.title}
+          </div>
           {sec.links.map((l) => {
             const active = pathname === l.href;
             return (
@@ -166,42 +172,44 @@ function SidebarSections({
                 key={l.href}
                 href={l.href}
                 onClick={onNavigate}
-                className={`flex items-center gap-2 px-2.5 py-1.5 text-13 no-underline rounded-1 leading-[1.4] ${
-                  active ? "text-ink font-medium" : "text-slate-6 hover:text-ink hover:bg-slate-2"
-                }`}
+                className={active ? "active" : undefined}
               >
-                {active && <span aria-hidden className="w-[2px] h-3.5 bg-brand -ml-2.5 mr-1.5" />}
                 {l.method && <SidebarMethod method={l.method} />}
                 <span className="truncate">{l.label}</span>
-                {l.badge && (
-                  <span className={`ml-auto font-mono text-[9px] px-1.5 py-px rounded-sm tracking-[0.04em] uppercase ${
-                    l.badge === "new"
-                      ? "bg-brand text-on-brand"
-                      : "bg-[#FBEACB] text-[#9A6A1A]"
-                  }`}>
-                    {l.badge}
-                  </span>
-                )}
+                {l.badge && <span className="badge">{l.badge}</span>}
               </Link>
             );
           })}
         </div>
       ))}
-    </>
+    </nav>
   );
 }
 
-export function DocsSidebar({ nav }: { nav: NavData }) {
+export function DocsSidebar({ nav, ai = null }: { nav: NavData; ai?: AiPublicConfig | null }) {
   const pathname = usePathname();
   const tabs = nav.tabsByVariant[pickVariantId(nav, pathname)] ?? [];
   const activeId = pickActiveTabId(tabs, pathname);
   const activeTab = tabs.find((t) => t.id === activeId) ?? tabs[0];
   const sections = activeTab?.sections ?? [];
+  // The API-reference routes render their own AskDock/MarkdownModal (and their
+  // own takeover sidebar). Don't double-mount the docs-shell overlays there.
+  const onApiRef = pathname === "/api-reference" || pathname.startsWith("/api-reference/");
   return (
-    <aside className="docs-side border-r border-slate-3 px-4 py-6 sticky self-start overflow-y-auto"
-           style={{ top: 56, height: "calc(100vh - 56px)" }}>
-      <SidebarSections sections={sections} pathname={pathname} />
-    </aside>
+    <>
+      <aside className="docs-side sticky self-start overflow-y-auto" style={{ top: 56, height: "calc(100vh - 56px)" }}>
+        <div className="docs-tools">
+          <SidebarSearchTrigger />
+          {ai && <SidebarAskButton />}
+        </div>
+        <SidebarSections sections={sections} pathname={pathname} />
+      </aside>
+      {/* Page-level AI affordances (the doc-ai row + View-as-Markdown modal) live
+          in the docs shell so they're available on every docs page. Rendered
+          only when AI is on, and never on the API-reference routes. */}
+      {!onApiRef && ai && <AskDock ai={ai} />}
+      {!onApiRef && <MarkdownModal />}
+    </>
   );
 }
 
@@ -299,7 +307,7 @@ function SidebarMethod({ method }: { method: string }) {
     delete: "#E14F4F",
   };
   return (
-    <span className="font-mono text-[9px] uppercase tracking-[0.04em] w-9 flex-shrink-0" style={{ color: color[m] ?? "#7882A0" }}>
+    <span className="method" style={{ color: color[m] ?? "#7882A0" }}>
       {m}
     </span>
   );
@@ -353,12 +361,14 @@ export function DocsToc({
   feedbackEndpoint?: string;
 }) {
   return (
-    <aside className="toc px-6 py-6 sticky self-start overflow-y-auto" style={{ top: 56, height: "calc(100vh - 56px)" }}>
-      <h6 className="font-mono text-10 uppercase tracking-[0.08em] text-slate-5 font-medium mb-2">
-        On this page
-      </h6>
-      <TocList items={items} />
-      {helpful && <FeedbackWidget endpoint={feedbackEndpoint} />}
+    <aside className="docs-toc sticky self-start overflow-y-auto" style={{ top: 56, height: "calc(100vh - 56px)" }}>
+      {items.length > 0 && (
+        <>
+          <div className="toc-h">On this page</div>
+          <TocList items={items} />
+        </>
+      )}
+      {helpful && <DocsRate endpoint={feedbackEndpoint} />}
     </aside>
   );
 }

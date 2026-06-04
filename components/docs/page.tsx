@@ -1,10 +1,14 @@
+import Link from "next/link";
 import { DocsToc } from "./nav";
+import { DocAiRow } from "./doc-actions";
 
 export type Crumb = { label: string; href?: string };
 export type TocItem = { id: string; label: string };
+export type PageNavLink = { href: string; label: string };
 
 export function DocsPage({
-  crumbs, title, lede, toc, lastUpdated, editUrl, feedbackEndpoint, children,
+  crumbs, title, lede, toc, lastUpdated, editUrl, feedbackEndpoint,
+  aiEnabled = false, prev, next, children,
 }: {
   crumbs: Crumb[];
   title: string;
@@ -13,44 +17,67 @@ export function DocsPage({
   lastUpdated?: string;
   editUrl?: string;
   feedbackEndpoint?: string;
+  /** Whether the "Ask AI about this page" affordance renders (AI opt-in). */
+  aiEnabled?: boolean;
+  prev?: PageNavLink;
+  next?: PageNavLink;
   children: React.ReactNode;
 }) {
   return (
     <>
-      <main className="docs-main max-w-[760px] px-12 pt-8 pb-24 docs-main-pad">
-        <style>{`@media (max-width: 720px) { .docs-main-pad { padding-left: 20px !important; padding-right: 20px !important; } }`}</style>
-
+      <main className="docs-main">
         {crumbs.length > 0 && (
-          <nav className="font-mono text-12 text-slate-5 mb-4">
+          <nav className="docs-bc">
             {crumbs.map((c, i) => (
-              <span key={i}>
-                {i > 0 && <span className="mx-2 text-slate-4">/</span>}
+              <span key={i} className="contents">
+                {i > 0 && <span className="sep">/</span>}
                 {c.href ? (
-                  <a href={c.href} className="text-slate-5 no-underline hover:text-ink">{c.label}</a>
+                  <a href={c.href}>{c.label}</a>
                 ) : (
-                  <span className={i === crumbs.length - 1 ? "text-ink" : "text-slate-5"}>{c.label}</span>
+                  <span className={i === crumbs.length - 1 ? "cur" : undefined}>{c.label}</span>
                 )}
               </span>
             ))}
           </nav>
         )}
 
-        <h1 className="font-semibold text-ink mb-2" style={{ fontSize: 36, letterSpacing: "-0.02em", lineHeight: 1.1 }}>
-          {title}
-        </h1>
-        {lede && <p className="text-16 leading-[1.55] text-slate-6 max-w-[60ch] mb-8">{lede}</p>}
+        <h1 className="docs-h1">{title}</h1>
+        {lede && <p className="docs-lead">{lede}</p>}
+
+        <DocAiRow title={title} aiEnabled={aiEnabled} />
 
         <div className="docs-prose">{children}</div>
 
+        {(prev || next) && (
+          <div className="page-nav">
+            {prev ? (
+              <Link href={prev.href}>
+                <div className="d">← Previous</div>
+                <div className="t">{prev.label}</div>
+              </Link>
+            ) : (
+              <span />
+            )}
+            {next ? (
+              <Link href={next.href} className="next-a">
+                <div className="d">Next →</div>
+                <div className="t">{next.label}</div>
+              </Link>
+            ) : (
+              <span />
+            )}
+          </div>
+        )}
+
         {(lastUpdated || editUrl) && (
-          <div className="mt-12 pt-6 border-t border-slate-3 flex items-center justify-between gap-4 font-mono text-12 text-slate-5">
-            <span>{lastUpdated ? `Last updated · ${lastUpdated}` : ""}</span>
+          <div className="doc-foot">
+            <span>{lastUpdated ? `Last updated ${lastUpdated}` : ""}</span>
             {editUrl && (
-              <a href={editUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 text-slate-5 no-underline hover:text-ink">
-                <svg width={13} height={13} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden>
-                  <path d="M11.5 2.5 13.5 4.5 6 12l-2.5.5L4 10l7.5-7.5Z" strokeLinejoin="round" />
+              <a href={editUrl} target="_blank" rel="noreferrer">
+                <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
+                  <path d="M12 20h9M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z" />
                 </svg>
-                Edit this page
+                Edit this page on GitHub
               </a>
             )}
           </div>
@@ -62,31 +89,46 @@ export function DocsPage({
   );
 }
 
+// Prose headings/paragraphs are styled structurally by app/docs.css
+// (.docs-prose h2/h3/p), so these emit plain elements with just the anchor id.
 export function DocsH2({ id, children }: { id: string; children: React.ReactNode }) {
-  return (
-    <h2 id={id} className="text-22 font-semibold tracking-[-0.01em] mt-9 mb-3">
-      {children}
-    </h2>
-  );
+  return <h2 id={id}>{children}</h2>;
 }
 
 export function DocsP({ children }: { children: React.ReactNode }) {
-  return <p className="text-15 leading-[1.65] text-slate-6 mb-4">{children}</p>;
+  return <p>{children}</p>;
 }
+
+const CALLOUT_ICON = {
+  info: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
+      <circle cx="12" cy="12" r="9" /><path d="M12 8h.01M11 12h1v4h1" />
+    </svg>
+  ),
+  warn: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
+      <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" /><path d="M12 9v4M12 17h.01" />
+    </svg>
+  ),
+  ok: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
+      <circle cx="12" cy="12" r="9" /><path d="m8 12 2.5 2.5L16 9" strokeLinecap="round" strokeLinejoin="round" />
+    </svg>
+  ),
+};
 
 export function Callout({
   tone = "info", title, children,
 }: {
-  tone?: "info" | "warn";
+  tone?: "info" | "warn" | "ok";
   title?: string;
   children: React.ReactNode;
 }) {
-  const accent = tone === "warn" ? "#EE7A4B" : "rgb(var(--c-brand))";
   return (
-    <div className="my-5 flex gap-3 p-4 rounded-2 border border-slate-3 bg-paper-2">
-      <div className="w-1.5 rounded-full flex-shrink-0" style={{ background: accent }} />
-      <div className="text-14 text-slate-6 leading-[1.55]">
-        {title && <strong className="text-ink">{title}</strong>}{title && " "}
+    <div className={`callout tone-${tone}`}>
+      <span className="ic">{CALLOUT_ICON[tone]}</span>
+      <div className="callout-body">
+        {title && <strong>{title}</strong>}{title && " "}
         {children}
       </div>
     </div>

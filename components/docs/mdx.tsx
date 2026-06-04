@@ -90,43 +90,25 @@ export type { CodeSnippet };
 /* ── MDX components map (passed to <MDXRemote components={…} />) ── */
 
 export const mdxComponents: MDXComponents = {
-  h1: ({ children }) => (
-    <h1 className="font-semibold text-ink mb-3" style={{ fontSize: 36, letterSpacing: "-0.02em", lineHeight: 1.1 }}>
-      {children}
-    </h1>
-  ),
+  // Prose elements are styled structurally by app/docs.css (.docs-prose …) so
+  // they stay token-driven and theme-aware; the components only carry anchor ids.
+  h1: ({ children }) => <h1 className="docs-h1">{children}</h1>,
   h2: ({ children }) => {
     const id = typeof children === "string" ? slugify(children) : undefined;
     return <DocsH2 id={id ?? ""}>{children}</DocsH2>;
   },
   h3: ({ children }) => {
     const id = typeof children === "string" ? slugify(children) : undefined;
-    return (
-      <h3 id={id} className="text-18 font-semibold tracking-[-0.01em] mt-6 mb-2 text-ink">
-        {children}
-      </h3>
-    );
+    return <h3 id={id}>{children}</h3>;
   },
   p: ({ children }) => <DocsP>{children}</DocsP>,
-  ul: ({ children }) => (
-    <ul className="list-disc pl-6 my-4 text-15 leading-[1.65] text-slate-6 space-y-1.5">{children}</ul>
-  ),
-  ol: ({ children }) => (
-    <ol className="list-decimal pl-6 my-4 text-15 leading-[1.65] text-slate-6 space-y-1.5">{children}</ol>
-  ),
-  li: ({ children }) => <li className="pl-1">{children}</li>,
-  a: ({ href, children }) => (
-    <Link href={href ?? "#"} className="text-ink underline underline-offset-2 hover:text-slate-7">
-      {children}
-    </Link>
-  ),
-  strong: ({ children }) => <strong className="text-ink font-semibold">{children}</strong>,
-  hr: () => <hr className="my-8 border-slate-3" />,
-  blockquote: ({ children }) => (
-    <blockquote className="my-5 pl-4 border-l-2 border-brand text-15 leading-[1.65] text-slate-6 italic">
-      {children}
-    </blockquote>
-  ),
+  ul: ({ children }) => <ul>{children}</ul>,
+  ol: ({ children }) => <ol>{children}</ol>,
+  li: ({ children }) => <li>{children}</li>,
+  a: ({ href, children }) => <Link href={href ?? "#"}>{children}</Link>,
+  strong: ({ children }) => <strong>{children}</strong>,
+  hr: () => <hr />,
+  blockquote: ({ children }) => <blockquote>{children}</blockquote>,
   // Inline code (single backticks) vs fenced code blocks.
   // rehype-pretty-code marks fenced blocks with data-language; inline code
   // doesn't get that attribute. We use it as the discriminator so the

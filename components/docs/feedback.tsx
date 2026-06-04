@@ -127,6 +127,134 @@ export function FeedbackWidget({ endpoint }: { endpoint?: string }) {
   );
 }
 
+/**
+ * Design-faithful rate widget (the .rate block in the right TOC): mono question
+ * + two thumb buttons. Picking one reveals the existing reason/comment form and
+ * submits through the same endpoint contract as FeedbackWidget.
+ */
+export function DocsRate({ endpoint }: { endpoint?: string }) {
+  const [answer, setAnswer] = useState<Answer | null>(null);
+  const [stage, setStage] = useState<Stage>("idle");
+  const [reason, setReason] = useState<string | null>(null);
+  const [comment, setComment] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+
+  const pick = (a: Answer) => {
+    setAnswer(a);
+    setStage("form");
+  };
+
+  const submit = async () => {
+    setSubmitting(true);
+    const payload = {
+      answer,
+      reason,
+      comment,
+      path: typeof window !== "undefined" ? window.location.pathname : null,
+    };
+    try {
+      if (endpoint) {
+        await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        });
+      } else {
+        // eslint-disable-next-line no-console
+        console.log("[docs feedback]", payload);
+      }
+      setStage("done");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const cancel = () => {
+    setAnswer(null);
+    setStage("idle");
+    setReason(null);
+    setComment("");
+  };
+
+  if (stage === "done") {
+    return (
+      <div className="rate">
+        <div className="q">Thanks for the feedback.</div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rate">
+      <div className="q">Was this page helpful?</div>
+      <div className="btns">
+        <button
+          type="button"
+          aria-label="Yes, helpful"
+          className={answer === "yes" ? "picked" : undefined}
+          onClick={() => pick("yes")}
+        >
+          <ThumbIcon up />
+        </button>
+        <button
+          type="button"
+          aria-label="No, not helpful"
+          className={answer === "no" ? "picked" : undefined}
+          onClick={() => pick("no")}
+        >
+          <ThumbIcon />
+        </button>
+      </div>
+
+      {stage === "form" && (
+        <div className="mt-4 text-12 text-slate-6">
+          <h6 className="text-13 font-medium text-ink mb-2">
+            {answer === "yes" ? "What did you like?" : "How can we improve?"}
+          </h6>
+          <div className="flex flex-col gap-1.5">
+            {REASONS.map((r) => (
+              <label key={r} className="flex items-start gap-2 text-12 text-slate-6 cursor-pointer">
+                <input
+                  type="radio"
+                  name="docs-feedback-reason"
+                  className="mt-0.5 accent-brand"
+                  checked={reason === r}
+                  onChange={() => setReason(r)}
+                />
+                <span>{r}</span>
+              </label>
+            ))}
+          </div>
+          <textarea
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            rows={3}
+            placeholder="Anything else?"
+            className="w-full mt-3 p-2 text-12 bg-paper-2 border border-slate-3 rounded-1 text-ink resize-y focus:outline-none focus:border-brand"
+          />
+          <div className="flex gap-2 mt-3">
+            <button
+              onClick={cancel}
+              type="button"
+              className="font-mono text-11 px-3 py-1.5 border border-slate-4 rounded-1 bg-transparent text-slate-6 hover:text-ink hover:border-slate-7 cursor-pointer"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={submit}
+              disabled={submitting || (!reason && !comment.trim())}
+              type="button"
+              className="font-mono text-11 px-3 py-1.5 rounded-1 bg-ink text-paper hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+            >
+              {submitting ? "Sending…" : "Submit"}
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function PillButton({
   active,
   children,
@@ -152,6 +280,7 @@ function PillButton({
 function ThumbIcon({ up = false }: { up?: boolean }) {
   return (
     <svg
+      className="ico"
       width={12}
       height={12}
       viewBox="0 0 24 24"

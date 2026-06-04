@@ -8,27 +8,23 @@ import Link from "next/link";
 
 /* ── Admonition callouts: Note / Tip / Info / Warning / Danger / Check ── */
 
+/** Maps an admonition to the design's three callout tones (.callout / .tone-*). */
 function Admonition({
-  accent,
+  tone,
   icon,
   title,
   children,
 }: {
-  accent: string;
+  tone: "info" | "ok" | "warn";
   icon: React.ReactNode;
   title?: string;
   children: React.ReactNode;
 }) {
   return (
-    <div
-      className="my-5 flex gap-3 p-4 rounded-2 border"
-      style={{ borderColor: `${accent}55`, background: `color-mix(in oklab, ${accent} 8%, transparent)` }}
-    >
-      <span className="flex-shrink-0 mt-[2px]" style={{ color: accent }} aria-hidden>
-        {icon}
-      </span>
-      <div className="text-14 text-slate-6 leading-[1.6] min-w-0 [&>p]:my-0 [&>p+p]:mt-2 [&>:last-child]:mb-0">
-        {title && <div className="font-semibold text-ink mb-1">{title}</div>}
+    <div className={`callout tone-${tone}`}>
+      <span className="ic" aria-hidden>{icon}</span>
+      <div className="callout-body">
+        {title && <strong>{title}</strong>}
         {children}
       </div>
     </div>
@@ -65,61 +61,69 @@ const ICON = {
 };
 
 export function Note({ title, children }: { title?: string; children: React.ReactNode }) {
-  return <Admonition accent="#3E59F3" icon={ICON.info} title={title}>{children}</Admonition>;
+  return <Admonition tone="info" icon={ICON.info} title={title}>{children}</Admonition>;
 }
 export function Info({ title, children }: { title?: string; children: React.ReactNode }) {
-  return <Admonition accent="#3E59F3" icon={ICON.info} title={title}>{children}</Admonition>;
+  return <Admonition tone="info" icon={ICON.info} title={title}>{children}</Admonition>;
 }
 export function Tip({ title, children }: { title?: string; children: React.ReactNode }) {
-  return <Admonition accent="#15A66B" icon={ICON.tip} title={title}>{children}</Admonition>;
+  return <Admonition tone="ok" icon={ICON.tip} title={title}>{children}</Admonition>;
 }
 export function Check({ title, children }: { title?: string; children: React.ReactNode }) {
-  return <Admonition accent="#15A66B" icon={ICON.check} title={title}>{children}</Admonition>;
+  return <Admonition tone="ok" icon={ICON.check} title={title}>{children}</Admonition>;
 }
 export function Warning({ title, children }: { title?: string; children: React.ReactNode }) {
-  return <Admonition accent="#E8571F" icon={ICON.warning} title={title}>{children}</Admonition>;
+  return <Admonition tone="warn" icon={ICON.warning} title={title}>{children}</Admonition>;
 }
 export function Danger({ title, children }: { title?: string; children: React.ReactNode }) {
-  return <Admonition accent="#E14F4F" icon={ICON.danger} title={title}>{children}</Admonition>;
+  return <Admonition tone="warn" icon={ICON.danger} title={title}>{children}</Admonition>;
 }
 
 /* ── Cards ── */
+
+const CardArrow = (
+  <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} aria-hidden>
+    <path d="M5 12h14M13 6l6 6-6 6" />
+  </svg>
+);
 
 export function Card({
   title,
   icon,
   href,
+  kicker,
   children,
 }: {
   title: string;
   icon?: React.ReactNode;
   href?: string;
+  /** Optional mono eyebrow (the design's .k). */
+  kicker?: string;
   children?: React.ReactNode;
 }) {
-  const cls =
-    "flex flex-col gap-1.5 p-5 border border-slate-3 rounded-3 bg-paper-2 text-ink no-underline";
   const inner = (
     <>
-      {icon && <span className="text-brand mb-1">{icon}</span>}
-      <span className="text-16 font-semibold">{title}</span>
-      {children && <span className="text-14 text-slate-5 leading-[1.55]">{children}</span>}
+      {kicker && <div className="k">{kicker}</div>}
+      <div className="h">
+        <span className="inline-flex items-center gap-2">
+          {icon && <span aria-hidden>{icon}</span>}
+          {title}
+        </span>
+        {href && CardArrow}
+      </div>
+      {children && <p>{children}</p>}
     </>
   );
   return href ? (
-    <Link href={href} className={`${cls} group hover:border-brand transition-colors`}>
-      {inner}
-    </Link>
+    <Link href={href} className="next-card">{inner}</Link>
   ) : (
-    <div className={cls}>{inner}</div>
+    <div className="next-card">{inner}</div>
   );
 }
 
 export function CardGroup({ cols = 2, children }: { cols?: number; children: React.ReactNode }) {
   return (
-    <div
-      className="grid gap-3 my-6 cardgroup"
-      style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
-    >
+    <div className="next-grid cardgroup" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
       <style>{`@media (max-width: 720px) { .cardgroup { grid-template-columns: 1fr !important; } }`}</style>
       {children}
     </div>
@@ -131,30 +135,22 @@ export function CardGroup({ cols = 2, children }: { cols?: number; children: Rea
 export function Steps({ children }: { children: React.ReactNode }) {
   const items = Children.toArray(children).filter(isValidElement);
   return (
-    <div className="my-6 flex flex-col">
+    <div className="steps">
       {items.map((child, i) =>
-        cloneElement(child as React.ReactElement<StepProps>, {
-          __num: i + 1,
-          __last: i === items.length - 1,
-        }),
+        cloneElement(child as React.ReactElement<StepProps>, { __num: i + 1 }),
       )}
     </div>
   );
 }
 
-type StepProps = { title?: string; children: React.ReactNode; __num?: number; __last?: boolean };
+type StepProps = { title?: string; children: React.ReactNode; __num?: number };
 
-export function Step({ title, children, __num, __last }: StepProps) {
+export function Step({ title, children, __num }: StepProps) {
   return (
-    <div className="flex gap-4 pb-6 relative last:pb-0">
-      {!__last && <span className="absolute left-[15px] top-9 bottom-1 w-px bg-slate-3" aria-hidden />}
-      <span className="w-8 h-8 rounded-full border border-slate-3 bg-paper-2 flex items-center justify-center font-mono text-13 text-ink flex-shrink-0 z-10">
-        {__num}
-      </span>
-      <div className="pt-1 min-w-0 [&>:last-child]:mb-0">
-        {title && <div className="font-semibold text-ink mb-1.5">{title}</div>}
-        {children}
-      </div>
+    <div className="step">
+      <span className="num">{__num}</span>
+      {title && <h3>{title}</h3>}
+      <div className="step-body">{children}</div>
     </div>
   );
 }

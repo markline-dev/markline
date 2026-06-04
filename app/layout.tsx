@@ -4,9 +4,10 @@ import localFont from "next/font/local";
 import "./globals.css";
 import "./home.css";
 import "./api-reference.css";
+import "./docs.css";
 import { DocsTopBar, DocsSidebar } from "@/components/docs/nav";
 import { getNav } from "@/components/docs/sections";
-import { loadConfig, hexToRgbTriple } from "@/lib/config";
+import { loadConfig, hexToRgbTriple, aiConfig } from "@/lib/config";
 import { Analytics } from "@/components/docs/analytics";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
@@ -105,22 +106,22 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <DocsTopBar nav={nav} brand={brand} />
         <div className="docs-shell grid min-h-[calc(100vh-56px)]">
           <style>{`
-            .docs-shell { grid-template-columns: 260px minmax(0, 1fr) 300px; }
+            .docs-shell { grid-template-columns: 256px minmax(0, 1fr) 220px; align-items: start; }
             /* When the right column is the API request/response panel, give it real estate. */
-            .docs-shell:has(> .api-side) { grid-template-columns: 260px minmax(0, 1fr) 460px; }
+            .docs-shell:has(> .api-side) { grid-template-columns: 256px minmax(0, 1fr) 460px; }
             @media (max-width: 1280px) {
               .docs-shell:has(> .api-side) { grid-template-columns: 240px minmax(0, 1fr) 400px; }
             }
             @media (max-width: 1080px) {
               .docs-shell { grid-template-columns: 240px minmax(0, 1fr) !important; }
-              .docs-shell > .toc, .docs-shell > .api-side { display: none !important; }
+              .docs-shell > .docs-toc, .docs-shell > .api-side { display: none !important; }
             }
             @media (max-width: 720px) {
               .docs-shell { grid-template-columns: 1fr !important; }
               .docs-shell > .docs-side { display: none !important; }
             }
           `}</style>
-          <DocsSidebar nav={nav} />
+          <DocsSidebar nav={nav} ai={aiConfig()} />
           {children}
         </div>
       </body>

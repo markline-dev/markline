@@ -52,33 +52,19 @@ export function TocList({ items }: { items: TocItem[] }) {
     return () => observer.disconnect();
   }, [items]);
 
+  if (items.length === 0) return null;
   return (
-    <nav>
+    <ul className="toc-list">
       {items.map((i) => {
         const active = i.id === activeId;
         return (
-          <a
-            key={i.id}
-            href={`#${i.id}`}
-            className="relative flex items-center gap-2 py-1 pl-3 text-12 no-underline transition-colors"
-            style={{
-              color: active ? "rgb(var(--c-brand))" : "rgb(var(--c-slate-5))",
-              fontWeight: active ? 600 : 400,
-            }}
-            onClick={() => setActiveId(i.id)}
-          >
-            <span
-              aria-hidden
-              className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-1 rounded-full transition-opacity"
-              style={{
-                background: "rgb(var(--c-brand))",
-                opacity: active ? 1 : 0,
-              }}
-            />
-            {i.label}
-          </a>
+          <li key={i.id}>
+            <a href={`#${i.id}`} className={active ? "active" : undefined} onClick={() => setActiveId(i.id)}>
+              {i.label}
+            </a>
+          </li>
         );
       })}
-    </nav>
+    </ul>
   );
 }

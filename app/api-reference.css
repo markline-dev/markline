@@ -50,7 +50,7 @@
 body:has(.ml-apiref) .docs-top { display: none !important; }
 .docs-shell:has(.ml-apiref) { display: block; }
 .docs-shell:has(.ml-apiref) > .docs-side,
-.docs-shell:has(.ml-apiref) > .toc { display: none !important; }
+.docs-shell:has(.ml-apiref) > .docs-toc { display: none !important; }
 body:has(.ml-apiref) { background: #08080a; }
 [data-theme="light"] body:has(.ml-apiref) { background: #f7f7f5; }
 

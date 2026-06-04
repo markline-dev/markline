@@ -13,26 +13,20 @@ export function Tabs({ children }: { children: React.ReactNode }) {
   const [active, setActive] = useState(0);
   if (tabs.length === 0) return null;
   return (
-    <div className="my-6 border border-slate-3 rounded-2 overflow-hidden">
-      <div className="flex border-b border-slate-3 bg-paper-2 overflow-x-auto">
+    <div>
+      <div className="tabs-bar">
         {tabs.map((t, i) => (
           <button
             key={i}
             type="button"
             onClick={() => setActive(i)}
-            className={`px-4 py-2.5 text-13 whitespace-nowrap border-b-2 -mb-px ${
-              i === active
-                ? "border-brand text-ink font-medium"
-                : "border-transparent text-slate-5 hover:text-ink"
-            }`}
+            className={i === active ? "active" : undefined}
           >
             {t.props.title}
           </button>
         ))}
       </div>
-      <div className="p-4 text-15 text-slate-6 leading-[1.6] [&>:first-child]:mt-0 [&>:last-child]:mb-0">
-        {tabs[active]}
-      </div>
+      <div className="tabs-body">{tabs[active]}</div>
     </div>
   );
 }

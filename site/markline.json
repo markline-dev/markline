@@ -52,6 +52,14 @@
     "baseUrl": "https://api.markline.dev",
     "playground": { "mode": "explorer", "proxy": "auto" }
   },
+  "ai": {
+    "enabled": true,
+    "provider": "openrouter",
+    "model": "anthropic/claude-3.5-sonnet",
+    "mode": "byok",
+    "label": "Ask AI",
+    "maxTokens": 1024
+  },
   "editUrl": "https://github.com/markline-dev/markline/edit/main/site",
   "seo": {
     "title": "Markline — open-source docs framework",

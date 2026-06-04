@@ -12,7 +12,7 @@ import { buildApiRefView, tagSlug } from "@/lib/apiref-view";
 import { mdxComponents } from "@/components/docs/mdx";
 import { getHighlighter, shellEnhancer } from "@/lib/shiki";
 import { contentRoot } from "@/lib/paths";
-import { loadConfig } from "@/lib/config";
+import { loadConfig, aiConfig } from "@/lib/config";
 
 const shellTransformer = shellEnhancer();
 const prettyCodeOptions = {
@@ -145,7 +145,7 @@ export default async function ApiReferencePage({ params }: { params: Promise<{ s
     const view = buildApiRefView(doc, root, tagSlug(matchedTag.name));
     const sectionSrc = loadSectionMdx(matchedTag.name);
     const summary = sectionSrc ? renderMdx(sectionSrc) : undefined;
-    return <MarklineApiRef view={view} summary={summary} githubUrl={githubUrl()} />;
+    return <MarklineApiRef view={view} summary={summary} githubUrl={githubUrl()} ai={aiConfig()} />;
   }
 
   const op = first ? doc.operationsById[first] : undefined;

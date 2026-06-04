@@ -125,6 +125,38 @@ Mintlify-style projects). `theme.appearance` sets the default color scheme —
   modal), `"explorer"` (read-only docs + console + Explorer modal, Stripe-style),
   or `"off"` (static cURL panel).
 
+### Ask AI (BYOK)
+
+Opt-in AI assistant for the API reference — a docked chat panel with "Ask about
+this section" and source citations. **Bring your own key**; Markline never ships
+one. Omit the `ai` block (or set `enabled: false`) and there is no AI route, no
+client weight, and no UI — the framework is unchanged.
+
+```jsonc
+"ai": {
+  "enabled": true,
+  "provider": "openrouter",          // openai · openrouter · together · groq · fireworks · local · openai-compatible
+  "baseUrl": null,                   // required for "openai-compatible"
+  "model": "anthropic/claude-3.5-sonnet",
+  "mode": "proxy",                   // "proxy" (operator key, server) | "byok" (reader key, browser)
+  "label": "Ask AI",
+  "maxTokens": 1024,
+  "rateLimit": { "perMinute": 10 }
+}
+```
+
+- **`mode: "proxy"`** (Node/Docker/Vercel) — the key lives only on the server in
+  `MARKLINE_AI_KEY` (never `markline.json`, never `NEXT_PUBLIC_*`). Requests go
+  through the built-in `/api/ai` route, which is dropped in static export.
+  ⚠️ A public site with a proxy is an open relay to your paid LLM — the route
+  ships with origin checks and a per-IP rate limit, but **enabling proxy mode on
+  a public site spends your budget**; tune `rateLimit` and `maxTokens`.
+- **`mode: "byok"`** — the reader pastes their own key (stored in their browser)
+  and calls the provider directly. Works on pure-static hosting; the operator
+  spends nothing.
+- One transport speaks the OpenAI `/chat/completions` shape, so any
+  OpenAI-compatible vendor works via the `provider` preset or a `baseUrl`.
+
 ### API reference content (MDX overlays)
 
 The reference is generated from `api/openapi.json`, but you can layer authored

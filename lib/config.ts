@@ -118,6 +118,116 @@ export function playgroundMode(api: ApiConfig): "full" | "inline" | "explorer" |
   return "full";
 }
 
+/* ── AI (BYOK) — see _docs/AI-BYOK-DESIGN.md ──────────────────────────────
+   Opt-in "Ask AI" assistant. The operator key is a SERVER-side secret
+   (MARKLINE_AI_KEY env), never in markline.json, never NEXT_PUBLIC_*. With no
+   `ai` (or enabled:false), aiConfig() returns null and every AI UI renders
+   nothing — the framework is byte-for-byte unchanged. */
+
+export type AiProvider =
+  | "openai"
+  | "openrouter"
+  | "together"
+  | "groq"
+  | "fireworks"
+  | "local"
+  | "openai-compatible";
+
+/** Preset provider → OpenAI-compatible base URL. */
+export const AI_PROVIDER_PRESETS: Record<Exclude<AiProvider, "openai-compatible">, string> = {
+  openai: "https://api.openai.com/v1",
+  openrouter: "https://openrouter.ai/api/v1",
+  together: "https://api.together.xyz/v1",
+  groq: "https://api.groq.com/openai/v1",
+  fireworks: "https://api.fireworks.ai/inference/v1",
+  local: "http://localhost:11434/v1",
+};
+
+export type AiConfig = {
+  /** Explicit opt-in; default false. */
+  enabled?: boolean;
+  provider?: AiProvider;
+  /** Override base URL (required for "openai-compatible"). */
+  baseUrl?: string;
+  model?: string;
+  /**
+   * - "proxy": operator key on the server (built-in /api/ai route).
+   * - "byok":  reader supplies their own key in the browser (localStorage),
+   *            calling the provider directly — safe for pure-static hosting.
+   */
+  mode?: "proxy" | "byok";
+  /** External proxy URL (operator-hosted worker) for pure-static + proxy mode. */
+  endpoint?: string;
+  /** UI affordance label. */
+  label?: string;
+  /** Optional system-prompt override for docs Q&A. */
+  systemPrompt?: string;
+  maxTokens?: number;
+  /** Per-IP abuse limits for the proxy route. */
+  rateLimit?: { perMinute?: number; perDay?: number };
+};
+
+/** Sanitized AI config safe to send to the browser (never a key). */
+export type AiPublicConfig = {
+  mode: "proxy" | "byok";
+  provider: AiProvider;
+  providerLabel: string;
+  model: string;
+  label: string;
+  /** Where the client POSTs: the built-in route, an external endpoint, or the
+   *  provider directly (byok). Never carries a key. */
+  endpoint: string | null;
+  maxTokens: number;
+};
+
+const AI_PROVIDER_LABELS: Record<AiProvider, string> = {
+  openai: "OpenAI",
+  openrouter: "OpenRouter",
+  together: "Together",
+  groq: "Groq",
+  fireworks: "Fireworks",
+  local: "Local",
+  "openai-compatible": "OpenAI-compatible",
+};
+
+/** Resolve the OpenAI-compatible base URL for a provider (honors override). */
+export function resolveAiBaseUrl(ai: AiConfig): string {
+  if (ai.baseUrl) return ai.baseUrl.replace(/\/$/, "");
+  const provider = ai.provider ?? "openai";
+  if (provider === "openai-compatible") return ""; // requires explicit baseUrl
+  return AI_PROVIDER_PRESETS[provider];
+}
+
+/**
+ * The single availability resolver. Returns null when AI is unavailable — all
+ * AI UI must render nothing. (Mirrors the design doc §3.)
+ */
+export function aiConfig(): AiPublicConfig | null {
+  const ai = loadConfig().ai;
+  if (!ai?.enabled) return null; // not opted in
+  const provider = ai.provider ?? "openai";
+  const mode = ai.mode ?? "proxy";
+  if (mode === "proxy") {
+    const hasServerKey = !!process.env.MARKLINE_AI_KEY; // server runtime
+    const hasExternal = !!ai.endpoint; // static + external proxy
+    if (!hasServerKey && !hasExternal) return null; // can't proxy → hide
+  }
+  // byok needs a reachable provider base URL.
+  if (mode === "byok" && !resolveAiBaseUrl(ai)) return null;
+  return {
+    mode,
+    provider,
+    providerLabel: AI_PROVIDER_LABELS[provider],
+    model: ai.model ?? "gpt-4o-mini",
+    label: ai.label ?? "Ask AI",
+    endpoint:
+      mode === "byok"
+        ? `${resolveAiBaseUrl(ai)}/chat/completions`
+        : (ai.endpoint ?? "/api/ai"),
+    maxTokens: ai.maxTokens ?? 1024,
+  };
+}
+
 export type AnalyticsConfig = {
   plausible?: { domain: string; src?: string };
   googleAnalytics?: { measurementId: string };
@@ -140,6 +250,8 @@ export type MarklineConfig = {
   versions?: Version[];
   /** Localizations. First locale is the default (unprefixed). */
   i18n?: I18nConfig;
+  /** Opt-in "Ask AI" assistant (BYOK). Omit to disable entirely. */
+  ai?: AiConfig;
 };
 
 const DEFAULT_CONFIG: MarklineConfig = {
@@ -187,6 +299,7 @@ function mergeConfig(base: MarklineConfig, user: Partial<MarklineConfig>): Markl
     feedback: { ...base.feedback, ...user.feedback },
     versions: user.versions ?? base.versions,
     i18n: user.i18n ?? base.i18n,
+    ai: user.ai ?? base.ai,
   };
 }
 

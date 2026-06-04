@@ -3,7 +3,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { ApiRefView, AttrView, EndpointView, NavGroup } from "@/lib/apiref-view";
+import type { AiPublicConfig } from "@/lib/config";
 import { PlaygroundProvider, usePlayground } from "../playground";
+import { AskDock, openAskPanel } from "../../ai/ask-dock";
 
 /**
  * Stripe-style API reference — a full-takeover page implemented from the Claude
@@ -22,14 +24,19 @@ export function MarklineApiRef({
   summary,
   githubUrl,
   stars,
+  ai,
 }: {
   view: ApiRefView;
   /** Server-rendered per-resource MDX summary (api/sections/<tag>.mdx), if any. */
   summary?: React.ReactNode;
   githubUrl?: string;
   stars?: string;
+  /** Sanitized AI config; when present the docked Ask-AI panel is mounted and
+   *  the Ask-AI affordances render. Null/undefined → no AI UI at all. */
+  ai?: AiPublicConfig | null;
 }) {
   const root = useRef<HTMLDivElement>(null);
+  const aiOn = !!ai;
 
   useEffect(() => {
     const el = root.current;
@@ -247,10 +254,12 @@ export function MarklineApiRef({
                 <span className="lbl">Find anything</span>
                 <span className="kbd">/</span>
               </div>
-              <button className="api-ask" data-askai>
-                <Spark />
-                Ask AI
-              </button>
+              {aiOn && (
+                <button className="api-ask" type="button" onClick={() => openAskPanel(r.name)}>
+                  <Spark />
+                  {ai?.label ?? "Ask AI"}
+                </button>
+              )}
             </div>
             <div className="api-vwrap">
               <button className="api-ver" data-ver-btn aria-label="API version">
@@ -288,7 +297,7 @@ export function MarklineApiRef({
               <Helpful />
             </div>
             <div className="api-r">
-              <AiActions resource={r.name} markdown />
+              <AiActions resource={r.name} markdown aiEnabled={aiOn} />
               <div className="ep-card">
                 <div className="ep-tabs" data-tabs data-tabs-scope={`#ep-panels-${r.slug}`}>
                   <button className="ep-tab active" data-tab="endpoints">
@@ -326,7 +335,7 @@ export function MarklineApiRef({
                 ))}
               </div>
               <div className="api-r">
-                <AiActions resource={r.object.name} />
+                <AiActions resource={r.object.name} aiEnabled={aiOn} />
                 <div className="code-card">
                   <div className="cc-head">
                     <span className="cc-title">{r.object.name}</span>
@@ -342,10 +351,12 @@ export function MarklineApiRef({
 
           {/* 3..N · Endpoints */}
           {r.sections.map((ep) => (
-            <EndpointSection key={ep.opId} ep={ep} />
+            <EndpointSection key={ep.opId} ep={ep} aiEnabled={aiOn} />
           ))}
         </main>
       </div>
+
+      {ai && <AskDock ai={ai} />}
     </div>
   );
 }
@@ -381,7 +392,7 @@ function NavGroupView({ group }: { group: NavGroup }) {
 }
 
 /* ── endpoint section ──────────────────────────────────────────────────── */
-function EndpointSection({ ep }: { ep: EndpointView }) {
+function EndpointSection({ ep, aiEnabled }: { ep: EndpointView; aiEnabled: boolean }) {
   return (
     <section className="api-sec" id={ep.id}>
       <div className="api-l">
@@ -404,7 +415,7 @@ function EndpointSection({ ep }: { ep: EndpointView }) {
         ))}
       </div>
       <div className="api-r">
-        <AiActions resource={ep.summary} markdown />
+        <AiActions resource={ep.summary} markdown aiEnabled={aiEnabled} />
         {ep.explorer && ep.playground ? (
           <PlaygroundProvider spec={ep.playground}>
             <DesignExplorer ep={ep} />
@@ -698,13 +709,15 @@ function Attr({ attr, showReqOpt }: { attr: AttrView; showReqOpt?: boolean }) {
   );
 }
 
-function AiActions({ resource, markdown }: { resource: string; markdown?: boolean }) {
+function AiActions({ resource, markdown, aiEnabled }: { resource: string; markdown?: boolean; aiEnabled?: boolean }) {
   return (
     <div className="ai-actions">
-      <a className="ai-action ask">
-        <Spark />
-        Ask about this section
-      </a>
+      {aiEnabled && (
+        <a className="ai-action ask" onClick={() => openAskPanel(resource)}>
+          <Spark />
+          Ask about this section
+        </a>
+      )}
       <a className="ai-action" data-copy={`Markline API — ${resource} (Markdown context for LLM)`}>
         <CopyIco />
         Copy for LLM

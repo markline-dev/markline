@@ -132,6 +132,13 @@ export function AskDock({ ai }: { ai: AiPublicConfig }) {
       if (detail?.context) setContext(detail.context);
       setOpen(true);
     };
+    const onPrefill = (e: Event) => {
+      const detail = (e as CustomEvent).detail as { q?: string } | undefined;
+      if (detail?.q) {
+        setInput(detail.q);
+        setTimeout(() => inputRef.current?.focus(), 40);
+      }
+    };
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
         e.preventDefault();
@@ -144,9 +151,11 @@ export function AskDock({ ai }: { ai: AiPublicConfig }) {
       }
     };
     window.addEventListener("ml-ai-open", onOpen as EventListener);
+    window.addEventListener("ml-ai-prefill", onPrefill as EventListener);
     window.addEventListener("keydown", onKey);
     return () => {
       window.removeEventListener("ml-ai-open", onOpen as EventListener);
+      window.removeEventListener("ml-ai-prefill", onPrefill as EventListener);
       window.removeEventListener("keydown", onKey);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps

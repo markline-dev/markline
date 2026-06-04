@@ -382,3 +382,61 @@ body.aichat-open .ml-apiref .aichat { transform: none; }
 .ml-apiref .ac-send:disabled { opacity: .4; }
 .ml-apiref .ac-send .ico { width: 15px; height: 15px; }
 .ml-apiref .ac-disclaim { font-size: 11px; color: var(--ink-4); text-align: center; margin-top: 9px; }
+
+/* ============================================================
+   Command-palette search (search.css), scoped under .ml-apiref
+   ============================================================ */
+.ml-apiref .spx { position: fixed; inset: 0; z-index: 210; display: none; }
+.ml-apiref .spx.open { display: block; }
+.ml-apiref .spx-scrim { position: absolute; inset: 0; background: color-mix(in srgb, var(--bg) 55%, transparent); backdrop-filter: blur(6px); }
+.ml-apiref .spx-box { position: absolute; top: 10vh; left: 50%; transform: translateX(-50%); width: min(660px, calc(100vw - 32px)); max-height: 78vh; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line-2); border-radius: 16px; overflow: hidden; box-shadow: 0 40px 120px -30px rgba(0,0,0,0.7); animation: ml-spx-in .18s cubic-bezier(.2,.7,.2,1); }
+@keyframes ml-spx-in { from { opacity: 0; transform: translate(-50%, 8px); } }
+.ml-apiref .spx-head { display: flex; align-items: center; gap: 12px; padding: 15px 16px; border-bottom: 1px solid var(--line); }
+.ml-apiref .spx-head .mag { color: var(--ink-4); flex: none; display: inline-flex; }
+.ml-apiref .spx-in { flex: 1; min-width: 0; background: transparent; border: 0; outline: 0; font-family: var(--sans); font-size: 16px; color: var(--ink); }
+.ml-apiref .spx-in::placeholder { color: var(--ink-4); }
+.ml-apiref .spx-esc { font-family: var(--mono); font-size: 10.5px; color: var(--ink-4); border: 1px solid var(--line); border-radius: 5px; padding: 3px 7px; background: transparent; flex: none; }
+.ml-apiref .spx-results { overflow-y: auto; padding: 8px; }
+.ml-apiref .spx-grouplbl { font-family: var(--mono); font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--ink-4); padding: 12px 10px 7px; }
+.ml-apiref .spx-row { display: flex; align-items: center; gap: 13px; padding: 11px 12px; border-radius: 10px; cursor: pointer; }
+.ml-apiref .spx-row.active { background: var(--panel-hi); }
+.ml-apiref .spx-row .hash { flex: none; width: 22px; height: 22px; display: grid; place-items: center; color: var(--ink-4); }
+.ml-apiref .spx-row.active .hash { color: var(--accent-ink); }
+.ml-apiref .spx-row .verb { flex: none; }
+.ml-apiref .spx-rmain { min-width: 0; flex: 1; }
+.ml-apiref .spx-crumb { font-size: 11.5px; color: var(--ink-4); display: flex; align-items: center; gap: 5px; }
+.ml-apiref .spx-crumb b { color: var(--ink-3); font-weight: 400; }
+.ml-apiref .spx-title { font-size: 14.5px; font-weight: 600; color: var(--ink); margin-top: 1px; }
+.ml-apiref .spx-snip { font-size: 12.5px; color: var(--ink-3); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ml-apiref .spx-row mark { background: color-mix(in srgb, var(--c-yellow) 30%, transparent); color: inherit; border-radius: 2px; padding: 0 1px; }
+[data-theme="light"] .ml-apiref .spx-row mark { background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.ml-apiref .spx-go { flex: none; color: var(--ink-4); opacity: 0; }
+.ml-apiref .spx-row.active .spx-go { opacity: 1; color: var(--accent-ink); }
+.ml-apiref .spx-ask .hash { color: var(--c-purple); }
+.ml-apiref .spx-ask .spx-title { color: var(--ink); }
+.ml-apiref .spx-empty { padding: 30px 16px; text-align: center; color: var(--ink-4); font-size: 14px; }
+.ml-apiref .spx-foot { display: flex; align-items: center; gap: 16px; padding: 10px 16px; border-top: 1px solid var(--line); background: var(--panel-2); font-size: 11.5px; color: var(--ink-4); white-space: nowrap; }
+.ml-apiref .spx-foot .k { display: inline-flex; align-items: center; gap: 6px; }
+.ml-apiref .spx-foot kbd { font-family: var(--mono); font-size: 10.5px; border: 1px solid var(--line); border-radius: 5px; padding: 1px 6px; color: var(--ink-3); }
+.ml-apiref .spx-foot .sp { margin-left: auto; font-family: var(--mono); }
+
+/* ---------- toast (version change) ---------- */
+.ml-apiref .ml-toast { position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%) translateY(0); background: var(--panel); border: 1px solid var(--line-2); border-radius: 999px; padding: 9px 16px; font-size: 13px; color: var(--ink); box-shadow: 0 18px 50px -16px rgba(0,0,0,.5); display: inline-flex; align-items: center; gap: 9px; z-index: 240; }
+.ml-apiref .ml-toast .dot.g { box-shadow: 0 0 8px var(--c-green); }
+
+/* ---------- View-as-Markdown modal (mdv) ---------- */
+.ml-apiref .mdv { position: fixed; inset: 0; z-index: 220; display: none; }
+.ml-apiref .mdv.open { display: block; }
+.ml-apiref .mdv-scrim { position: absolute; inset: 0; background: color-mix(in srgb, var(--bg) 55%, transparent); backdrop-filter: blur(6px); }
+.ml-apiref .mdv-box { position: absolute; top: 8vh; left: 50%; transform: translateX(-50%); width: min(680px, calc(100vw - 32px)); max-height: 80vh; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line-2); border-radius: 15px; overflow: hidden; box-shadow: 0 40px 120px -30px rgba(0,0,0,0.7); }
+.ml-apiref .mdv-head { display: flex; align-items: center; gap: 12px; padding: 13px 14px; border-bottom: 1px solid var(--line); }
+.ml-apiref .mdv-head .t { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 500; color: var(--ink); }
+.ml-apiref .mdv-head .t .ico { width: 15px; height: 15px; color: var(--ink-3); }
+.ml-apiref .mdv-head .sp { margin-left: auto; }
+.ml-apiref .mdv-cp { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ink-2); border: 1px solid var(--line-2); border-radius: 8px; padding: 6px 11px; background: transparent; cursor: pointer; }
+.ml-apiref .mdv-cp:hover { background: var(--panel-hi); color: var(--ink); }
+.ml-apiref .mdv-cp.copied { color: var(--c-green); border-color: var(--accent-line); }
+.ml-apiref .mdv-cp .ico { width: 14px; height: 14px; }
+.ml-apiref .mdv-x { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 7px; border: 0; background: transparent; color: var(--ink-3); cursor: pointer; }
+.ml-apiref .mdv-x:hover { color: var(--ink); background: var(--panel-hi); }
+.ml-apiref .mdv-pre { margin: 0; overflow: auto; padding: 16px 18px; font-family: var(--mono); font-size: 12.5px; line-height: 1.7; color: var(--code-ink); background: var(--code-bg); white-space: pre-wrap; word-break: break-word; }

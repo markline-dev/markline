@@ -3,6 +3,7 @@ import { resolveSchema } from "./openapi";
 import { codeSamples, colorizeJson, successResponse, type CodeRail } from "./openapi-codegen";
 import { buildPlaygroundSpec } from "./playground-spec";
 import type { PlaygroundSpec } from "@/components/docs/api/playground";
+import { loadConfig } from "./config";
 
 /**
  * Builds the serializable view-model consumed by the Stripe-style API reference
@@ -58,6 +59,22 @@ export type ResourceView = {
   sections: EndpointView[];
 };
 
+export type SearchEntry = {
+  title: string;
+  crumbs: string[];
+  snippet: string;
+  verb?: string;
+  href: string;
+};
+
+export type VersionEntry = {
+  label: string;
+  sub?: string;
+  href?: string;
+  current?: boolean;
+  latest?: boolean;
+};
+
 export type ApiRefView = {
   title: string;
   version: string;
@@ -65,6 +82,10 @@ export type ApiRefView = {
   servers: string[];
   nav: NavGroup[];
   resource: ResourceView;
+  /** Command-palette index across all resources. */
+  search: SearchEntry[];
+  /** Version selector entries (spec version, or config versions when present). */
+  versions: VersionEntry[];
 };
 
 const VERB: Record<string, string> = {
@@ -280,7 +301,49 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
     servers: doc.servers.map((s) => s.url),
     nav,
     resource,
+    search: buildSearchIndex(doc),
+    versions: buildVersions(doc),
   };
+}
+
+/** Full-reference command-palette index (every resource + operation). */
+function buildSearchIndex(doc: OpenAPIDoc): SearchEntry[] {
+  const out: SearchEntry[] = [];
+  for (const tag of doc.tags) {
+    const slug = tagSlug(tag.name);
+    const name = displayName(tag.name);
+    out.push({
+      title: name,
+      crumbs: ["API Reference"],
+      snippet: tag.description || `${name} resource and its endpoints.`,
+      href: `/api-reference/${slug}#${slug}`,
+    });
+    for (const op of tag.operations) {
+      out.push({
+        title: op.summary ?? op.operationId,
+        crumbs: ["API", name],
+        snippet: op.description || `${op.method.toUpperCase()} ${op.path}`,
+        verb: (VERB[op.method] ?? op.method.toUpperCase()).toLowerCase(),
+        href: `/api-reference/${slug}#${anchorFor(op)}`,
+      });
+    }
+  }
+  return out;
+}
+
+function buildVersions(doc: OpenAPIDoc): VersionEntry[] {
+  const cfg = loadConfig();
+  if (cfg.versions && cfg.versions.length > 1) {
+    return cfg.versions.map((v, i) => ({
+      label: v.label ?? v.id,
+      sub: i === 0 ? "Default" : undefined,
+      href: i === 0 ? "/api-reference" : `/${v.id}/api-reference`,
+      current: i === 0,
+      latest: i === 0,
+    }));
+  }
+  const major = (doc.info.version || "1").split(".")[0];
+  return [{ label: `v${major}`, sub: doc.info.version || undefined, current: true, latest: true }];
 }
 
 function singularDisplay(tag: string): string {

@@ -6,6 +6,14 @@ import type { ApiRefView, AttrView, EndpointView, NavGroup } from "@/lib/apiref-
 import type { AiPublicConfig } from "@/lib/config";
 import { PlaygroundProvider, usePlayground } from "../playground";
 import { AskDock, openAskPanel } from "../../ai/ask-dock";
+import {
+  SearchPalette,
+  VersionSelector,
+  MarkdownModal,
+  openSearch,
+  openMarkdown,
+  apiSecToMarkdown,
+} from "./apiref-extras";
 
 /**
  * Stripe-style API reference — a full-takeover page implemented from the Claude
@@ -83,6 +91,34 @@ export function MarklineApiRef({
         try {
           localStorage.setItem("docs-theme", next);
         } catch {}
+        return;
+      }
+
+      /* doc actions — Copy for LLM / View as Markdown (generated from the section) */
+      const docAction = target.closest<HTMLElement>("[data-doc-action]");
+      if (docAction) {
+        e.preventDefault();
+        const sec = docAction.closest<HTMLElement>(".api-sec");
+        if (!sec) return;
+        const md = apiSecToMarkdown(sec);
+        if (docAction.getAttribute("data-doc-action") === "view-md") {
+          openMarkdown(md);
+          return;
+        }
+        // copy-llm: copy + flash
+        const restore = docAction.getAttribute("data-label-html") ?? docAction.innerHTML;
+        docAction.setAttribute("data-label-html", restore);
+        const done = () => {
+          docAction.classList.add("copied");
+          docAction.innerHTML =
+            '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M20 6 9 17l-5-5"/></svg> Copied';
+          after(1300, () => {
+            docAction.innerHTML = restore;
+            docAction.classList.remove("copied");
+          });
+        };
+        if (navigator.clipboard) navigator.clipboard.writeText(md).then(done, done);
+        else done();
         return;
       }
 
@@ -249,7 +285,7 @@ export function MarklineApiRef({
         <aside className="api-side">
           <div className="api-tools">
             <div className="api-toolrow">
-              <div className="api-search" data-search>
+              <div className="api-search" onClick={() => openSearch()} role="button" tabIndex={0}>
                 <Ico d="M0 0" search />
                 <span className="lbl">Find anything</span>
                 <span className="kbd">/</span>
@@ -261,17 +297,10 @@ export function MarklineApiRef({
                 </button>
               )}
             </div>
-            <div className="api-vwrap">
-              <button className="api-ver" data-ver-btn aria-label="API version">
-                <span className="vlabel">
-                  {view.versionLabel}
-                  {view.version ? ` · ${view.version}` : ""}
-                </span>
-                <Ico d="m6 9 6 6 6-6" cls="vchev" w={13} />
-                <span className="dot g" />
-              </button>
-              <div className="api-ver-menu" hidden />
-            </div>
+            <VersionSelector
+              versions={view.versions}
+              buttonLabel={`${view.versionLabel}${view.version ? ` · ${view.version}` : ""}`}
+            />
           </div>
 
           {view.nav.map((g) => (
@@ -356,6 +385,8 @@ export function MarklineApiRef({
         </main>
       </div>
 
+      <SearchPalette index={view.search} aiEnabled={aiOn} />
+      <MarkdownModal />
       {ai && <AskDock ai={ai} />}
     </div>
   );
@@ -718,12 +749,12 @@ function AiActions({ resource, markdown, aiEnabled }: { resource: string; markdo
           Ask about this section
         </a>
       )}
-      <a className="ai-action" data-copy={`Markline API — ${resource} (Markdown context for LLM)`}>
+      <a className="ai-action" data-doc-action="copy-llm">
         <CopyIco />
         Copy for LLM
       </a>
       {markdown && (
-        <a className="ai-action">
+        <a className="ai-action" data-doc-action="view-md">
           <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
             <path d="M4 4h16v16H4z" opacity=".4" />
             <path d="M7 9l2 3 2-3M14 9v6m3-6-1.5 2L14 9" />

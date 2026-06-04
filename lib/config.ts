@@ -249,8 +249,9 @@ export type MarklineConfig = {
     /** Topbar layout on docs + API reference: "full" (edge-to-edge, default) or
      *  "contained" (centered max-width, aligned to page content). */
     width?: "full" | "contained";
-    /** Topbar layout on the homepage ("/") — independent from `width`.
-     *  Defaults to "contained" so the marketing nav aligns with the hero. */
+    /** Topbar layout on the homepage ("/") — independent from `width`. Defaults
+     *  to "full" (edge-to-edge); set "contained" for a centered marketing nav
+     *  that aligns with a hero. */
     homeWidth?: "full" | "contained";
   };
   navigation: { tabs: NavTab[] };
@@ -301,7 +302,7 @@ function mergeConfig(base: MarklineConfig, user: Partial<MarklineConfig>): Markl
       cta: user.topbar?.cta ?? base.topbar.cta,
       badge: user.topbar?.badge ?? base.topbar.badge,
       width: user.topbar?.width ?? base.topbar.width ?? "full",
-      homeWidth: user.topbar?.homeWidth ?? base.topbar.homeWidth ?? "contained",
+      homeWidth: user.topbar?.homeWidth ?? base.topbar.homeWidth ?? "full",
     },
     navigation: {
       tabs: user.navigation?.tabs ?? base.navigation.tabs,

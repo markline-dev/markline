@@ -10,6 +10,7 @@
       { "label": "Why Markline", "href": "/#own" },
       { "label": "Showcase", "href": "/#made" }
     ],
+    "homeWidth": "contained",
     "cta": { "label": "Get started", "href": "/quickstart" }
   },
   "navigation": {

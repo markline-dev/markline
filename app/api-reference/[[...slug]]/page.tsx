@@ -7,11 +7,12 @@ import remarkGfm from "remark-gfm";
 import rehypePrettyCode from "rehype-pretty-code";
 import { loadOpenApi, hasOpenApiSpec } from "@/lib/openapi";
 import { ApiOperationPage } from "@/components/docs/api/operation-page";
-import { ApiIntroPage } from "@/components/docs/api/intro-page";
-import { ApiIntroMdxPage } from "@/components/docs/api/intro-mdx-page";
+import { MarklineApiRef } from "@/components/docs/api/reference/markline-apiref";
+import { buildApiRefView, tagSlug } from "@/lib/apiref-view";
 import { mdxComponents } from "@/components/docs/mdx";
 import { getHighlighter, shellEnhancer } from "@/lib/shiki";
 import { contentRoot } from "@/lib/paths";
+import { loadConfig } from "@/lib/config";
 
 const shellTransformer = shellEnhancer();
 const prettyCodeOptions = {
@@ -23,20 +24,16 @@ const prettyCodeOptions = {
   transformers: [shellTransformer],
 } as const;
 
-const INTRO_MDX = path.join(contentRoot(), "api", "introduction.mdx");
-
 function loadRaw() {
   const file = path.join(contentRoot(), "api", "openapi.json");
   if (!fs.existsSync(file)) return {};
   return JSON.parse(fs.readFileSync(file, "utf8"));
 }
 
-function loadIntroMdx(): string | null {
-  try {
-    return fs.readFileSync(INTRO_MDX, "utf8");
-  } catch {
-    return null;
-  }
+/** GitHub repo URL from the topbar links (for the nav badge), if any. */
+function githubUrl(): string | undefined {
+  const links = loadConfig().topbar.links ?? [];
+  return links.find((l) => /github\.com/.test(l.href))?.href;
 }
 
 /**
@@ -99,7 +96,13 @@ export function generateStaticParams(): { slug?: string[] }[] {
   // generate; on a docs-only site (no spec) the page renders notFound().
   const params: { slug?: string[] }[] = [{ slug: undefined }];
   if (hasOpenApiSpec()) {
-    for (const id of Object.keys(loadOpenApi().operationsById)) {
+    const doc = loadOpenApi();
+    // One resource page per tag (the Stripe-style long page) …
+    for (const tag of doc.tags) {
+      params.push({ slug: [tagSlug(tag.name)] });
+    }
+    // … and the existing per-operation pages (back-compat: search, deep links).
+    for (const id of Object.keys(doc.operationsById)) {
       params.push({ slug: [id] });
     }
   }
@@ -109,10 +112,15 @@ export function generateStaticParams(): { slug?: string[] }[] {
 export async function generateMetadata({ params }: { params: Promise<{ slug?: string[] }> }): Promise<Metadata> {
   const { slug } = await params;
   const doc = loadOpenApi();
-  if (!slug || slug.length === 0) {
+  const first = slug?.[0];
+  if (!first) {
     return { title: "API reference" };
   }
-  const op = doc.operationsById[slug[0]];
+  const tag = doc.tags.find((t) => tagSlug(t.name) === first);
+  if (tag) {
+    return { title: `${tag.name} · API reference`, description: tag.description };
+  }
+  const op = doc.operationsById[first];
   if (!op) return {};
   return {
     title: `${op.summary ?? op.operationId} · API`,
@@ -126,22 +134,21 @@ export default async function ApiReferencePage({ params }: { params: Promise<{ s
   const doc = loadOpenApi();
   const root = loadRaw();
 
-  if (!slug || slug.length === 0) {
-    const mdx = loadIntroMdx();
-    if (mdx) {
-      return <ApiIntroMdxPage>{renderMdx(mdx)}</ApiIntroMdxPage>;
-    }
-    // Per-section MDX summaries: render any api/sections/<tag>.mdx into a map
-    // keyed by tag name, rendered as each resource's intro on the landing page.
-    const sections: Record<string, React.ReactNode> = {};
-    for (const tag of doc.tags) {
-      const src = loadSectionMdx(tag.name);
-      if (src) sections[tag.name] = renderMdx(src);
-    }
-    return <ApiIntroPage doc={doc} sections={sections} />;
+  // Resolve the slug. No slug → the first resource (the design opens on its
+  // first tag). A tag-slug → that resource. An operationId → the per-op page.
+  const first = slug?.[0];
+  const matchedTag = !first
+    ? doc.tags[0]
+    : doc.tags.find((t) => tagSlug(t.name) === first);
+
+  if (matchedTag) {
+    const view = buildApiRefView(doc, root, tagSlug(matchedTag.name));
+    const sectionSrc = loadSectionMdx(matchedTag.name);
+    const summary = sectionSrc ? renderMdx(sectionSrc) : undefined;
+    return <MarklineApiRef view={view} summary={summary} githubUrl={githubUrl()} />;
   }
 
-  const op = doc.operationsById[slug[0]];
+  const op = first ? doc.operationsById[first] : undefined;
   if (!op) return notFound();
 
   const crumbs = [

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
 import "./globals.css";
 import "./home.css";
+import "./api-reference.css";
 import { DocsTopBar, DocsSidebar } from "@/components/docs/nav";
 import { getNav } from "@/components/docs/sections";
 import { loadConfig, hexToRgbTriple } from "@/lib/config";

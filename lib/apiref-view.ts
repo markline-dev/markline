@@ -202,9 +202,15 @@ function paramGroups(op: OpenAPIOperation, root: unknown): ParamGroup[] {
   return groups;
 }
 
-function buildEndpoint(op: OpenAPIOperation, doc: OpenAPIDoc, root: unknown): EndpointView {
+function buildEndpoint(
+  op: OpenAPIOperation,
+  doc: OpenAPIDoc,
+  root: unknown,
+  baseUrl: string,
+  langs: ReadonlyArray<"curl" | "node" | "python" | "go">,
+): EndpointView {
   const groups = paramGroups(op, root);
-  const code = codeSamples(op, doc, root);
+  const code = codeSamples(op, doc, root, baseUrl, langs);
   const response = successResponse(op, root) ?? undefined;
   const hasBearer = op.security.some((s) => s.scheme.type === "http" && s.scheme.scheme === "bearer");
   // The explorer (interactive Send) goes on write operations; reads show the
@@ -226,7 +232,7 @@ function buildEndpoint(op: OpenAPIOperation, doc: OpenAPIDoc, root: unknown): En
     method: op.method,
     verb: VERB[op.method] ?? op.method.toUpperCase(),
     path: op.path,
-    baseUrl: doc.servers[0]?.url ?? "",
+    baseUrl,
     lead: op.description,
     groups,
     explorer,
@@ -248,6 +254,12 @@ function sampleString(attr: AttrView): string {
 export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: string): ApiRefView {
   const activeTag =
     doc.tags.find((t) => tagSlug(t.name) === activeSlug) ?? doc.tags[0];
+
+  // Base URL for samples/URL bars: explicit config wins, then the spec's first
+  // server, then a placeholder. Languages: config, else all four generated.
+  const api = loadConfig().api;
+  const baseUrl = api.baseUrl ?? doc.servers[0]?.url ?? "https://api.example.com";
+  const langs = api.codeSamples ?? ["curl", "node", "python", "go"];
 
   const nav: NavGroup[] = doc.tags.map((tag) => {
     const active = tag === activeTag;
@@ -291,7 +303,7 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
       id: anchorFor(op),
     })),
     object,
-    sections: (activeTag?.operations ?? []).map((op) => buildEndpoint(op, doc, root)),
+    sections: (activeTag?.operations ?? []).map((op) => buildEndpoint(op, doc, root, baseUrl, langs)),
   };
 
   return {

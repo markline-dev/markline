@@ -1,9 +1,10 @@
 import type { OpenAPIDoc, OpenAPIOperation } from "./openapi";
 import { sampleFromSchema } from "./openapi";
+import { loadConfig } from "./config";
 
 /** Build a cURL example for an operation. */
 export function curlSample(op: OpenAPIOperation, doc: OpenAPIDoc, root: any): string {
-  const baseUrl = doc.servers[0]?.url ?? "https://api.example.com";
+  const baseUrl = loadConfig().api.baseUrl ?? doc.servers[0]?.url ?? "https://api.example.com";
   const url = baseUrl + fillPath(op.path, op.parameters.path);
   const queryStr = op.parameters.query.length
     ? "?" +

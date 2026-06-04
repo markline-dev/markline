@@ -130,10 +130,47 @@ function pascal(s: string): string {
 
 /* ── code rails ────────────────────────────────────────────────────────── */
 
-export type CodeRail = { curl: string; node: string; python: string; go: string };
+export type CodeTab = { key: string; label: string; html: string };
+export type CodeRail = { tabs: CodeTab[] };
 
-export function codeSamples(op: OpenAPIOperation, doc: OpenAPIDoc, root: unknown): CodeRail {
-  const baseUrl = doc.servers[0]?.url ?? "https://api.example.com";
+const GENERATED: { key: string; label: string; field: "curl" | "node" | "python" | "go" }[] = [
+  { key: "curl", label: "cURL", field: "curl" },
+  { key: "js", label: "Node", field: "node" },
+  { key: "py", label: "Python", field: "python" },
+  { key: "go", label: "Go", field: "go" },
+];
+
+function langSlug(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "sample";
+}
+
+/** Author-provided samples via the OpenAPI `x-codeSamples` (or `x-code-samples`)
+ *  extension on the raw operation — these take precedence over generated ones. */
+function customSamples(op: OpenAPIOperation, root: unknown): CodeTab[] | null {
+  const raw = (root as { paths?: Record<string, Record<string, unknown>> })?.paths?.[op.path]?.[op.method] as
+    | Record<string, unknown>
+    | undefined;
+  const list = (raw?.["x-codeSamples"] ?? raw?.["x-code-samples"]) as
+    | { lang?: string; label?: string; source?: string }[]
+    | undefined;
+  if (!Array.isArray(list) || !list.length) return null;
+  return list.map((s, i) => ({
+    key: langSlug(s.lang ?? s.label ?? `sample-${i}`),
+    label: s.label ?? s.lang ?? "Sample",
+    html: esc(s.source ?? ""),
+  }));
+}
+
+export function codeSamples(
+  op: OpenAPIOperation,
+  doc: OpenAPIDoc,
+  root: unknown,
+  baseUrl: string,
+  langs: ReadonlyArray<"curl" | "node" | "python" | "go"> = ["curl", "node", "python", "go"],
+): CodeRail {
+  const custom = customSamples(op, root);
+  if (custom) return { tabs: custom };
+
   const filledPath = fillPath(op.path, op.parameters.path, root);
   const query = requiredQuery(op, root);
   const queryStr = query.length ? "?" + query.map((q) => `${q.name}=${q.value}`).join("&") : "";
@@ -205,7 +242,13 @@ export function codeSamples(op: OpenAPIOperation, doc: OpenAPIDoc, root: unknown
     go = `${esc(rv)}, err := client.${esc(pascal(ns))}.${F(pascal(fn))}(ctx, ${K("nil")})`;
   }
 
-  return { curl, node, python, go };
+  const all = { curl, node, python, go };
+  const order = langs.length ? langs : (["curl"] as const);
+  const tabs: CodeTab[] = order
+    .map((l) => GENERATED.find((g) => g.field === l))
+    .filter((g): g is (typeof GENERATED)[number] => !!g)
+    .map((g) => ({ key: g.key, label: g.label, html: all[g.field] }));
+  return { tabs: tabs.length ? tabs : [{ key: "curl", label: "cURL", html: curl }] };
 }
 
 /* ── responses ─────────────────────────────────────────────────────────── */

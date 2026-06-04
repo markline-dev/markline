@@ -419,20 +419,13 @@ function ReadCards({ ep }: { ep: EndpointView }) {
       <div className="code-card">
         <div className="cc-langs-head cc-head">
           <div className="cc-langs" data-tabs data-tabs-scope={`#code-${ep.opId}`}>
-            <button className="cc-lang active" data-tab="curl">
-              cURL
-            </button>
-            <button className="cc-lang" data-tab="js">
-              Node
-            </button>
-            <button className="cc-lang" data-tab="py">
-              Python
-            </button>
-            <button className="cc-lang" data-tab="go">
-              Go
-            </button>
+            {ep.code.tabs.map((t, i) => (
+              <button key={t.key} className={`cc-lang${i === 0 ? " active" : ""}`} data-tab={t.key}>
+                {t.label}
+              </button>
+            ))}
           </div>
-          <button className="cc-copy" data-copy={textFromHtml(ep.code.curl)} data-copy-icon aria-label="Copy">
+          <button className="cc-copy" data-copy={textFromHtml(ep.code.tabs[0]?.html ?? "")} data-copy-icon aria-label="Copy">
             <CopyIco />
           </button>
         </div>
@@ -453,13 +446,6 @@ function ReadCards({ ep }: { ep: EndpointView }) {
   );
 }
 
-const LANGS = [
-  { key: "curl", label: "cURL", field: "curl" },
-  { key: "js", label: "Node", field: "node" },
-  { key: "py", label: "Python", field: "python" },
-  { key: "go", label: "Go", field: "go" },
-] as const;
-
 /**
  * The design's inline proxy explorer, driven by the real playground engine
  * (PlaygroundProvider / usePlayground). The chrome is the handoff's .explorer;
@@ -470,7 +456,8 @@ const LANGS = [
 function DesignExplorer({ ep }: { ep: EndpointView }) {
   const pg = usePlayground();
   const { spec } = pg;
-  const [lang, setLang] = useState<(typeof LANGS)[number]["key"]>("curl");
+  const tabs = ep.code.tabs;
+  const [lang, setLang] = useState(tabs[0]?.key ?? "curl");
 
   // Editable top-level body props (primitives), assembled back into the engine's
   // body JSON on each change so Send posts a valid payload.
@@ -492,7 +479,7 @@ function DesignExplorer({ ep }: { ep: EndpointView }) {
   };
 
   const reqQuery = spec.queryParams.filter((p) => p.required);
-  const activeCode = ep.code[LANGS.find((l) => l.key === lang)!.field];
+  const activeCode = tabs.find((t) => t.key === lang)?.html ?? tabs[0]?.html ?? "";
   const live = pg.response;
   const showLive = !!(live || pg.error);
 
@@ -567,9 +554,9 @@ function DesignExplorer({ ep }: { ep: EndpointView }) {
 
       <div className="ex-langbar">
         <div className="cc-langs">
-          {LANGS.map((l) => (
-            <button key={l.key} className={`cc-lang${lang === l.key ? " active" : ""}`} onClick={() => setLang(l.key)} type="button">
-              {l.label}
+          {tabs.map((t) => (
+            <button key={t.key} className={`cc-lang${lang === t.key ? " active" : ""}`} onClick={() => setLang(t.key)} type="button">
+              {t.label}
             </button>
           ))}
         </div>
@@ -640,18 +627,11 @@ function ExRow({ label, children }: { label: string; children: React.ReactNode }
 function CodePanels({ code, id }: { code: EndpointView["code"]; id: string }) {
   return (
     <div id={id}>
-      <div data-panel="curl" className="active">
-        <pre dangerouslySetInnerHTML={{ __html: code.curl }} />
-      </div>
-      <div data-panel="js">
-        <pre dangerouslySetInnerHTML={{ __html: code.node }} />
-      </div>
-      <div data-panel="py">
-        <pre dangerouslySetInnerHTML={{ __html: code.python }} />
-      </div>
-      <div data-panel="go">
-        <pre dangerouslySetInnerHTML={{ __html: code.go }} />
-      </div>
+      {code.tabs.map((t, i) => (
+        <div key={t.key} data-panel={t.key} className={i === 0 ? "active" : undefined}>
+          <pre dangerouslySetInnerHTML={{ __html: t.html }} />
+        </div>
+      ))}
     </div>
   );
 }

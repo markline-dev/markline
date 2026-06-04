@@ -92,6 +92,14 @@ export type SeoConfig = {
 export type ApiConfig = {
   /** Base URL the interactive playground sends requests to (overrides the spec's servers). */
   baseUrl?: string;
+  /**
+   * Languages shown in the API-reference code rails, in order. Subset of
+   * "curl" | "node" | "python" | "go". Defaults to all four. The Node/Python/Go
+   * samples are generated SDK-style — set `["curl"]` if you don't ship an SDK,
+   * or provide your own per-operation samples via the OpenAPI `x-codeSamples`
+   * extension (which override the generated ones).
+   */
+  codeSamples?: ("curl" | "node" | "python" | "go")[];
   playground?: {
     /**
      * Which "Try it" surfaces to render:

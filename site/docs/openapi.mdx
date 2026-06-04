@@ -1,0 +1,125 @@
+---
+title: API reference
+lede: Point Markline at an OpenAPI document and it generates a Stripe-grade, three-pane reference — resource pages, multi-language code, and a live request explorer.
+toc:
+  - id: add-a-spec
+    label: Add a spec
+  - id: what-you-get
+    label: What you get
+  - id: playground
+    label: The playground
+  - id: overlays
+    label: MDX overlays
+  - id: ai-and-actions
+    label: AI & page actions
+  - id: versions
+    label: Versions
+---
+
+Markline turns an OpenAPI 3.0/3.1 document into a full reference: a left
+resource nav, per-resource pages with attribute and parameter tables, dark
+code rails (cURL / Node / Python / Go), and an inline **request explorer**.
+
+## Add a spec
+
+<Steps>
+  <Step title="Drop in your OpenAPI document">
+    Put it at `api/openapi.json` in your content root. A remote URL works too —
+    snapshot it into that file at build time so your docs never depend on a
+    live service.
+    ```
+    content/
+    ├── markline.json
+    └── api/
+        └── openapi.json
+    ```
+  </Step>
+  <Step title="Add an API tab">
+    Give a navigation tab `openapi: true` — its sidebar is generated from the
+    spec's tags and operations.
+    ```jsonc
+    "navigation": {
+      "tabs": [
+        { "id": "docs", "label": "Documentation", "href": "/", "match": ["__default__"], "groups": [] },
+        { "id": "api", "label": "API reference", "href": "/api-reference", "match": ["/api-reference"], "openapi": true }
+      ]
+    }
+    ```
+  </Step>
+  <Step title="Set the base URL">
+    Point the explorer at your API. `api.baseUrl` overrides the spec's `servers`.
+    ```jsonc
+    "api": { "baseUrl": "https://api.example.com", "playground": { "mode": "full", "proxy": "auto" } }
+    ```
+  </Step>
+</Steps>
+
+## What you get
+
+The reference is **per-resource**: one page per tag, opening on the first
+resource. Each page has:
+
+- A **resource summary** + an Endpoints card listing the tag's operations.
+- A **"The object" section** — attributes derived from the schema, with types,
+  required/optional flags, enums, and a sample JSON.
+- One **section per endpoint** — method + path, parameters (path / query / body)
+  from the schema, and a dark code rail with **cURL, Node, Python and Go**
+  samples generated from the operation, plus the example response.
+
+<Note>Resource pages live at `/api-reference/<tag>`; the per-operation pages
+remain reachable too (deep links, search). Navigation between docs and the
+reference is instant — it's one app, not a separate site.</Note>
+
+## The playground
+
+Write endpoints get an inline **request explorer**: an editable
+`Authorization` field, the request fields, a **Send** button, and the live
+response with status + latency. It's the same engine on every surface.
+
+<ParamField path="api.playground.mode" type='"full" | "inline" | "explorer" | "off"'>
+  `full` — inline inputs + the request console + the API Explorer modal.
+  `inline` — inline inputs + console (Mintlify-style, no modal).
+  `explorer` — read-only docs + console + Explorer modal (Stripe-style).
+  `off` — a static cURL panel, no interactivity.
+</ParamField>
+
+<ParamField path="api.playground.proxy" type='"auto" | "always" | "never"'>
+  How requests reach your API. `auto` (default) tries a direct browser fetch
+  and falls back to the built-in server proxy on CORS failure; `always` forces
+  the proxy; `never` is direct-only — **required for static export**.
+</ParamField>
+
+<Warning>The server proxy (`/api/playground`) only runs on a Node/Vercel
+deployment and is dropped in static export. On a static host, set
+`proxy: "never"` and enable CORS on your API, or the explorer can't reach it.</Warning>
+
+## MDX overlays
+
+Layer authored MDX on top of the generated reference — full components
+(callouts, tables, tabs) included:
+
+```
+api/
+├── openapi.json
+├── introduction.mdx              # replaces the whole reference landing
+├── sections/<tag>.mdx            # rich intro for a resource (overrides the tag description)
+└── operations/<operationId>.mdx  # extra prose on one operation page
+```
+
+- **`sections/<tag>.mdx`** renders as the resource intro, Stripe-style. The
+  filename is the slugified tag — `Payment Methods` → `payment-methods.mdx`.
+- **`operations/<operationId>.mdx`** renders between the endpoint path and the
+  auto-generated parameters.
+
+## AI & page actions
+
+Every resource section carries the same affordances as the docs: **Copy for
+LLM** (copies the section as Markdown), **View as Markdown**, and — when
+[Ask AI](/ai) is enabled — **Ask about this section**, which opens the docked
+assistant with that section as context.
+
+## Versions
+
+The reference header shows a version selector. With multiple
+[documentation versions](/configuration) configured, it switches between them;
+otherwise it surfaces the spec's `info.version`.

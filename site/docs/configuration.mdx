@@ -4,6 +4,8 @@ lede: markline.json is the single source of truth for navigation, theming, and b
 toc:
   - id: theme
     label: Theme & branding
+  - id: topbar
+    label: Topbar
   - id: navigation
     label: Navigation
   - id: api
@@ -18,8 +20,16 @@ toc:
 
 <ParamField path="name" type="string" required>The site name, used in the header and metadata.</ParamField>
 <ParamField path="theme.logo" type="object">`{ light, dark }` image paths, or `{ text }` for a wordmark.</ParamField>
-<ParamField path="theme.colors" type="object">`{ primary, primaryDark }` brand accents (hex).</ParamField>
+<ParamField path="theme.colors" type="object">`{ primary, primaryDark }` brand accents (hex). See [Theming](/theming) for the full palette and fonts.</ParamField>
 <ParamField path="theme.appearance" type='"light" | "dark" | "system"'>Default color scheme.</ParamField>
+
+## Topbar
+
+<ParamField path="topbar.links" type="array">Right-aligned header links, e.g. a GitHub link.</ParamField>
+<ParamField path="topbar.cta" type="object">`{ label, href }` for the primary "Get started" button.</ParamField>
+<ParamField path="topbar.badge" type="string">A small label pill next to the logo (e.g. `docs · v1`).</ParamField>
+<ParamField path="topbar.width" type='"full" | "contained"'>Topbar layout on docs + the API reference. `"full"` (default) spans edge-to-edge; `"contained"` centers it to the content max-width.</ParamField>
+<ParamField path="topbar.homeWidth" type='"full" | "contained"'>The homepage topbar, independent of `width`. Defaults to `"contained"` so the marketing nav aligns with the hero.</ParamField>
 
 ## Navigation
 
@@ -38,8 +48,11 @@ Navigation is a list of tabs, each with grouped pages. A tab can instead set
 
 ## API & playground
 
-<ParamField path="api.baseUrl" type="string">Base URL the playground sends requests to.</ParamField>
+<ParamField path="api.baseUrl" type="string">Base URL the playground sends requests to (overrides the spec's servers).</ParamField>
+<ParamField path="api.playground.mode" type='"full" | "inline" | "explorer" | "off"'>The "Try it" experience. Default `"full"`.</ParamField>
 <ParamField path="api.playground.proxy" type='"auto" | "always" | "never"'>How the playground reaches your API. `never` is required for static export.</ParamField>
+
+See [API reference](/openapi) for the full guide — generating the reference, the live explorer, and per-resource/per-operation MDX overlays.
 
 ## Integrations
 

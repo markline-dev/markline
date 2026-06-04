@@ -1,0 +1,38 @@
+---
+title: Search
+lede: Full-text search across your docs and API reference — built into the static output, no service required.
+toc:
+  - id: how-it-works
+    label: How it works
+  - id: using-it
+    label: Using it
+  - id: hosting
+    label: Hosting
+---
+
+Markline ships a command-palette search (⌘K) backed by a **static index** built
+at compile time. There's nothing to run and no third-party search service.
+
+## How it works
+
+At build, Markline indexes your content — Markdown/MDX pages **and** the OpenAPI
+reference — into a static index emitted alongside the site. At runtime the
+palette loads that index in the browser and queries it client-side, so search
+works on any static host.
+
+<Note>The index is generated automatically by `markline build` / `markline
+export`. It covers page titles, headings, body text, and API operations.</Note>
+
+## Using it
+
+- Press <kbd>⌘K</kbd> (or <kbd>/</kbd>) anywhere, or click **Search docs** in the
+  header / **Find anything** in the API reference.
+- Results are grouped and keyboard-navigable (↑/↓ to move, ↵ to go).
+- When [Ask AI](/ai) is enabled, the palette also offers an **Ask Assistant**
+  row that hands your query to the docked assistant.
+
+## Hosting
+
+Search is part of the static build, so it works on any CDN, GitHub Pages, S3,
+or a Node server. For **sub-path hosting**, set `MARKLINE_BASE_PATH=/prefix` so
+the search bundle is loaded from the right path (see [Deployment](/deployment)).

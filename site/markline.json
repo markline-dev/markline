@@ -39,6 +39,7 @@
             "group": "Ship",
             "pages": [
               { "href": "/deployment", "label": "Deployment" },
+              { "href": "/versions", "label": "Versions & i18n" },
               { "href": "/ai", "label": "Ask AI (BYOK)" }
             ]
           }

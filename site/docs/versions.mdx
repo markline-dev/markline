@@ -1,0 +1,99 @@
+---
+title: Versions & i18n
+lede: Ship multiple documentation versions or languages from one project — same URL-prefix mechanism, a switcher in the header, fully static.
+toc:
+  - id: how-it-works
+    label: How it works
+  - id: versions
+    label: Versions
+  - id: i18n
+    label: Localization
+  - id: notes
+    label: Notes
+---
+
+Markline serves multiple **versions** (v2, v1, …) or **locales** (en, es, …)
+from a single project. Both use the same idea: the **first** entry is the
+default and lives at the root; every other entry is served under a **URL
+prefix** with its own content folder — and the header shows a switcher.
+
+## How it works
+
+The default content lives at `docs/`. Each non-default version or locale `id`
+gets its own `<id>/docs/` folder, served under `/<id>/…`:
+
+```
+content/
+├── markline.json
+├── docs/            # the default (unprefixed) → /quickstart
+│   ├── index.mdx
+│   └── quickstart.mdx
+└── v1/
+    └── docs/        # the "v1" version → /v1/quickstart
+        ├── index.mdx
+        └── quickstart.mdx
+```
+
+<Note>A project uses **versions or locales**, not both — they share the
+prefix mechanism (if both are set, versions win). The default entry is always
+unprefixed, so existing URLs don't change when you add a second version.</Note>
+
+## Versions
+
+List versions in `markline.json`. The first is the default; each entry is
+`{ id, label }` and may carry its own `navigation`.
+
+```jsonc
+"versions": [
+  { "id": "v2", "label": "v2 (latest)" },   // default — content in docs/, served at /
+  { "id": "v1", "label": "v1" }             // content in v1/docs/, served at /v1/…
+]
+```
+
+<Steps>
+  <Step title="Add the version content">
+    Create `v1/docs/` and author its pages — they're independent from the
+    default, so v1 can lag or differ freely.
+  </Step>
+  <Step title="(Optional) give it its own navigation">
+    A version entry can set `navigation: { tabs: [...] }` to override the
+    sidebar for that version; otherwise it inherits the default navigation.
+  </Step>
+  <Step title="Ship">
+    `markline build` emits every version statically. The header shows a
+    **version switcher**; picking one navigates under its prefix.
+  </Step>
+</Steps>
+
+## Localization
+
+Locales work identically — `i18n.locales`, first is the default (unprefixed),
+each other locale under its `id` prefix with content in `<id>/docs/`.
+
+```jsonc
+"i18n": {
+  "locales": [
+    { "id": "en", "label": "English" },   // default — docs/, served at /
+    { "id": "es", "label": "Español" }     // es/docs/, served at /es/…
+  ]
+}
+```
+
+```
+content/
+├── docs/        # English (default) → /quickstart
+└── es/
+    └── docs/    # Spanish → /es/quickstart
+```
+
+The header shows a **language switcher** that jumps to the same page under the
+chosen locale prefix.
+
+## Notes
+
+- The **default** entry (first in the list) is never prefixed — keep your
+  canonical content in `docs/`.
+- Each variant is fully static and independently navigable; search and the API
+  reference work within each.
+- Configure these in [Configuration](/configuration); for hosting the built
+  output see [Deployment](/deployment).

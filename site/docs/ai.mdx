@@ -1,0 +1,152 @@
+---
+title: Ask AI (BYOK)
+lede: An opt-in AI assistant for your docs and API reference — running on your own LLM key, never ours.
+toc:
+  - id: how-it-works
+    label: How it works
+  - id: configuration
+    label: Configuration
+  - id: providers
+    label: Providers
+  - id: hosting
+    label: Hosting modes
+  - id: static-worker
+    label: Static + Cloudflare Worker
+  - id: cost
+    label: Cost & abuse
+---
+
+Markline ships an optional **Ask AI** assistant: a docked chat panel on the API
+reference with "Ask about this section" and source citations. It is **bring your
+own key (BYOK)** — Markline never provides a model or a key, and the feature is
+strictly opt-in.
+
+<Note>Omit the `ai` block (or set `enabled: false`) and there is no AI route, no
+client weight, and no UI. The framework is byte-for-byte unchanged.</Note>
+
+## How it works
+
+Two principles drive the design:
+
+1. **The key is a server-side secret.** In `proxy` mode it is read only from
+   `MARKLINE_AI_KEY` in the environment — never from `markline.json` (which is
+   committed and public), never from a `NEXT_PUBLIC_*` variable, never in the
+   browser bundle.
+2. **One OpenAI-compatible transport.** A single code path speaks the
+   `/chat/completions` shape, so OpenAI, OpenRouter, Together, Groq, Fireworks
+   and local models (Ollama / LM Studio) all work by changing one `provider`
+   preset or `baseUrl`.
+
+## Configuration
+
+Add an `ai` block to `markline.json`, and provide the key via the environment.
+
+```jsonc
+// markline.json — committed, public. NO key here.
+"ai": {
+  "enabled": true,
+  "provider": "openrouter",          // preset, or "openai-compatible" + baseUrl
+  "model": "deepseek/deepseek-v4-flash",
+  "mode": "proxy",                   // "proxy" (operator key) | "byok" (reader key)
+  "endpoint": null,                  // external proxy URL (static hosting) — see below
+  "label": "Ask AI",
+  "maxTokens": 1024,
+  "rateLimit": { "perMinute": 10 }
+}
+```
+
+```bash
+# .env.local / host env — the secret. Never NEXT_PUBLIC_*.
+MARKLINE_AI_KEY=sk-or-...
+```
+
+<Tip>Restart `markline dev` after editing `markline.json` — config is read once
+per process.</Tip>
+
+## Providers
+
+Pick a `provider` preset, or use `openai-compatible` with an explicit `baseUrl`.
+
+| `provider` | resolved base URL |
+|---|---|
+| `openai` | `https://api.openai.com/v1` |
+| `openrouter` | `https://openrouter.ai/api/v1` |
+| `together` | `https://api.together.xyz/v1` |
+| `groq` | `https://api.groq.com/openai/v1` |
+| `fireworks` | `https://api.fireworks.ai/inference/v1` |
+| `local` | `http://localhost:11434/v1` (Ollama / LM Studio) |
+| `openai-compatible` | **requires `baseUrl`** |
+
+The `model` is the provider's model id — e.g. `deepseek/deepseek-v4-flash` or
+`openai/gpt-4o-mini` on OpenRouter.
+
+## Hosting modes
+
+Where your docs run decides which mode fits:
+
+| Host | Mode | Key location |
+|---|---|---|
+| Node / Docker / Vercel (`markline start`) | `proxy` | `MARKLINE_AI_KEY` on the server → built-in `/api/ai` route |
+| Pure static (GitHub Pages / S3 / CDN) | `proxy` + `endpoint` | key on an external Worker you deploy (below) |
+| Any host, including static | `byok` | the **reader's** key, in their browser |
+
+<Warning>`proxy` mode needs a server. The built-in `/api/ai` route is a dynamic
+route and is **dropped in static export** — so on a pure-static host with
+`mode: "proxy"` and no `endpoint`, `Ask AI` renders nothing. Use an `endpoint`
+(below) or `mode: "byok"`.</Warning>
+
+In **`byok`** mode the assistant asks each reader for their own key (stored in
+their browser) and calls the provider directly. It costs the operator nothing
+and works on static hosting, at the price of a little reader friction.
+
+## Static + Cloudflare Worker
+
+To run Ask AI on **your** key from a **static** site, deploy the open-source
+reference Worker in [`templates/ai-worker/`](https://github.com/markline-dev/markline/tree/main/templates/ai-worker).
+It is the same proxy logic as the built-in route, plus the CORS handling a
+cross-origin endpoint needs.
+
+<Steps>
+  <Step title="Deploy the Worker">
+    From `templates/ai-worker/`:
+    ```bash
+    npm install
+    npx wrangler secret put MARKLINE_AI_KEY   # paste your provider key
+    npm run deploy                            # → https://markline-ai.<acct>.workers.dev
+    ```
+    The key is stored as a Cloudflare secret on the edge — never in git, never
+    in the browser.
+  </Step>
+  <Step title="Set the provider + allowed origin">
+    Edit `wrangler.toml` `[vars]` — `MARKLINE_AI_PROVIDER`, `MARKLINE_AI_MODEL`,
+    and `MARKLINE_ALLOWED_ORIGIN` (pin it to your docs domain; this is also the
+    abuse allow-list). Re-run `npm run deploy`.
+  </Step>
+  <Step title="Point your site at the Worker">
+    In `markline.json`, set `mode: "proxy"` and `endpoint` to the Worker URL:
+    ```jsonc
+    "ai": {
+      "enabled": true,
+      "mode": "proxy",
+      "provider": "openrouter",
+      "model": "deepseek/deepseek-v4-flash",
+      "endpoint": "https://markline-ai.<acct>.workers.dev"
+    }
+    ```
+    With `endpoint` set, the Ask AI UI appears even in a static export. Rebuild
+    and redeploy your docs.
+  </Step>
+</Steps>
+
+## Cost & abuse
+
+A public AI proxy is an open relay to your paid LLM — enabling it spends your
+budget. Both the built-in route and the Worker ship with conservative defaults:
+
+- **Origin allow-list** — only your docs domain(s) may call it.
+- **Per-IP rate limit** — `ai.rateLimit.perMinute` (route) / `MARKLINE_RATE_PER_MIN` (Worker).
+- **Token cap** — `ai.maxTokens` / `MARKLINE_AI_MAX_TOKENS`, plus an input-length clamp.
+
+<Warning>Tune the rate limit and pick a cheap model for public sites. The
+Worker's rate limit is per-isolate in-memory; for strict global limits, back it
+with Workers KV or a Durable Object.</Warning>

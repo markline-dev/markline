@@ -239,6 +239,8 @@ export type MarklineConfig = {
   theme: ThemeConfig;
   topbar: {
     links: TopbarLink[];
+    /** Extra header nav links shown next to the doc tabs (e.g. marketing anchors). */
+    navLinks?: TopbarLink[];
     cta?: TopbarLink;
     badge?: string;
     /** Topbar layout on docs + API reference: "full" (edge-to-edge, default) or
@@ -292,6 +294,7 @@ function mergeConfig(base: MarklineConfig, user: Partial<MarklineConfig>): Markl
     },
     topbar: {
       links: user.topbar?.links ?? base.topbar.links,
+      navLinks: user.topbar?.navLinks ?? base.topbar.navLinks,
       cta: user.topbar?.cta ?? base.topbar.cta,
       badge: user.topbar?.badge ?? base.topbar.badge,
       width: user.topbar?.width ?? base.topbar.width ?? "full",

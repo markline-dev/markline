@@ -1,12 +1,15 @@
 {
   "name": "Markline",
   "theme": {
-    "logo": { "light": "/brand/logo-lockup-light.svg", "dark": "/brand/logo-lockup-dark.svg", "text": "Markline" },
     "colors": { "primary": "#004AAD", "primaryDark": "#4f8ef0" },
     "appearance": "system"
   },
   "topbar": {
     "links": [{ "label": "GitHub ↗", "href": "https://github.com/markline-dev/markline" }],
+    "navLinks": [
+      { "label": "Why Markline", "href": "/#own" },
+      { "label": "Showcase", "href": "/#made" }
+    ],
     "cta": { "label": "Get started", "href": "/quickstart" }
   },
   "navigation": {

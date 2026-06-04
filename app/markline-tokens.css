@@ -158,6 +158,12 @@ body {
 .brand .mk-word { height: 24px; width: auto; display: block; }
 .brand .mk-word .mk-mark path, .brand .mk-word .mk-mark rect { fill: var(--logo); }
 .brand .mk-word .mk-letters path { fill: currentColor; }
+/* Config-driven logo image (consumer branding) — light/dark variants. */
+.brand .brand-logo { height: 26px; width: auto; max-width: 200px; display: block; object-fit: contain; }
+.brand .brand-logo--dark { display: none; }
+[data-theme="dark"] .brand .brand-logo--light { display: none; }
+[data-theme="dark"] .brand .brand-logo--dark { display: block; }
+.brand .brand-text { font-weight: 600; font-size: 17px; letter-spacing: -0.022em; color: var(--ink); }
 
 /* buttons — glossy primary from the home design */
 .btn { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 500; line-height: 1; padding: 12px 18px; border-radius: 999px; border: 1px solid transparent; white-space: nowrap; cursor: pointer; text-decoration: none; transition: background .18s, border-color .18s, color .18s, transform .18s; }

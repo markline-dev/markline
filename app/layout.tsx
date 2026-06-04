@@ -101,7 +101,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="ml-body">
         <Analytics config={config.analytics} />
-        <SiteNav githubUrl={githubUrl()} cta={config.topbar.cta} width={config.topbar.width} homeWidth={config.topbar.homeWidth} />
+        <SiteNav
+          brand={{ name: config.name, logo: config.theme.logo }}
+          tabs={config.navigation.tabs.map((t) => ({ label: t.label, href: t.href }))}
+          navLinks={config.topbar.navLinks}
+          githubUrl={githubUrl()}
+          cta={config.topbar.cta}
+          width={config.topbar.width}
+          homeWidth={config.topbar.homeWidth}
+        />
         {children}
       </body>
     </html>

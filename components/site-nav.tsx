@@ -19,14 +19,25 @@ import { Wordmark } from "./landing/home/wordmark";
  */
 
 export type SiteNavLink = { label: string; href: string };
+type Logo = { light?: string; dark?: string; text?: string };
 
 export function SiteNav({
+  brand,
+  tabs,
+  navLinks,
   githubUrl,
   stars,
   cta,
   width = "full",
   homeWidth = "contained",
 }: {
+  /** Brand lockup: a logo image and/or text from config. Falls back to the
+   *  Markline <Wordmark/> when no logo is configured. */
+  brand?: { name?: string; logo?: Logo };
+  /** Primary nav links — the config navigation tabs (label + href). */
+  tabs?: SiteNavLink[];
+  /** Extra header links beyond the doc tabs (e.g. marketing anchors). */
+  navLinks?: SiteNavLink[];
   /** Repo URL for the GitHub badge (from config topbar links). */
   githubUrl?: string;
   /** Optional star count shown in the badge. */
@@ -39,23 +50,40 @@ export function SiteNav({
   homeWidth?: "full" | "contained";
 }) {
   const pathname = usePathname();
-  const onApiRef = pathname === "/api-reference" || pathname.startsWith("/api-reference/");
   // The homepage ("/") uses its own width knob; every other route uses `width`.
   const layout = pathname === "/" ? homeWidth : width;
+
+  const isActive = (href: string) => {
+    const path = href.split(/[#?]/)[0] || "/";
+    if (path === "/") return pathname === "/";
+    return pathname === path || pathname.startsWith(path + "/");
+  };
+
+  const logo = brand?.logo;
+  const hasImg = !!(logo?.light || logo?.dark);
+  const links = [...(tabs ?? []), ...(navLinks ?? [])];
 
   return (
     <header className="nav">
       <div className={`nav-in nav-in--${layout}`}>
-        <Link className="brand" href="/" aria-label="Markline home">
-          <Wordmark />
+        <Link className="brand" href="/" aria-label={`${brand?.name ?? "Markline"} home`}>
+          {hasImg ? (
+            <>
+              <img className="brand-logo brand-logo--light" src={logo!.light ?? logo!.dark} alt={brand?.name ?? ""} />
+              <img className="brand-logo brand-logo--dark" src={logo!.dark ?? logo!.light} alt={brand?.name ?? ""} />
+            </>
+          ) : logo?.text ? (
+            <span className="brand-text">{logo.text}</span>
+          ) : (
+            <Wordmark />
+          )}
         </Link>
         <nav className="nav-links">
-          <Link href="/quickstart">Documentation</Link>
-          <Link href="/api-reference" className={onApiRef ? "active" : undefined}>
-            API reference
-          </Link>
-          <Link href="/#own">Why Markline</Link>
-          <Link href="/#made">Showcase</Link>
+          {links.map((l) => (
+            <Link key={l.href + l.label} href={l.href} className={isActive(l.href) ? "active" : undefined}>
+              {l.label}
+            </Link>
+          ))}
         </nav>
         <div className="nav-right">
           {githubUrl && (

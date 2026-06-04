@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono, Instrument_Serif } from "next/font/google";
+import { Geist, Geist_Mono, Instrument_Serif, Schibsted_Grotesk } from "next/font/google";
+import localFont from "next/font/local";
 import "./globals.css";
 import "./home.css";
 import "./api-reference.css";
@@ -11,6 +12,17 @@ import { Analytics } from "@/components/docs/analytics";
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" });
 const instrumentSerif = Instrument_Serif({ subsets: ["latin"], weight: "400", style: ["normal", "italic"], variable: "--font-instrument-serif" });
+const schibsted = Schibsted_Grotesk({ subsets: ["latin"], variable: "--font-schibsted" });
+// Cooper — brand wordmark face (used by the home brand lockup).
+const cooper = localFont({
+  src: [
+    { path: "./fonts/Cooper.woff2", weight: "400 900", style: "normal" },
+    { path: "./fonts/Cooper.woff", weight: "400 900", style: "normal" },
+  ],
+  variable: "--font-cooper",
+  display: "swap",
+  preload: false,
+});
 
 const config = loadConfig();
 
@@ -76,7 +88,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const brandCss = themeCss();
   const appearance = config.theme.appearance ?? "system";
   return (
-    <html lang="en" className={`antialiased ${geist.variable} ${geistMono.variable} ${instrumentSerif.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`antialiased ${geist.variable} ${geistMono.variable} ${instrumentSerif.variable} ${schibsted.variable} ${cooper.variable}`} suppressHydrationWarning>
       <head>
         {brandCss && <style dangerouslySetInnerHTML={{ __html: brandCss }} />}
         <script

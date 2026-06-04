@@ -38,3 +38,8 @@ yarn-error.log*
 
 # local pack tarballs
 *.tgz
+
+# Cloudflare Worker template — consumer installs locally
+templates/ai-worker/node_modules/
+templates/ai-worker/bun.lock
+templates/ai-worker/.wrangler/

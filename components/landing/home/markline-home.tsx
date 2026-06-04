@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { Wordmark } from "./wordmark";
 
 /**
  * Markline marketing home — a self-contained landing implemented from the
@@ -170,8 +171,8 @@ export function MarklineHome() {
       {/* ===== NAV ===== */}
       <header className="nav">
         <div className="wrap nav-in">
-          <a className="brand" href="/">
-            Markline<span className="caret" />
+          <a className="brand" href="/" aria-label="Markline home">
+            <Wordmark />
           </a>
           <nav className="nav-links">
             <a href="/quickstart">Documentation</a>
@@ -624,7 +625,7 @@ export function MarklineHome() {
         <div className="wrap">
           <div className="footer-in">
             <div>
-              <a className="brand" href="/" style={{ marginBottom: 14 }}>Markline<span className="caret" /></a>
+              <a className="brand" href="/" aria-label="Markline home" style={{ marginBottom: 14, display: "inline-flex" }}><Wordmark /></a>
               <p style={{ fontSize: 13, color: "var(--ink-3)", maxWidth: 260, marginTop: 4 }}>
                 The docs framework you actually own. MIT-licensed, self-hostable, no lock-in.
               </p>

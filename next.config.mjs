@@ -15,6 +15,9 @@ const basePath = (process.env.MARKLINE_BASE_PATH || "").replace(/\/$/, "");
 /** @type {import("next").NextConfig} */
 const nextConfig = {
   output: isExport ? "export" : "standalone",
+  // A docs framework builds arbitrary consumer content; a lint rule should never
+  // fail a production build. Linting is a separate `npm run lint` step.
+  eslint: { ignoreDuringBuilds: true },
   // Keep build artifacts out of the package/node_modules when the CLI points
   // them at the consumer's project (MARKLINE_DIST is an absolute path there).
   ...(process.env.MARKLINE_DIST ? { distDir: process.env.MARKLINE_DIST } : {}),

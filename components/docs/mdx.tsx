@@ -12,6 +12,7 @@ import {
   Hero, CTAButton, FeatureGrid, Feature, CTASection, CodeShowcase,
   Eyebrow, SectionHead, StatStrip, Stat, Bento, BentoCard,
 } from "@/components/landing/landing";
+import { MarklineHome } from "@/components/landing/home/markline-home";
 
 function slugify(s: string) {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -208,4 +209,5 @@ export const mdxComponents: MDXComponents = {
   Stat,
   Bento,
   BentoCard,
+  MarklineHome,
 };

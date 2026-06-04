@@ -69,7 +69,7 @@ function SidebarSections({
                 className={active ? "active" : undefined}
               >
                 {l.method && <SidebarMethod method={l.method} />}
-                <span className="truncate">{l.label}</span>
+                <span className="lbl">{l.label}</span>
                 {l.badge && <span className="badge">{l.badge}</span>}
               </Link>
             );
@@ -106,7 +106,7 @@ export function DocsSidebar({ nav, ai = null }: { nav: NavData; ai?: AiPublicCon
   const sections = activeTab?.sections ?? [];
   return (
     <>
-      <aside className="docs-side sticky self-start overflow-y-auto" style={{ top: 60, height: "calc(100vh - 60px)" }}>
+      <aside className="docs-side">
         <div className="docs-tools">
           <SidebarSearchTrigger />
           {ai && <SidebarAskButton />}
@@ -147,7 +147,7 @@ export function DocsToc({
   feedbackEndpoint?: string;
 }) {
   return (
-    <aside className="docs-toc sticky self-start overflow-y-auto" style={{ top: 60, height: "calc(100vh - 60px)" }}>
+    <aside className="docs-toc">
       {items.length > 0 && (
         <>
           <div className="toc-h">On this page</div>

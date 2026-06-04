@@ -11,11 +11,10 @@ const COLORS: Record<string, { bg: string; fg: string; ring: string }> = {
 export function MethodBadge({ method, size = "md" }: { method: string; size?: "sm" | "md" }) {
   const m = method.toLowerCase();
   const c = COLORS[m] ?? COLORS.get;
-  const padding = size === "sm" ? "px-1.5 py-px text-[9px]" : "px-2 py-0.5 text-11";
   return (
     <span
-      className={`font-mono ${padding} uppercase tracking-[0.06em] rounded-1 font-medium`}
-      style={{ background: c.bg, color: c.fg, border: `1px solid ${c.ring}` }}
+      className={`ml-method-badge size-${size}`}
+      style={{ background: c.bg, color: c.fg, borderColor: c.ring }}
     >
       {m}
     </span>

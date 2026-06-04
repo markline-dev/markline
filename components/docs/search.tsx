@@ -126,33 +126,25 @@ export function DocsSearch({ triggerless = false }: { triggerless?: boolean } = 
           type="button"
           onClick={() => setOpen(true)}
           aria-label="Search docs"
-          className="docs-search relative w-[360px] h-[34px] hidden md:flex items-center pl-[34px] pr-14 bg-paper-2 border border-slate-4 rounded-2 text-13 text-slate-5 hover:border-slate-6"
+          className="ml-search-trigger"
         >
           <svg
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-5"
+            className="s-ico"
             width={14} height={14} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}
           >
             <circle cx="7" cy="7" r="4.5" />
             <path d="m11 11 3 3" />
           </svg>
           Search docs…
-          <kbd className="absolute right-2 top-1/2 -translate-y-1/2 font-mono text-11 px-1.5 py-0.5 border border-slate-3 rounded text-slate-5">
-            ⌘K
-          </kbd>
+          <kbd className="s-kbd">⌘K</kbd>
         </button>
       )}
 
       {open && (
-        <div
-          className="fixed inset-0 z-50 flex items-start justify-center pt-[12vh] px-4 bg-black/40"
-          onMouseDown={() => setOpen(false)}
-        >
-          <div
-            className="w-full max-w-[600px] bg-paper border border-slate-3 rounded-3 shadow-elev-2 overflow-hidden"
-            onMouseDown={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center gap-2 px-4 border-b border-slate-3">
-              <svg className="text-slate-5" width={16} height={16} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
+        <div className="ml-search-scrim" onMouseDown={() => setOpen(false)}>
+          <div className="ml-search-box" onMouseDown={(e) => e.stopPropagation()}>
+            <div className="ml-search-inrow">
+              <svg width={16} height={16} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5}>
                 <circle cx="7" cy="7" r="4.5" />
                 <path d="m11 11 3 3" />
               </svg>
@@ -162,19 +154,18 @@ export function DocsSearch({ triggerless = false }: { triggerless?: boolean } = 
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={onInputKey}
                 placeholder="Search documentation…"
-                className="flex-1 h-12 bg-transparent text-15 text-ink placeholder:text-slate-5 focus:outline-none"
               />
-              <kbd className="font-mono text-11 px-1.5 py-0.5 border border-slate-3 rounded text-slate-5">esc</kbd>
+              <kbd className="ml-search-kbd">esc</kbd>
             </div>
 
-            <div className="max-h-[60vh] overflow-y-auto py-2">
+            <div className="ml-search-results">
               {ready === false && (
-                <p className="px-4 py-6 text-13 text-slate-5">
-                  Search index not found. Run <code className="font-mono">npm run search</code> (or a full build).
+                <p className="ml-search-msg">
+                  Search index not found. Run <code>npm run search</code> (or a full build).
                 </p>
               )}
               {ready !== false && query.trim() && results.length === 0 && (
-                <p className="px-4 py-6 text-13 text-slate-5">No results for “{query}”.</p>
+                <p className="ml-search-msg">No results for “{query}”.</p>
               )}
               {results.map((r, i) => (
                 <button
@@ -182,21 +173,14 @@ export function DocsSearch({ triggerless = false }: { triggerless?: boolean } = 
                   type="button"
                   onMouseEnter={() => setActive(i)}
                   onClick={() => go(r.url)}
-                  className={`w-full text-left px-4 py-2.5 flex flex-col gap-0.5 ${
-                    i === active ? "bg-slate-2" : ""
-                  }`}
+                  className={`ml-search-row${i === active ? " active" : ""}`}
                 >
-                  <span className="flex items-center gap-2">
-                    <span className="text-14 text-ink font-medium">{r.meta?.title ?? r.url}</span>
-                    {r.meta?.section && (
-                      <span className="font-mono text-10 uppercase tracking-[0.06em] text-slate-5">{r.meta.section}</span>
-                    )}
+                  <span className="r-top">
+                    <span className="r-title">{r.meta?.title ?? r.url}</span>
+                    {r.meta?.section && <span className="r-section">{r.meta.section}</span>}
                   </span>
                   {r.excerpt && (
-                    <span
-                      className="text-12 text-slate-6 line-clamp-1 [&_mark]:bg-transparent [&_mark]:text-ink [&_mark]:font-medium"
-                      dangerouslySetInnerHTML={{ __html: r.excerpt }}
-                    />
+                    <span className="r-excerpt" dangerouslySetInnerHTML={{ __html: r.excerpt }} />
                   )}
                 </button>
               ))}

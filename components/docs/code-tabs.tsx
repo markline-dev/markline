@@ -12,75 +12,50 @@ export type HighlightedSnippet = {
   html: string;
 };
 
-const panelStyle: React.CSSProperties = {
-  background: "rgb(var(--c-panel-bg))",
-  borderColor: "rgb(var(--c-panel-border))",
-};
-
-const headerStyle: React.CSSProperties = {
-  background: "rgb(var(--c-panel-bg))",
-  borderBottom: "1px solid rgb(var(--c-panel-border))",
-};
-
 /**
  * Generic code tabs UI. Receives pre-highlighted HTML from a server component
  * so we never run Shiki in the browser.
+ *
+ * `margin` is an optional CSS margin override from the caller. Default keeps
+ * the previous 24px block spacing; the API request panel uses a tighter
+ * bottom-only margin.
  */
 export function CodeTabs({
   snippets,
   title,
   maxHeight,
-  className = "my-6",
+  margin = "24px 0",
 }: {
   snippets: HighlightedSnippet[];
   title?: string;
   maxHeight?: string;
-  className?: string;
+  margin?: string;
 }) {
   const [active, setActive] = useState(snippets[0]?.lang ?? "");
   const snippet = snippets.find((s) => s.lang === active) ?? snippets[0];
   if (!snippet) return null;
 
   return (
-    <div className={`rounded-3 overflow-hidden border shadow-elev-2 ${className}`} style={panelStyle}>
-      <div className="flex items-center justify-between px-3" style={headerStyle}>
-        <div className="flex items-center gap-3">
-          {title && (
-            <span
-              className="font-mono text-11 tracking-[0.04em] uppercase pl-1"
-              style={{ color: "rgb(var(--c-panel-muted))" }}
-            >
-              {title}
-            </span>
-          )}
-          <div className="flex gap-0.5">
+    <div className="ml-codepanel" style={{ margin }}>
+      <div className="ml-codepanel-head">
+        <div className="ml-codepanel-tabs">
+          {title && <span className="ml-codepanel-title">{title}</span>}
+          <div className="ml-codepanel-tablist">
             {snippets.map((s) => (
               <button
                 key={s.lang}
                 onClick={() => setActive(s.lang)}
-                className="relative px-3 py-2.5 font-mono text-12 cursor-pointer bg-transparent border-0 transition-colors"
-                style={{
-                  color:
-                    snippet.lang === s.lang
-                      ? "rgb(var(--c-panel-fg))"
-                      : "rgb(var(--c-panel-muted))",
-                }}
+                className={`ml-codepanel-tab${snippet.lang === s.lang ? " active" : ""}`}
               >
                 {s.label}
-                {snippet.lang === s.lang && (
-                  <span aria-hidden className="absolute left-2 right-2 -bottom-px h-[2px] rounded-t-sm bg-brand" />
-                )}
+                {snippet.lang === s.lang && <span aria-hidden className="underline" />}
               </button>
             ))}
           </div>
         </div>
         <CopyButton text={snippet.code} />
       </div>
-      <pre
-        className="bg-transparent border-0 m-0 p-4 text-12 leading-[1.65] overflow-auto font-mono"
-        style={{ color: "rgb(var(--c-panel-fg))", maxHeight }}
-        dangerouslySetInnerHTML={{ __html: snippet.html }}
-      />
+      <pre style={{ maxHeight }} dangerouslySetInnerHTML={{ __html: snippet.html }} />
     </div>
   );
 }
@@ -107,39 +82,26 @@ export function ResponseTabs({
   };
 
   return (
-    <div className="rounded-3 overflow-hidden border shadow-elev-2" style={panelStyle}>
-      <div className="flex items-center justify-between px-3" style={headerStyle}>
-        <div className="flex gap-0.5">
+    <div className="ml-codepanel">
+      <div className="ml-codepanel-head">
+        <div className="ml-codepanel-tablist">
           {tabs.map((t) => (
             <button
               key={t.status}
               onClick={() => setActive(t.status)}
-              className="relative px-3 py-2.5 font-mono text-11 cursor-pointer bg-transparent border-0"
-              style={{
-                color:
-                  tab.status === t.status
-                    ? statusColor(t.status)
-                    : "rgb(var(--c-panel-muted))",
-              }}
+              className="ml-codepanel-tab"
+              style={{ color: tab.status === t.status ? statusColor(t.status) : undefined }}
             >
               {t.status}
               {tab.status === t.status && (
-                <span
-                  aria-hidden
-                  className="absolute left-2 right-2 -bottom-px h-[2px] rounded-t-sm"
-                  style={{ background: statusColor(t.status) }}
-                />
+                <span aria-hidden className="underline" style={{ background: statusColor(t.status) }} />
               )}
             </button>
           ))}
         </div>
         <CopyButton text={tab.code} />
       </div>
-      <pre
-        className="bg-transparent border-0 m-0 p-4 text-12 leading-[1.65] overflow-auto font-mono"
-        style={{ color: "rgb(var(--c-panel-fg))", maxHeight }}
-        dangerouslySetInnerHTML={{ __html: tab.html }}
-      />
+      <pre style={{ maxHeight }} dangerouslySetInnerHTML={{ __html: tab.html }} />
     </div>
   );
 }

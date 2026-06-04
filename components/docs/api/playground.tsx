@@ -207,8 +207,7 @@ export function PlaygroundProvider({ spec, children }: { spec: PlaygroundSpec; c
 
 /* ── Inline field controls (rendered in the parameter docs) ── */
 
-const inputCls =
-  "w-full h-8 px-2.5 bg-paper border border-slate-4 rounded-1 text-12 font-mono text-ink placeholder:text-slate-5 focus:outline-none focus:border-brand";
+const inputCls = "ml-pg-input";
 
 export function ParamInput({ location, name, sample }: { location: Loc; name: string; sample?: string }) {
   const { getParam, setParam } = usePlayground();
@@ -245,7 +244,7 @@ export function BodyEditor() {
       onChange={(e) => setBody(e.target.value)}
       rows={Math.min(16, Math.max(6, body.split("\n").length + 1))}
       spellCheck={false}
-      className={`${inputCls} h-auto py-2 leading-[1.55] resize-y mb-2`}
+      className={inputCls}
       aria-label="Request body"
     />
   );
@@ -257,20 +256,18 @@ export function RequestConsole({ explorer = true }: { explorer?: boolean }) {
   const { spec, baseUrl, setBaseUrl, send, loading, response, error, curl } = usePlayground();
   const accent = methodColor(spec.method);
   return (
-    <div className="mb-5 rounded-3 border border-slate-3 overflow-hidden bg-paper sticky" style={{ top: 8 }}>
-      <div className="flex items-center gap-2.5 px-3 py-2.5 bg-paper-2 border-b border-slate-3">
-        <span className="font-mono text-10 font-bold uppercase tracking-[0.04em] px-1.5 py-1 rounded-1 text-white" style={{ background: accent }}>
-          {spec.method}
-        </span>
-        <span className="font-mono text-12 text-slate-7 truncate flex-1 min-w-0">{highlightPath(spec.path)}</span>
+    <div className="ml-pg-console">
+      <div className="ml-pg-console-head">
+        <span className="ml-pg-method" style={{ background: accent }}>{spec.method}</span>
+        <span className="ml-pg-path">{highlightPath(spec.path)}</span>
         {explorer && <ApiExplorer />}
-        <button type="button" onClick={send} disabled={loading} className="btn btn-primary btn-sm disabled:opacity-60 shrink-0">
+        <button type="button" onClick={send} disabled={loading} className="btn btn-primary btn-sm shrink-0">
           {loading ? "Sending…" : "Send"}
         </button>
       </div>
 
-      <label className="flex flex-col gap-1 px-3 py-3 border-b border-slate-3">
-        <span className="font-mono text-10 uppercase tracking-[0.06em] text-slate-5">Server</span>
+      <label className="ml-pg-field">
+        <span className="ml-pg-field-label">Server</span>
         {spec.servers.length > 1 ? (
           <select value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} className={inputCls}>
             {spec.servers.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -289,18 +286,16 @@ export function RequestConsole({ explorer = true }: { explorer?: boolean }) {
 function ResponseBlock({ response, error }: { response: ResponseState; error: string | null }) {
   if (!response && !error) return null;
   return (
-    <div className="border-t" style={{ borderColor: "rgb(var(--c-panel-border))" }}>
-      {error && <p className="px-3 py-3 text-12 text-[#E14F4F] leading-[1.5]">{error}</p>}
+    <div className="ml-pg-resp">
+      {error && <p className="ml-pg-resp-err">{error}</p>}
       {response && (
         <>
-          <div className="flex items-center gap-2 px-3 py-2" style={{ background: "rgb(var(--c-panel-bg))" }}>
+          <div className="ml-pg-resp-head">
             <StatusPill status={response.status} />
-            <span className="text-12" style={{ color: "rgb(var(--c-panel-muted))" }}>{response.statusText}</span>
-            <span className="ml-auto font-mono text-11" style={{ color: "rgb(var(--c-panel-muted))" }}>{response.durationMs}ms · {response.via}</span>
+            <span className="stext">{response.statusText}</span>
+            <span className="meta">{response.durationMs}ms · {response.via}</span>
           </div>
-          <pre className="m-0 px-3 py-3 overflow-x-auto text-12 leading-[1.55] font-mono max-h-[40vh]" style={{ background: "rgb(var(--c-panel-bg))", color: "rgb(var(--c-panel-fg))" }}>
-            {response.body || "(empty response)"}
-          </pre>
+          <pre className="ml-pg-resp-body">{response.body || "(empty response)"}</pre>
         </>
       )}
     </div>
@@ -345,7 +340,7 @@ export function ApiExplorer() {
         onClick={() => setOpen(true)}
         title="Open API Explorer"
         aria-label="Open API Explorer"
-        className="shrink-0 inline-flex items-center justify-center w-7 h-7 rounded-1 text-slate-5 hover:text-ink hover:bg-slate-2"
+        className="ml-pg-explorer-btn"
       >
         <svg width={15} height={15} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden>
           <path d="M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9" strokeLinecap="round" strokeLinejoin="round" />
@@ -353,27 +348,23 @@ export function ApiExplorer() {
       </button>
 
       {open && typeof document !== "undefined" && createPortal(
-        <div className="fixed inset-0 z-50 flex items-start justify-center px-4 pt-20 pb-8 bg-black/55" onMouseDown={() => setOpen(false)}>
-          <div
-            className="w-[min(1200px,96vw)] h-[min(84vh,840px)] max-h-[calc(100vh-7rem)] bg-paper rounded-3 border border-slate-3 shadow-elev-2 flex flex-col overflow-hidden"
-            onMouseDown={(e) => e.stopPropagation()}
-          >
+        <div className="ml-explorer-scrim" onMouseDown={() => setOpen(false)}>
+          <div className="ml-explorer-modal" onMouseDown={(e) => e.stopPropagation()}>
             {/* top bar: endpoint selector · url bar · send · close */}
-            <div className="flex items-center gap-3 px-3 h-16 border-b border-slate-3 bg-paper-2 shrink-0">
+            <div className="ml-explorer-topbar">
               <EndpointSelector spec={spec} />
               <UrlBar method={spec.method} path={spec.path} />
-              <button type="button" onClick={pg.send} disabled={pg.loading} className="btn btn-primary btn-sm disabled:opacity-60 shrink-0 inline-flex items-center gap-1.5">
+              <button type="button" onClick={pg.send} disabled={pg.loading} className="btn btn-primary btn-sm shrink-0">
                 {pg.loading ? "Running…" : <>Send <svg width={11} height={11} viewBox="0 0 16 16" fill="currentColor" aria-hidden><path d="M3 2.5 13.5 8 3 13.5 5 8 3 2.5Z" /></svg></>}
               </button>
-              <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="shrink-0 w-8 h-8 inline-flex items-center justify-center rounded-1 text-slate-6 hover:bg-slate-2">
+              <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="ml-explorer-close">
                 <svg width={16} height={16} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.6} aria-hidden><path d="m4 4 8 8M12 4l-8 8" strokeLinecap="round" /></svg>
               </button>
             </div>
 
-            <div className="flex-1 flex min-h-0 explorer-body">
-              <style>{`@media (max-width: 820px){ .explorer-body{ flex-direction:column } .explorer-body > div{ width:100% !important } }`}</style>
+            <div className="ml-explorer-body">
               {/* request builder */}
-              <div className="w-[54%] overflow-y-auto px-5 py-4">
+              <div className="ml-explorer-builder">
                 <ExplorerField label="Server">
                   {spec.servers.length > 1 ? (
                     <select value={pg.baseUrl} onChange={(e) => pg.setBaseUrl(e.target.value)} className={inputCls}>
@@ -424,10 +415,10 @@ export function ApiExplorer() {
               </div>
 
               {/* code + response */}
-              <div className="w-[46%] overflow-y-auto p-4 flex flex-col gap-4 border-l border-slate-3" style={{ background: "rgb(var(--c-panel-bg))" }}>
+              <div className="ml-explorer-result">
                 <Panel title={spec.summary ?? "Request"}>
                   <CodeHeader code={pg.curl} />
-                  <pre className="m-0 px-4 py-3 overflow-x-auto text-12 leading-[1.6] font-mono" style={{ color: "rgb(var(--c-panel-fg))" }} dangerouslySetInnerHTML={{ __html: colorizeCurl(pg.curl) }} />
+                  <pre dangerouslySetInnerHTML={{ __html: colorizeCurl(pg.curl) }} />
                 </Panel>
                 <ResponseTabs responses={spec.responses} live={pg.response} error={pg.error} />
               </div>
@@ -443,7 +434,7 @@ export function ApiExplorer() {
 function MethodTag({ method, small }: { method: string; small?: boolean }) {
   return (
     <span
-      className={`font-mono font-bold uppercase tracking-[0.03em] rounded-1 text-white shrink-0 ${small ? "text-9 px-1 py-0.5" : "text-10 px-1.5 py-1"}`}
+      className={`ml-method-tag ${small ? "size-sm" : "size-md"}`}
       style={{ background: methodColor(method) }}
     >
       {method}
@@ -464,35 +455,35 @@ function EndpointSelector({ spec }: { spec: PlaygroundSpec }) {
   };
   if (endpoints.length === 0) {
     return (
-      <div className="flex items-center gap-2 h-9 px-2.5 shrink-0">
+      <div className="ml-endpoint-sel-static">
         <MethodTag method={spec.method} />
-        <span className="text-13 font-medium text-ink truncate max-w-[200px]">{spec.summary}</span>
+        <span className="name">{spec.summary}</span>
       </div>
     );
   }
   return (
-    <div className="relative shrink-0">
-      <button type="button" onClick={() => setOpen((o) => !o)} className="flex items-center gap-2 h-9 px-2.5 rounded-2 border border-slate-3 bg-paper hover:border-slate-4 min-w-[220px] max-w-[300px]">
+    <div className="ml-endpoint-sel">
+      <button type="button" onClick={() => setOpen((o) => !o)} className="ml-endpoint-sel-btn">
         <MethodTag method={spec.method} />
-        <span className="text-13 font-medium text-ink truncate flex-1 text-left">{spec.summary}</span>
-        <svg width={12} height={12} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.6} className="text-slate-5" aria-hidden><path d="m4 6 4 4 4-4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        <span className="name">{spec.summary}</span>
+        <svg width={12} height={12} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.6} className="chev" aria-hidden><path d="m4 6 4 4 4-4" strokeLinecap="round" strokeLinejoin="round" /></svg>
       </button>
       {open && (
-        <div className="absolute left-0 top-full mt-1.5 w-[340px] max-h-[420px] bg-paper border border-slate-3 rounded-2 shadow-elev-2 z-10 flex flex-col overflow-hidden" onMouseDown={(e) => e.stopPropagation()}>
-          <div className="p-2 border-b border-slate-3">
-            <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search for endpoint…" className="w-full h-8 px-2.5 bg-paper-2 border border-slate-3 rounded-1 text-13 text-ink placeholder:text-slate-5 focus:outline-none focus:border-brand" />
+        <div className="ml-endpoint-sel-menu" onMouseDown={(e) => e.stopPropagation()}>
+          <div className="ml-endpoint-sel-search">
+            <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search for endpoint…" />
           </div>
-          <div className="overflow-y-auto py-1">
+          <div className="ml-endpoint-sel-list">
             {filtered.map((e) => {
               const active = e.href === spec.currentHref;
               return (
-                <button key={e.href} type="button" onClick={() => go(e.href)} className={`w-full flex items-center gap-2.5 px-3 py-1.5 text-left ${active ? "bg-slate-2" : "hover:bg-slate-2"}`}>
+                <button key={e.href} type="button" onClick={() => go(e.href)} className={`ml-endpoint-sel-item${active ? " active" : ""}`}>
                   <MethodTag method={e.method} />
-                  <span className={`text-13 truncate ${active ? "text-brand font-medium" : "text-slate-7"}`}>{e.label}</span>
+                  <span className="lbl">{e.label}</span>
                 </button>
               );
             })}
-            {filtered.length === 0 && <p className="px-3 py-3 text-12 text-slate-5">No endpoints match.</p>}
+            {filtered.length === 0 && <p className="ml-endpoint-sel-empty">No endpoints match.</p>}
           </div>
         </div>
       )}
@@ -503,16 +494,16 @@ function EndpointSelector({ spec }: { spec: PlaygroundSpec }) {
 function UrlBar({ method, path }: { method: string; path: string }) {
   const segs = path.split("/").filter(Boolean);
   return (
-    <div className="flex items-center gap-2 h-9 px-2.5 rounded-2 border border-slate-3 bg-paper flex-1 min-w-0 overflow-x-auto">
+    <div className="ml-urlbar">
       <MethodTag method={method} />
-      <span className="font-mono text-12 flex items-center whitespace-nowrap">
+      <span className="segs">
         {segs.map((s, i) => (
-          <span key={i} className="flex items-center">
-            <span className="text-slate-4 px-1">/</span>
+          <span key={i}>
+            <span className="slash">/</span>
             {s.startsWith("{") ? (
-              <span className="px-1.5 py-0.5 rounded-1 text-brand font-medium" style={{ background: "color-mix(in oklab, rgb(var(--c-brand)) 16%, transparent)" }}>{s}</span>
+              <span className="seg-var">{s}</span>
             ) : (
-              <span className="text-slate-7">{s}</span>
+              <span className="seg-static">{s}</span>
             )}
           </span>
         ))}
@@ -523,8 +514,8 @@ function UrlBar({ method, path }: { method: string; path: string }) {
 
 function ExplorerField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="flex flex-col gap-1 pb-4 mb-2 border-b border-slate-3">
-      <span className="font-mono text-10 uppercase tracking-[0.06em] text-slate-5">{label}</span>
+    <label className="ml-explorer-field">
+      <span className="ml-explorer-field-label">{label}</span>
       {children}
     </label>
   );
@@ -533,37 +524,36 @@ function ExplorerField({ label, children }: { label: string; children: React.Rea
 function ExplorerSection({ title, defaultOpen = true, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="border-b border-slate-3 last:border-0">
-      <button type="button" onClick={() => setOpen((o) => !o)} className="w-full flex items-center gap-2 py-3 text-left">
-        <svg width={11} height={11} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.8} className={`text-slate-5 transition-transform ${open ? "rotate-90" : ""}`} aria-hidden><path d="m6 4 4 4-4 4" strokeLinecap="round" strokeLinejoin="round" /></svg>
-        <span className="text-13 font-semibold text-ink">{title}</span>
+    <div className="ml-explorer-sec">
+      <button type="button" onClick={() => setOpen((o) => !o)} className={`ml-explorer-sec-toggle${open ? " open" : ""}`}>
+        <svg width={11} height={11} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.8} className="chev" aria-hidden><path d="m6 4 4 4-4 4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+        <span className="title">{title}</span>
       </button>
-      {open && <div className="pb-2">{children}</div>}
+      {open && <div className="ml-explorer-sec-body">{children}</div>}
     </div>
   );
 }
 
 function ExplorerRow({ name, type, required, description, children }: { name: string; type?: string; required?: boolean; description?: string; children: React.ReactNode }) {
   return (
-    <div className="flex gap-5 items-start py-3 border-t border-slate-3 first:border-t-0 explorer-row">
-      <style>{`@media (max-width: 560px){ .explorer-row{ flex-direction:column } .explorer-row > .er-input{ width:100% !important } }`}</style>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2 flex-wrap">
-          <code className="font-mono text-12 font-medium text-ink">{name}</code>
-          {type && <span className="font-mono text-11 text-slate-5">{type}</span>}
-          {required && <span className="font-mono text-10 uppercase tracking-[0.04em] text-[#E14F4F]">required</span>}
+    <div className="ml-explorer-row">
+      <div className="er-info">
+        <div className="er-head">
+          <code className="er-name">{name}</code>
+          {type && <span className="er-type">{type}</span>}
+          {required && <span className="er-required">required</span>}
         </div>
-        {description && <p className="text-12 text-slate-6 leading-[1.5] mt-1.5">{description}</p>}
+        {description && <p className="er-desc">{description}</p>}
       </div>
-      <div className="er-input w-[44%] shrink-0 pt-0.5">{children}</div>
+      <div className="er-input">{children}</div>
     </div>
   );
 }
 
 function Panel({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-2 overflow-hidden border" style={{ borderColor: "rgb(var(--c-panel-border))", background: "rgb(var(--c-panel-bg))" }}>
-      <div className="px-4 py-2.5 border-b text-12 font-semibold" style={{ borderColor: "rgb(var(--c-panel-border))", color: "rgb(var(--c-panel-fg))" }}>{title}</div>
+    <div className="ml-explorer-panel">
+      <div className="ml-explorer-panel-title">{title}</div>
       {children}
     </div>
   );
@@ -572,9 +562,9 @@ function Panel({ title, children }: { title: string; children: React.ReactNode }
 function CodeHeader({ code }: { code: string }) {
   const [copied, setCopied] = useState(false);
   return (
-    <div className="flex items-center px-4 py-2 border-b" style={{ borderColor: "rgb(var(--c-panel-border))" }}>
-      <span className="font-mono text-10 uppercase tracking-[0.08em]" style={{ color: "rgb(var(--c-panel-muted))" }}>cURL</span>
-      <button type="button" onClick={() => { navigator.clipboard?.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 1200); }} className="ml-auto font-mono text-10" style={{ color: "rgb(var(--c-panel-muted))" }}>{copied ? "copied" : "copy"}</button>
+    <div className="ml-explorer-codehead">
+      <span className="lbl">cURL</span>
+      <button type="button" onClick={() => { navigator.clipboard?.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 1200); }} className="copy">{copied ? "copied" : "copy"}</button>
     </div>
   );
 }
@@ -590,29 +580,29 @@ function ResponseTabs({ responses, live, error }: { responses?: { status: string
   const hasExamples = tabs.some((t) => t.body.trim() !== "");
   if (!liveMode && !hasExamples) {
     return (
-      <div className="rounded-2 border px-4 py-6 text-12 text-center" style={{ borderColor: "rgb(var(--c-panel-border))", background: "rgb(var(--c-panel-bg))", color: "rgb(var(--c-panel-muted))" }}>
+      <div className="ml-resptabs-empty">
         Send the request to see the response.
       </div>
     );
   }
   return (
-    <div className="rounded-2 overflow-hidden border" style={{ borderColor: "rgb(var(--c-panel-border))", background: "rgb(var(--c-panel-bg))" }}>
-      <div className="flex items-center gap-4 px-4 border-b" style={{ borderColor: "rgb(var(--c-panel-border))" }}>
+    <div className="ml-resptabs">
+      <div className="ml-resptabs-head">
         {statuses.map((s, i) => {
           const isActive = liveMode || i === active;
           return (
-            <button key={s + i} type="button" onClick={() => !liveMode && setActive(i)} className="py-2.5 -mb-px border-b-2 font-mono text-12 font-medium" style={{ borderColor: isActive ? statusColor(s) : "transparent", color: isActive ? statusColor(s) : "rgb(var(--c-panel-muted))" }}>
+            <button key={s + i} type="button" onClick={() => !liveMode && setActive(i)} className="ml-resptabs-tab" style={{ borderBottomColor: isActive ? statusColor(s) : "transparent", color: isActive ? statusColor(s) : undefined }}>
               {s}
             </button>
           );
         })}
-        {live && <span className="ml-2 font-mono text-11" style={{ color: "rgb(var(--c-panel-muted))" }}>{live.durationMs}ms · {live.via}</span>}
-        <button type="button" onClick={copy} className="ml-auto font-mono text-10" style={{ color: "rgb(var(--c-panel-muted))" }}>{copied ? "copied" : "copy"}</button>
+        {live && <span className="ml-resptabs-meta">{live.durationMs}ms · {live.via}</span>}
+        <button type="button" onClick={copy} className="ml-resptabs-copy">{copied ? "copied" : "copy"}</button>
       </div>
       {error ? (
-        <p className="px-4 py-3 text-12 text-[#E14F4F] leading-[1.5]">{error}</p>
+        <p className="ml-resptabs-err">{error}</p>
       ) : (
-        <pre className="m-0 px-4 py-3 overflow-auto text-12 leading-[1.6] font-mono max-h-[50vh]" style={{ color: "rgb(var(--c-panel-fg))" }} dangerouslySetInnerHTML={{ __html: colorizeJson(bodyText || "(empty response)") }} />
+        <pre dangerouslySetInnerHTML={{ __html: colorizeJson(bodyText || "(empty response)") }} />
       )}
     </div>
   );
@@ -637,21 +627,21 @@ function colorizeJson(s: string): string {
 
 function highlightPath(path: string) {
   return path.split(/(\{[^}]+\})/g).map((seg, i) =>
-    seg.startsWith("{") ? <span key={i} className="text-brand font-medium">{seg}</span> : <span key={i}>{seg}</span>,
+    seg.startsWith("{") ? <span key={i} className="var">{seg}</span> : <span key={i}>{seg}</span>,
   );
 }
 
 function CodePreview({ code }: { code: string }) {
   const [copied, setCopied] = useState(false);
   return (
-    <div style={{ background: "rgb(var(--c-panel-bg))" }}>
-      <div className="flex items-center px-3 py-2 border-b" style={{ borderColor: "rgb(var(--c-panel-border))" }}>
-        <span className="font-mono text-10 uppercase tracking-[0.08em]" style={{ color: "rgb(var(--c-panel-muted))" }}>cURL</span>
-        <button type="button" onClick={() => { navigator.clipboard?.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 1200); }} className="ml-auto font-mono text-10" style={{ color: "rgb(var(--c-panel-muted))" }}>
+    <div className="ml-pg-codepreview">
+      <div className="ml-pg-codepreview-head">
+        <span className="lbl">cURL</span>
+        <button type="button" onClick={() => { navigator.clipboard?.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 1200); }} className="copy">
           {copied ? "copied" : "copy"}
         </button>
       </div>
-      <pre className="m-0 px-3 py-3 overflow-x-auto text-12 leading-[1.6] font-mono" style={{ color: "rgb(var(--c-panel-fg))" }} dangerouslySetInnerHTML={{ __html: colorizeCurl(code) }} />
+      <pre dangerouslySetInnerHTML={{ __html: colorizeCurl(code) }} />
     </div>
   );
 }
@@ -674,7 +664,7 @@ function StatusPill({ status }: { status: number }) {
         ? { bg: "rgba(225,79,79,0.14)", fg: "#E14F4F" }
         : { bg: "rgba(120,130,160,0.14)", fg: "#7882A0" };
   return (
-    <span className="font-mono text-11 px-2 py-0.5 rounded-1 font-medium" style={{ background: tone.bg, color: tone.fg, border: `1px solid ${tone.fg}44` }}>
+    <span className="status-pill" style={{ background: tone.bg, color: tone.fg, borderColor: `${tone.fg}44` }}>
       {status || "ERR"}
     </span>
   );

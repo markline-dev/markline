@@ -21,49 +21,32 @@ function slugify(s: string) {
 /* ── Rich MDX-only components ── */
 
 export function Paths({ children }: { children: React.ReactNode }) {
-  return (
-    <div className="grid gap-3 my-6 paths-grid" style={{ gridTemplateColumns: "1fr 1fr 1fr" }}>
-      <style>{`@media (max-width: 880px) { .paths-grid { grid-template-columns: 1fr !important; } }`}</style>
-      {children}
-    </div>
-  );
+  return <div className="ml-paths-grid">{children}</div>;
 }
 
 export function Path({
   num, href, arrow, title, children,
 }: { num: number; href: string; arrow: string; title: string; children: React.ReactNode }) {
   return (
-    <Link href={href}
-          className="group flex flex-col gap-2 p-5 border border-slate-3 rounded-3 bg-paper-2 no-underline text-ink hover:border-brand transition-colors">
-      <span className="w-[26px] h-[26px] rounded-1 bg-brand text-on-brand flex items-center justify-center font-mono font-semibold text-13">
-        {num}
-      </span>
-      <h3 className="text-16 font-semibold m-0">{title}</h3>
-      <div className="text-13 text-slate-5 leading-[1.5]">{children}</div>
-      <span className="font-mono text-12 text-slate-5 group-hover:text-brand mt-auto">{arrow}</span>
+    <Link href={href} className="ml-path-card">
+      <span className="ml-path-num">{num}</span>
+      <h3>{title}</h3>
+      <div className="ml-path-desc">{children}</div>
+      <span className="ml-path-arrow">{arrow}</span>
     </Link>
   );
 }
 
 type Verb = "POST" | "GET" | "DELETE";
-const VERB_STYLE: Record<Verb, string> = {
-  POST:   "bg-[#D6F0E1] text-[#15A66B]",
-  GET:    "bg-[#DDE8FB] text-[#2A6FDB]",
-  DELETE: "bg-[#F8D8D2] text-[#D43A2C]",
-};
 
 export function ApiRefs({ items }: { items: { verb: Verb; ep: string; desc?: string; href: string }[] }) {
   return (
-    <div className="grid gap-2 my-6 refs-grid" style={{ gridTemplateColumns: "1fr 1fr" }}>
-      <style>{`@media (max-width: 720px) { .refs-grid { grid-template-columns: 1fr !important; } }`}</style>
+    <div className="ml-apirefs-grid">
       {items.map((r) => (
-        <Link key={r.ep} href={r.href}
-              className="flex items-center gap-3 px-4 py-3 border border-slate-3 rounded-2 bg-paper-2 no-underline text-ink hover:border-slate-4 transition-colors">
-          <span className={`font-mono text-11 px-1.5 py-0.5 rounded-sm font-semibold ${VERB_STYLE[r.verb]}`}>
-            {r.verb}
-          </span>
-          <span className="font-mono text-13 flex-1 min-w-0 truncate">{r.ep}</span>
-          {r.desc && <span className="text-12 text-slate-5">{r.desc}</span>}
+        <Link key={r.ep} href={r.href} className="ml-apiref-card">
+          <span className={`ml-apiref-verb verb-${r.verb}`}>{r.verb}</span>
+          <span className="ml-apiref-ep">{r.ep}</span>
+          {r.desc && <span className="ml-apiref-desc">{r.desc}</span>}
         </Link>
       ))}
     </div>
@@ -72,12 +55,11 @@ export function ApiRefs({ items }: { items: { verb: Verb; ep: string; desc?: str
 
 export function MigrationCallout({ children }: { children?: React.ReactNode }) {
   return (
-    <div className="my-6 flex items-start gap-3.5 px-5 py-4 rounded-3 border border-brand"
-         style={{ background: "color-mix(in oklab, rgb(var(--c-brand)) 12%, rgb(var(--c-paper-2)))" }}>
-      <span className="font-mono font-bold text-12 w-[22px] h-[22px] rounded-full bg-brand text-on-brand flex items-center justify-center flex-shrink-0">↗</span>
+    <div className="ml-migrate">
+      <span className="ml-migrate-badge">↗</span>
       <div>
-        <strong className="text-ink">Migrating from OpenAI?</strong>
-        <div className="text-14 text-slate-6 leading-[1.55] mt-0.5">{children}</div>
+        <strong>Migrating from OpenAI?</strong>
+        <div className="ml-migrate-body">{children}</div>
       </div>
     </div>
   );
@@ -126,10 +108,7 @@ export const mdxComponents: MDXComponents = {
   // Code blocks (fenced ```...```). rehype-pretty-code wraps them in
   // <figure><pre><code>; the figure component below strips the wrapper.
   pre: ({ children, ...props }: any) => (
-    <pre
-      {...props}
-      className="my-6 rounded-3 overflow-x-auto bg-ink border border-ink-2 shadow-elev-2 p-5 text-13 leading-[1.7] font-mono text-[#E8E7E0]"
-    >
+    <pre {...props} className="ml-mdx-pre">
       {children}
     </pre>
   ),
@@ -142,13 +121,13 @@ export const mdxComponents: MDXComponents = {
     return <figure {...props}>{children}</figure>;
   },
   table: ({ children }) => (
-    <div className="my-6 overflow-x-auto rounded-2 border border-slate-3">
-      <table className="w-full text-14 border-collapse">{children}</table>
+    <div className="ml-table-wrap">
+      <table className="ml-table">{children}</table>
     </div>
   ),
-  thead: ({ children }) => <thead className="bg-slate-2 border-b border-slate-3">{children}</thead>,
-  th: ({ children }) => <th className="text-left px-4 py-2.5 font-semibold text-ink">{children}</th>,
-  td: ({ children }) => <td className="px-4 py-2.5 border-t border-slate-3 text-slate-6">{children}</td>,
+  thead: ({ children }) => <thead>{children}</thead>,
+  th: ({ children }) => <th>{children}</th>,
+  td: ({ children }) => <td>{children}</td>,
 
   // Rich custom blocks available in any MDX page
   Callout,

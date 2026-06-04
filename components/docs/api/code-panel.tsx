@@ -18,7 +18,7 @@ export async function RequestPanel({ title, snippets }: { title: string; snippet
       html: await highlightToHtml(s.code, s.lang),
     })),
   );
-  return <CodeTabs title={title} snippets={highlighted} maxHeight={PRE_MAX} className="mb-5" />;
+  return <CodeTabs title={title} snippets={highlighted} maxHeight={PRE_MAX} margin="0 0 20px" />;
 }
 
 export async function ResponsePanel({

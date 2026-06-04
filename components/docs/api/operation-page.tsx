@@ -45,35 +45,29 @@ export function ApiOperationPage({
   }));
 
   const page = (
-    <>
-      <main className="api-main px-12 pt-8 pb-24 api-main-pad">
-        <style>{`@media (max-width: 720px) { .api-main-pad { padding-left: 20px !important; padding-right: 20px !important; } }`}</style>
-
+    <div className="api-op-shell">
+      <main className="api-op-main">
         {crumbs.length > 0 && (
-          <nav className="font-mono text-12 text-slate-5 mb-4">
+          <nav className="api-crumbs">
             {crumbs.map((c, i) => (
               <span key={i}>
-                {i > 0 && <span className="mx-2 text-slate-4">/</span>}
+                {i > 0 && <span className="sep">/</span>}
                 {c.href ? (
-                  <a href={c.href} className="text-slate-5 no-underline hover:text-ink">{c.label}</a>
+                  <a href={c.href}>{c.label}</a>
                 ) : (
-                  <span className={i === crumbs.length - 1 ? "text-ink" : "text-slate-5"}>{c.label}</span>
+                  <span className={i === crumbs.length - 1 ? "cur" : undefined}>{c.label}</span>
                 )}
               </span>
             ))}
           </nav>
         )}
 
-        <h1 className="font-semibold text-ink mb-2" style={{ fontSize: 32, letterSpacing: "-0.02em", lineHeight: 1.15 }}>
-          {op.summary ?? op.operationId}
-        </h1>
-        {op.description && (
-          <p className="text-15 leading-[1.6] text-slate-6 max-w-[60ch] mb-2">{op.description}</p>
-        )}
+        <h1 className="api-title">{op.summary ?? op.operationId}</h1>
+        {op.description && <p className="api-desc">{op.description}</p>}
 
         <EndpointPath method={op.method} path={op.path} />
 
-        {extendedContent && <div className="docs-prose mb-6">{extendedContent}</div>}
+        {extendedContent && <div className="docs-prose api-op-extended">{extendedContent}</div>}
 
         {playgroundSpec ? (
           (playgroundSpec.bearer || playgroundSpec.apiKeyHeaders.length > 0) && (
@@ -164,7 +158,7 @@ export function ApiOperationPage({
 
         {reqSchema && (
           <Section id="body" title="Body">
-            <p className="font-mono text-11 text-slate-5 mb-1">application/json</p>
+            <p className="api-body-type">application/json</p>
             {showInline && <BodyEditor />}
             <SchemaTable schema={reqSchema} />
           </Section>
@@ -174,10 +168,10 @@ export function ApiOperationPage({
           {op.responses.map((r) => {
             const resolved = resolveSchema(r.schema, root);
             return (
-              <div key={r.status} className="mb-6 last:mb-0">
-                <div className="flex items-center gap-2 mb-2">
+              <div key={r.status} className="api-resp-row">
+                <div className="api-resp-head">
                   <StatusPill status={r.status} />
-                  <span className="text-13 text-slate-6">{r.description}</span>
+                  <span className="desc">{r.description}</span>
                 </div>
                 {resolved && <SchemaTable schema={resolved} />}
               </div>
@@ -186,10 +180,7 @@ export function ApiOperationPage({
         </Section>
       </main>
 
-      <aside
-        className="api-side px-6 py-8 sticky self-start overflow-y-auto"
-        style={{ top: 56, height: "calc(100vh - 56px)" }}
-      >
+      <aside className="api-op-side">
         {interactive ? (
           <RequestConsole explorer={showExplorer} />
         ) : (
@@ -200,7 +191,7 @@ export function ApiOperationPage({
         )}
         {responseTabs.some((t) => t.body.trim() !== "") && <ResponsePanel tabs={responseTabs} />}
       </aside>
-    </>
+    </div>
   );
 
   return playgroundSpec ? <PlaygroundProvider spec={playgroundSpec}>{page}</PlaygroundProvider> : page;
@@ -208,8 +199,8 @@ export function ApiOperationPage({
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {
   return (
-    <section id={id} className="mt-9">
-      <h2 className="text-18 font-semibold tracking-[-0.01em] mb-3 text-ink">{title}</h2>
+    <section id={id} className="api-section">
+      <h2>{title}</h2>
       <div>{children}</div>
     </section>
   );
@@ -224,10 +215,7 @@ function StatusPill({ status }: { status: string }) {
         ? { bg: "rgba(225,79,79,0.12)", fg: "#E14F4F" }
         : { bg: "rgba(120,130,160,0.12)", fg: "#7882A0" };
   return (
-    <span
-      className="font-mono text-11 px-2 py-0.5 rounded-1 font-medium"
-      style={{ background: tone.bg, color: tone.fg, border: `1px solid ${tone.fg}33` }}
-    >
+    <span className="status-pill" style={{ background: tone.bg, color: tone.fg, borderColor: `${tone.fg}33` }}>
       {status}
     </span>
   );

@@ -6,6 +6,7 @@ import "./globals.css";
 import "./home.css";
 import "./api-reference.css";
 import "./docs.css";
+import "./components.css";
 import { SiteNav } from "@/components/site-nav";
 import { loadConfig, hexToRgbTriple } from "@/lib/config";
 import { Analytics } from "@/components/docs/analytics";
@@ -86,7 +87,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const brandCss = themeCss();
   const appearance = config.theme.appearance ?? "system";
   return (
-    <html lang="en" className={`antialiased ${geist.variable} ${geistMono.variable} ${instrumentSerif.variable} ${schibsted.variable} ${cooper.variable}`} suppressHydrationWarning>
+    <html lang="en" className={`${geist.variable} ${geistMono.variable} ${instrumentSerif.variable} ${schibsted.variable} ${cooper.variable}`} suppressHydrationWarning>
       <head>
         {brandCss && <style dangerouslySetInnerHTML={{ __html: brandCss }} />}
         <script
@@ -98,7 +99,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           }}
         />
       </head>
-      <body className="min-h-screen flex flex-col m-0 font-sans">
+      <body className="ml-body">
         <Analytics config={config.analytics} />
         <SiteNav githubUrl={githubUrl()} cta={config.topbar.cta} />
         {children}

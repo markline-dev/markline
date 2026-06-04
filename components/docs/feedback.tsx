@@ -59,17 +59,13 @@ export function FeedbackWidget({ endpoint }: { endpoint?: string }) {
   };
 
   if (stage === "done") {
-    return (
-      <div className="mt-8 pt-4 border-t border-slate-3 text-12 text-slate-5">
-        Thanks for the feedback.
-      </div>
-    );
+    return <div className="ml-fb">Thanks for the feedback.</div>;
   }
 
   return (
-    <div className="mt-8 pt-4 border-t border-slate-3 text-12 text-slate-6">
-      <div className="text-ink font-medium mb-2">Was this page helpful?</div>
-      <div className="flex gap-1.5">
+    <div className="ml-fb">
+      <div className="ml-fb-q">Was this page helpful?</div>
+      <div className="ml-fb-pills">
         <PillButton active={answer === "yes"} onClick={() => pick("yes")} aria-label="Yes, helpful">
           <ThumbIcon up /> Yes
         </PillButton>
@@ -79,17 +75,14 @@ export function FeedbackWidget({ endpoint }: { endpoint?: string }) {
       </div>
 
       {stage === "form" && (
-        <div className="mt-4">
-          <h6 className="text-13 font-medium text-ink mb-2">
-            {answer === "yes" ? "What did you like?" : "How can we improve?"}
-          </h6>
-          <div className="flex flex-col gap-1.5">
+        <div className="ml-fb-form">
+          <h6>{answer === "yes" ? "What did you like?" : "How can we improve?"}</h6>
+          <div className="ml-fb-reasons">
             {REASONS.map((r) => (
-              <label key={r} className="flex items-start gap-2 text-12 text-slate-6 cursor-pointer">
+              <label key={r} className="ml-fb-reason">
                 <input
                   type="radio"
                   name="docs-feedback-reason"
-                  className="mt-0.5 accent-brand"
                   checked={reason === r}
                   onChange={() => setReason(r)}
                 />
@@ -102,21 +95,17 @@ export function FeedbackWidget({ endpoint }: { endpoint?: string }) {
             onChange={(e) => setComment(e.target.value)}
             rows={3}
             placeholder="Anything else?"
-            className="w-full mt-3 p-2 text-12 bg-paper-2 border border-slate-3 rounded-1 text-ink resize-y focus:outline-none focus:border-brand"
+            className="ml-fb-textarea"
           />
-          <div className="flex gap-2 mt-3">
-            <button
-              onClick={cancel}
-              type="button"
-              className="font-mono text-11 px-3 py-1.5 border border-slate-4 rounded-1 bg-transparent text-slate-6 hover:text-ink hover:border-slate-7 cursor-pointer"
-            >
+          <div className="ml-fb-actions">
+            <button onClick={cancel} type="button" className="ml-fb-btn ml-fb-btn-cancel">
               Cancel
             </button>
             <button
               onClick={submit}
               disabled={submitting || (!reason && !comment.trim())}
               type="button"
-              className="font-mono text-11 px-3 py-1.5 rounded-1 bg-ink text-paper hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              className="ml-fb-btn ml-fb-btn-submit"
             >
               {submitting ? "Sending…" : "Submit"}
             </button>
@@ -207,17 +196,14 @@ export function DocsRate({ endpoint }: { endpoint?: string }) {
       </div>
 
       {stage === "form" && (
-        <div className="mt-4 text-12 text-slate-6">
-          <h6 className="text-13 font-medium text-ink mb-2">
-            {answer === "yes" ? "What did you like?" : "How can we improve?"}
-          </h6>
-          <div className="flex flex-col gap-1.5">
+        <div className="ml-fb-form">
+          <h6>{answer === "yes" ? "What did you like?" : "How can we improve?"}</h6>
+          <div className="ml-fb-reasons">
             {REASONS.map((r) => (
-              <label key={r} className="flex items-start gap-2 text-12 text-slate-6 cursor-pointer">
+              <label key={r} className="ml-fb-reason">
                 <input
                   type="radio"
                   name="docs-feedback-reason"
-                  className="mt-0.5 accent-brand"
                   checked={reason === r}
                   onChange={() => setReason(r)}
                 />
@@ -230,21 +216,17 @@ export function DocsRate({ endpoint }: { endpoint?: string }) {
             onChange={(e) => setComment(e.target.value)}
             rows={3}
             placeholder="Anything else?"
-            className="w-full mt-3 p-2 text-12 bg-paper-2 border border-slate-3 rounded-1 text-ink resize-y focus:outline-none focus:border-brand"
+            className="ml-fb-textarea"
           />
-          <div className="flex gap-2 mt-3">
-            <button
-              onClick={cancel}
-              type="button"
-              className="font-mono text-11 px-3 py-1.5 border border-slate-4 rounded-1 bg-transparent text-slate-6 hover:text-ink hover:border-slate-7 cursor-pointer"
-            >
+          <div className="ml-fb-actions">
+            <button onClick={cancel} type="button" className="ml-fb-btn ml-fb-btn-cancel">
               Cancel
             </button>
             <button
               onClick={submit}
               disabled={submitting || (!reason && !comment.trim())}
               type="button"
-              className="font-mono text-11 px-3 py-1.5 rounded-1 bg-ink text-paper hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed cursor-pointer"
+              className="ml-fb-btn ml-fb-btn-submit"
             >
               {submitting ? "Sending…" : "Submit"}
             </button>
@@ -265,11 +247,7 @@ function PillButton({
     <button
       onClick={onClick}
       type="button"
-      className="inline-flex items-center gap-1.5 font-mono text-11 px-2.5 py-1 rounded-1 border bg-transparent cursor-pointer transition-colors"
-      style={{
-        borderColor: active ? "rgb(var(--c-brand))" : "rgb(var(--c-slate-3))",
-        color: active ? "rgb(var(--c-brand))" : "rgb(var(--c-slate-6))",
-      }}
+      className={`ml-fb-pill${active ? " active" : ""}`}
       {...rest}
     >
       {children}

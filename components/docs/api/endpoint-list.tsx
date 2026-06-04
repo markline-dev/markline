@@ -14,7 +14,7 @@ export function EndpointList({ tags }: { tags?: string[] } = {}) {
     ? doc.tags.filter((t) => tags.includes(t.name))
     : doc.tags;
   return (
-    <div className="divide-y divide-slate-3 my-8">
+    <div className="ml-eplist">
       {visible.map((tag) => (
         <TagSection key={tag.name} tag={tag} />
       ))}
@@ -24,34 +24,20 @@ export function EndpointList({ tags }: { tags?: string[] } = {}) {
 
 function TagSection({ tag }: { tag: OpenAPITag }) {
   return (
-    <section className="py-8 first:pt-0 last:pb-0">
-      <h2
-        className="font-semibold text-ink mb-1"
-        style={{ fontSize: 20, letterSpacing: "-0.01em" }}
-      >
-        {capitalize(tag.name)}
-      </h2>
+    <section className="ml-eplist-tag">
+      <h2>{capitalize(tag.name)}</h2>
       {tag.description && (
-        <p className="text-14 text-slate-6 leading-[1.55] mb-4 max-w-[60ch]">
-          {tag.description}
-        </p>
+        <p className="ml-eplist-desc">{tag.description}</p>
       )}
-      <ul className="flex flex-col">
+      <ul className="ml-eplist-ops">
         {tag.operations.map((op) => (
           <li key={op.operationId}>
-            <Link
-              href={operationHref(op)}
-              className="group flex items-center gap-4 py-2 -mx-2 px-2 rounded-1 no-underline hover:bg-paper-2 transition-colors"
-            >
-              <span className="w-12 flex-shrink-0">
+            <Link href={operationHref(op)} className="ml-eplist-op">
+              <span className="col-method">
                 <MethodBadge method={op.method} size="sm" />
               </span>
-              <code className="font-mono text-13 text-slate-6 group-hover:text-ink transition-colors truncate">
-                {op.path}
-              </code>
-              <span className="text-13 text-slate-5 ml-auto pl-4 truncate text-right">
-                {op.summary}
-              </span>
+              <code className="col-path">{op.path}</code>
+              <span className="col-summary">{op.summary}</span>
             </Link>
           </li>
         ))}

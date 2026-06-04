@@ -6,10 +6,10 @@
    is hoisted to global scope here so the docs shell — not just the
    .ml-home / .ml-apiref takeovers — renders on the same colors. The
    framework's RGB-triple --c-* tokens are ALSO re-pointed at this same
-   palette so the Tailwind-based docs shell + deep components (mdx prose,
+   palette so the docs shell + deep components (mdx prose,
    playground, schema-table) match in BOTH themes.
 
-   Imported FIRST (before globals.css) — globals.css's @tailwind base and
+   Imported FIRST (before globals.css) — globals.css's base resets and
    the --c-* defaults are then overridden by the values here.
    Values copied verbatim from app/home.css's .ml-home (dark) and
    [data-theme="light"] .ml-home (light) blocks.

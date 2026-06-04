@@ -48,31 +48,27 @@ export function Accordion({
 }) {
   const [open, setOpen] = useState(!!defaultOpen);
   return (
-    <div className="border border-slate-3 rounded-2 my-3 overflow-hidden">
+    <div className="ml-accordion">
       <button
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
-        className="w-full flex items-center justify-between gap-2 px-4 py-3 text-left bg-paper-2 hover:bg-slate-2"
+        className={`ml-accordion-toggle${open ? " open" : ""}`}
       >
-        <span className="font-medium text-ink text-14">{title}</span>
+        <span className="title">{title}</span>
         <svg
           width={14} height={14} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.6}
-          className={`text-slate-5 transition-transform ${open ? "rotate-90" : ""}`}
+          className="chev"
           aria-hidden
         >
           <path d="m6 4 4 4-4 4" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       </button>
-      {open && (
-        <div className="px-4 py-3 text-14 text-slate-6 leading-[1.6] border-t border-slate-3 [&>:first-child]:mt-0 [&>:last-child]:mb-0">
-          {children}
-        </div>
-      )}
+      {open && <div className="ml-accordion-body">{children}</div>}
     </div>
   );
 }
 
 export function AccordionGroup({ children }: { children: React.ReactNode }) {
-  return <div className="my-6">{children}</div>;
+  return <div className="ml-accordion-group">{children}</div>;
 }

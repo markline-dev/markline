@@ -10,7 +10,7 @@ import { highlightToHtml } from "@/lib/shiki";
 /** Full-bleed wrapper for landing pages. The `.landing` class triggers CSS in
  * globals.css that removes the docs sidebar/TOC and un-grids the shell. */
 export function LandingPage({ children }: { children: React.ReactNode }) {
-  return <div className="landing w-full">{children}</div>;
+  return <div className="landing ml-landing">{children}</div>;
 }
 
 const ACCENTS: Record<string, string> = {
@@ -26,7 +26,7 @@ function accentColor(a?: string) {
 }
 
 function Section({ className = "", children }: { className?: string; children: React.ReactNode }) {
-  return <section className={`w-full px-6 ${className}`}>{<div className="mx-auto max-w-[1100px]">{children}</div>}</section>;
+  return <section className={`ml-l-section ${className}`}>{<div className="ml-l-section-inner">{children}</div>}</section>;
 }
 
 /* ── Steel-inspired primitives ─────────────────────────────────────────────
@@ -36,10 +36,10 @@ function Section({ className = "", children }: { className?: string; children: R
 /** Monospace bracketed kicker, e.g. `[ OPENAPI ]`. */
 export function Eyebrow({ children }: { children: React.ReactNode }) {
   return (
-    <span className="inline-flex items-center gap-1.5 font-mono text-11 uppercase tracking-[0.16em] text-slate-6">
-      <span className="text-brand">[</span>
+    <span className="ml-l-eyebrow">
+      <span className="bk">[</span>
       {children}
-      <span className="text-brand">]</span>
+      <span className="bk">]</span>
     </span>
   );
 }
@@ -57,14 +57,10 @@ export function SectionHead({
   align?: "center" | "left";
 }) {
   return (
-    <div className={`mb-10 ${align === "center" ? "text-center" : "text-left"}`}>
-      {kicker && <div className="mb-3"><Eyebrow>{kicker}</Eyebrow></div>}
-      <h2 className="text-28 font-semibold tracking-[-0.02em] text-ink" style={{ textWrap: "balance" }}>{title}</h2>
-      {subtitle && (
-        <p className={`mt-2.5 text-15 leading-[1.55] text-slate-6 ${align === "center" ? "mx-auto max-w-[56ch]" : "max-w-[56ch]"}`} style={{ textWrap: "balance" }}>
-          {subtitle}
-        </p>
-      )}
+    <div className={`ml-l-sechead align-${align}`}>
+      {kicker && <div className="kicker"><Eyebrow>{kicker}</Eyebrow></div>}
+      <h2>{title}</h2>
+      {subtitle && <p>{subtitle}</p>}
     </div>
   );
 }
@@ -73,12 +69,11 @@ export function SectionHead({
 export function StatStrip({ children }: { children: React.ReactNode }) {
   const n = Math.max(1, React.Children.count(children));
   return (
-    <Section className="py-4">
+    <Section className="pad-sm">
       <div
-        className="grid statstrip overflow-hidden rounded-3 border border-slate-3 bg-paper-2 blueprint-grid"
+        className="ml-l-statstrip blueprint-grid"
         style={{ gridTemplateColumns: `repeat(${n}, minmax(0,1fr))` }}
       >
-        <style>{`@media (max-width: 640px) { .statstrip { grid-template-columns: 1fr 1fr !important; } }`}</style>
         {children}
       </div>
     </Section>
@@ -87,11 +82,9 @@ export function StatStrip({ children }: { children: React.ReactNode }) {
 
 export function Stat({ value, label }: { value: React.ReactNode; label: string }) {
   return (
-    <div className="px-6 py-7 text-center border-slate-3 [&:not(:first-child)]:border-l">
-      <div className="font-semibold text-ink tracking-[-0.02em]" style={{ fontSize: "clamp(26px,3.4vw,38px)", fontFeatureSettings: '"tnum"' }}>
-        {value}
-      </div>
-      <div className="mt-1.5 font-mono text-11 uppercase tracking-[0.12em] text-slate-5">{label}</div>
+    <div className="ml-l-stat">
+      <div className="v">{value}</div>
+      <div className="l">{label}</div>
     </div>
   );
 }
@@ -99,11 +92,8 @@ export function Stat({ value, label }: { value: React.ReactNode; label: string }
 /** Bento layout — asymmetric hairline-bordered cells. */
 export function Bento({ children }: { children: React.ReactNode }) {
   return (
-    <Section className="py-4">
-      <div className="grid gap-4 bento" style={{ gridTemplateColumns: "repeat(6, minmax(0,1fr))" }}>
-        <style>{`@media (max-width: 760px) { .bento { grid-template-columns: 1fr !important; } .bento > * { grid-column: auto !important; } }`}</style>
-        {children}
-      </div>
+    <Section className="pad-sm">
+      <div className="ml-l-bento">{children}</div>
     </Section>
   );
 }
@@ -126,13 +116,12 @@ export function BentoCard({
     <>
       <span aria-hidden className="bento-tick" data-c="tl" />
       <span aria-hidden className="bento-tick" data-c="br" />
-      {kicker && <div className="mb-3"><Eyebrow>{kicker}</Eyebrow></div>}
-      {title && <h3 className="text-18 font-semibold tracking-[-0.01em] text-ink">{title}</h3>}
-      {children && <div className="mt-2 text-14 leading-[1.6] text-slate-6">{children}</div>}
+      {kicker && <div className="kicker"><Eyebrow>{kicker}</Eyebrow></div>}
+      {title && <h3>{title}</h3>}
+      {children && <div className="body">{children}</div>}
     </>
   );
-  const cls =
-    "group relative overflow-hidden rounded-3 border border-slate-3 bg-paper-2 p-6 no-underline text-ink transition-colors hover:border-brand";
+  const cls = "ml-l-bento-card";
   return href ? (
     <Link href={href} className={cls} style={{ gridColumn: `span ${span}` }}>{inner}</Link>
   ) : (
@@ -153,20 +142,11 @@ export function CTAButton({
   external?: boolean;
   children: React.ReactNode;
 }) {
-  const base =
-    "inline-flex items-center justify-center gap-2 font-medium no-underline rounded-2 transition-colors whitespace-nowrap";
-  const sizes = size === "lg" ? "h-12 px-6 text-15" : "h-10 px-4 text-14";
-  const variants =
-    variant === "primary"
-      ? "bg-brand text-on-brand hover:opacity-90"
-      : variant === "secondary"
-        ? "border border-slate-4 text-ink hover:border-slate-6 bg-paper"
-        : "text-brand hover:underline";
   return (
     <Link
       href={href}
       {...(external ? { target: "_blank", rel: "noreferrer" } : {})}
-      className={`${base} ${sizes} ${variants}`}
+      className={`ml-l-btn size-${size} v-${variant}`}
     >
       {children}
     </Link>
@@ -191,34 +171,14 @@ export function Hero({
   grid?: boolean;
 }) {
   return (
-    <Section className="relative pt-24 pb-16 text-center overflow-hidden">
-      {grid && (
-        <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 blueprint-grid blueprint-fade" />
-      )}
-      {gradient && (
-        <div
-          aria-hidden
-          className="pointer-events-none absolute inset-x-0 top-0 h-[420px] -z-10"
-          style={{
-            background:
-              "radial-gradient(60% 60% at 50% 0%, color-mix(in oklab, rgb(var(--c-brand)) 18%, transparent), transparent 70%)",
-          }}
-        />
-      )}
-      {eyebrow && <div className="mb-5 flex justify-center"><Eyebrow>{eyebrow}</Eyebrow></div>}
-      <h1
-        className="mx-auto max-w-[18ch] font-semibold text-ink"
-        style={{ fontSize: "clamp(34px, 6vw, 60px)", lineHeight: 1.05, letterSpacing: "-0.03em", textWrap: "balance" }}
-      >
-        {title}
-      </h1>
-      {subtitle && (
-        <p className="mx-auto mt-5 max-w-[52ch] text-17 leading-[1.55] text-slate-6" style={{ textWrap: "balance" }}>
-          {subtitle}
-        </p>
-      )}
-      {actions && <div className="mt-8 flex flex-wrap items-center justify-center gap-3">{actions}</div>}
-      {media && <div className="mt-12">{media}</div>}
+    <Section className="ml-l-hero">
+      {grid && <div aria-hidden className="ml-l-hero-grid blueprint-grid blueprint-fade" />}
+      {gradient && <div aria-hidden className="ml-l-hero-gradient" />}
+      {eyebrow && <div className="kicker"><Eyebrow>{eyebrow}</Eyebrow></div>}
+      <h1>{title}</h1>
+      {subtitle && <p className="sub">{subtitle}</p>}
+      {actions && <div className="actions">{actions}</div>}
+      {media && <div className="media">{media}</div>}
     </Section>
   );
 }
@@ -235,15 +195,14 @@ export function FeatureGrid({
   children: React.ReactNode;
 }) {
   return (
-    <Section className="py-16">
+    <Section className="ml-l-featuregrid">
       {(title || subtitle) && (
-        <div className="mb-10 text-center">
-          {title && <h2 className="text-28 font-semibold tracking-[-0.02em] text-ink">{title}</h2>}
-          {subtitle && <p className="mt-2 text-15 text-slate-6">{subtitle}</p>}
+        <div className="head">
+          {title && <h2>{title}</h2>}
+          {subtitle && <p>{subtitle}</p>}
         </div>
       )}
-      <div className="grid gap-4 featuregrid" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
-        <style>{`@media (max-width: 860px) { .featuregrid { grid-template-columns: 1fr 1fr !important; } } @media (max-width: 560px) { .featuregrid { grid-template-columns: 1fr !important; } }`}</style>
+      <div className="ml-l-featuregrid-cols" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
         {children}
       </div>
     </Section>
@@ -268,21 +227,20 @@ export function Feature({
     <>
       {icon && (
         <span
-          className="mb-3 inline-flex h-9 w-9 items-center justify-center rounded-2 text-16"
+          className="ico"
           style={{ background: `color-mix(in oklab, ${color} 14%, transparent)`, color }}
         >
           {icon}
         </span>
       )}
-      <h3 className="text-16 font-semibold text-ink">{title}</h3>
-      {children && <p className="mt-1.5 text-14 leading-[1.55] text-slate-6">{children}</p>}
+      <h3>{title}</h3>
+      {children && <p>{children}</p>}
     </>
   );
-  const cls = "block p-5 rounded-3 border border-slate-3 bg-paper-2 no-underline text-ink";
   return href ? (
-    <Link href={href} className={`${cls} hover:border-brand transition-colors`}>{inner}</Link>
+    <Link href={href} className="ml-l-feature linked">{inner}</Link>
   ) : (
-    <div className={cls}>{inner}</div>
+    <div className="ml-l-feature">{inner}</div>
   );
 }
 
@@ -300,28 +258,26 @@ export function CTASection({
   grid?: boolean;
 }) {
   return (
-    <Section className="py-20 text-center">
+    <Section className="ml-l-cta">
       <div
-        className={`relative overflow-hidden rounded-3 border border-slate-3 px-6 py-14 ${grid ? "blueprint-grid" : ""}`}
+        className={`ml-l-cta-box${grid ? " blueprint-grid" : ""}`}
         style={
           gradient
-            ? { background: "radial-gradient(80% 120% at 50% 0%, color-mix(in oklab, rgb(var(--c-brand)) 12%, transparent), transparent 70%)" }
+            ? { background: "radial-gradient(80% 120% at 50% 0%, color-mix(in oklab, var(--accent) 12%, transparent), transparent 70%)" }
             : undefined
         }
       >
         {grid && (
           <div
             aria-hidden
-            className="pointer-events-none absolute inset-0"
-            style={{ background: "radial-gradient(80% 120% at 50% 0%, color-mix(in oklab, rgb(var(--c-brand)) 14%, transparent), transparent 72%)" }}
+            className="ml-l-cta-overlay"
+            style={{ background: "radial-gradient(80% 120% at 50% 0%, color-mix(in oklab, var(--accent) 14%, transparent), transparent 72%)" }}
           />
         )}
-        <div className="relative">
-        <h2 className="mx-auto max-w-[20ch] text-32 font-semibold tracking-[-0.02em] text-ink" style={{ textWrap: "balance" }}>
-          {title}
-        </h2>
-        {subtitle && <p className="mx-auto mt-3 max-w-[46ch] text-15 text-slate-6">{subtitle}</p>}
-        {actions && <div className="mt-7 flex flex-wrap items-center justify-center gap-3">{actions}</div>}
+        <div className="ml-l-cta-inner">
+          <h2>{title}</h2>
+          {subtitle && <p>{subtitle}</p>}
+          {actions && <div className="actions">{actions}</div>}
         </div>
       </div>
     </Section>
@@ -340,23 +296,14 @@ export async function CodeShowcase({
 }) {
   const html = await highlightToHtml(code.trim(), lang);
   return (
-    <div
-      className="mx-auto max-w-[640px] overflow-hidden rounded-3 shadow-elev-2 text-left border"
-      style={{ background: "rgb(var(--c-panel-bg))", borderColor: "rgb(var(--c-panel-border))" }}
-    >
-      <div
-        className="flex items-center gap-1.5 px-4 py-2.5 border-b"
-        style={{ borderColor: "rgb(var(--c-panel-border))" }}
-      >
-        <span className="h-2.5 w-2.5 rounded-full bg-[#E14F4F]/70" />
-        <span className="h-2.5 w-2.5 rounded-full bg-[#E8951F]/70" />
-        <span className="h-2.5 w-2.5 rounded-full bg-[#15A66B]/70" />
-        {title && <span className="ml-2 font-mono text-11" style={{ color: "rgb(var(--c-panel-muted))" }}>{title}</span>}
+    <div className="ml-l-showcase">
+      <div className="ml-l-showcase-head">
+        <span className="ml-l-showcase-dot r" />
+        <span className="ml-l-showcase-dot y" />
+        <span className="ml-l-showcase-dot g" />
+        {title && <span className="ml-l-showcase-title">{title}</span>}
       </div>
-      <div
-        className="px-5 py-4 overflow-x-auto text-13 leading-[1.7] font-mono [&_pre]:!bg-transparent [&_pre]:m-0"
-        dangerouslySetInnerHTML={{ __html: html }}
-      />
+      <div className="ml-l-showcase-body" dangerouslySetInnerHTML={{ __html: html }} />
     </div>
   );
 }

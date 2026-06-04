@@ -29,7 +29,7 @@ export function DocsPage({
         {crumbs.length > 0 && (
           <nav className="docs-bc">
             {crumbs.map((c, i) => (
-              <span key={i} className="contents">
+              <span key={i} className="bc-seg">
                 {i > 0 && <span className="sep">/</span>}
                 {c.href ? (
                   <a href={c.href}>{c.label}</a>

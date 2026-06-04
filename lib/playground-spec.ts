@@ -37,7 +37,7 @@ export function sampleParam(schema?: JSONSchema): string {
 
 export function buildPlaygroundSpec(op: OpenAPIOperation, doc: OpenAPIDoc, root: unknown): PlaygroundSpec {
   const cfg = loadConfig();
-  const servers = [cfg.api.baseUrl, ...doc.servers.map((s) => s.url)].filter(Boolean) as string[];
+  const servers = [...new Set([cfg.api.baseUrl, ...doc.servers.map((s) => s.url)].filter(Boolean))] as string[];
   const allSchemes = Object.values(doc.securitySchemes ?? {});
   const schemeBearer = allSchemes.some((s) => s.type === "http" && s.scheme === "bearer");
   const apiKeyHeaderNames = [

@@ -20,43 +20,32 @@ export function ParamRow({
   const enumValues = schema?.enum?.map((e) => String(e));
   const info = (
     <>
-      <div className="flex items-center gap-2 flex-wrap">
-        <span className="font-mono text-13 font-medium" style={{ color: "#3CC88C" }}>
-          {name}
-        </span>
-        {typeLabel && (
-          <span className="font-mono text-11 text-slate-6 px-1.5 py-0.5 rounded-sm bg-slate-2">{typeLabel}</span>
-        )}
-        {location && (
-          <span className="font-mono text-11 text-slate-6 px-1.5 py-0.5 rounded-sm bg-slate-2">{location}</span>
-        )}
-        {required && (
-          <span className="font-mono text-11 px-1.5 py-0.5 rounded-sm" style={{ background: "rgba(225,79,79,0.12)", color: "#E14F4F" }}>
-            required
-          </span>
-        )}
-        {schema?.format && <span className="font-mono text-11 text-slate-5">· {schema.format}</span>}
+      <div className="ml-param-head">
+        <span className="ml-param-name">{name}</span>
+        {typeLabel && <span className="ml-param-tag">{typeLabel}</span>}
+        {location && <span className="ml-param-tag">{location}</span>}
+        {required && <span className="ml-param-required">required</span>}
+        {schema?.format && <span className="ml-param-fmt">· {schema.format}</span>}
       </div>
       {(description || schema?.description) && (
-        <p className="text-13 text-slate-6 leading-[1.55] mt-2 mb-0">{description ?? schema?.description}</p>
+        <p className="ml-param-desc">{description ?? schema?.description}</p>
       )}
       {enumValues && enumValues.length > 0 && (
-        <div className="mt-2 flex gap-1.5 flex-wrap">
-          <span className="font-mono text-11 text-slate-5">enum:</span>
+        <div className="ml-param-enum">
+          <span className="lbl">enum:</span>
           {enumValues.map((v) => (
-            <span key={v} className="font-mono text-11 px-1.5 py-0.5 rounded-sm bg-slate-2 text-slate-6">{v}</span>
+            <span key={v} className="val">{v}</span>
           ))}
         </div>
       )}
     </>
   );
   return (
-    <div className="py-5 border-t border-slate-3">
+    <div className="ml-param">
       {control ? (
-        <div className="flex gap-6 items-start param-row">
-          <style>{`@media (max-width: 720px) { .param-row { flex-direction: column; } .param-row > .param-control { width: 100% !important; } }`}</style>
-          <div className="flex-1 min-w-0">{info}</div>
-          <div className="param-control w-[240px] shrink-0 pt-0.5">{control}</div>
+        <div className="ml-param-row">
+          <div className="ml-param-info">{info}</div>
+          <div className="ml-param-control">{control}</div>
         </div>
       ) : (
         info
@@ -70,12 +59,12 @@ export function ParamRow({
 function NestedObject({ schema }: { schema: JSONSchema }) {
   const required = new Set(schema.required ?? []);
   return (
-    <details className="mt-2 group">
-      <summary className="cursor-pointer text-12 text-slate-5 hover:text-ink select-none list-none">
-        <span className="group-open:hidden">▸ Show child attributes</span>
-        <span className="hidden group-open:inline">▾ Hide child attributes</span>
+    <details className="ml-param-nested">
+      <summary>
+        <span className="closed-lbl">▸ Show child attributes</span>
+        <span className="open-lbl">▾ Hide child attributes</span>
       </summary>
-      <div className="mt-2 pl-4 border-l border-slate-3">
+      <div className="ml-param-nested-body">
         {Object.entries(schema.properties ?? {}).map(([k, v]) => (
           <ParamRow key={k} name={k} schema={v} required={required.has(k)} />
         ))}
@@ -88,12 +77,12 @@ function NestedArray({ items }: { items: JSONSchema }) {
   if (items.type !== "object" || !items.properties) return null;
   const required = new Set(items.required ?? []);
   return (
-    <details className="mt-2 group">
-      <summary className="cursor-pointer text-12 text-slate-5 hover:text-ink select-none list-none">
-        <span className="group-open:hidden">▸ Show array item attributes</span>
-        <span className="hidden group-open:inline">▾ Hide array item attributes</span>
+    <details className="ml-param-nested">
+      <summary>
+        <span className="closed-lbl">▸ Show array item attributes</span>
+        <span className="open-lbl">▾ Hide array item attributes</span>
       </summary>
-      <div className="mt-2 pl-4 border-l border-slate-3">
+      <div className="ml-param-nested-body">
         {Object.entries(items.properties).map(([k, v]) => (
           <ParamRow key={k} name={k} schema={v} required={required.has(k)} />
         ))}

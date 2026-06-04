@@ -105,7 +105,7 @@ export function Card({
     <>
       {kicker && <div className="k">{kicker}</div>}
       <div className="h">
-        <span className="inline-flex items-center gap-2">
+        <span className="ml-card-h-inner">
           {icon && <span aria-hidden>{icon}</span>}
           {title}
         </span>
@@ -180,18 +180,16 @@ export function ParamField({
 }) {
   const label = path ?? query ?? header ?? body ?? name ?? "";
   return (
-    <div className="py-3 border-b border-slate-3 first:border-t first:mt-4">
-      <div className="flex items-center gap-2 flex-wrap">
+    <div className="ml-field">
+      <div className="ml-field-head">
         <code className="ci">{label}</code>
-        {type && <span className="font-mono text-12 text-slate-5">{type}</span>}
-        {required && (
-          <span className="font-mono text-10 uppercase tracking-[0.06em] text-[#E14F4F]">required</span>
-        )}
+        {type && <span className="ml-field-type">{type}</span>}
+        {required && <span className="ml-field-required">required</span>}
         {defaultValue !== undefined && (
-          <span className="font-mono text-12 text-slate-5">default: {String(defaultValue)}</span>
+          <span className="ml-field-default">default: {String(defaultValue)}</span>
         )}
       </div>
-      {children && <div className="text-14 text-slate-6 leading-[1.55] mt-1.5 [&>:last-child]:mb-0">{children}</div>}
+      {children && <div className="ml-field-body">{children}</div>}
     </div>
   );
 }

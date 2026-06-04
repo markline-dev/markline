@@ -1,75 +1,15 @@
-import type { OpenAPIDoc, OpenAPIOperation, JSONSchema } from "@/lib/openapi";
-import { resolveSchema, sampleFromSchema, operationHref } from "@/lib/openapi";
+import type { OpenAPIDoc, OpenAPIOperation } from "@/lib/openapi";
+import { resolveSchema } from "@/lib/openapi";
 import { curlSample, responseSampleJson } from "@/lib/openapi-samples";
 import { loadConfig, playgroundMode } from "@/lib/config";
+import { buildPlaygroundSpec, sampleParam } from "@/lib/playground-spec";
 import { MethodBadge } from "./method-badge";
 import { EndpointPath } from "./endpoint-path";
-import { SchemaTable, ParamRow, describeType } from "./schema-table";
+import { SchemaTable, ParamRow } from "./schema-table";
 import { RequestPanel, ResponsePanel } from "./code-panel";
 import {
   PlaygroundProvider, RequestConsole, ParamInput, AuthInput, BodyEditor,
-  type PlaygroundSpec,
 } from "./playground";
-
-/** Best-effort placeholder value for a parameter input. */
-function sampleParam(schema?: JSONSchema): string {
-  if (!schema) return "";
-  if (schema.example !== undefined) return String(schema.example);
-  if (schema.enum?.length) return String(schema.enum[0]);
-  if (schema.default !== undefined) return String(schema.default);
-  if (schema.type === "integer" || schema.type === "number") return "1";
-  if (schema.type === "boolean") return "true";
-  return "";
-}
-
-function buildPlaygroundSpec(op: OpenAPIOperation, doc: OpenAPIDoc, root: any): PlaygroundSpec {
-  const cfg = loadConfig();
-  const servers = [cfg.api.baseUrl, ...doc.servers.map((s) => s.url)].filter(Boolean) as string[];
-  const allSchemes = Object.values(doc.securitySchemes ?? {});
-  const schemeBearer = allSchemes.some((s) => s.type === "http" && s.scheme === "bearer");
-  const apiKeyHeaderNames = [
-    ...new Set([
-      ...op.security.filter((s) => s.scheme.type === "apiKey" && s.scheme.in === "header" && s.scheme.name).map((s) => s.scheme.name as string),
-      ...allSchemes.filter((s) => s.type === "apiKey" && s.in === "header" && s.name).map((s) => s.name as string),
-    ]),
-  ];
-  const param = (p: { name: string; required?: boolean; schema?: JSONSchema; description?: string }, reqDefault: boolean) => ({
-    name: p.name,
-    required: p.required ?? reqDefault,
-    sample: sampleParam(p.schema),
-    description: p.description,
-    type: describeType(p.schema) ?? undefined,
-  });
-  return {
-    method: op.method,
-    path: op.path,
-    summary: op.summary,
-    servers,
-    pathParams: op.parameters.path.map((p) => param(p, true)),
-    queryParams: op.parameters.query.map((p) => param(p, false)),
-    headerParams: op.parameters.header.map((p) => param(p, false)),
-    // Offer auth whenever the spec *defines* a bearer/apiKey scheme, even if this
-    // operation under-declares its security (common in generated specs).
-    bearer: schemeBearer || op.security.some((s) => s.scheme.type === "http" && s.scheme.scheme === "bearer"),
-    apiKeyHeaders: apiKeyHeaderNames.map((name) => ({ name })),
-    bodySample: op.requestBody?.schema
-      ? JSON.stringify(sampleFromSchema(op.requestBody.schema, root), null, 2)
-      : undefined,
-    responses: op.responses.map((r) => ({
-      status: r.status,
-      body: r.example
-        ? JSON.stringify(r.example, null, 2)
-        : r.schema
-          ? responseSampleJson(resolveSchema(r.schema, root), root)
-          : "",
-    })),
-    endpoints: doc.tags.flatMap((t) =>
-      t.operations.map((o) => ({ method: o.method, label: o.summary ?? o.operationId, href: operationHref(o) })),
-    ),
-    currentHref: operationHref(op),
-    proxy: cfg.api.playground?.proxy ?? "auto",
-  };
-}
 
 type Crumb = { label: string; href?: string };
 

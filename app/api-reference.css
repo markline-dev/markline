@@ -64,6 +64,7 @@ body:has(.ml-apiref) { background: #08080a; }
 .ml-apiref .wrap { width: 100%; max-width: 1240px; margin-inline: auto; padding-inline: 32px; }
 .ml-apiref .dot { width: 7px; height: 7px; border-radius: 999px; display: inline-block; }
 .ml-apiref .dot.g { background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+.ml-apiref .dot.r { background: var(--c-red); box-shadow: 0 0 8px var(--c-red); }
 
 .ml-apiref .verb { font-family: var(--mono); font-size: 9.5px; font-weight: 600; padding: 2px 6px; border-radius: 5px; letter-spacing: .04em; line-height: 1.5; white-space: nowrap; }
 .ml-apiref .verb.get   { color: var(--c-cyan);   background: color-mix(in srgb, var(--c-cyan) 15%, transparent); }

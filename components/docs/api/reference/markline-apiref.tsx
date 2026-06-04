@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import type { ApiRefView, AttrView, EndpointView, NavGroup } from "@/lib/apiref-view";
+import { PlaygroundProvider, usePlayground } from "../playground";
 
 /**
  * Stripe-style API reference — a full-takeover page implemented from the Claude
@@ -148,26 +149,8 @@ export function MarklineApiRef({
         document.body.classList.remove("docnav-open");
         return;
       }
-
-      /* explorer Send — simulated until Phase 2 wires the real proxy */
-      const send = target.closest<HTMLElement>("[data-send]");
-      if (send) {
-        const explorer = send.closest(".explorer");
-        const panel = explorer?.querySelector<HTMLElement>("[data-send-target]");
-        if (!panel) return;
-        const label = send.innerHTML;
-        send.classList.add("sending");
-        send.innerHTML = "Sending…";
-        panel.classList.remove("show");
-        after(720, () => {
-          send.classList.remove("sending");
-          send.innerHTML = label;
-          panel.classList.add("show");
-          const lat = panel.querySelector<HTMLElement>("[data-latency]");
-          if (lat) lat.textContent = 28 + Math.floor(Math.random() * 40) + " ms";
-        });
-        return;
-      }
+      // The proxy explorer (Send + fields + response) is React-driven via
+      // PlaygroundProvider — see DesignExplorer — so no delegation here.
     };
     el.addEventListener("click", onClick);
 
@@ -422,7 +405,13 @@ function EndpointSection({ ep }: { ep: EndpointView }) {
       </div>
       <div className="api-r">
         <AiActions resource={ep.summary} markdown />
-        {ep.explorer ? <Explorer ep={ep} /> : <ReadCards ep={ep} />}
+        {ep.explorer && ep.playground ? (
+          <PlaygroundProvider spec={ep.playground}>
+            <DesignExplorer ep={ep} />
+          </PlaygroundProvider>
+        ) : (
+          <ReadCards ep={ep} />
+        )}
       </div>
     </section>
   );
@@ -468,69 +457,170 @@ function ReadCards({ ep }: { ep: EndpointView }) {
   );
 }
 
-function Explorer({ ep }: { ep: EndpointView }) {
+const LANGS = [
+  { key: "curl", label: "cURL", field: "curl" },
+  { key: "js", label: "Node", field: "node" },
+  { key: "py", label: "Python", field: "python" },
+  { key: "go", label: "Go", field: "go" },
+] as const;
+
+/**
+ * The design's inline proxy explorer, driven by the real playground engine
+ * (PlaygroundProvider / usePlayground). The chrome is the handoff's .explorer;
+ * the state, the cURL, the Send and the response come from the shared engine
+ * that powers the per-operation playground — so the same proxy/SSRF rules and
+ * BYOK token apply. Fully React-controlled (no click delegation).
+ */
+function DesignExplorer({ ep }: { ep: EndpointView }) {
+  const pg = usePlayground();
+  const { spec } = pg;
+  const [lang, setLang] = useState<(typeof LANGS)[number]["key"]>("curl");
+
+  // Editable top-level body props (primitives), assembled back into the engine's
+  // body JSON on each change so Send posts a valid payload.
+  const initialBody = useMemo<Record<string, unknown>>(() => {
+    try {
+      return spec.bodySample ? JSON.parse(spec.bodySample) : {};
+    } catch {
+      return {};
+    }
+  }, [spec.bodySample]);
+  const [bodyObj, setBodyObj] = useState<Record<string, unknown>>(initialBody);
+  const bodyFields = Object.entries(initialBody).filter(([, v]) => v === null || typeof v !== "object");
+  const setBodyField = (k: string, raw: string) => {
+    const orig = initialBody[k];
+    const val = typeof orig === "number" && raw.trim() !== "" && !Number.isNaN(Number(raw)) ? Number(raw) : raw;
+    const next = { ...bodyObj, [k]: val };
+    setBodyObj(next);
+    pg.setBody(JSON.stringify(next, null, 2));
+  };
+
+  const reqQuery = spec.queryParams.filter((p) => p.required);
+  const activeCode = ep.code[LANGS.find((l) => l.key === lang)!.field];
+  const live = pg.response;
+  const showLive = !!(live || pg.error);
+
   return (
     <div className="explorer">
       <div className="ex-top">
         <span className="et">Try it</span>
         <span className="live">
-          <span className="dot g" /> proxy
+          <span className="dot g" /> {live ? live.via : spec.proxy === "always" ? "proxy" : "live"}
         </span>
-        <button className="ex-send" data-send>
-          <Ico d="M5 12h14M13 6l6 6-6 6" cls="ico" /> Send
+        <button className={`ex-send${pg.loading ? " sending" : ""}`} onClick={pg.send} disabled={pg.loading} type="button">
+          <Ico d="M5 12h14M13 6l6 6-6 6" cls="ico" /> {pg.loading ? "Sending…" : "Send"}
         </button>
       </div>
+
       <div className="ex-auth">
-        {ep.hasBearer && (
-          <div className="ex-row">
-            <label>Authorization</label>
-            <div className="ex-in">
-              <span className="pre">Bearer</span>
-              <input defaultValue="sk_live_51Hb9wXyZ••••" spellCheck={false} aria-label="API key" />
-            </div>
-          </div>
+        {spec.bearer && (
+          <ExRow label="Authorization">
+            <span className="pre">Bearer</span>
+            <input
+              value={pg.token}
+              onChange={(e) => pg.setToken(e.target.value)}
+              placeholder="sk_live_…"
+              spellCheck={false}
+              aria-label="API key"
+            />
+          </ExRow>
         )}
-        {ep.field && (
-          <div className="ex-row">
-            <label>{ep.field.label}</label>
-            <div className="ex-in">
-              <input defaultValue={ep.field.value} spellCheck={false} aria-label={ep.field.label} />
-            </div>
-          </div>
-        )}
+        {spec.apiKeyHeaders.map((ak) => (
+          <ExRow key={ak.name} label={ak.name}>
+            <input
+              value={pg.getParam("header", ak.name)}
+              onChange={(e) => pg.setParam("header", ak.name, e.target.value)}
+              spellCheck={false}
+              aria-label={ak.name}
+            />
+          </ExRow>
+        ))}
+        {spec.pathParams.map((p) => (
+          <ExRow key={p.name} label={`Path · ${p.name}`}>
+            <input
+              value={pg.getParam("path", p.name)}
+              onChange={(e) => pg.setParam("path", p.name, e.target.value)}
+              placeholder={p.sample || p.name}
+              spellCheck={false}
+              aria-label={p.name}
+            />
+          </ExRow>
+        ))}
+        {reqQuery.map((p) => (
+          <ExRow key={p.name} label={`Query · ${p.name}`}>
+            <input
+              value={pg.getParam("query", p.name)}
+              onChange={(e) => pg.setParam("query", p.name, e.target.value)}
+              placeholder={p.sample || p.name}
+              spellCheck={false}
+              aria-label={p.name}
+            />
+          </ExRow>
+        ))}
+        {bodyFields.map(([k, v]) => (
+          <ExRow key={k} label={`Body · ${k}`}>
+            <input
+              value={String((bodyObj[k] ?? v) as string | number)}
+              onChange={(e) => setBodyField(k, e.target.value)}
+              spellCheck={false}
+              aria-label={k}
+            />
+          </ExRow>
+        ))}
       </div>
+
       <div className="ex-langbar">
-        <div className="cc-langs" data-tabs data-tabs-scope={`#code-${ep.opId}`}>
-          <button className="cc-lang active" data-tab="curl">
-            cURL
-          </button>
-          <button className="cc-lang" data-tab="js">
-            Node
-          </button>
-          <button className="cc-lang" data-tab="py">
-            Python
-          </button>
-          <button className="cc-lang" data-tab="go">
-            Go
-          </button>
+        <div className="cc-langs">
+          {LANGS.map((l) => (
+            <button key={l.key} className={`cc-lang${lang === l.key ? " active" : ""}`} onClick={() => setLang(l.key)} type="button">
+              {l.label}
+            </button>
+          ))}
         </div>
-        <button className="cc-copy" data-copy={textFromHtml(ep.code.curl)} data-copy-icon aria-label="Copy">
+        <button className="cc-copy" data-copy={textFromHtml(activeCode)} data-copy-icon aria-label="Copy">
           <CopyIco />
         </button>
       </div>
-      <CodePanels code={ep.code} id={`code-${ep.opId}`} />
-      {ep.response && (
-        <div className="ex-resp" data-send-target>
-          <div className="rh">
-            <span className="dot g" />
-            <span className="st">{ep.response.label}</span>
-            <span className="lat" data-latency>
-              41 ms
-            </span>
-          </div>
-          <pre dangerouslySetInnerHTML={{ __html: ep.response.html }} />
-        </div>
-      )}
+      <div>
+        <pre dangerouslySetInnerHTML={{ __html: activeCode }} />
+      </div>
+
+      <div className={`ex-resp${showLive ? " show" : ""}`}>
+        {pg.error ? (
+          <>
+            <div className="rh">
+              <span className="dot r" />
+              <span className="st" style={{ color: "var(--c-red)" }}>
+                Request failed
+              </span>
+            </div>
+            <pre style={{ color: "#e6868a", whiteSpace: "pre-wrap" }}>{pg.error}</pre>
+          </>
+        ) : live ? (
+          <>
+            <div className="rh">
+              <span className={`dot ${live.status < 400 ? "g" : "r"}`} />
+              <span className="st" style={live.status >= 400 ? { color: "var(--c-red)" } : undefined}>
+                {live.status} {live.statusText}
+              </span>
+              <span className="lat">
+                {live.durationMs} ms · {live.via}
+              </span>
+            </div>
+            <pre dangerouslySetInnerHTML={{ __html: colorizeJsonString(live.body) }} />
+          </>
+        ) : ep.response ? (
+          <>
+            <div className="rh">
+              <span className="dot g" />
+              <span className="st">{ep.response.label}</span>
+              <span className="lat">example</span>
+            </div>
+            <pre dangerouslySetInnerHTML={{ __html: ep.response.html }} />
+          </>
+        ) : null}
+      </div>
+
       <div className="ex-foot">
         <svg className="lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <rect x="3" y="11" width="18" height="11" rx="2" />
@@ -538,6 +628,15 @@ function Explorer({ ep }: { ep: EndpointView }) {
         </svg>
         Runs via your proxy · no key leaves your domain
       </div>
+    </div>
+  );
+}
+
+function ExRow({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="ex-row">
+      <label>{label}</label>
+      <div className="ex-in">{children}</div>
     </div>
   );
 }
@@ -558,6 +657,20 @@ function CodePanels({ code, id }: { code: EndpointView["code"]; id: string }) {
         <pre dangerouslySetInnerHTML={{ __html: code.go }} />
       </div>
     </div>
+  );
+}
+
+/** Colorize a JSON string into the design's code-rail span classes. */
+function colorizeJsonString(s: string): string {
+  const esc = s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return esc.replace(
+    /("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g,
+    (m, str, colon, kw, num) => {
+      if (str) return colon ? `<span class="key">${str}</span>${colon}` : `<span class="s">${str}</span>`;
+      if (kw) return `<span class="k">${kw}</span>`;
+      if (num) return `<span class="n">${num}</span>`;
+      return m;
+    },
   );
 }
 

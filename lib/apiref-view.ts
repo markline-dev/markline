@@ -1,6 +1,8 @@
 import type { JSONSchema, OpenAPIDoc, OpenAPIOperation } from "./openapi";
 import { resolveSchema } from "./openapi";
 import { codeSamples, colorizeJson, successResponse, type CodeRail } from "./openapi-codegen";
+import { buildPlaygroundSpec } from "./playground-spec";
+import type { PlaygroundSpec } from "@/components/docs/api/playground";
 
 /**
  * Builds the serializable view-model consumed by the Stripe-style API reference
@@ -37,6 +39,8 @@ export type EndpointView = {
   /** First editable field surfaced in the explorer (besides Authorization). */
   field?: { label: string; value: string };
   hasBearer: boolean;
+  /** Drives the live proxy explorer (PlaygroundProvider) on write endpoints. */
+  playground?: PlaygroundSpec;
 };
 
 export type NavOp = { id: string; verb: string | null; name: string; opId: string };
@@ -209,6 +213,7 @@ function buildEndpoint(op: OpenAPIOperation, doc: OpenAPIDoc, root: unknown): En
     response,
     field,
     hasBearer,
+    playground: explorer ? buildPlaygroundSpec(op, doc, root) : undefined,
   };
 }
 

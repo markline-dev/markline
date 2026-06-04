@@ -55,10 +55,11 @@
   "ai": {
     "enabled": true,
     "provider": "openrouter",
-    "model": "anthropic/claude-3.5-sonnet",
-    "mode": "byok",
+    "model": "deepseek/deepseek-v4-flash",
+    "mode": "proxy",
     "label": "Ask AI",
-    "maxTokens": 1024
+    "maxTokens": 1024,
+    "rateLimit": { "perMinute": 10 }
   },
   "editUrl": "https://github.com/markline-dev/markline/edit/main/site",
   "seo": {

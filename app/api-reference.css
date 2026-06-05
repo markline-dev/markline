@@ -234,7 +234,7 @@
 .ml-apiref .evt-chip:hover { background: color-mix(in srgb, var(--accent) 14%, transparent); }
 .ml-apiref .evt-chip .verb { font-size: 9px; }
 .ml-apiref .evt-col-r .ai-actions { justify-content: flex-start; margin-bottom: 12px; }
-.ml-apiref .attr .ev-val { display: inline-flex; margin-top: 8px; }
+.ml-apiref .attr .ev-val { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .ml-apiref .attr .ev-val code { font-family: var(--mono); font-size: 11.5px; background: var(--panel-hi); border: 1px solid var(--line); border-radius: 5px; padding: 2px 8px; color: var(--accent-ink); }
 @media (max-width: 1080px) { .ml-apiref .evt-grid { grid-template-columns: 1fr; gap: 22px; } }
 
@@ -277,7 +277,7 @@
 .ml-apiref .attr .req { font-family: var(--mono); font-size: 10px; color: var(--c-orange); letter-spacing: .03em; }
 .ml-apiref .attr .opt { font-family: var(--mono); font-size: 10px; color: var(--ink-4); }
 .ml-apiref .attr .ad { font-size: 13px; color: var(--ink-2); margin-top: 6px; line-height: 1.55; max-width: 52ch; }
-.ml-apiref .attr .enum { display: inline-flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.ml-apiref .attr .enum { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
 .ml-apiref .attr .enum code { font-family: var(--mono); font-size: 11px; background: var(--panel-hi); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; color: var(--ink-3); }
 
 /* MDX callouts (Note / Tip / Info / Warning / Danger / Check) in section &

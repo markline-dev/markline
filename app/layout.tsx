@@ -20,7 +20,6 @@ const schibsted = Schibsted_Grotesk({ subsets: ["latin"], variable: "--font-schi
 const cooper = localFont({
   src: [
     { path: "./fonts/Cooper.woff2", weight: "400 900", style: "normal" },
-    { path: "./fonts/Cooper.woff", weight: "400 900", style: "normal" },
   ],
   variable: "--font-cooper",
   display: "swap",

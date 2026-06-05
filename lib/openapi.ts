@@ -1,6 +1,9 @@
 import fs from "node:fs";
 import path from "node:path";
 import { contentRoot } from "./paths";
+import { mergeTagEvents, parseOperationEvents, parseWebhooks, parseXEvents } from "./openapi-events";
+
+export { eventAnchor } from "./openapi-events";
 
 export type JSONSchema = {
   type?: string | string[];
@@ -58,6 +61,24 @@ export type OpenAPIOperation = {
   };
   responses: OpenAPIResponse[];
   security: { name: string; scheme: SecurityScheme }[];
+  /** Async events this operation emits (from its `callbacks` / `x-events`). */
+  events: OpenAPIEvent[];
+};
+
+/**
+ * A normalized webhook / async event — from the root `webhooks` (OpenAPI 3.1) or
+ * `x-webhooks` (Redoc), an operation's `callbacks`, or an `x-events` extension.
+ */
+export type OpenAPIEvent = {
+  name: string;
+  summary?: string;
+  description?: string;
+  /** Tags for grouping onto a resource (the emitting op's, or the webhook's own). */
+  tags: string[];
+  /** The delivered payload schema (unresolved — resolve at sample time). */
+  payloadSchema?: JSONSchema;
+  /** Optional link to a docs guide section. */
+  guideHref?: string;
 };
 
 export type SecurityScheme = {
@@ -73,6 +94,8 @@ export type OpenAPITag = {
   name: string;
   description?: string;
   operations: OpenAPIOperation[];
+  /** Aggregated `x-events` from the tag and its operations. */
+  events: OpenAPIEvent[];
 };
 
 export type OpenAPIDoc = {
@@ -81,6 +104,8 @@ export type OpenAPIDoc = {
   tags: OpenAPITag[];
   operationsById: Record<string, OpenAPIOperation>;
   securitySchemes: Record<string, SecurityScheme>;
+  /** Root-level events (OpenAPI 3.1 `webhooks` / Redoc `x-webhooks`). */
+  webhooks: OpenAPIEvent[];
 };
 
 const METHODS = ["get", "post", "put", "patch", "delete", "options", "head"] as const;
@@ -94,6 +119,7 @@ const EMPTY_DOC: OpenAPIDoc = {
   tags: [],
   operationsById: {},
   securitySchemes: {},
+  webhooks: [],
 };
 
 /**
@@ -129,12 +155,17 @@ export function loadOpenApi(variantId?: string): OpenAPIDoc {
   return doc;
 }
 
-function normalize(raw: any): OpenAPIDoc {
+export function normalize(raw: any): OpenAPIDoc {
   const components = raw.components ?? {};
   const securitySchemes: Record<string, SecurityScheme> = components.securitySchemes ?? {};
 
-  const tagMeta: Record<string, { description?: string }> = {};
-  for (const t of raw.tags ?? []) tagMeta[t.name] = { description: t.description };
+  const tagMeta: Record<string, { description?: string; events?: OpenAPIEvent[] }> = {};
+  for (const t of raw.tags ?? []) {
+    tagMeta[t.name] = {
+      description: t.description,
+      events: parseXEvents(t["x-events"]),
+    };
+  }
 
   const tagsMap = new Map<string, OpenAPIOperation[]>();
   const byId: Record<string, OpenAPIOperation> = {};
@@ -194,6 +225,7 @@ function normalize(raw: any): OpenAPIDoc {
         requestBody,
         responses,
         security,
+        events: parseOperationEvents(op, raw),
       };
 
       byId[operationId] = operation;
@@ -216,6 +248,7 @@ function normalize(raw: any): OpenAPIDoc {
       name,
       description: tagMeta[name]?.description,
       operations: tagsMap.get(name)!,
+      events: mergeTagEvents(tagsMap.get(name)!, tagMeta[name]?.events),
     }));
 
   return {
@@ -224,6 +257,7 @@ function normalize(raw: any): OpenAPIDoc {
     tags,
     operationsById: byId,
     securitySchemes,
+    webhooks: parseWebhooks(raw),
   };
 }
 

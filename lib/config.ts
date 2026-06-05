@@ -119,6 +119,24 @@ export type ApiConfig = {
      */
     proxy?: "auto" | "always" | "never";
   };
+  /** Webhook/async-event presentation. */
+  events?: {
+    /**
+     * How event status dots are colored:
+     * - "palette" (default): a distinct, stable color per event drawn from
+     *   `palette` — colors by identity, not status, so every event is separable.
+     * - "status": green/amber/neutral inferred from the event name
+     *   (success / failure-or-terminal / neutral).
+     * - "none": no color (all neutral).
+     */
+    dots?: "status" | "palette" | "none";
+    /**
+     * Colors for `dots: "palette"`, any CSS color or `var(--token)`. An event is
+     * mapped to one entry by a stable hash of its name. Defaults to the brand
+     * palette (`--c-purple`, `--c-cyan`, …).
+     */
+    palette?: string[];
+  };
 };
 
 /** Resolve the effective playground mode (honors the deprecated `enabled` flag). */

@@ -268,6 +268,30 @@ export function successResponse(
   };
 }
 
+/**
+ * Every documented response with a renderable body — success first, then errors —
+ * for the code card's status-code switcher. Each carries a tone (2xx → green,
+ * anything else → red) and a colorized sample. Responses without a schema/example
+ * are dropped; if none qualify, returns an empty list.
+ */
+export function allResponses(
+  op: OpenAPIOperation,
+  root: unknown,
+): { status: string; label: string; tone: "g" | "r"; html: string }[] {
+  return op.responses
+    .filter((r) => r.schema || r.example != null)
+    .map((r) => {
+      const sample = r.example ?? sampleFromSchema(r.schema!, root);
+      return {
+        status: r.status,
+        label: `${r.status} ${r.description ?? statusText(r.status)}`.trim(),
+        tone: (/^2/.test(r.status) ? "g" : "r") as "g" | "r",
+        html: colorizeJson(sample),
+      };
+    })
+    .sort((a, b) => (a.tone === b.tone ? a.status.localeCompare(b.status) : a.tone === "g" ? -1 : 1));
+}
+
 function statusText(status: string): string {
   const map: Record<string, string> = {
     "200": "OK",
@@ -276,7 +300,13 @@ function statusText(status: string): string {
     "204": "No Content",
     "400": "Bad Request",
     "401": "Unauthorized",
+    "402": "Payment Required",
+    "403": "Forbidden",
     "404": "Not Found",
+    "409": "Conflict",
+    "422": "Unprocessable Entity",
+    "429": "Too Many Requests",
+    "500": "Server Error",
   };
   return map[status] ?? "";
 }

@@ -12,6 +12,8 @@ toc:
     label: Code samples
   - id: playground
     label: The playground
+  - id: events
+    label: Events & webhooks
   - id: overlays
     label: MDX overlays
   - id: ai-and-actions
@@ -223,6 +225,145 @@ response with status + latency. It's the same engine on every surface.
 <Warning>The server proxy (`/api/playground`) only runs on a Node/Vercel
 deployment and is dropped in static export. On a static host, set
 `proxy: "never"` and enable CORS on your API, or the explorer can't reach it.</Warning>
+
+## Events & webhooks
+
+If your API emits webhooks or async events, Markline documents them alongside
+the endpoints that trigger them. Each resource grows an **Events** tab listing
+the events it can deliver — name, summary, payload schema, and a sample — and
+the two are cross-linked: an emitting endpoint shows a **Triggers** chip, and
+the event shows an **Emitted by** back-link to that endpoint. The tab only
+appears on resources that actually have events; a spec with none looks exactly
+as before.
+
+### Where events come from
+
+Markline reads events from four sources and normalizes them into one model, so
+you can use whichever your toolchain already emits:
+
+| Source | Where it lives | Use it when |
+| --- | --- | --- |
+| `webhooks` | document root (OpenAPI **3.1**) | your spec is 3.1 and uses the native webhooks object |
+| `x-webhooks` | document root (Redoc extension) | you're on 3.0 and want a Redoc-compatible root list |
+| `callbacks` | on an operation | the event is a standard OpenAPI callback tied to one request |
+| `x-events` | on a **tag** or an **operation** (Markline) | you want the lightest annotation, especially from codegen like NestJS |
+
+For root `webhooks` / `x-webhooks`, each entry is a Path Item — Markline takes
+its first method operation and reads `summary`, `description`, the operation's
+`tags`, and the JSON request body as the payload. **A root webhook only appears
+on a resource if its operation carries a matching `tags` entry**; untagged
+webhooks are parsed but have no resource to attach to.
+
+### The `x-events` extension
+
+`x-events` is the most direct way to declare events. It takes either a
+**map** of `name → definition`, or an **array of names** (references to events
+defined elsewhere — no inline payload):
+
+```jsonc
+"x-events": {
+  "project.created": {
+    "summary": "A new project was created.",
+    "description": "Emitted once the project is provisioned and ready.",
+    "payload": { "$ref": "#/components/schemas/Project" },
+    "guide": "/guides/webhooks#project-created"
+  }
+}
+```
+
+```jsonc
+"x-events": ["project.created", "project.deleted"]   // name-only references
+```
+
+Each definition field is optional:
+
+<ParamField path="summary" type="string">
+  One-line description, shown as the event's heading.
+</ParamField>
+
+<ParamField path="description" type="string">
+  Longer prose shown under the summary.
+</ParamField>
+
+<ParamField path="payload" type="JSON Schema | $ref">
+  The delivered payload. Inline schema or a `$ref` into `components.schemas` —
+  resolved at render to produce the attribute table and the sample JSON.
+  (`schema` and a JSON `requestBody` are accepted as fallbacks.)
+</ParamField>
+
+<ParamField path="guide" type="string">
+  Link to a docs page or anchor that explains the event in depth, rendered as a
+  follow-on link. (`guideHref` / `href` are accepted too.)
+</ParamField>
+
+**Tag level vs. operation level** changes how the event is wired:
+
+- On an **operation** (`paths.<path>.<method>.x-events`), the event inherits
+  that operation's `tags`, so it groups onto those resources — and because an
+  endpoint triggers it, the endpoint gets a **Triggers** chip and the event an
+  **Emitted by** back-link.
+- On a **tag** (`tags[].x-events`), the event attaches to that resource only,
+  with no emitter back-link. Use this for events not tied to a single endpoint —
+  delivered by an external processor, a batch job, or a state change.
+
+Markline **merges** the two per resource and de-duplicates by event name, so an
+event declared on both a tag and an operation appears once.
+
+<Note>The sample spec at `api/openapi.json` in this repo is wired up:
+`createProject` emits `project.created`, `createDeployment` emits
+`deployment.succeeded` / `deployment.failed`, and a root `x-webhooks` entry adds
+`project.archived` to the Projects resource. Open the
+[Projects reference](/api-reference/projects) to see the Events tab.</Note>
+
+### From NestJS
+
+NestJS has no `@ApiCallbacks`, but `@ApiExtension` is a clean fit — and it's why
+`x-events` exists. Annotate the handler that causes the event; Markline
+aggregates it onto the resource automatically (no document-root wiring):
+
+```ts
+import { ApiExtension, ApiExtraModels, ApiTags, getSchemaPath } from '@nestjs/swagger';
+
+@ApiTags('cards')
+@ApiExtraModels(CardCreatedEvent)   // emits the payload into components.schemas
+@Controller('cards')
+export class CardsController {
+  @Post()
+  @ApiExtension('x-events', {
+    'card.created': {
+      summary: 'A new card was issued',
+      payload: { $ref: getSchemaPath(CardCreatedEvent) },
+      guide: '/guides/webhooks#card-created',
+    },
+  })
+  create() { /* … */ }
+}
+```
+
+- `@ApiExtraModels(CardCreatedEvent)` makes `getSchemaPath(...)` resolve — without
+  it the `$ref` points at a schema that was never emitted.
+- The event inherits `@ApiTags('cards')`, so it lands on the **Cards** resource
+  and `POST /cards` gets the **Triggers** chip.
+- `@ApiExtension` requires an `x-`-prefixed key and an object value — both hold.
+  Placed on the **controller class** it applies to every route; on a **handler**,
+  just that operation.
+
+Reuse a shared set with a small composed decorator:
+
+```ts
+import { applyDecorators } from '@nestjs/common';
+import { ApiExtension } from '@nestjs/swagger';
+
+export const Emits = (events: Record<string, unknown>) =>
+  applyDecorators(ApiExtension('x-events', events));
+
+// @Emits({ 'card.created': { summary: 'A new card was issued', payload: { $ref: getSchemaPath(CardCreatedEvent) } } })
+```
+
+<Note>For an event with **no** single triggering endpoint (one a processor
+delivers), attach it to the most relevant operation, or add it under a tag's
+`x-events` by post-processing the generated document before you write
+`openapi.json` — NestJS has no decorator for tag objects.</Note>
 
 ## MDX overlays
 

@@ -18,7 +18,16 @@ import { useEffect, useState } from "react";
 type Answer = "yes" | "no";
 type Stage = "idle" | "form" | "done";
 
-const REASONS = [
+/** Reason chips differ by sentiment: positive asks what worked, negative asks
+ *  what to improve. Same themes (onboarding, findability, clarity, accuracy). */
+const POSITIVE_REASONS = [
+  "Helped me get started",
+  "Easy to find what I needed",
+  "Clear and easy to understand",
+  "Accurate and up to date",
+  "Something else",
+];
+const NEGATIVE_REASONS = [
   "Help me get started faster",
   "Make it easier to find what I'm looking for",
   "Make it easy to understand the product and features",
@@ -100,6 +109,7 @@ export function DocsRate({ endpoint }: { endpoint?: string }) {
   }, []);
 
   const pick = (a: Answer) => {
+    if (a !== answer) setReason(null); // positive/negative lists differ — drop a stale pick
     setAnswer(a);
     setStage("form");
   };
@@ -146,7 +156,7 @@ export function DocsRate({ endpoint }: { endpoint?: string }) {
         <div className="ml-fb-form">
           <h6>{answer === "yes" ? "What did you like?" : "How can we improve?"}</h6>
           <div className="ml-fb-reasons">
-            {REASONS.map((r) => (
+            {(answer === "yes" ? POSITIVE_REASONS : NEGATIVE_REASONS).map((r) => (
               <label key={r} className="ml-fb-reason">
                 <input type="radio" name="docs-feedback-reason" checked={reason === r} onChange={() => setReason(r)} />
                 <span>{r}</span>

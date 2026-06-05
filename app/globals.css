@@ -34,7 +34,7 @@
   --border:  #D7DADF;
   --radius-1: 6px;
 
-  /* API reference code/response panels (Mintlify-style always-dark surface in light mode,
+  /* API reference code/response panels (always-dark surface in light mode,
      subtly elevated panel in dark mode). */
   --c-panel-bg:      14 20 27;     /* #0E141B */
   --c-panel-border:  52 58 64;     /* #343A40 */

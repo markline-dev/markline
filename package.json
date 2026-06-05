@@ -1,6 +1,6 @@
 {
   "name": "@markline/markline",
-  "version": "0.1.2",
+  "version": "0.1.10",
   "description": "Open-source, self-hostable documentation framework with first-class OpenAPI, search, and an interactive API playground.",
   "license": "MIT",
   "keywords": [
@@ -37,6 +37,12 @@
     "templates/ai-worker/wrangler.toml",
     "templates/ai-worker/tsconfig.json",
     "templates/ai-worker/src",
+    "templates/feedback-worker/README.md",
+    "templates/feedback-worker/package.json",
+    "templates/feedback-worker/wrangler.toml.example",
+    "templates/feedback-worker/tsconfig.json",
+    "templates/feedback-worker/schema.sql",
+    "templates/feedback-worker/src",
     "bin",
     "next.config.mjs",
     "postcss.config.mjs",
@@ -49,7 +55,8 @@
     "build": "node scripts/build-search.mjs && next build",
     "start": "next start",
     "lint": "next lint",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --test test/*.test.ts"
   },
   "dependencies": {
     "@mdx-js/loader": "3.1.0",

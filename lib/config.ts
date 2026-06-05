@@ -104,8 +104,8 @@ export type ApiConfig = {
     /**
      * Which "Try it" surfaces to render:
      * - "full"     (default): inline param inputs + rail console + API Explorer modal.
-     * - "inline"   : inline param inputs + rail console (no modal) — Mintlify-style.
-     * - "explorer" : read-only docs + rail console + API Explorer modal — Stripe-style.
+     * - "inline"   : inline param inputs + rail console (no modal).
+     * - "explorer" : read-only docs + rail console + API Explorer modal.
      * - "off"      : a static cURL code panel, no interactivity.
      */
     mode?: "full" | "inline" | "explorer" | "off";
@@ -239,6 +239,19 @@ export function aiConfig(): AiPublicConfig | null {
   };
 }
 
+/**
+ * Feedback availability. Returns the endpoint config to use, or null when the
+ * widgets should render nothing at all. Rules: `enabled:false` hides; `enabled:true`
+ * always shows (console-logs without an endpoint); otherwise show only when an
+ * endpoint is set.
+ */
+export function feedbackConfig(): { endpoint?: string } | null {
+  const fb = loadConfig().feedback;
+  if (fb?.enabled === false) return null;
+  if (fb?.enabled === true || fb?.endpoint) return { endpoint: fb?.endpoint };
+  return null;
+}
+
 export type AnalyticsConfig = {
   plausible?: { domain: string; src?: string };
   googleAnalytics?: { measurementId: string };
@@ -268,8 +281,13 @@ export type MarklineConfig = {
   /** Base URL for "Edit this page" links; the page's content-relative path is appended. */
   editUrl?: string;
   analytics?: AnalyticsConfig;
-  /** POST endpoint for the "Was this page helpful?" widget. Logs to console when unset. */
-  feedback?: { endpoint?: string };
+  /**
+   * Reader-feedback widgets ("Was this helpful?"). Hidden unless feedback is on:
+   *  - `enabled: false`  → always hidden;
+   *  - `enabled: true`   → always shown (logs to the console when no endpoint);
+   *  - default (omitted) → shown only when an `endpoint` is set.
+   */
+  feedback?: { enabled?: boolean; endpoint?: string };
   /** Documentation versions. First is the default (unprefixed). */
   versions?: Version[];
   /** Localizations. First locale is the default (unprefixed). */

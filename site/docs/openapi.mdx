@@ -1,11 +1,15 @@
 ---
 title: API reference
-lede: Point Markline at an OpenAPI document and it generates a Stripe-grade, three-pane reference — resource pages, multi-language code, and a live request explorer.
+lede: Point Markline at an OpenAPI document and it generates a polished three-pane reference — resource pages, multi-language code, and a live request explorer.
 toc:
   - id: add-a-spec
     label: Add a spec
   - id: what-you-get
     label: What you get
+  - id: nested-tags
+    label: Nested tags
+  - id: code-samples
+    label: Code samples
   - id: playground
     label: The playground
   - id: overlays
@@ -70,6 +74,133 @@ resource. Each page has:
 remain reachable too (deep links, search). Navigation between docs and the
 reference is instant — it's one app, not a separate site.</Note>
 
+## Nested tags
+
+Slash-separated tags — the convention NestJS emits from `@ApiTags('tools/banks')`
+— become a **nested sidebar**. No config: Markline groups by shared prefix and
+title-cases each segment (with an acronym map, so `fx` → `FX`, `grp` → `GRP`).
+
+```
+tools/banks          Tools
+tools/fx        →      ├── Banks
+tools/merchants        ├── FX
+simulation/payments    └── Merchants
+simulation/grp/cards Simulation
+                       ├── Payments
+                       └── Grp
+                             └── Cards
+```
+
+- **Parent groups are nav-only** accordions (expand/collapse), opening to the
+  active resource. Each **leaf** tag stays a normal resource page.
+- **URLs are unchanged** — the slug is still the whole tag, so `tools/merchants`
+  lives at `/api-reference/tools-merchants` and existing links keep working.
+- Depth is arbitrary (`simulation/grp/cards` nests three levels); the page title
+  shows the leaf (`Cards`) with a `Simulation / Grp` breadcrumb.
+- Single-segment tags (`payments`) are unchanged — plain top-level entries.
+
+<Note>This is automatic for any spec using slash tags — you don't flatten your
+`@ApiTags` to get clean resource boundaries. Per-resource
+[MDX overlays](#overlays) still key off the full slug (`tools-merchants.mdx`).</Note>
+
+## Code samples
+
+Every endpoint gets a dark **code rail**. By default Markline *generates* four
+samples — cURL, Node, Python, Go — from the operation itself: the Node/Python/Go
+ones are SDK-style (`client.<resource>.<method>(…)`), inferred from the tag,
+`operationId`, and the body / path / query parameters. You shape the rail two
+ways.
+
+### Pick the generated languages
+
+`api.codeSamples` chooses **which generated languages appear, and in what order**.
+It's a subset of `"curl" | "node" | "python" | "go"`; omit it and all four show.
+
+```jsonc
+"api": {
+  "baseUrl": "https://api.example.com",
+  "codeSamples": ["curl", "node"]   // just cURL + Node, in that order
+}
+```
+
+<Note>If you don't ship an SDK, the generated Node/Python/Go snippets reference
+a client that doesn't exist. Set `"codeSamples": ["curl"]` to show only cURL —
+or author your own per-operation samples with `x-codeSamples` below.</Note>
+
+### How generated samples are named
+
+There's no separate "SDK name" setting — the generated snippets build their
+identifiers from your spec. A sample like `acme.payments.create({ … })` is
+assembled from four derived tokens:
+
+| Token | Derived from | Example |
+| --- | --- | --- |
+| **client** | first word of `info.title`, lowercased, alphanumerics only (else `client`) | `"Acme Payments API"` → `acme` |
+| **resource** | the operation's **tag**, lowercased and stripped | tag `Payment Methods` → `paymentmethods` |
+| **method** | HTTP verb + path shape | `POST`→`create`, `PUT`/`PATCH`→`update`, `DELETE`→`del`, `GET` with `{id}`→`retrieve`, `GET` without→`list` |
+| **result** | singularized tag | `projects` → `project` |
+
+So the two levers on the generated rails are **`info.title`** (the client name)
+and **your tag names** (the resource accessors). To match a real SDK exactly —
+custom client name, hand-written method signatures, a language Markline doesn't
+generate — reach for `x-codeSamples`.
+
+### Bring your own with `x-codeSamples`
+
+To replace the generated rail on a specific operation, add the `x-codeSamples`
+extension to that operation **in your OpenAPI document** (not in `markline.json`).
+The older `x-code-samples` spelling is accepted too — Markline reads either, so
+specs written for Redoc/Stripe work unchanged.
+
+```jsonc
+"paths": {
+  "/v1/payments": {
+    "post": {
+      "operationId": "createPayment",
+      "summary": "Create a payment",
+      "x-codeSamples": [
+        {
+          "lang": "ruby",
+          "label": "Ruby",
+          "source": "Acme::Payment.create(\n  amount: 1000,\n  currency: \"usd\",\n)"
+        },
+        {
+          "lang": "php",
+          "source": "$client->payments->create([\n  'amount' => 1000,\n  'currency' => 'usd',\n]);"
+        }
+      ]
+    }
+  }
+}
+```
+
+Each entry has three fields:
+
+<ParamField path="source" type="string" required>
+  The code shown in the tab. Rendered **verbatim** — HTML-escaped, with no
+  re-highlighting — so format it exactly as you want it to read, newlines (`\n`)
+  and indentation included.
+</ParamField>
+
+<ParamField path="label" type="string">
+  The tab label. Falls back to `lang`, then to `"Sample"`.
+</ParamField>
+
+<ParamField path="lang" type="string">
+  Free-form language hint (`ruby`, `php`, `java`, `kotlin`, …) — **not** limited
+  to the four generated languages. Used for the tab's internal key and as the
+  label fallback.
+</ParamField>
+
+<Warning>`x-codeSamples` is **all-or-nothing per operation**: as soon as an
+operation carries one custom sample, the entire generated rail for that
+operation is replaced, and `api.codeSamples` no longer applies to it. List
+*every* language you want shown — tabs appear in array order. Other operations
+keep their generated rails untouched.</Warning>
+
+This is the escape hatch for hand-written, copy-paste-correct examples: real SDK
+calls, framework-specific snippets, or languages Markline can't generate.
+
 ## The playground
 
 Write endpoints get an inline **request explorer**: an editable
@@ -78,8 +209,8 @@ response with status + latency. It's the same engine on every surface.
 
 <ParamField path="api.playground.mode" type='"full" | "inline" | "explorer" | "off"'>
   `full` — inline inputs + the request console + the API Explorer modal.
-  `inline` — inline inputs + console (Mintlify-style, no modal).
-  `explorer` — read-only docs + console + Explorer modal (Stripe-style).
+  `inline` — inline inputs + the request console, no modal.
+  `explorer` — read-only docs + console + the API Explorer modal.
   `off` — a static cURL panel, no interactivity.
 </ParamField>
 
@@ -106,7 +237,7 @@ api/
 └── operations/<operationId>.mdx  # extra prose on one operation page
 ```
 
-- **`sections/<tag>.mdx`** renders as the resource intro, Stripe-style. The
+- **`sections/<tag>.mdx`** renders as the resource intro. The
   filename is the slugified tag — `Payment Methods` → `payment-methods.mdx`.
 - **`operations/<operationId>.mdx`** renders between the endpoint path and the
   auto-generated parameters.
@@ -120,6 +251,11 @@ assistant with that section as context.
 
 ## Versions
 
-The reference header shows a version selector. With multiple
-[documentation versions](/configuration) configured, it switches between them;
-otherwise it surfaces the spec's `info.version`.
+The reference header shows a version selector. With a single spec it surfaces
+the spec's `info.version` (a semver `1.4.2` → `v1 · 1.4.2`; a date `2025-06-01`
+→ shown once, verbatim).
+
+With multiple [versions](/versions) configured, each version ships its **own**
+`<id>/api/openapi.json`, served at `/api-reference/<id>` — the selector switches
+the spec in place and every link stays under that version's prefix. See
+[Versions & i18n](/versions#api-reference) for the folder layout.

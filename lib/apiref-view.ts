@@ -3,10 +3,14 @@ import { resolveSchema } from "./openapi";
 import { codeSamples, colorizeJson, successResponse, type CodeRail } from "./openapi-codegen";
 import { buildPlaygroundSpec } from "./playground-spec";
 import type { PlaygroundSpec } from "@/components/docs/api/playground";
-import { loadConfig } from "./config";
+import { loadConfig, playgroundMode } from "./config";
+import { tagSlug, parseOpenApiTag, buildTagTree, segmentDisplayName, type TagTreeNode } from "./openapi-tags";
+
+// Re-export so existing imports (`@/lib/apiref-view`) keep resolving tagSlug.
+export { tagSlug, parseOpenApiTag, segmentDisplayName } from "./openapi-tags";
 
 /**
- * Builds the serializable view-model consumed by the Stripe-style API reference
+ * Builds the serializable view-model consumed by the API reference
  * client component (components/docs/api/reference/markline-apiref.tsx). Pure
  * data — no JSX — so it can cross the server→client boundary. The per-resource
  * MDX summary is rendered separately (in the route) and passed as a node.
@@ -45,13 +49,30 @@ export type EndpointView = {
 };
 
 export type NavOp = { id: string; verb: string | null; name: string; opId: string };
-export type NavGroup = { name: string; slug: string; active: boolean; ops: NavOp[] };
+
+/** A routable resource (a leaf tag). When active, `ops` carries its in-page jumps. */
+export type NavResource = { kind: "resource"; name: string; slug: string; active: boolean; ops: NavOp[] };
+/** A nav-only accordion grouping nested tags (e.g. "Tools"). May itself be a real
+ *  tag (then `tag` is set and the header links to its page) when a prefix is also
+ *  tagged. `expanded` is true when it contains — or is — the active resource. */
+export type NavParent = {
+  kind: "group";
+  name: string;
+  slug: string;
+  tag?: string;
+  active: boolean;
+  expanded: boolean;
+  children: NavTreeNode[];
+};
+export type NavTreeNode = NavResource | NavParent;
 
 export type ObjectView = { name: string; attrs: AttrView[]; sampleHtml: string };
 
 export type ResourceView = {
   name: string;
   slug: string;
+  /** Parent group display names for the header breadcrumb, e.g. ["Tools"]. */
+  crumbs: string[];
   lead?: string;
   /** Endpoint-list card rows. */
   endpoints: { title: string; verb: string; path: string; id: string }[];
@@ -79,8 +100,11 @@ export type ApiRefView = {
   title: string;
   version: string;
   versionLabel: string;
+  /** Route base for all api-reference links: "/api-reference" for the default
+   *  version, "/api-reference/<id>" for a non-default version. */
+  base: string;
   servers: string[];
-  nav: NavGroup[];
+  nav: NavTreeNode[];
   resource: ResourceView;
   /** Command-palette index across all resources. */
   search: SearchEntry[];
@@ -95,10 +119,6 @@ const VERB: Record<string, string> = {
   patch: "PATCH",
   delete: "DEL",
 };
-
-export function tagSlug(s: string): string {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-}
 
 function anchorFor(op: OpenAPIOperation): string {
   return tagSlug(op.summary ?? op.operationId) || op.operationId;
@@ -208,13 +228,15 @@ function buildEndpoint(
   root: unknown,
   baseUrl: string,
   langs: ReadonlyArray<"curl" | "node" | "python" | "go">,
+  interactive: boolean,
+  base = "/api-reference",
 ): EndpointView {
   const groups = paramGroups(op, root);
   const code = codeSamples(op, doc, root, baseUrl, langs);
   const response = successResponse(op, root) ?? undefined;
   const hasBearer = op.security.some((s) => s.scheme.type === "http" && s.scheme.scheme === "bearer");
-  // The explorer (interactive Send) goes on write operations; reads show the
-  // request/response code cards.
+  // Every operation gets an interactive "Try it" modal (unless the playground is
+  // off); `explorer` still flags writes, which historically rendered inline.
   const explorer = op.method !== "get";
 
   // First editable field for the explorer: a required body prop, else a query/path param.
@@ -240,7 +262,7 @@ function buildEndpoint(
     response,
     field,
     hasBearer,
-    playground: explorer ? buildPlaygroundSpec(op, doc, root) : undefined,
+    playground: interactive ? buildPlaygroundSpec(op, doc, root, base) : undefined,
   };
 }
 
@@ -251,50 +273,77 @@ function sampleString(attr: AttrView): string {
   return "value";
 }
 
-export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: string): ApiRefView {
+/** Whether a nav subtree contains — or is — the active resource. */
+function navContainsActive(n: NavTreeNode): boolean {
+  return n.kind === "resource" ? n.active : n.active || n.children.some(navContainsActive);
+}
+
+export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: string, variantId?: string): ApiRefView {
   const activeTag =
     doc.tags.find((t) => tagSlug(t.name) === activeSlug) ?? doc.tags[0];
+
+  // All api-reference links hang off this base: "/api-reference" for the default
+  // version, "/api-reference/<id>" for a non-default version.
+  const base = variantId ? `/api-reference/${variantId}` : "/api-reference";
 
   // Base URL for samples/URL bars: explicit config wins, then the spec's first
   // server, then a placeholder. Languages: config, else all four generated.
   const api = loadConfig().api;
   const baseUrl = api.baseUrl ?? doc.servers[0]?.url ?? "https://api.example.com";
   const langs = api.codeSamples ?? ["curl", "node", "python", "go"];
+  const interactive = playgroundMode(api) !== "off";
 
-  const nav: NavGroup[] = doc.tags.map((tag) => {
-    const active = tag === activeTag;
+  // Nested sidebar derived from slash-separated tags. Each leaf tag stays a
+  // routable resource; shared prefixes become nav-only accordion groups. Only
+  // the active leaf carries its in-page operation jumps.
+  const activeSlug2 = activeTag ? tagSlug(activeTag.name) : "";
+  const activeParsed = activeTag ? parseOpenApiTag(activeTag.name) : undefined;
+  const activeOps: NavOp[] = activeTag
+    ? [
+        { id: tagSlug(activeTag.name), verb: null, name: activeParsed!.displayName, opId: "" },
+        ...activeTag.operations.map((op) => ({
+          id: anchorFor(op),
+          verb: VERB[op.method] ?? op.method.toUpperCase(),
+          name: op.summary ?? op.operationId,
+          opId: op.operationId,
+        })),
+      ]
+    : [];
+
+  const toNav = (node: TagTreeNode): NavTreeNode => {
+    if (node.type === "leaf") {
+      const active = !!node.tag && tagSlug(node.tag) === activeSlug2;
+      return { kind: "resource", name: node.name, slug: node.slug, active, ops: active ? activeOps : [] };
+    }
+    const children = node.children.map(toNav);
+    const selfActive = !!node.tag && tagSlug(node.tag) === activeSlug2;
     return {
-      name: displayName(tag.name),
-      slug: tagSlug(tag.name),
-      active,
-      ops: active
-        ? [
-            { id: tagSlug(tag.name), verb: null, name: displayName(tag.name), opId: "" },
-            ...tag.operations.map((op) => ({
-              id: anchorFor(op),
-              verb: VERB[op.method] ?? op.method.toUpperCase(),
-              name: op.summary ?? op.operationId,
-              opId: op.operationId,
-            })),
-          ]
-        : [],
+      kind: "group",
+      name: node.name,
+      slug: node.slug,
+      tag: node.tag,
+      active: selfActive,
+      expanded: selfActive || children.some(navContainsActive),
+      children,
     };
-  });
+  };
+  const nav: NavTreeNode[] = buildTagTree(doc.tags.map((t) => t.name)).map(toNav);
 
   const objSchema = activeTag ? pickObjectSchema(activeTag.operations, root) : undefined;
   const objAttrs = attrsFromSchema(objSchema, root);
   const object: ObjectView | undefined =
     objAttrs.length && objSchema
       ? {
-          name: `The ${singularDisplay(activeTag!.name)} object`,
+          name: `The ${singularDisplay(activeParsed!.leaf)} object`,
           attrs: objAttrs,
           sampleHtml: colorizeJson(objectSample(objSchema, root)),
         }
       : undefined;
 
   const resource: ResourceView = {
-    name: displayName(activeTag?.name ?? "API"),
+    name: activeParsed ? activeParsed.displayName : "API",
     slug: tagSlug(activeTag?.name ?? ""),
+    crumbs: activeParsed?.parentDisplayNames ?? [],
     lead: activeTag?.description,
     endpoints: (activeTag?.operations ?? []).map((op) => ({
       title: op.summary ?? op.operationId,
@@ -303,59 +352,80 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
       id: anchorFor(op),
     })),
     object,
-    sections: (activeTag?.operations ?? []).map((op) => buildEndpoint(op, doc, root, baseUrl, langs)),
+    sections: (activeTag?.operations ?? []).map((op) => buildEndpoint(op, doc, root, baseUrl, langs, interactive, base)),
   };
 
   return {
     title: doc.info.title || "API reference",
     version: doc.info.version,
-    versionLabel: doc.info.version ? `v${doc.info.version.split(".")[0]}` : "v1",
+    versionLabel: versionPillLabel(doc.info.version),
+    base,
     servers: doc.servers.map((s) => s.url),
     nav,
     resource,
-    search: buildSearchIndex(doc),
-    versions: buildVersions(doc),
+    search: buildSearchIndex(doc, base),
+    versions: buildVersions(doc, variantId),
   };
 }
 
 /** Full-reference command-palette index (every resource + operation). */
-function buildSearchIndex(doc: OpenAPIDoc): SearchEntry[] {
+function buildSearchIndex(doc: OpenAPIDoc, base = "/api-reference"): SearchEntry[] {
   const out: SearchEntry[] = [];
   for (const tag of doc.tags) {
-    const slug = tagSlug(tag.name);
-    const name = displayName(tag.name);
+    const parsed = parseOpenApiTag(tag.name);
+    const slug = parsed.slug;
+    const name = parsed.displayName;
+    const groupCrumbs = ["API", ...parsed.parentDisplayNames];
     out.push({
       title: name,
-      crumbs: ["API Reference"],
+      crumbs: groupCrumbs,
       snippet: tag.description || `${name} resource and its endpoints.`,
-      href: `/api-reference/${slug}#${slug}`,
+      href: `${base}/${slug}#${slug}`,
     });
     for (const op of tag.operations) {
       out.push({
         title: op.summary ?? op.operationId,
-        crumbs: ["API", name],
+        crumbs: [...groupCrumbs, name],
         snippet: op.description || `${op.method.toUpperCase()} ${op.path}`,
         verb: (VERB[op.method] ?? op.method.toUpperCase()).toLowerCase(),
-        href: `/api-reference/${slug}#${anchorFor(op)}`,
+        href: `${base}/${slug}#${anchorFor(op)}`,
       });
     }
   }
   return out;
 }
 
-function buildVersions(doc: OpenAPIDoc): VersionEntry[] {
+/**
+ * Version-pill label. For numeric-major semver ("1.4.2") it shows the major as
+ * "v1"; for anything else — notably a date-style version like "2025-06-01" — it
+ * uses the version verbatim, so we never render the redundant "v2025-06-01".
+ */
+export function versionPillLabel(version?: string): string {
+  if (!version) return "v1";
+  const major = version.split(".")[0];
+  return /^\d+$/.test(major) ? `v${major}` : version;
+}
+
+function buildVersions(doc: OpenAPIDoc, variantId?: string): VersionEntry[] {
   const cfg = loadConfig();
   if (cfg.versions && cfg.versions.length > 1) {
-    return cfg.versions.map((v, i) => ({
-      label: v.label ?? v.id,
-      sub: i === 0 ? "Default" : undefined,
-      href: i === 0 ? "/api-reference" : `/${v.id}/api-reference`,
-      current: i === 0,
-      latest: i === 0,
-    }));
+    return cfg.versions.map((v, i) => {
+      const isDefault = i === 0;
+      const active = isDefault ? !variantId : v.id === variantId;
+      return {
+        label: v.label ?? v.id,
+        sub: isDefault ? "Default" : undefined,
+        href: isDefault ? "/api-reference" : `/api-reference/${v.id}`,
+        current: active,
+        latest: isDefault,
+      };
+    });
   }
-  const major = (doc.info.version || "1").split(".")[0];
-  return [{ label: `v${major}`, sub: doc.info.version || undefined, current: true, latest: true }];
+  const label = versionPillLabel(doc.info.version);
+  // Only carry a sub-line when it adds information (semver → "v1 · 1.4.2"); a
+  // date version is shown once, never as "2025-06-01 · 2025-06-01".
+  const sub = doc.info.version && doc.info.version !== label ? doc.info.version : undefined;
+  return [{ label, sub, current: true, latest: true }];
 }
 
 function singularDisplay(tag: string): string {

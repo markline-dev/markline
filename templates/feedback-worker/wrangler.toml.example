@@ -1,0 +1,31 @@
+# Markline reader-feedback — Cloudflare Worker config.
+#
+# Copy this to `wrangler.toml` (which is gitignored) and fill in your real
+# values — the committed example never carries a live database_id:
+#   cp wrangler.toml.example wrangler.toml
+#
+# Setup:
+#   wrangler d1 create markline-feedback         # copy the database_id below
+#   wrangler d1 execute markline-feedback --remote --file schema.sql
+#   wrangler deploy
+name = "markline-feedback"
+main = "src/worker.ts"
+compatibility_date = "2024-11-01"
+
+# Serve on your own domain instead of *.workers.dev (added in the dashboard too;
+# declaring it here keeps `wrangler deploy` authoritative). Same Cloudflare
+# account as the zone. Remove if the dashboard binding is enough.
+# routes = [ { pattern = "feedback.example.com", custom_domain = true } ]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "markline-feedback"
+database_id = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+
+[vars]
+# Comma-separated docs origins allowed to call this Worker (CORS).
+# Pin to your site(s); "*" allows any origin (not recommended).
+MARKLINE_ALLOWED_ORIGIN = "https://markline.dev"
+MARKLINE_RATE_PER_MIN = "30"
+# Optional Slack forward is a SECRET, never a var:
+#   wrangler secret put MARKLINE_SLACK_WEBHOOK

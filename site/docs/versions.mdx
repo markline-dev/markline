@@ -6,6 +6,8 @@ toc:
     label: How it works
   - id: versions
     label: Versions
+  - id: api-reference
+    label: API reference per version
   - id: i18n
     label: Localization
   - id: notes
@@ -19,24 +21,42 @@ prefix** with its own content folder — and the header shows a switcher.
 
 ## How it works
 
-The default content lives at `docs/`. Each non-default version or locale `id`
-gets its own `<id>/docs/` folder, served under `/<id>/…`:
+There's one rule for the whole folder layout: **the default version lives at the
+content root; every other version lives in a folder named after its `id`.** A
+version folder is just a smaller mirror of the root — same `docs/` and
+`api/openapi.json` inside.
 
 ```
 content/
-├── markline.json
-├── docs/            # the default (unprefixed) → /quickstart
-│   ├── index.mdx
+├── markline.json          # config + the versions list
+├── docs/                  # DEFAULT version docs   → /quickstart
 │   └── quickstart.mdx
-└── v1/
-    └── docs/        # the "v1" version → /v1/quickstart
-        ├── index.mdx
-        └── quickstart.mdx
+├── api/
+│   └── openapi.json       # DEFAULT version spec    → /api-reference
+└── v1/                    # one folder per non-default version id
+    ├── docs/              # v1 docs                 → /v1/quickstart
+    │   └── quickstart.mdx
+    └── api/
+        └── openapi.json   # v1 spec                 → /api-reference/v1
 ```
+
+So a version `id` is **both** a folder name and a URL prefix. The one wrinkle to
+remember — docs and the API reference prefix the `id` in *different spots*:
+
+| Content file | Default URL | Version `v1` URL |
+| --- | --- | --- |
+| `docs/quickstart.mdx` | `/quickstart` | `/v1/quickstart` |
+| `api/openapi.json` | `/api-reference` | `/api-reference/v1` |
+
+(Docs put the version first; the API reference keeps everything under
+`/api-reference` and puts the version after it — so all API routes stay in one
+place.)
 
 <Note>A project uses **versions or locales**, not both — they share the
 prefix mechanism (if both are set, versions win). The default entry is always
-unprefixed, so existing URLs don't change when you add a second version.</Note>
+unprefixed, so existing URLs don't change when you add a second version. A
+version folder only needs the parts that differ — drop `api/` and it's
+docs-only; drop `docs/` and it's reference-only.</Note>
 
 ## Versions
 
@@ -64,6 +84,34 @@ List versions in `markline.json`. The first is the default; each entry is
     **version switcher**; picking one navigates under its prefix.
   </Step>
 </Steps>
+
+## API reference per version
+
+Each version can ship its **own OpenAPI spec**. Drop it at
+`<id>/api/openapi.json` and Markline serves that version's reference at
+`/api-reference/<id>` — generated exactly like the default, with its own
+resource pages, code samples, and interactive explorer.
+
+```
+content/
+├── api/openapi.json        # default → /api-reference
+└── v1/
+    └── api/openapi.json     # v1      → /api-reference/v1
+```
+
+- The **version selector** in the API-reference header lists every version and
+  switches the spec in place (the default is marked `Default`).
+- Within a version, every link — resource pages, search results, the explorer's
+  endpoint switcher — stays under that version's `/api-reference/<id>` prefix, so
+  you never fall back to the default spec mid-navigation.
+- Per-resource and per-operation **MDX overlays** are version-scoped too:
+  `<id>/api/sections/<tag>.mdx` and `<id>/api/operations/<operationId>.mdx`.
+- The pill label follows the spec's `info.version` — a semver like `1.4.2` shows
+  as `v1 · 1.4.2`; a date like `2025-06-01` shows once, verbatim.
+
+<Note>A version that has no `api/openapi.json` simply has no API reference (its
+selector entry won't resolve a spec) — versions can be docs-only, reference-only,
+or both.</Note>
 
 ## Localization
 

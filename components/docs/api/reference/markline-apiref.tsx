@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import type { ApiRefView, AttrView, EndpointView, NavGroup } from "@/lib/apiref-view";
+import type { ApiRefView, AttrView, EndpointView, NavTreeNode, NavParent } from "@/lib/apiref-view";
 import type { AiPublicConfig } from "@/lib/config";
-import { PlaygroundProvider, usePlayground } from "../playground";
+import { ApiExplorer, PlaygroundProvider, usePlayground } from "../playground";
 import { AskDock, openAskPanel } from "../../ai/ask-dock";
+import { SectionRate } from "../../feedback";
 import {
   SearchPalette,
   VersionSelector,
@@ -16,7 +17,7 @@ import {
 } from "./apiref-extras";
 
 /**
- * Stripe-style API reference — a full-takeover page implemented from the Claude
+ * API reference — a full-takeover page implemented from the Claude
  * Design handoff (api.css / aichat / search / versions / docactions). Bound to
  * the project's real OpenAPI doc via the server-built ApiRefView. All styling is
  * scoped under .ml-apiref (app/api-reference.css), which also hides the
@@ -31,6 +32,8 @@ export function MarklineApiRef({
   view,
   summary,
   ai,
+  feedbackEnabled = false,
+  feedbackEndpoint,
 }: {
   view: ApiRefView;
   /** Server-rendered per-resource MDX summary (api/sections/<tag>.mdx), if any. */
@@ -38,6 +41,10 @@ export function MarklineApiRef({
   /** Sanitized AI config; when present the docked Ask-AI panel is mounted and
    *  the Ask-AI affordances render. Null/undefined → no AI UI at all. */
   ai?: AiPublicConfig | null;
+  /** Whether the per-section "Was this helpful?" widget renders (feedback opt-in). */
+  feedbackEnabled?: boolean;
+  /** Endpoint for the per-section "Was this helpful?" widget (config.feedback.endpoint). */
+  feedbackEndpoint?: string;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const aiOn = !!ai;
@@ -158,13 +165,6 @@ export function MarklineApiRef({
         }
       }
 
-      /* helpful Yes/No */
-      const yn = target.closest<HTMLElement>(".helpful .yn button");
-      if (yn) {
-        const wrap = yn.closest(".yn");
-        wrap?.querySelectorAll("button").forEach((b) => b.classList.toggle("picked", b === yn));
-        return;
-      }
 
       /* endpoint-list rows + sidebar anchors → smooth-scroll to the section */
       const jump = target.closest<HTMLElement>("[data-jump]");
@@ -189,7 +189,7 @@ export function MarklineApiRef({
         return;
       }
       // The proxy explorer (Send + fields + response) is React-driven via
-      // PlaygroundProvider — see DesignExplorer — so no delegation here.
+      // PlaygroundProvider — see TryItCards / ApiExplorer — so no delegation here.
     };
     el.addEventListener("click", onClick);
 
@@ -253,12 +253,12 @@ export function MarklineApiRef({
             </div>
             <VersionSelector
               versions={view.versions}
-              buttonLabel={`${view.versionLabel}${view.version ? ` · ${view.version}` : ""}`}
+              buttonLabel={view.version && view.version !== view.versionLabel ? `${view.versionLabel} · ${view.version}` : view.versionLabel}
             />
           </div>
 
-          {view.nav.map((g) => (
-            <NavGroupView key={g.slug} group={g} />
+          {view.nav.map((n) => (
+            <NavNodeView key={n.slug} node={n} base={view.base} />
           ))}
         </aside>
 
@@ -267,6 +267,7 @@ export function MarklineApiRef({
           {/* 1 · Resource header */}
           <section className="api-sec" id={r.slug}>
             <div className="api-l api-resource">
+              {r.crumbs.length > 0 && <div className="api-crumbs">{r.crumbs.join(" / ")}</div>}
               <h1>{r.name}</h1>
               {summary ? (
                 <div className="api-summary">{summary}</div>
@@ -277,7 +278,7 @@ export function MarklineApiRef({
                   The <code>{r.name}</code> resource and its endpoints.
                 </p>
               )}
-              <Helpful />
+              {feedbackEnabled && <SectionRate endpoint={feedbackEndpoint} target={r.slug} />}
             </div>
             <div className="api-r">
               <AiActions resource={r.name} markdown aiEnabled={aiOn} />
@@ -346,13 +347,17 @@ export function MarklineApiRef({
   );
 }
 
-/* ── sidebar group ─────────────────────────────────────────────────────── */
-function NavGroupView({ group }: { group: NavGroup }) {
-  if (!group.active) {
+/* ── sidebar nav (nested, derived from slash-separated tags) ─────────────── */
+function NavNodeView({ node, base }: { node: NavTreeNode; base: string }) {
+  if (node.kind === "group") return <NavParentView node={node} base={base} />;
+
+  // A resource leaf. Inactive → a quiet link to its page. Active → expanded with
+  // its in-page operation jumps.
+  if (!node.active) {
     return (
       <div className="api-grp dim">
-        <Link className="gt" href={`/api-reference/${group.slug}`} style={{ textDecoration: "none" }}>
-          {group.name}
+        <Link className="gt" href={`${base}/${node.slug}`} style={{ textDecoration: "none" }}>
+          {node.name}
           <Ico d="m9 6 6 6-6 6" cls="chev" w={14} />
         </Link>
       </div>
@@ -360,18 +365,55 @@ function NavGroupView({ group }: { group: NavGroup }) {
   }
   return (
     <div className="api-grp">
-      <div className="gt">
-        {group.name}
+      <div className="gt" style={{ fontWeight: 600 }}>
+        {node.name}
         <Ico d="m6 9 6 6 6-6" cls="chev" w={14} />
       </div>
       <div className="api-sub-nav">
-        {group.ops.map((op, i) => (
+        {node.ops.map((op, i) => (
           <a key={op.id + i} className={i === 0 ? "on" : undefined} data-jump={op.id}>
             {op.verb && <span className={`verb ${verbClass(op.verb)}`}>{op.verb}</span>}
             <span className="nm">{op.name}</span>
           </a>
         ))}
       </div>
+    </div>
+  );
+}
+
+/** A parent group: an accordion of nested resources/sub-groups. Opens by default
+ *  when it contains the active resource. When the prefix is itself a real tag,
+ *  the label links to its page and a chevron toggles the children. */
+function NavParentView({ node, base }: { node: NavParent; base: string }) {
+  const [open, setOpen] = useState(node.expanded);
+  const chevron = <Ico d="m9 6 6 6-6 6" cls="chev" w={14} />;
+  return (
+    <div className={`api-grp api-parent${open ? " open" : ""}${node.active ? " on" : ""}`}>
+      {node.tag ? (
+        <Link className="gt" href={`${base}/${node.slug}`} style={{ textDecoration: "none" }}>
+          {node.name}
+          <button
+            type="button"
+            className="gt-toggle"
+            aria-label={open ? "Collapse" : "Expand"}
+            onClick={(e) => { e.preventDefault(); setOpen((o) => !o); }}
+          >
+            {chevron}
+          </button>
+        </Link>
+      ) : (
+        <button type="button" className="gt" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+          {node.name}
+          {chevron}
+        </button>
+      )}
+      {open && (
+        <div className="api-grp-children">
+          {node.children.map((c) => (
+            <NavNodeView key={c.slug} node={c} base={base} />
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -401,9 +443,9 @@ function EndpointSection({ ep, aiEnabled }: { ep: EndpointView; aiEnabled: boole
       </div>
       <div className="api-r">
         <AiActions resource={ep.summary} markdown aiEnabled={aiEnabled} />
-        {ep.explorer && ep.playground ? (
+        {ep.playground ? (
           <PlaygroundProvider spec={ep.playground}>
-            <DesignExplorer ep={ep} />
+            <TryItCards ep={ep} />
           </PlaygroundProvider>
         ) : (
           <ReadCards ep={ep} />
@@ -453,174 +495,65 @@ function ReadCards({ ep }: { ep: EndpointView }) {
  * that powers the per-operation playground — so the same proxy/SSRF rules and
  * BYOK token apply. Fully React-controlled (no click delegation).
  */
-function DesignExplorer({ ep }: { ep: EndpointView }) {
+/**
+ * The design's read-style code rail + Response card, plus a "Try it" play
+ * button that opens the {@link ApiExplorer} modal. Used for every endpoint that
+ * has a playground spec (the explorer is modal-only now). When a request has
+ * been sent, the Response card swaps the example for the live result.
+ */
+function TryItCards({ ep }: { ep: EndpointView }) {
   const pg = usePlayground();
-  const { spec } = pg;
-  const tabs = ep.code.tabs;
-  const [lang, setLang] = useState(tabs[0]?.key ?? "curl");
-
-  // Editable top-level body props (primitives), assembled back into the engine's
-  // body JSON on each change so Send posts a valid payload.
-  const initialBody = useMemo<Record<string, unknown>>(() => {
-    try {
-      return spec.bodySample ? JSON.parse(spec.bodySample) : {};
-    } catch {
-      return {};
-    }
-  }, [spec.bodySample]);
-  const [bodyObj, setBodyObj] = useState<Record<string, unknown>>(initialBody);
-  const bodyFields = Object.entries(initialBody).filter(([, v]) => v === null || typeof v !== "object");
-  const setBodyField = (k: string, raw: string) => {
-    const orig = initialBody[k];
-    const val = typeof orig === "number" && raw.trim() !== "" && !Number.isNaN(Number(raw)) ? Number(raw) : raw;
-    const next = { ...bodyObj, [k]: val };
-    setBodyObj(next);
-    pg.setBody(JSON.stringify(next, null, 2));
-  };
-
-  const reqQuery = spec.queryParams.filter((p) => p.required);
-  const activeCode = tabs.find((t) => t.key === lang)?.html ?? tabs[0]?.html ?? "";
   const live = pg.response;
-  const showLive = !!(live || pg.error);
-
+  const tabs = ep.code.tabs;
   return (
-    <div className="explorer">
-      <div className="ex-top">
-        <span className="et">Try it</span>
-        <span className="live">
-          <span className="dot g" /> {live ? live.via : spec.proxy === "always" ? "proxy" : "live"}
-        </span>
-        <button className={`ex-send${pg.loading ? " sending" : ""}`} onClick={pg.send} disabled={pg.loading} type="button">
-          <Ico d="M5 12h14M13 6l6 6-6 6" cls="ico" /> {pg.loading ? "Sending…" : "Send"}
-        </button>
-      </div>
-
-      <div className="ex-auth">
-        {spec.bearer && (
-          <ExRow label="Authorization">
-            <span className="pre">Bearer</span>
-            <input
-              value={pg.token}
-              onChange={(e) => pg.setToken(e.target.value)}
-              placeholder="sk_live_…"
-              spellCheck={false}
-              aria-label="API key"
-            />
-          </ExRow>
-        )}
-        {spec.apiKeyHeaders.map((ak) => (
-          <ExRow key={ak.name} label={ak.name}>
-            <input
-              value={pg.getParam("header", ak.name)}
-              onChange={(e) => pg.setParam("header", ak.name, e.target.value)}
-              spellCheck={false}
-              aria-label={ak.name}
-            />
-          </ExRow>
-        ))}
-        {spec.pathParams.map((p) => (
-          <ExRow key={p.name} label={`Path · ${p.name}`}>
-            <input
-              value={pg.getParam("path", p.name)}
-              onChange={(e) => pg.setParam("path", p.name, e.target.value)}
-              placeholder={p.sample || p.name}
-              spellCheck={false}
-              aria-label={p.name}
-            />
-          </ExRow>
-        ))}
-        {reqQuery.map((p) => (
-          <ExRow key={p.name} label={`Query · ${p.name}`}>
-            <input
-              value={pg.getParam("query", p.name)}
-              onChange={(e) => pg.setParam("query", p.name, e.target.value)}
-              placeholder={p.sample || p.name}
-              spellCheck={false}
-              aria-label={p.name}
-            />
-          </ExRow>
-        ))}
-        {bodyFields.map(([k, v]) => (
-          <ExRow key={k} label={`Body · ${k}`}>
-            <input
-              value={String((bodyObj[k] ?? v) as string | number)}
-              onChange={(e) => setBodyField(k, e.target.value)}
-              spellCheck={false}
-              aria-label={k}
-            />
-          </ExRow>
-        ))}
-      </div>
-
-      <div className="ex-langbar">
-        <div className="cc-langs">
-          {tabs.map((t) => (
-            <button key={t.key} className={`cc-lang${lang === t.key ? " active" : ""}`} onClick={() => setLang(t.key)} type="button">
-              {t.label}
-            </button>
-          ))}
+    <>
+      <div className="code-card">
+        <div className="cc-langs-head cc-head">
+          <div className="cc-langs" data-tabs data-tabs-scope={`#code-${ep.opId}`}>
+            {tabs.map((t, i) => (
+              <button key={t.key} className={`cc-lang${i === 0 ? " active" : ""}`} data-tab={t.key}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+          <ApiExplorer
+            trigger={(open) => (
+              <button type="button" className="cc-play" onClick={open}>
+                <svg viewBox="0 0 24 24" aria-hidden><path d="M8 5v14l11-7z" /></svg> Try it
+              </button>
+            )}
+          />
+          <button className="cc-copy" data-copy={textFromHtml(tabs[0]?.html ?? "")} data-copy-icon aria-label="Copy">
+            <CopyIco />
+          </button>
         </div>
-        <button className="cc-copy" data-copy={textFromHtml(activeCode)} data-copy-icon aria-label="Copy">
-          <CopyIco />
-        </button>
-      </div>
-      <div>
-        <pre dangerouslySetInnerHTML={{ __html: activeCode }} />
+        <CodePanels code={ep.code} id={`code-${ep.opId}`} />
       </div>
 
-      <div className={`ex-resp${showLive ? " show" : ""}`}>
-        {pg.error ? (
-          <>
-            <div className="rh">
-              <span className="dot r" />
-              <span className="st" style={{ color: "var(--c-red)" }}>
-                Request failed
+      {(live || pg.error || ep.response) && (
+        <div className="code-card">
+          <div className="cc-head">
+            <span className="cc-title">Response</span>
+            {live ? (
+              <span className="cc-status">
+                <span className={`dot ${live.status < 400 ? "g" : "r"}`} /> {live.status} {live.statusText} · {live.durationMs} ms
               </span>
-            </div>
-            <pre style={{ color: "#e6868a", whiteSpace: "pre-wrap" }}>{pg.error}</pre>
-          </>
-        ) : live ? (
-          <>
-            <div className="rh">
-              <span className={`dot ${live.status < 400 ? "g" : "r"}`} />
-              <span className="st" style={live.status >= 400 ? { color: "var(--c-red)" } : undefined}>
-                {live.status} {live.statusText}
+            ) : !pg.error && ep.response ? (
+              <span className="cc-status">
+                <span className="dot g" /> {ep.response.label}
               </span>
-              <span className="lat">
-                {live.durationMs} ms · {live.via}
-              </span>
-            </div>
+            ) : null}
+          </div>
+          {live ? (
             <pre dangerouslySetInnerHTML={{ __html: colorizeJsonString(live.body) }} />
-          </>
-        ) : ep.response ? (
-          <>
-            <div className="rh">
-              <span className="dot g" />
-              <span className="st">{ep.response.label}</span>
-              <span className="lat">example</span>
-            </div>
-            <pre dangerouslySetInnerHTML={{ __html: ep.response.html }} />
-          </>
-        ) : null}
-      </div>
-
-      <div className="ex-foot">
-        <svg className="lock" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-          <rect x="3" y="11" width="18" height="11" rx="2" />
-          <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-        </svg>
-        Runs via your proxy · no key leaves your domain
-      </div>
-    </div>
-  );
-}
-
-function ExRow({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <div className="ex-row">
-      <label>{label}</label>
-      <div className="ex-in">{children}</div>
-    </div>
+          ) : pg.error ? (
+            <pre style={{ whiteSpace: "pre-wrap", color: "#e6868a" }}>{pg.error}</pre>
+          ) : (
+            <pre dangerouslySetInnerHTML={{ __html: ep.response!.html }} />
+          )}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -700,17 +633,6 @@ function AiActions({ resource, markdown, aiEnabled }: { resource: string; markdo
   );
 }
 
-function Helpful() {
-  return (
-    <div className="helpful">
-      Was this section helpful?{" "}
-      <span className="yn">
-        <button>Yes</button>
-        <button>No</button>
-      </span>
-    </div>
-  );
-}
 
 /* ── icons ─────────────────────────────────────────────────────────────── */
 function Ico({ d, cls = "", w = 24, search }: { d: string; cls?: string; w?: number; search?: boolean }) {

@@ -1,0 +1,9 @@
+# Real deploy config — carries your live D1 database_id. Copy it from
+# wrangler.toml.example and keep it out of git:
+#   cp wrangler.toml.example wrangler.toml
+wrangler.toml
+
+# Wrangler local state, local secrets, deps
+.wrangler/
+.dev.vars
+node_modules/

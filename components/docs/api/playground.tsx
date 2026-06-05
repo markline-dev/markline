@@ -1,10 +1,10 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 
-export type PlaygroundParam = { name: string; required: boolean; sample: string; description?: string; type?: string };
+export type PlaygroundParam = { name: string; required: boolean; sample: string; description?: string; type?: string; enum?: string[] };
 
 export type PlaygroundEndpoint = { method: string; label: string; href: string };
 
@@ -304,9 +304,46 @@ function ResponseBlock({ response, error }: { response: ResponseState; error: st
 
 /* ── Centered API Explorer (roomy request builder; shares the playground state) ── */
 
-export function ApiExplorer() {
-  const pg = usePlayground();
-  const { spec } = pg;
+const EXPLORER_LANGS = [
+  { id: "curl", label: "cURL" },
+  { id: "node", label: "Node" },
+  { id: "python", label: "Python" },
+  { id: "go", label: "Go" },
+] as const;
+type LangId = (typeof EXPLORER_LANGS)[number]["id"];
+
+const VERB_CLASS: Record<string, string> = { get: "get", post: "post", put: "put", patch: "put", delete: "del" };
+const verbClass = (m: string) => VERB_CLASS[m.toLowerCase()] ?? "post";
+
+function chipFor(type?: string, hasEnum?: boolean): { cls: string; label: string } {
+  const base = (type ?? "string").replace(/<.*$/, "");
+  if (hasEnum && base !== "boolean") return { cls: "t-enum", label: "enum" };
+  switch (base) {
+    case "integer": return { cls: "t-int", label: "integer" };
+    case "number": return { cls: "t-int", label: "number" };
+    case "boolean": return { cls: "t-bool", label: "boolean" };
+    case "object": return { cls: "t-hash", label: "object" };
+    case "array": return { cls: "t-hash", label: "array" };
+    default: return { cls: "t-str", label: type ?? "string" };
+  }
+}
+
+function escHtml(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function stripTags(html: string): string {
+  return html.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
+}
+
+/**
+ * The redesigned API Explorer ("Try it") modal — a two-column request builder:
+ * a flat sectioned form on the left, a soft-shade live code + response pane on
+ * the right. Pass `trigger` to render your own opener (e.g. a code-card "Try it"
+ * button); without it, a default expand-icon button is rendered. The modal is
+ * wired to the shared playground engine, so the same proxy/SSRF rules and BYOK
+ * token apply.
+ */
+export function ApiExplorer({ trigger }: { trigger?: (open: () => void) => React.ReactNode }) {
   const [open, setOpen] = useState(false);
 
   // Re-open after an in-explorer endpoint switch (which navigates to a new page).
@@ -325,304 +362,496 @@ export function ApiExplorer() {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
     window.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => { window.removeEventListener("keydown", onKey); document.body.style.overflow = prev; };
+    document.body.classList.add("xp-lock");
+    return () => { window.removeEventListener("keydown", onKey); document.body.classList.remove("xp-lock"); };
   }, [open]);
 
-  const requiredQuery = spec.queryParams.filter((p) => p.required);
-  const optionalQuery = spec.queryParams.filter((p) => !p.required);
-
+  const openModal = () => setOpen(true);
   return (
     <>
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        title="Open API Explorer"
-        aria-label="Open API Explorer"
-        className="ml-pg-explorer-btn"
-      >
-        <svg width={15} height={15} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden>
-          <path d="M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      </button>
-
-      {open && typeof document !== "undefined" && createPortal(
-        <div className="ml-explorer-scrim" onMouseDown={() => setOpen(false)}>
-          <div className="ml-explorer-modal" onMouseDown={(e) => e.stopPropagation()}>
-            {/* top bar: endpoint selector · url bar · send · close */}
-            <div className="ml-explorer-topbar">
-              <EndpointSelector spec={spec} />
-              <UrlBar method={spec.method} path={spec.path} />
-              <button type="button" onClick={pg.send} disabled={pg.loading} className="btn btn-primary btn-sm shrink-0">
-                {pg.loading ? "Running…" : <>Send <svg width={11} height={11} viewBox="0 0 16 16" fill="currentColor" aria-hidden><path d="M3 2.5 13.5 8 3 13.5 5 8 3 2.5Z" /></svg></>}
-              </button>
-              <button type="button" onClick={() => setOpen(false)} aria-label="Close" className="ml-explorer-close">
-                <svg width={16} height={16} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.6} aria-hidden><path d="m4 4 8 8M12 4l-8 8" strokeLinecap="round" /></svg>
-              </button>
-            </div>
-
-            <div className="ml-explorer-body">
-              {/* request builder */}
-              <div className="ml-explorer-builder">
-                <ExplorerField label="Server">
-                  {spec.servers.length > 1 ? (
-                    <select value={pg.baseUrl} onChange={(e) => pg.setBaseUrl(e.target.value)} className={inputCls}>
-                      {spec.servers.map((s) => <option key={s} value={s}>{s}</option>)}
-                    </select>
-                  ) : (
-                    <input value={pg.baseUrl} onChange={(e) => pg.setBaseUrl(e.target.value)} className={inputCls} />
-                  )}
-                </ExplorerField>
-
-                {(spec.bearer || spec.apiKeyHeaders.length > 0) && (
-                  <ExplorerSection title="Authorization">
-                    {spec.bearer && <ExplorerRow name="Authorization" type="string<bearer>" required><AuthInput /></ExplorerRow>}
-                    {spec.apiKeyHeaders.map((ak) => (
-                      <ExplorerRow key={ak.name} name={ak.name} type="string" required><ParamInput location="header" name={ak.name} /></ExplorerRow>
-                    ))}
-                  </ExplorerSection>
-                )}
-                {spec.pathParams.length > 0 && (
-                  <ExplorerSection title="Path">
-                    {spec.pathParams.map((p) => (
-                      <ExplorerRow key={p.name} name={p.name} type={p.type} required={p.required} description={p.description}><ParamInput location="path" name={p.name} sample={p.sample} /></ExplorerRow>
-                    ))}
-                  </ExplorerSection>
-                )}
-                {spec.queryParams.length > 0 && (
-                  <ExplorerSection title="Query">
-                    {requiredQuery.map((p) => (
-                      <ExplorerRow key={p.name} name={p.name} type={p.type} required description={p.description}><ParamInput location="query" name={p.name} sample={p.sample} /></ExplorerRow>
-                    ))}
-                    {optionalQuery.map((p) => (
-                      <ExplorerRow key={p.name} name={p.name} type={p.type} description={p.description}><ParamInput location="query" name={p.name} sample={p.sample} /></ExplorerRow>
-                    ))}
-                  </ExplorerSection>
-                )}
-                {spec.headerParams.length > 0 && (
-                  <ExplorerSection title="Headers">
-                    {spec.headerParams.map((p) => (
-                      <ExplorerRow key={p.name} name={p.name} type={p.type} required={p.required} description={p.description}><ParamInput location="header" name={p.name} sample={p.sample} /></ExplorerRow>
-                    ))}
-                  </ExplorerSection>
-                )}
-                {spec.bodySample !== undefined && (
-                  <ExplorerSection title="Body" defaultOpen>
-                    <BodyEditor />
-                  </ExplorerSection>
-                )}
-              </div>
-
-              {/* code + response */}
-              <div className="ml-explorer-result">
-                <Panel title={spec.summary ?? "Request"}>
-                  <CodeHeader code={pg.curl} />
-                  <pre dangerouslySetInnerHTML={{ __html: colorizeCurl(pg.curl) }} />
-                </Panel>
-                <ResponseTabs responses={spec.responses} live={pg.response} error={pg.error} />
-              </div>
-            </div>
-          </div>
-        </div>,
-        document.body,
+      {trigger ? (
+        trigger(openModal)
+      ) : (
+        <button type="button" onClick={openModal} title="Open API Explorer" aria-label="Open API Explorer" className="ml-pg-explorer-btn">
+          <svg width={15} height={15} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.5} aria-hidden>
+            <path d="M9.5 2.5h4v4M13.5 2.5 9 7M6.5 13.5h-4v-4M2.5 13.5 7 9" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
       )}
+      {open && typeof document !== "undefined" && createPortal(<ExplorerModal onClose={() => setOpen(false)} />, document.body)}
     </>
   );
 }
 
-function MethodTag({ method, small }: { method: string; small?: boolean }) {
+function ExplorerModal({ onClose }: { onClose: () => void }) {
+  const pg = usePlayground();
+  const { spec } = pg;
+  const [lang, setLang] = useState<LangId>("curl");
+
+  // Editable top-level body props (primitives), assembled back into the engine's
+  // body JSON on each change so Send posts a valid payload.
+  const initialBody = useMemo<Record<string, unknown>>(() => {
+    try { return spec.bodySample ? JSON.parse(spec.bodySample) : {}; } catch { return {}; }
+  }, [spec.bodySample]);
+  const [bodyObj, setBodyObj] = useState<Record<string, unknown>>(initialBody);
+  const bodyFields = Object.entries(initialBody).filter(([, v]) => v === null || typeof v !== "object");
+  const setBodyField = (k: string, raw: string) => {
+    const orig = initialBody[k];
+    const val = typeof orig === "number" && raw.trim() !== "" && !Number.isNaN(Number(raw)) ? Number(raw) : raw;
+    const next = { ...bodyObj, [k]: val };
+    setBodyObj(next);
+    pg.setBody(JSON.stringify(next, null, 2));
+  };
+
+  const reqQuery = spec.queryParams.filter((p) => p.required);
+  const optQuery = spec.queryParams.filter((p) => !p.required);
+  const live = pg.response;
+  const showResp = !!(live || pg.error);
+
+  const codeHtml = genCode(lang, spec, pg, bodyObj);
+  const codeLines = codeHtml.split("\n");
+
+  const clearAll = () => {
+    pg.setToken("");
+    for (const p of spec.pathParams) pg.setParam("path", p.name, "");
+    for (const p of spec.queryParams) pg.setParam("query", p.name, "");
+    for (const p of spec.headerParams) pg.setParam("header", p.name, "");
+    for (const ak of spec.apiKeyHeaders) pg.setParam("header", ak.name, "");
+    setBodyObj({});
+    pg.setBody(spec.bodySample ?? "");
+  };
+
   return (
-    <span
-      className={`ml-method-tag ${small ? "size-sm" : "size-md"}`}
-      style={{ background: methodColor(method) }}
-    >
-      {method}
-    </span>
+    <div className="xp-scrim open" onMouseDown={onClose}>
+      <div className="xp-modal" role="dialog" aria-modal="true" aria-label="API Explorer" onMouseDown={(e) => e.stopPropagation()}>
+        <div className="xp-top">
+          <ExplorerEndpoint />
+          <div className="xp-url"><ExplorerUrl /></div>
+          <CopyButton className="xp-url-copy" text={pg.targetUrl} label="Copy URL" />
+          <button type="button" className="xp-clear" onClick={clearAll}>Clear</button>
+          <button type="button" className={`xp-run${pg.loading ? " sending" : ""}`} onClick={pg.send} disabled={pg.loading}>
+            <svg viewBox="0 0 24 24" aria-hidden><path d="M8 5v14l11-7z" /></svg>
+            <span>{pg.loading ? "Sending…" : "Send"}</span>
+          </button>
+          <button type="button" className="xp-close" aria-label="Close" onClick={onClose}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden><path d="M18 6 6 18M6 6l12 12" /></svg>
+          </button>
+        </div>
+
+        <div className="xp-cols">
+          <div className="xp-form">
+            {(spec.bearer || spec.apiKeyHeaders.length > 0) && (
+              <ExplorerSection title="Authorization" count={(spec.bearer ? 1 : 0) + spec.apiKeyHeaders.length}>
+                {spec.bearer && <AuthRow />}
+                {spec.apiKeyHeaders.map((ak) => (
+                  <ParamRow key={ak.name} loc="header" param={{ name: ak.name, required: true, sample: "", type: "string" }} />
+                ))}
+              </ExplorerSection>
+            )}
+            {spec.headerParams.length > 0 && (
+              <ExplorerSection title="Headers" count={spec.headerParams.length}>
+                {spec.headerParams.map((p) => <ParamRow key={p.name} loc="header" param={p} />)}
+              </ExplorerSection>
+            )}
+            {spec.pathParams.length > 0 && (
+              <ExplorerSection title="Path" count={spec.pathParams.length}>
+                {spec.pathParams.map((p) => <ParamRow key={p.name} loc="path" param={p} />)}
+              </ExplorerSection>
+            )}
+            {spec.queryParams.length > 0 && (
+              <ExplorerSection title="Query" count={spec.queryParams.length}>
+                {reqQuery.map((p) => <ParamRow key={p.name} loc="query" param={p} />)}
+                {optQuery.map((p) => <ParamRow key={p.name} loc="query" param={p} />)}
+              </ExplorerSection>
+            )}
+            {bodyFields.length > 0 && (
+              <ExplorerSection title="Body" count={bodyFields.length}>
+                {bodyFields.map(([k, v]) => (
+                  <BodyRow key={k} name={k} value={String((bodyObj[k] ?? v ?? "") as string)} onChange={(val) => setBodyField(k, val)} />
+                ))}
+              </ExplorerSection>
+            )}
+          </div>
+
+          <div className="xp-side">
+            <div className="xp-pane xp-pane-code">
+              <div className="xp-pane-h">
+                <span className="lbl">Request</span>
+                <LangSelect lang={lang} setLang={setLang} />
+                <CopyButton className="xp-pane-copy" text={stripTags(codeHtml)} label="Copy code" />
+              </div>
+              <div className="xp-codewrap">
+                <div className="xp-code">
+                  <div className="ln" dangerouslySetInnerHTML={{ __html: codeLines.map((_, i) => i + 1).join("<br>") }} />
+                  <div className="src" dangerouslySetInnerHTML={{ __html: codeHtml }} />
+                </div>
+              </div>
+            </div>
+
+            <div className={`xp-pane xp-resp${showResp ? " show" : ""}`}>
+              <div className="xp-pane-h rh">
+                <span className="lbl">Response</span>
+                {pg.error ? (
+                  <span className="st err"><span className="dot" />Error</span>
+                ) : live ? (
+                  <>
+                    <span className={`st${live.status >= 400 ? " err" : ""}`}><span className="dot" />{live.status} {live.statusText}</span>
+                    <span className="lat">{live.durationMs} ms · {live.via}</span>
+                  </>
+                ) : null}
+              </div>
+              <div className="xp-respwrap">
+                {pg.error ? (
+                  <pre style={{ whiteSpace: "pre-wrap" }}>{pg.error}</pre>
+                ) : (
+                  <pre dangerouslySetInnerHTML={{ __html: colorizeJsonHtml(live?.body ?? "") }} />
+                )}
+              </div>
+            </div>
+
+            {!showResp && (
+              <div className="xp-empty">
+                <div className="xp-empty-ic"><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden><path d="M8 5v14l11-7z" /></svg></div>
+                <p>Send the request to see a live response.</p>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
-function EndpointSelector({ spec }: { spec: PlaygroundSpec }) {
+function ExplorerEndpoint() {
+  const pg = usePlayground();
+  const { spec } = pg;
   const router = useRouter();
   const [open, setOpen] = useState(false);
-  const [q, setQ] = useState("");
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
   const endpoints = spec.endpoints ?? [];
-  const filtered = endpoints.filter((e) => e.label.toLowerCase().includes(q.toLowerCase()));
   const go = (href: string) => {
     try { sessionStorage.setItem("ml-explorer-open", "1"); } catch { /* ignore */ }
     setOpen(false);
     router.push(href);
   };
-  if (endpoints.length === 0) {
-    return (
-      <div className="ml-endpoint-sel-static">
-        <MethodTag method={spec.method} />
-        <span className="name">{spec.summary}</span>
-      </div>
-    );
-  }
   return (
-    <div className="ml-endpoint-sel">
-      <button type="button" onClick={() => setOpen((o) => !o)} className="ml-endpoint-sel-btn">
-        <MethodTag method={spec.method} />
-        <span className="name">{spec.summary}</span>
-        <svg width={12} height={12} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.6} className="chev" aria-hidden><path d="m4 6 4 4 4-4" strokeLinecap="round" strokeLinejoin="round" /></svg>
+    <div className="xp-endwrap" ref={ref} style={{ position: "relative", flex: "none" }}>
+      <button type="button" className={`xp-endpoint${open ? " open" : ""}`} onClick={() => endpoints.length && setOpen((o) => !o)}>
+        <span className={`xp-verb ${verbClass(spec.method)}`}>{spec.method.toUpperCase()}</span>
+        <span className="epname">{spec.summary ?? spec.path}</span>
+        {endpoints.length > 0 && (
+          <svg className="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden><path d="m6 9 6 6 6-6" /></svg>
+        )}
       </button>
       {open && (
-        <div className="ml-endpoint-sel-menu" onMouseDown={(e) => e.stopPropagation()}>
-          <div className="ml-endpoint-sel-search">
-            <input autoFocus value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search for endpoint…" />
-          </div>
-          <div className="ml-endpoint-sel-list">
-            {filtered.map((e) => {
-              const active = e.href === spec.currentHref;
-              return (
-                <button key={e.href} type="button" onClick={() => go(e.href)} className={`ml-endpoint-sel-item${active ? " active" : ""}`}>
-                  <MethodTag method={e.method} />
-                  <span className="lbl">{e.label}</span>
-                </button>
-              );
-            })}
-            {filtered.length === 0 && <p className="ml-endpoint-sel-empty">No endpoints match.</p>}
-          </div>
+        <div className="xp-menu xp-menu-ep">
+          {endpoints.map((e) => (
+            <button key={e.href} type="button" className={`xp-ep-item${e.href === spec.currentHref ? " sel" : ""}`} onClick={() => go(e.href)}>
+              <span className={`xp-verb ${verbClass(e.method)}`}>{e.method.toUpperCase()}</span>
+              <span className="epn">{e.label}</span>
+            </button>
+          ))}
         </div>
       )}
     </div>
   );
 }
 
-function UrlBar({ method, path }: { method: string; path: string }) {
-  const segs = path.split("/").filter(Boolean);
+function ExplorerUrl() {
+  const pg = usePlayground();
+  const segs = pg.spec.path.split("/").filter(Boolean);
   return (
-    <div className="ml-urlbar">
-      <MethodTag method={method} />
-      <span className="segs">
-        {segs.map((s, i) => (
-          <span key={i}>
-            <span className="slash">/</span>
-            {s.startsWith("{") ? (
-              <span className="seg-var">{s}</span>
-            ) : (
-              <span className="seg-static">{s}</span>
-            )}
-          </span>
-        ))}
-      </span>
-    </div>
+    <>
+      <span className="u-base">{(pg.baseUrl || "").replace(/\/$/, "")}</span>
+      {segs.map((s, i) => {
+        const m = s.match(/^[:{]([A-Za-z0-9_]+)\}?$/);
+        if (m) {
+          const v = pg.getParam("path", m[1]);
+          return (
+            <span key={i}><span className="u-sl">/</span><span className={`u-var${v ? " set" : ""}`}>{v || `{${m[1]}}`}</span></span>
+          );
+        }
+        return <span key={i}><span className="u-sl">/</span><span className="u-seg">{s}</span></span>;
+      })}
+    </>
   );
 }
 
-function ExplorerField({ label, children }: { label: string; children: React.ReactNode }) {
+function ExplorerSection({ title, count, children }: { title: string; count: number; children: React.ReactNode }) {
+  const [closed, setClosed] = useState(false);
   return (
-    <label className="ml-explorer-field">
-      <span className="ml-explorer-field-label">{label}</span>
-      {children}
-    </label>
-  );
-}
-
-function ExplorerSection({ title, defaultOpen = true, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
-  const [open, setOpen] = useState(defaultOpen);
-  return (
-    <div className="ml-explorer-sec">
-      <button type="button" onClick={() => setOpen((o) => !o)} className={`ml-explorer-sec-toggle${open ? " open" : ""}`}>
-        <svg width={11} height={11} viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.8} className="chev" aria-hidden><path d="m6 4 4 4-4 4" strokeLinecap="round" strokeLinejoin="round" /></svg>
-        <span className="title">{title}</span>
+    <div className={`xp-card${closed ? " closed" : ""}`}>
+      <button type="button" className="xp-card-h" onClick={() => setClosed((c) => !c)}>
+        <svg className="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden><path d="m6 9 6 6 6-6" /></svg>
+        <span className="ct-label">{title}</span>
+        <span className="ct">{count}</span>
       </button>
-      {open && <div className="ml-explorer-sec-body">{children}</div>}
+      <div className="xp-card-body">{children}</div>
     </div>
   );
 }
 
-function ExplorerRow({ name, type, required, description, children }: { name: string; type?: string; required?: boolean; description?: string; children: React.ReactNode }) {
+function RowShell({ name, chip, required, description, children }: { name: string; chip: { cls: string; label: string }; required?: boolean; description?: string; children: React.ReactNode }) {
   return (
-    <div className="ml-explorer-row">
-      <div className="er-info">
-        <div className="er-head">
-          <code className="er-name">{name}</code>
-          {type && <span className="er-type">{type}</span>}
-          {required && <span className="er-required">required</span>}
+    <div className="xp-row">
+      <div className="xp-rl">
+        <div className="xp-rkey">
+          <span className="kname">{name}</span>
+          <span className={`xp-chip ${chip.cls}`}>{chip.label}</span>
+          {required ? <span className="req">required</span> : <span className="opt">optional</span>}
         </div>
-        {description && <p className="er-desc">{description}</p>}
+        {description && <div className="xp-rdesc">{description}</div>}
       </div>
-      <div className="er-input">{children}</div>
+      <div className="xp-rv">{children}</div>
     </div>
   );
 }
 
-function Panel({ title, children }: { title: string; children: React.ReactNode }) {
-  return (
-    <div className="ml-explorer-panel">
-      <div className="ml-explorer-panel-title">{title}</div>
-      {children}
-    </div>
-  );
-}
-
-function CodeHeader({ code }: { code: string }) {
-  const [copied, setCopied] = useState(false);
-  return (
-    <div className="ml-explorer-codehead">
-      <span className="lbl">cURL</span>
-      <button type="button" onClick={() => { navigator.clipboard?.writeText(code); setCopied(true); setTimeout(() => setCopied(false), 1200); }} className="copy">{copied ? "copied" : "copy"}</button>
-    </div>
-  );
-}
-
-function ResponseTabs({ responses, live, error }: { responses?: { status: string; body: string }[]; live: ResponseState; error: string | null }) {
-  const [active, setActive] = useState(0);
-  const [copied, setCopied] = useState(false);
-  const tabs = responses ?? [];
-  const liveMode = !!(live || error);
-  const statuses = liveMode ? [live ? String(live.status) : "ERR"] : tabs.map((t) => t.status);
-  const bodyText = liveMode ? (error ?? live?.body ?? "") : (tabs[active]?.body ?? "");
-  const copy = () => { navigator.clipboard?.writeText(bodyText); setCopied(true); setTimeout(() => setCopied(false), 1200); };
-  const hasExamples = tabs.some((t) => t.body.trim() !== "");
-  if (!liveMode && !hasExamples) {
-    return (
-      <div className="ml-resptabs-empty">
-        Send the request to see the response.
-      </div>
+function ParamRow({ loc, param }: { loc: Loc; param: PlaygroundParam }) {
+  const pg = usePlayground();
+  const hasEnum = !!param.enum?.length;
+  const isObject = (param.type ?? "").startsWith("object");
+  const val = pg.getParam(loc, param.name);
+  let control: React.ReactNode;
+  if (hasEnum) {
+    control = <EnumSelect value={val} options={param.enum!} onChange={(v) => pg.setParam(loc, param.name, v)} />;
+  } else if (isObject && loc === "query") {
+    control = <HashEditor name={param.name} />;
+  } else {
+    control = (
+      <input className="xp-input" value={val} placeholder={`enter ${param.name}`} spellCheck={false} onChange={(e) => pg.setParam(loc, param.name, e.target.value)} aria-label={param.name} />
     );
   }
   return (
-    <div className="ml-resptabs">
-      <div className="ml-resptabs-head">
-        {statuses.map((s, i) => {
-          const isActive = liveMode || i === active;
-          return (
-            <button key={s + i} type="button" onClick={() => !liveMode && setActive(i)} className="ml-resptabs-tab" style={{ borderBottomColor: isActive ? statusColor(s) : "transparent", color: isActive ? statusColor(s) : undefined }}>
-              {s}
-            </button>
-          );
-        })}
-        {live && <span className="ml-resptabs-meta">{live.durationMs}ms · {live.via}</span>}
-        <button type="button" onClick={copy} className="ml-resptabs-copy">{copied ? "copied" : "copy"}</button>
+    <RowShell name={param.name} chip={chipFor(param.type, hasEnum)} required={param.required} description={param.description}>
+      {control}
+    </RowShell>
+  );
+}
+
+function AuthRow() {
+  const pg = usePlayground();
+  return (
+    <RowShell name="Authorization" chip={{ cls: "t-str", label: "string" }} required description="Secret API key used to authenticate the request. Use a server-side key; never expose it in client code.">
+      <div className="xp-inwrap">
+        <span className="xp-pre">Bearer</span>
+        <input className="xp-input bare" value={pg.token} onChange={(e) => pg.setToken(e.target.value)} placeholder="enter token" type="password" spellCheck={false} aria-label="API key" />
       </div>
-      {error ? (
-        <p className="ml-resptabs-err">{error}</p>
-      ) : (
-        <pre dangerouslySetInnerHTML={{ __html: colorizeJson(bodyText || "(empty response)") }} />
+    </RowShell>
+  );
+}
+
+function BodyRow({ name, value, onChange }: { name: string; value: string; onChange: (v: string) => void }) {
+  const chip = /^-?\d+$/.test(value)
+    ? { cls: "t-int", label: "integer" }
+    : value === "true" || value === "false"
+      ? { cls: "t-bool", label: "boolean" }
+      : { cls: "t-str", label: "string" };
+  return (
+    <RowShell name={name} chip={chip}>
+      <input className="xp-input" value={value} placeholder={`enter ${name}`} spellCheck={false} onChange={(e) => onChange(e.target.value)} aria-label={name} />
+    </RowShell>
+  );
+}
+
+function EnumSelect({ value, options, onChange }: { value: string; options: string[]; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+  return (
+    <div className={`xp-enum${open ? " open" : ""}`} ref={ref} onClick={() => setOpen((o) => !o)}>
+      <span className={`ph${value ? " has" : ""}`}>{value || "Select…"}</span>
+      <span className="swap"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden><path d="m6 9 6 6 6-6" /></svg></span>
+      {open && (
+        <div className="xp-menu" onClick={(e) => e.stopPropagation()}>
+          {options.map((o) => (
+            <button key={o} type="button" className={o === value ? "sel" : ""} onClick={() => { onChange(o); setOpen(false); }}>
+              <span className="mono">{o}</span>
+            </button>
+          ))}
+        </div>
       )}
     </div>
   );
 }
 
-function statusColor(s: string) {
-  return s.startsWith("2") ? "#3CC88C" : s.startsWith("4") ? "#EE7A4B" : s.startsWith("5") ? "#E14F4F" : "#7882A0";
+function HashEditor({ name }: { name: string }) {
+  const pg = usePlayground();
+  const setParamRef = useRef(pg.setParam);
+  setParamRef.current = pg.setParam;
+  const [expanded, setExpanded] = useState(false);
+  const [pairs, setPairs] = useState<{ k: string; v: string }[]>([{ k: "", v: "" }]);
+  const prevKeys = useRef<string[]>([]);
+  useEffect(() => {
+    const keys = pairs.filter((p) => p.k).map((p) => `${name}[${p.k}]`);
+    for (const old of prevKeys.current) if (!keys.includes(old)) setParamRef.current("query", old, "");
+    for (const p of pairs) if (p.k) setParamRef.current("query", `${name}[${p.k}]`, p.v);
+    prevKeys.current = keys;
+  }, [pairs, name]);
+  if (!expanded) {
+    return <button type="button" className="xp-hash-add" onClick={() => setExpanded(true)}>+ Add {name}</button>;
+  }
+  const update = (i: number, field: "k" | "v", val: string) => setPairs((ps) => ps.map((p, j) => (j === i ? { ...p, [field]: val } : p)));
+  const remove = (i: number) => setPairs((ps) => (ps.length > 1 ? ps.filter((_, j) => j !== i) : ps.map((p, j) => (j === i ? { k: "", v: "" } : p))));
+  return (
+    <div className="xp-hash-rows">
+      {pairs.map((p, i) => (
+        <div className="xp-hash-pair" key={i}>
+          <input className="hk" placeholder="key" spellCheck={false} value={p.k} onChange={(e) => update(i, "k", e.target.value)} />
+          <span className="colon">:</span>
+          <input className="hv" placeholder="value" spellCheck={false} value={p.v} onChange={(e) => update(i, "v", e.target.value)} />
+          <button type="button" className="rm" aria-label="Remove" onClick={() => remove(i)}>
+            <svg viewBox="0 0 24 24" width={13} height={13} fill="none" stroke="currentColor" strokeWidth={2} aria-hidden><path d="M18 6 6 18M6 6l12 12" /></svg>
+          </button>
+        </div>
+      ))}
+      <button type="button" className="xp-hash-more" onClick={() => setPairs((ps) => [...ps, { k: "", v: "" }])}>+ add another</button>
+    </div>
+  );
 }
 
-function colorizeJson(s: string): string {
-  const esc = s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  return esc.replace(
+function LangSelect({ lang, setLang }: { lang: LangId; setLang: (l: LangId) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [open]);
+  const cur = EXPLORER_LANGS.find((l) => l.id === lang) ?? EXPLORER_LANGS[0];
+  return (
+    <div className="xp-langsel" ref={ref}>
+      <button type="button" className={`xp-langbtn${open ? " open" : ""}`} onClick={() => setOpen((o) => !o)}>
+        <span className="val">{cur.label}</span>
+        <svg className="caret" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden><path d="m6 9 6 6 6-6" /></svg>
+      </button>
+      {open && (
+        <div className="xp-menu" style={{ right: 0, left: "auto" }}>
+          {EXPLORER_LANGS.map((l) => (
+            <button key={l.id} type="button" className={l.id === lang ? "sel" : ""} onClick={() => { setLang(l.id); setOpen(false); }}>
+              <span className="mono">{l.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CopyButton({ className, text, label }: { className: string; text: string; label: string }) {
+  const [copied, setCopied] = useState(false);
+  return (
+    <button
+      type="button"
+      className={`${className}${copied ? " copied" : ""}`}
+      aria-label={label}
+      title={label}
+      onClick={() => { try { navigator.clipboard?.writeText(text); } catch { /* ignore */ } setCopied(true); setTimeout(() => setCopied(false), 1100); }}
+    >
+      {copied ? (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.2} aria-hidden><path d="M20 6 9 17l-5-5" /></svg>
+      ) : (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} aria-hidden><rect x="9" y="9" width="11" height="11" rx="2" /><path d="M5 15V5a2 2 0 0 1 2-2h10" /></svg>
+      )}
+    </button>
+  );
+}
+
+/* ── live, syntax-highlighted code generation (cURL / Node / Python / Go) ── */
+
+function colorizeJsonHtml(s: string): string {
+  if (!s) return "(empty response)";
+  return escHtml(s).replace(
     /("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g,
     (m, str, colon, kw, num) => {
-      if (str) return colon ? `<span style="color:#9CDCFE">${str}</span>${colon}` : `<span style="color:#3CC88C">${str}</span>`;
-      if (kw) return `<span style="color:#C792EA">${kw}</span>`;
-      if (num) return `<span style="color:#E8951F">${num}</span>`;
+      if (str) return colon ? `<span class="key">${str}</span>${colon}` : `<span class="s">${str}</span>`;
+      if (kw) return `<span class="k">${kw}</span>`;
+      if (num) return `<span class="n">${num}</span>`;
       return m;
     },
   );
+}
+
+function sdkResource(path: string): string {
+  const segs = path.split("/").filter(Boolean).filter((s) => !/^[:{]/.test(s));
+  if (segs.length > 1 && /^v\d+$/.test(segs[0])) return segs[1];
+  return segs[segs.length - 1] ?? "resource";
+}
+function sdkFn(spec: PlaygroundSpec): string {
+  const m = spec.method.toLowerCase();
+  const hasPath = /[:{]/.test(spec.path);
+  if (m === "post") return "create";
+  if (m === "put" || m === "patch") return "update";
+  if (m === "delete") return "del";
+  return hasPath ? "retrieve" : "list";
+}
+const isNum = (v: unknown) => /^-?\d+$/.test(String(v));
+const cap = (s: string) => s.replace(/(^|_)([a-z])/g, (_, __, c: string) => c.toUpperCase());
+function curlVal(v: unknown) { return isNum(v) ? `<span class="n">${String(v)}</span>` : escHtml(String(v)); }
+function jsVal(v: unknown) { const s = String(v); if (isNum(v)) return `<span class="n">${s}</span>`; if (s === "true" || s === "false") return `<span class="fl">${s}</span>`; return `<span class="s">'${escHtml(s)}'</span>`; }
+function pyVal(v: unknown) { const s = String(v); if (isNum(v)) return `<span class="n">${s}</span>`; if (s === "true") return `<span class="fl">True</span>`; if (s === "false") return `<span class="fl">False</span>`; return `<span class="s">"${escHtml(s)}"</span>`; }
+function goVal(v: unknown) { const s = String(v); return isNum(v) ? `client.<span class="f">Int</span>(<span class="n">${s}</span>)` : `client.<span class="f">String</span>(<span class="s">"${escHtml(s)}"</span>)`; }
+
+function genCode(lang: LangId, spec: PlaygroundSpec, pg: Ctx, bodyObj: Record<string, unknown>): string {
+  const method = spec.method.toUpperCase();
+  const isRead = method === "GET" || method === "DELETE" || method === "HEAD";
+
+  const headers: { k: string; v: string }[] = [];
+  if (spec.bearer) headers.push({ k: "Authorization", v: pg.token ? "Bearer ••••" : "Bearer sk_live_••••" });
+  for (const ak of spec.apiKeyHeaders) { const v = pg.getParam("header", ak.name); if (v) headers.push({ k: ak.name, v }); }
+  for (const hp of spec.headerParams) { const v = pg.getParam("header", hp.name); if (v) headers.push({ k: hp.name, v }); }
+
+  const writeFields = Object.entries(bodyObj).filter(([, v]) => v !== null && typeof v !== "object" && v !== "");
+  const queryFields = spec.queryParams
+    .map((p) => [p.name, pg.getParam("query", p.name)] as [string, string])
+    .filter(([, v]) => v !== "");
+
+  if (lang === "curl") {
+    const lines: string[] = [];
+    let head = `<span class="f">curl</span>`;
+    if (method !== "GET" && method !== "POST") head += ` -X ${method}`;
+    head += ` <span class="s">"${escHtml(pg.targetUrl)}"</span>`;
+    lines.push(head);
+    headers.forEach((h) => lines.push(`  -H <span class="s">"${escHtml(h.k)}: ${escHtml(h.v)}"</span>`));
+    if (!isRead) writeFields.forEach(([k, v]) => lines.push(`  -d <span class="key">${escHtml(k)}</span>=${curlVal(v)}`));
+    return lines.join(" \\\n");
+  }
+
+  const resource = sdkResource(spec.path);
+  const fn = sdkFn(spec);
+  const objFields = isRead ? queryFields : writeFields;
+
+  if (lang === "node") {
+    const head = `<span class="f">const</span> res = <span class="f">await</span> client.${escHtml(resource)}.<span class="f">${fn}</span>(`;
+    const args: string[] = [];
+    for (const p of spec.pathParams) { const v = pg.getParam("path", p.name); if (v) args.push(`  <span class="s">'${escHtml(v)}'</span>`); }
+    if (objFields.length) args.push(`  {\n${objFields.map(([k, v]) => `    ${escHtml(k)}: ${jsVal(v)},`).join("\n")}\n  }`);
+    return head + (args.length ? `\n${args.join(",\n")}\n` : "") + ")";
+  }
+  if (lang === "python") {
+    const head = `res = client.${escHtml(resource)}.<span class="f">${fn}</span>(`;
+    const inner: string[] = [];
+    for (const p of spec.pathParams) { const v = pg.getParam("path", p.name); if (v) inner.push(`    <span class="s">"${escHtml(v)}"</span>,`); }
+    objFields.forEach(([k, v]) => inner.push(`    ${escHtml(k)}=${pyVal(v)},`));
+    return head + (inner.length ? `\n${inner.join("\n")}\n` : "") + ")";
+  }
+  // go
+  const lines = [`res, err := client.${cap(resource)}.<span class="f">${cap(fn)}</span>(ctx, &client.${cap(resource)}Params{`];
+  objFields.forEach(([k, v]) => lines.push(`    ${cap(k)}: ${goVal(v)},`));
+  lines.push("})");
+  return lines.join("\n");
 }
 
 function highlightPath(path: string) {

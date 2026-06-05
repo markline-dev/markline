@@ -1,5 +1,5 @@
 /* ============================================================
-   MARKLINE — Stripe-style API reference design system
+   MARKLINE — API reference design system
    Ported from the Claude Design handoff (markline.css + api.css).
    Everything is scoped under .ml-apiref so the docs shell and the
    existing per-operation API pages are never affected. Dark is the
@@ -118,6 +118,24 @@
 .ml-apiref .api-sub-nav a.on::before { content: ""; position: absolute; left: 6px; top: 8px; bottom: 8px; width: 2px; border-radius: 2px; background: var(--accent); }
 .ml-apiref .api-sub-nav a .nm { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+/* nested tag groups (accordion derived from slash-separated tags) */
+/* Reset only the button chrome — NOT `font` (the shorthand would reset
+   font-size to the inherited base and override .gt's 13px). */
+.ml-apiref .api-grp > button.gt { width: 100%; text-align: left; background: transparent; border: 0; font-family: inherit; cursor: pointer; }
+.ml-apiref .api-parent > .gt { color: var(--ink-2); font-weight: 600; }
+.ml-apiref .api-parent.on > .gt { color: var(--ink); }
+.ml-apiref .api-parent > .gt:hover { background: var(--panel-hi); }
+.ml-apiref .api-parent > .gt .chev { transition: transform .15s; }
+.ml-apiref .api-parent.open > .gt .chev { transform: rotate(90deg); }
+.ml-apiref .api-parent .gt-toggle { margin-left: auto; display: inline-flex; align-items: center; background: transparent; border: 0; padding: 2px; cursor: pointer; color: var(--ink-4); }
+.ml-apiref .api-parent .gt-toggle:hover { color: var(--ink); }
+.ml-apiref .api-parent .gt-toggle .chev { margin-left: 0; }
+.ml-apiref .api-grp-children { display: flex; flex-direction: column; margin: 2px 0 4px 13px; padding-left: 8px; border-left: 1px solid var(--line); }
+.ml-apiref .api-grp-children .api-grp { margin-bottom: 2px; }
+
+/* resource header breadcrumb (parent group names) */
+.ml-apiref .api-crumbs { font-family: var(--mono); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-4); margin-bottom: 6px; }
+
 /* ---------- content ---------- */
 .ml-apiref .api-doc { padding: 0 52px; }
 .ml-apiref .api-sec { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 52px; padding: 46px 0; border-top: 1px solid var(--line); scroll-margin-top: 80px; }
@@ -134,7 +152,7 @@
 .ml-apiref .ai-action .ico { width: 14px; height: 14px; }
 
 /* resource header */
-.ml-apiref .api-resource h1 { font-size: 31px; font-weight: 700; letter-spacing: -0.025em; }
+.ml-apiref .api-resource h1 { font-size: 31px; font-weight: 500; letter-spacing: -0.025em; }
 .ml-apiref .api-resource .lead { font-size: 15px; color: var(--ink-2); margin-top: 14px; line-height: 1.62; max-width: 54ch; }
 .ml-apiref .api-resource .lead a { color: var(--accent-ink); border-bottom: 1px solid var(--accent-line); }
 .ml-apiref .helpful { display: flex; align-items: center; gap: 12px; margin-top: 22px; font-size: 13px; color: var(--ink-3); }
@@ -164,7 +182,7 @@
 .ml-apiref .ep-row:hover .chev { color: var(--accent-ink); }
 
 /* section title */
-.ml-apiref .api-sec h2 { font-size: 22px; font-weight: 700; letter-spacing: -0.02em; }
+.ml-apiref .api-sec h2 { font-size: 22px; font-weight: 500; letter-spacing: -0.02em; }
 .ml-apiref .api-sec .sec-lead { font-size: 14px; color: var(--ink-2); margin-top: 10px; line-height: 1.6; max-width: 54ch; }
 .ml-apiref .api-sec .sec-lead code, .ml-apiref .attr code, .ml-apiref .api-resource code { font-family: var(--mono); font-size: .86em; background: var(--panel-hi); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; color: var(--accent-ink); }
 
@@ -202,6 +220,35 @@
 .ml-apiref .code-card pre { padding: 14px 15px; overflow-x: auto; font-family: var(--mono); font-size: 12px; line-height: 1.75; color: var(--code-ink); white-space: pre; }
 .ml-apiref .code-card .k { color: var(--code-k); } .ml-apiref .code-card .s { color: var(--code-s); } .ml-apiref .code-card .f { color: var(--code-f); }
 .ml-apiref .code-card .n { color: var(--code-n); } .ml-apiref .code-card .c { color: var(--code-c); } .ml-apiref .code-card .key { color: var(--code-key); } .ml-apiref .code-card .pun { color: #6b6b78; }
+
+/* "Try it" play button in a code-card header — opens the API Explorer modal. */
+.ml-apiref .cc-play {
+  display: inline-flex; align-items: center; gap: 6px; flex: none;
+  font-size: 11.5px; font-weight: 600; color: #fff;
+  background: #2f6fed; border: 1px solid transparent;
+  border-radius: 7px; padding: 5px 11px 5px 10px;
+  box-shadow: 0 1px 0 rgba(255,255,255,0.18) inset, 0 6px 16px -8px rgba(47,111,237,0.8);
+  transition: background .15s, box-shadow .15s, transform .12s;
+}
+.ml-apiref .cc-play:hover { background: #2563eb; box-shadow: 0 1px 0 rgba(255,255,255,0.22) inset, 0 8px 20px -8px rgba(47,111,237,0.9); }
+.ml-apiref .cc-play:active { transform: translateY(1px); }
+.ml-apiref .cc-play svg { width: 11px; height: 11px; fill: #fff; }
+.ml-apiref .cc-head .cc-play { margin-left: auto; }
+.ml-apiref .cc-head .cc-play + .cc-copy { margin-left: 8px; }
+.ml-apiref .cc-langs + .cc-play { margin-left: auto; }
+
+/* In light mode the inline RESPONSE card softens to a contrasting surface. */
+[data-theme="light"] .ml-apiref .code-card:has(.cc-status) { background: #eef2fb; border-color: var(--line-2); box-shadow: var(--shadow); }
+html[data-accent="purple"][data-theme="light"] .ml-apiref .code-card:has(.cc-status) { background: #f1edfc; }
+[data-theme="light"] .ml-apiref .code-card:has(.cc-status) .cc-head { background: transparent; border-bottom-color: var(--line); }
+[data-theme="light"] .ml-apiref .code-card:has(.cc-status) .cc-title { color: var(--ink-3); }
+[data-theme="light"] .ml-apiref .code-card:has(.cc-status) .cc-status { color: var(--ink-3); }
+[data-theme="light"] .ml-apiref .code-card:has(.cc-status) pre { color: var(--ink); }
+[data-theme="light"] .ml-apiref .code-card:has(.cc-status) .key { color: #0a4fa6; }
+[data-theme="light"] .ml-apiref .code-card:has(.cc-status) .s   { color: #18794e; }
+[data-theme="light"] .ml-apiref .code-card:has(.cc-status) .n   { color: #bd4b00; }
+[data-theme="light"] .ml-apiref .code-card:has(.cc-status) .k   { color: #5b3fe0; }
+[data-theme="light"] .ml-apiref .code-card:has(.cc-status) .pun { color: var(--ink-4); }
 .ml-apiref [data-panel] { display: none; }
 .ml-apiref [data-panel].active { display: block; }
 

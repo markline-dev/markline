@@ -5,14 +5,14 @@ import path from "node:path";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import rehypePrettyCode from "rehype-pretty-code";
-import { loadOpenApi, hasOpenApiSpec } from "@/lib/openapi";
+import { loadOpenApi, hasOpenApiSpec, apiSpecPath } from "@/lib/openapi";
 import { ApiOperationPage } from "@/components/docs/api/operation-page";
 import { MarklineApiRef } from "@/components/docs/api/reference/markline-apiref";
-import { buildApiRefView, tagSlug } from "@/lib/apiref-view";
+import { buildApiRefView, tagSlug, parseOpenApiTag } from "@/lib/apiref-view";
 import { mdxComponents } from "@/components/docs/mdx";
 import { getHighlighter, shellEnhancer } from "@/lib/shiki";
 import { contentRoot } from "@/lib/paths";
-import { aiConfig } from "@/lib/config";
+import { aiConfig, loadConfig, nonDefaultVersionIds, feedbackConfig } from "@/lib/config";
 
 const shellTransformer = shellEnhancer();
 const prettyCodeOptions = {
@@ -24,20 +24,38 @@ const prettyCodeOptions = {
   transformers: [shellTransformer],
 } as const;
 
-function loadRaw() {
-  const file = path.join(contentRoot(), "api", "openapi.json");
+function loadRaw(variantId?: string) {
+  const file = apiSpecPath(variantId);
   if (!fs.existsSync(file)) return {};
   return JSON.parse(fs.readFileSync(file, "utf8"));
+}
+
+/** The `api/` directory for the default version or a named version variant. */
+function apiDir(variantId?: string): string {
+  return variantId ? path.join(contentRoot(), variantId, "api") : path.join(contentRoot(), "api");
+}
+
+/**
+ * Split a version-id prefix off the slug. `/api-reference/<id>/…` resolves that
+ * version's spec + overlays; otherwise the default version. Only the version
+ * ids declared in `markline.json` count as prefixes (so a tag/op named like a
+ * version still works).
+ */
+function parseVariant(slug?: string[]): { variantId?: string; rest: string[] } {
+  const s = slug ?? [];
+  const ids = nonDefaultVersionIds(loadConfig());
+  if (s.length > 0 && ids.includes(s[0])) return { variantId: s[0], rest: s.slice(1) };
+  return { rest: s };
 }
 
 /**
  * Per-operation MDX overlay. If `content/api/operations/<operationId>.mdx`
  * exists, its content is rendered between the endpoint path and the
- * auto-generated parameter/body sections — same slot Mintlify uses for callouts,
+ * auto-generated parameter/body sections — a dedicated slot for callouts,
  * use-cases, and extended prose.
  */
-function loadOperationMdx(operationId: string): string | null {
-  const file = path.join(contentRoot(), "api", "operations", `${operationId}.mdx`);
+function loadOperationMdx(operationId: string, variantId?: string): string | null {
+  const file = path.join(apiDir(variantId), "operations", `${operationId}.mdx`);
   try {
     return fs.readFileSync(file, "utf8");
   } catch {
@@ -54,10 +72,10 @@ function sectionSlug(name: string): string {
  * Per-section (tag/resource) MDX summary. If
  * `content/api/sections/<tag-slug>.mdx` exists, its content renders as the
  * resource intro on the API reference — richer than the OpenAPI tag
- * `description` (callouts, tables, links, components), Stripe-style.
+ * `description` (callouts, tables, links, components).
  */
-function loadSectionMdx(tagName: string): string | null {
-  const file = path.join(contentRoot(), "api", "sections", `${sectionSlug(tagName)}.mdx`);
+function loadSectionMdx(tagName: string, variantId?: string): string | null {
+  const file = path.join(apiDir(variantId), "sections", `${sectionSlug(tagName)}.mdx`);
   try {
     return fs.readFileSync(file, "utf8");
   } catch {
@@ -89,24 +107,29 @@ export function generateStaticParams(): { slug?: string[] }[] {
   // Always include the base path so `output: export` has at least one path to
   // generate; on a docs-only site (no spec) the page renders notFound().
   const params: { slug?: string[] }[] = [{ slug: undefined }];
-  if (hasOpenApiSpec()) {
-    const doc = loadOpenApi();
-    // One resource page per tag (the Stripe-style long page) …
-    for (const tag of doc.tags) {
-      params.push({ slug: [tagSlug(tag.name)] });
-    }
-    // … and the existing per-operation pages (back-compat: search, deep links).
-    for (const id of Object.keys(doc.operationsById)) {
-      params.push({ slug: [id] });
-    }
+
+  // Resource pages (one per tag) + per-operation pages (back-compat deep links),
+  // for a given version variant, under an optional path prefix.
+  const pushVariant = (variantId: string | undefined, prefix: string[]) => {
+    if (!hasOpenApiSpec(variantId)) return;
+    const doc = loadOpenApi(variantId);
+    for (const tag of doc.tags) params.push({ slug: [...prefix, tagSlug(tag.name)] });
+    for (const id of Object.keys(doc.operationsById)) params.push({ slug: [...prefix, id] });
+  };
+
+  pushVariant(undefined, []);
+  for (const id of nonDefaultVersionIds(loadConfig())) {
+    params.push({ slug: [id] }); // the version's reference landing
+    pushVariant(id, [id]);
   }
   return params;
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug?: string[] }> }): Promise<Metadata> {
   const { slug } = await params;
-  const doc = loadOpenApi();
-  const first = slug?.[0];
+  const { variantId, rest } = parseVariant(slug);
+  const doc = loadOpenApi(variantId);
+  const first = rest[0];
   if (!first) {
     return { title: "API reference" };
   }
@@ -123,36 +146,49 @@ export async function generateMetadata({ params }: { params: Promise<{ slug?: st
 }
 
 export default async function ApiReferencePage({ params }: { params: Promise<{ slug?: string[] }> }) {
-  if (!hasOpenApiSpec()) return notFound();
   const { slug } = await params;
-  const doc = loadOpenApi();
-  const root = loadRaw();
+  const { variantId, rest } = parseVariant(slug);
+  if (!hasOpenApiSpec(variantId)) return notFound();
+  const doc = loadOpenApi(variantId);
+  const root = loadRaw(variantId);
+  const base = variantId ? `/api-reference/${variantId}` : "/api-reference";
 
-  // Resolve the slug. No slug → the first resource (the design opens on its
-  // first tag). A tag-slug → that resource. An operationId → the per-op page.
-  const first = slug?.[0];
+  // Resolve the (variant-stripped) slug. Empty → the first resource (the design
+  // opens on its first tag). A tag-slug → that resource. An operationId → the
+  // per-op page.
+  const first = rest[0];
   const matchedTag = !first
     ? doc.tags[0]
     : doc.tags.find((t) => tagSlug(t.name) === first);
 
   if (matchedTag) {
-    const view = buildApiRefView(doc, root, tagSlug(matchedTag.name));
-    const sectionSrc = loadSectionMdx(matchedTag.name);
+    const view = buildApiRefView(doc, root, tagSlug(matchedTag.name), variantId);
+    const sectionSrc = loadSectionMdx(matchedTag.name, variantId);
     const summary = sectionSrc ? renderMdx(sectionSrc) : undefined;
-    return <MarklineApiRef view={view} summary={summary} ai={aiConfig()} />;
+    return (
+      <MarklineApiRef
+        view={view}
+        summary={summary}
+        ai={aiConfig()}
+        feedbackEnabled={feedbackConfig() != null}
+        feedbackEndpoint={feedbackConfig()?.endpoint}
+      />
+    );
   }
 
   const op = first ? doc.operationsById[first] : undefined;
   if (!op) return notFound();
 
+  const parsedTag = parseOpenApiTag(op.tag);
   const crumbs = [
     { label: "Docs", href: "/" },
-    { label: "API reference", href: "/api-reference" },
-    { label: op.tag },
+    { label: "API reference", href: base },
+    ...parsedTag.parentDisplayNames.map((n) => ({ label: n })),
+    { label: parsedTag.displayName, href: `${base}/${parsedTag.slug}` },
     { label: op.summary ?? op.operationId },
   ];
 
-  const overlay = loadOperationMdx(op.operationId);
+  const overlay = loadOperationMdx(op.operationId, variantId);
   const extendedContent = overlay ? renderMdx(overlay) : undefined;
 
   return (
@@ -162,6 +198,7 @@ export default async function ApiReferencePage({ params }: { params: Promise<{ s
       root={root}
       crumbs={crumbs}
       extendedContent={extendedContent}
+      base={base}
     />
   );
 }

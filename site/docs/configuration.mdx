@@ -58,7 +58,16 @@ See [API reference](/openapi) for the full guide — generating the reference, t
 
 <ParamField path="editUrl" type="string">Base URL for "Edit this page" links; the page path is appended.</ParamField>
 <ParamField path="analytics" type="object">`plausible`, `googleAnalytics`, or `posthog`.</ParamField>
-<ParamField path="feedback.endpoint" type="string">POST target for the "Was this helpful?" widget.</ParamField>
+<ParamField path="feedback.enabled" type="boolean">
+  Force the "Was this helpful?" widgets on or off. Omitted → shown only when an
+  `endpoint` is set. See [Feedback](/feedback).
+</ParamField>
+<ParamField path="feedback.endpoint" type="string">
+  POST target for the "Was this helpful?" widgets (same JSON from docs pages and
+  API resource sections). Point it at a webhook, a Sheet, your own API, or the
+  bundled [`feedback-worker`](/feedback#worker). See [Feedback](/feedback) for the
+  payload and deploy steps.
+</ParamField>
 
 ## Versions & i18n
 

@@ -280,6 +280,25 @@
 .ml-apiref .attr .enum { display: inline-flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
 .ml-apiref .attr .enum code { font-family: var(--mono); font-size: 11px; background: var(--panel-hi); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; color: var(--ink-3); }
 
+/* MDX callouts (Note / Tip / Info / Warning / Danger / Check) in section &
+   operation overlays — ported from docs.css since the API route doesn't load it. */
+.ml-apiref .callout {
+  margin-top: 20px; border: 1px solid var(--line); border-left: 2px solid var(--accent);
+  border-radius: 9px; padding: 14px 16px;
+  background: color-mix(in srgb, var(--accent) 5%, var(--panel));
+  display: flex; gap: 12px; max-width: 68ch;
+}
+.ml-apiref .callout .ic { color: var(--accent); flex: none; margin-top: 1px; }
+.ml-apiref .callout .ic svg { width: 17px; height: 17px; display: block; }
+.ml-apiref .callout .callout-body { min-width: 0; }
+.ml-apiref .callout p, .ml-apiref .callout .callout-body { margin: 0; font-size: 14px; color: var(--ink-2); line-height: 1.6; }
+.ml-apiref .callout .callout-body > * + * { margin-top: 8px; }
+.ml-apiref .callout strong { color: var(--ink); }
+.ml-apiref .callout.tone-warn { border-left-color: var(--warn); background: color-mix(in srgb, var(--warn) 6%, var(--panel)); }
+.ml-apiref .callout.tone-warn .ic { color: var(--warn); }
+.ml-apiref .callout.tone-ok { border-left-color: var(--ok); background: color-mix(in srgb, var(--ok) 6%, var(--panel)); }
+.ml-apiref .callout.tone-ok .ic { color: var(--ok); }
+
 /* ---------- dark code rail ---------- */
 .ml-apiref .code-card { border: 1px solid var(--code-line); border-radius: 12px; overflow: hidden; background: var(--code-bg); box-shadow: var(--shadow); }
 .ml-apiref .code-card + .code-card { margin-top: 14px; }

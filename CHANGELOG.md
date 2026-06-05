@@ -47,6 +47,8 @@ All notable changes to `@markline/markline` and `@markline/create`.
   "Store failed".
 - Removed stray status-dot glows (triggers, accordion headers, response
   switcher, version selector).
+- Page feedback now shows sentiment-specific reason options — "what worked"
+  for 👍 vs. "what to improve" for 👎 — instead of the same list for both.
 
 ## 0.1.2
 

@@ -1,6 +1,6 @@
 import type { JSONSchema, OpenAPIDoc, OpenAPIEvent, OpenAPIOperation, OpenAPITag } from "./openapi";
 import { eventAnchor, resolveSchema } from "./openapi";
-import { codeSamples, colorizeJson, successResponse, type CodeRail } from "./openapi-codegen";
+import { allResponses, codeSamples, colorizeJson, successResponse, type CodeRail } from "./openapi-codegen";
 import { buildPlaygroundSpec } from "./playground-spec";
 import type { PlaygroundSpec } from "@/components/docs/api/playground";
 import { loadConfig, playgroundMode } from "./config";
@@ -27,6 +27,9 @@ export type AttrView = {
 
 export type ParamGroup = { title: string; attrs: AttrView[] };
 
+/** A single documented response, for the status-code switcher on a code card. */
+export type ResponseView = { status: string; label: string; tone: "g" | "r"; html: string };
+
 export type EndpointView = {
   id: string;
   opId: string;
@@ -40,17 +43,20 @@ export type EndpointView = {
   /** Write/path endpoints get the interactive explorer; reads get code cards. */
   explorer: boolean;
   code: CodeRail;
+  /** The success response, used as the live-explorer fallback. */
   response?: { status: string; label: string; html: string };
+  /** All documented responses (success + errors) for the status-code switcher. */
+  responses: ResponseView[];
   /** First editable field surfaced in the explorer (besides Authorization). */
   field?: { label: string; value: string };
   hasBearer: boolean;
   /** Drives the live proxy explorer (PlaygroundProvider) on write endpoints. */
   playground?: PlaygroundSpec;
   /** Events this endpoint emits — chips that link up to the resource catalog. */
-  triggers: { name: string; id: string }[];
+  triggers: { name: string; id: string; tone: "g" | "r" | "n" }[];
 };
 
-export type NavOp = { id: string; verb: string | null; name: string; opId: string };
+export type NavOp = { id: string; verb: string | null; name: string; opId: string; evt?: "g" | "r" | "n" };
 
 /** A routable resource (a leaf tag). When active, `ops` carries its in-page jumps. */
 export type NavResource = { kind: "resource"; name: string; slug: string; active: boolean; ops: NavOp[] };
@@ -78,8 +84,10 @@ export type EventView = {
   guideHref?: string;
   attrs: AttrView[];
   sampleHtml: string;
+  /** Status-dot tone derived from the event name (success / failure / neutral). */
+  tone: "g" | "r" | "n";
   /** Endpoints in this resource that emit the event (title + section anchor). */
-  emittedBy: { title: string; id: string }[];
+  emittedBy: { title: string; id: string; verb: string }[];
 };
 
 export type ResourceView = {
@@ -250,6 +258,7 @@ function buildEndpoint(
   const groups = paramGroups(op, root);
   const code = codeSamples(op, doc, root, baseUrl, langs);
   const response = successResponse(op, root) ?? undefined;
+  const responses = allResponses(op, root);
   const hasBearer = op.security.some((s) => s.scheme.type === "http" && s.scheme.scheme === "bearer");
   // Every operation gets an interactive "Try it" modal (unless the playground is
   // off); `explorer` still flags writes, which historically rendered inline.
@@ -276,12 +285,14 @@ function buildEndpoint(
     explorer,
     code,
     response,
+    responses,
     field,
     hasBearer,
     playground: interactive ? buildPlaygroundSpec(op, doc, root, base) : undefined,
     triggers: [...new Map(op.events.map((e) => [e.name, e])).values()].map((e) => ({
       name: e.name,
       id: eventAnchor(e.name),
+      tone: eventTone(e.name),
     })),
   };
 }
@@ -330,7 +341,7 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
           name: op.summary ?? op.operationId,
           opId: op.operationId,
         })),
-        ...events.map((ev) => ({ id: ev.id, verb: null, name: ev.name, opId: "" })),
+        ...events.map((ev) => ({ id: ev.id, verb: null, name: ev.name, opId: "", evt: ev.tone })),
       ]
     : [];
 
@@ -428,6 +439,18 @@ function buildSearchIndex(doc: OpenAPIDoc, base = "/api-reference"): SearchEntry
   return out;
 }
 
+/**
+ * Status-dot tone for an event, inferred from its name: a terminal-failure word
+ * → red, a success/progress word → green, otherwise neutral. Failure is checked
+ * first so e.g. `create_failed` reads as red, not green.
+ */
+export function eventTone(name: string): "g" | "r" | "n" {
+  const n = name.toLowerCase();
+  if (/(fail|declin|error|cancel|void|terminat|reject|expir|delet|disput|frozen|freeze|revok|suspend|chargeback|charge_back|lock|close|block)/.test(n)) return "r";
+  if (/(succeed|success|complet|created|create|activ|approv|link|ready|paid|captur|confirm|deliver|settl|verif|enabl|resolv|publish|deploy)/.test(n)) return "g";
+  return "n";
+}
+
 function buildEventView(ev: OpenAPIEvent, root: unknown): EventView {
   const schema = ev.payloadSchema ? resolveSchema(ev.payloadSchema, root) : undefined;
   return {
@@ -438,6 +461,7 @@ function buildEventView(ev: OpenAPIEvent, root: unknown): EventView {
     guideHref: ev.guideHref,
     attrs: attrsFromSchema(schema, root),
     sampleHtml: colorizeJson(objectSample(schema, root)),
+    tone: eventTone(ev.name),
     emittedBy: [],
   };
 }
@@ -462,12 +486,14 @@ function buildResourceEvents(activeTag: OpenAPITag | undefined, doc: OpenAPIDoc,
   }
 
   // Which operations emit each event (from per-operation events).
-  const emittedBy = new Map<string, { title: string; id: string }[]>();
+  const emittedBy = new Map<string, { title: string; id: string; verb: string }[]>();
   for (const op of activeTag.operations) {
     for (const ev of op.events) {
       const id = anchorFor(op);
       const list = emittedBy.get(ev.name) ?? [];
-      if (!list.some((e) => e.id === id)) list.push({ title: op.summary ?? op.operationId, id });
+      if (!list.some((e) => e.id === id)) {
+        list.push({ title: op.summary ?? op.operationId, id, verb: VERB[op.method] ?? op.method.toUpperCase() });
+      }
       emittedBy.set(ev.name, list);
     }
   }

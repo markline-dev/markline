@@ -2,7 +2,7 @@ import type { JSONSchema, OpenAPIDoc, OpenAPIOperation, OpenAPIParameter } from 
 import { resolveSchema, sampleFromSchema } from "./openapi";
 
 /**
- * Server-side code-sample + JSON colorizer for the Stripe-style API reference
+ * Server-side code-sample + JSON colorizer for the API reference
  * (the dark code rails). Every function returns a pre-colorized HTML string
  * whose spans use the design's token classes (.k/.s/.f/.n/.key/.pun) — see
  * app/api-reference.css. Input is the project's own OpenAPI doc (trusted), and

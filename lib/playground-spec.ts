@@ -7,7 +7,7 @@ import type { PlaygroundSpec } from "@/components/docs/api/playground";
 /**
  * Builds the PlaygroundSpec consumed by the interactive playground engine
  * (components/docs/api/playground.tsx — PlaygroundProvider / usePlayground).
- * Shared by the per-operation page and the Stripe-style resource reference so
+ * Shared by the per-operation page and the resource reference so
  * both drive the SAME proxy/direct send logic. PlaygroundSpec is a plain-data
  * type, so the result crosses the server→client boundary unchanged.
  */
@@ -35,7 +35,7 @@ export function sampleParam(schema?: JSONSchema): string {
   return "";
 }
 
-export function buildPlaygroundSpec(op: OpenAPIOperation, doc: OpenAPIDoc, root: unknown): PlaygroundSpec {
+export function buildPlaygroundSpec(op: OpenAPIOperation, doc: OpenAPIDoc, root: unknown, base = "/api-reference"): PlaygroundSpec {
   const cfg = loadConfig();
   const servers = [...new Set([cfg.api.baseUrl, ...doc.servers.map((s) => s.url)].filter(Boolean))] as string[];
   const allSchemes = Object.values(doc.securitySchemes ?? {});
@@ -57,6 +57,7 @@ export function buildPlaygroundSpec(op: OpenAPIOperation, doc: OpenAPIDoc, root:
     sample: sampleParam(p.schema),
     description: p.description,
     type: describeType(p.schema),
+    enum: p.schema?.enum?.map((e) => String(e)) ?? (p.schema?.type === "boolean" ? ["true", "false"] : undefined),
   });
   return {
     method: op.method,
@@ -82,9 +83,9 @@ export function buildPlaygroundSpec(op: OpenAPIOperation, doc: OpenAPIDoc, root:
           : "",
     })),
     endpoints: doc.tags.flatMap((t) =>
-      t.operations.map((o) => ({ method: o.method, label: o.summary ?? o.operationId, href: operationHref(o) })),
+      t.operations.map((o) => ({ method: o.method, label: o.summary ?? o.operationId, href: operationHref(o, base) })),
     ),
-    currentHref: operationHref(op),
+    currentHref: operationHref(op, base),
     proxy: cfg.api.playground?.proxy ?? "auto",
   };
 }

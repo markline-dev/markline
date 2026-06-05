@@ -184,6 +184,10 @@ body {
 
 /* the shared sticky nav (60px) */
 .nav { position: sticky; top: 0; z-index: 60; background: color-mix(in srgb, var(--bg) 78%, transparent); backdrop-filter: blur(14px) saturate(1.2); border-bottom: 1px solid var(--line); }
+/* The nav sits at the top level (in layout), outside the .ml-apiref/.ml-home
+   border-box scopes — so re-assert it here, or .nav-in--full's width:100% +
+   padding-inline overflows the viewport and pushes the CTA off-screen. */
+.nav, .nav *, .nav *::before, .nav *::after { box-sizing: border-box; }
 .nav-in { display: flex; align-items: center; gap: 26px; height: 60px; }
 /* Topbar width (config: topbar.width / topbar.homeWidth) */
 .nav-in--full { width: 100%; max-width: none; margin-inline: 0; padding-inline: 22px; }

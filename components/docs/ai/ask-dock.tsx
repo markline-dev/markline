@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import type { AiPublicConfig } from "@/lib/config";
 
 /**
- * Docked "Ask AI" chat panel (Stripe-style) — ported from the Claude Design
+ * Docked "Ask AI" chat panel — ported from the Claude Design
  * handoff (aichat.css / aichat.js) to React, aligned to the Markline BYOK design
  * (_docs/AI-BYOK-DESIGN.md). Persistent right-side panel that pushes the page,
  * multi-chat dropdown, "Ask about this section" context, "Used N sources",

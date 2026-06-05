@@ -1,0 +1,168 @@
+---
+title: Feedback
+lede: '"Was this helpful?" widgets on every docs page and API resource — opt-in, sink-agnostic, with a drop-in Cloudflare Worker for static hosting.'
+toc:
+  - id: how-it-works
+    label: How it works
+  - id: configuration
+    label: Configuration
+  - id: payload
+    label: What it sends
+  - id: sinks
+    label: Sinks
+  - id: worker
+    label: Cloudflare Worker + D1
+  - id: abuse
+    label: Abuse & privacy
+---
+
+Markline ships optional **"Was this helpful?"** widgets on two surfaces:
+
+- **Docs pages** — a per-**page** rate block in the TOC rail: 👍/👎 → a reason →
+  an optional comment → submit.
+- **API reference** — a compact per-**resource** "Yes / No" that submits
+  immediately, tagging *which* resource it was on.
+
+Both POST the **same JSON** to one endpoint, so any sink works. Answers are
+remembered per page/section in `localStorage`, and a failed request never blocks
+the reader — feedback is strictly best-effort.
+
+<Note>Feedback is **hidden by default** — the widgets render only when you
+configure them (below). Omit the `feedback` block and there is no widget and no
+network at all.</Note>
+
+## How it works
+
+The framework is **sink-agnostic**: it only knows how to POST a small JSON blob
+to `feedback.endpoint`. Where that lands — a webhook, a spreadsheet, a database,
+the reference Worker — is yours to choose. Markline never stores feedback itself.
+
+## Configuration
+
+```jsonc
+// markline.json
+"feedback": {
+  "enabled": true,                          // optional — see the table
+  "endpoint": "https://feedback.example.com" // POST target
+}
+```
+
+<ParamField path="feedback.endpoint" type="string">
+  POST target for both widgets. Unset → submissions are logged to the browser
+  console (handy in dev).
+</ParamField>
+<ParamField path="feedback.enabled" type="boolean">
+  Force the widgets on or off. Omitted → shown **only when an `endpoint` is set**
+  (so a widget never points nowhere).
+</ParamField>
+
+Visibility resolves like this:
+
+| `enabled` | `endpoint` | Widgets |
+|---|---|---|
+| _omitted_ | set | **shown** |
+| _omitted_ | unset | hidden |
+| `true` | any | **shown** (console-logs without an endpoint) |
+| `false` | any | hidden |
+
+<Tip>Restart `markline dev` after editing `markline.json` — config is read once
+per process.</Tip>
+
+## What it sends
+
+A `POST` with `Content-Type: application/json`. The per-section payload is the
+base; the per-page widget adds `reason` and `comment`.
+
+```jsonc
+// API reference — per section, on Yes/No
+{ "answer": "yes", "scope": "section", "target": "payments",
+  "path": "/api-reference/payments", "ts": 1733424000000 }
+```
+
+```jsonc
+// Docs — per page, on Submit
+{ "answer": "no", "scope": "page", "target": null,
+  "path": "/guides/webhooks", "ts": 1733424000000,
+  "reason": "Update this documentation", "comment": "the retry section is stale" }
+```
+
+| Field | Type | Notes |
+|---|---|---|
+| `answer` | `"yes"` \| `"no"` | the thumb / Yes-No |
+| `scope` | `"page"` \| `"section"` | which widget |
+| `target` | `string` \| `null` | resource slug for sections; `null` for pages |
+| `path` | `string` | the page it was left on |
+| `ts` | `number` | epoch ms |
+| `reason` | `string` | **page only** — one of the radio options |
+| `comment` | `string` | **page only** — free text |
+
+## Sinks
+
+`feedback.endpoint` is just a URL that accepts that POST. Common choices:
+
+- A **webhook** that fans out to Slack / Discord.
+- A **Google Sheet** via an Apps Script web-app URL.
+- **Airtable**, a serverless function, or your own API.
+- The reference **Cloudflare Worker → D1** below — batteries-included for static
+  hosting.
+
+## Cloudflare Worker + D1
+
+For a static site (GitHub Pages / S3 / any CDN) with no backend of your own,
+deploy the open-source reference Worker in
+[`templates/feedback-worker/`](https://github.com/markline-dev/markline/tree/main/templates/feedback-worker).
+It validates the payload, rate-limits, stores a row in **Cloudflare D1**, and can
+forward a line to **Slack**.
+
+<Steps>
+  <Step title="Create the database">
+    From `templates/feedback-worker/`:
+    ```bash
+    npm install
+    cp wrangler.toml.example wrangler.toml      # your real config is gitignored
+    npx wrangler d1 create markline-feedback    # paste the database_id into wrangler.toml
+    npx wrangler d1 execute markline-feedback --remote --file schema.sql
+    ```
+    The `database_id` is an identifier, not a secret — but `wrangler.toml` is
+    gitignored so your filled-in config never lands in the repo.
+  </Step>
+  <Step title="Lock down origins (+ optional Slack)">
+    In `wrangler.toml` `[vars]`, set `MARKLINE_ALLOWED_ORIGIN` to your docs
+    domain(s) — this is the CORS / abuse allow-list. To forward to Slack:
+    ```bash
+    npx wrangler secret put MARKLINE_SLACK_WEBHOOK
+    ```
+  </Step>
+  <Step title="Deploy + point your site at it">
+    ```bash
+    npx wrangler deploy        # → https://markline-feedback.<acct>.workers.dev
+    ```
+    Optionally add a [Custom Domain](https://developers.cloudflare.com/workers/configuration/routing/custom-domains/)
+    (e.g. `feedback.your-docs.dev`) to hide the `workers.dev` URL, then set it in
+    `markline.json`:
+    ```jsonc
+    "feedback": { "endpoint": "https://feedback.your-docs.dev" }
+    ```
+  </Step>
+  <Step title="Read what comes in">
+    ```bash
+    npx wrangler d1 execute markline-feedback --remote \
+      --command "SELECT created_at, answer, scope, target, path, reason, comment
+                 FROM feedback ORDER BY id DESC LIMIT 50"
+    ```
+  </Step>
+</Steps>
+
+## Abuse & privacy
+
+- **Origin allow-list** (`MARKLINE_ALLOWED_ORIGIN`) keeps other sites from posting
+  via a reader's browser — but it is **not** a security boundary (a script can
+  forge `Origin`). Your real control is the **rate limit**.
+- **Per-IP rate limit** — `MARKLINE_RATE_PER_MIN` (default 30/min). It's
+  per-isolate in-memory; for a hard cap, back it with KV / a Durable Object or a
+  Cloudflare WAF rule.
+- **No raw IPs** are stored — only a short hash, for spotting dupes/abuse.
+- `comment` is **free text** and may contain PII; treat the table accordingly.
+
+<Warning>A public feedback endpoint is unauthenticated by design. Keep the
+allow-list pinned and the rate limit conservative on high-traffic sites.</Warning>

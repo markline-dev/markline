@@ -8,7 +8,7 @@ import { DocsPage } from "@/components/docs/page";
 import { DocsShell } from "@/components/docs/nav";
 import { mdxComponents } from "@/components/docs/mdx";
 import { getHighlighter, shellEnhancer } from "@/lib/shiki";
-import { loadConfig, aiConfig } from "@/lib/config";
+import { loadConfig, aiConfig, feedbackConfig } from "@/lib/config";
 import { getDocsTabs, pickActiveTab, getNav } from "@/components/docs/sections";
 import { LandingPage } from "@/components/landing/landing";
 import type { PageNavLink } from "@/components/docs/page";
@@ -89,7 +89,8 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
         toc={doc.fm.toc ?? []}
         lastUpdated={doc.fm.last_updated}
         editUrl={editUrl}
-        feedbackEndpoint={config.feedback?.endpoint}
+        feedbackEnabled={feedbackConfig() != null}
+        feedbackEndpoint={feedbackConfig()?.endpoint}
         aiEnabled={aiConfig() != null}
         prev={prev}
         next={next}

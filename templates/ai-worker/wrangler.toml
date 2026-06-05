@@ -4,13 +4,22 @@ name = "markline-ai"
 main = "src/worker.ts"
 compatibility_date = "2024-11-01"
 
+# Serve the Worker on your own domain instead of *.workers.dev. You added this
+# in the dashboard already; declaring it here keeps `wrangler deploy` as the
+# source of truth. Requires the markline.dev zone on this Cloudflare account.
+# (If deploy complains the domain already exists, remove this block — the
+# dashboard binding is enough.)
+routes = [
+  { pattern = "ask.markline.dev", custom_domain = true }
+]
+
 # Non-secret knobs. The provider key is a SECRET — never put it here:
 #   wrangler secret put MARKLINE_AI_KEY
 [vars]
 MARKLINE_AI_PROVIDER = "openrouter"
 MARKLINE_AI_MODEL = "deepseek/deepseek-v4-flash"
 MARKLINE_AI_MAX_TOKENS = "1024"
-# Comma-separated list of docs origins allowed to call this Worker.
+# Comma-separated list of docs origins allowed to call this Worker (CORS).
 # Pin this to your site(s); "*" allows any origin (not recommended).
 MARKLINE_ALLOWED_ORIGIN = "https://markline.dev"
 MARKLINE_RATE_PER_MIN = "10"

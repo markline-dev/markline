@@ -19,6 +19,7 @@ export function ApiOperationPage({
   root,
   crumbs,
   extendedContent,
+  base = "/api-reference",
 }: {
   op: OpenAPIOperation;
   doc: OpenAPIDoc;
@@ -26,11 +27,13 @@ export function ApiOperationPage({
   crumbs: Crumb[];
   /** Optional MDX content rendered between the endpoint path and the auto-generated parameter/body sections. */
   extendedContent?: React.ReactNode;
+  /** Route base for the explorer's endpoint switcher ("/api-reference[/<id>]"). */
+  base?: string;
 }) {
   const reqSchema = op.requestBody?.schema ? resolveSchema(op.requestBody.schema, root) : undefined;
   const cfg = loadConfig();
   const mode = playgroundMode(cfg.api);
-  const playgroundSpec = mode !== "off" ? buildPlaygroundSpec(op, doc, root) : null;
+  const playgroundSpec = mode !== "off" ? buildPlaygroundSpec(op, doc, root, base) : null;
   const interactive = !!playgroundSpec;
   const showInline = mode === "full" || mode === "inline"; // editable inputs in the param docs
   const showExplorer = mode === "full" || mode === "explorer"; // the API Explorer modal

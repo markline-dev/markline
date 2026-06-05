@@ -8,7 +8,7 @@ export type PageNavLink = { href: string; label: string };
 
 export function DocsPage({
   crumbs, title, lede, toc, lastUpdated, editUrl, feedbackEndpoint,
-  aiEnabled = false, prev, next, children,
+  feedbackEnabled = false, aiEnabled = false, prev, next, children,
 }: {
   crumbs: Crumb[];
   title: string;
@@ -17,6 +17,8 @@ export function DocsPage({
   lastUpdated?: string;
   editUrl?: string;
   feedbackEndpoint?: string;
+  /** Whether the "Was this page helpful?" widget renders (feedback opt-in). */
+  feedbackEnabled?: boolean;
   /** Whether the "Ask AI about this page" affordance renders (AI opt-in). */
   aiEnabled?: boolean;
   prev?: PageNavLink;
@@ -84,7 +86,7 @@ export function DocsPage({
         )}
       </main>
 
-      <DocsToc items={toc} feedbackEndpoint={feedbackEndpoint} />
+      <DocsToc items={toc} helpful={feedbackEnabled} feedbackEndpoint={feedbackEndpoint} />
     </>
   );
 }

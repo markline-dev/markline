@@ -18,13 +18,12 @@
       {
         "id": "documentation",
         "label": "Documentation",
-        "href": "/",
+        "href": "/quickstart",
         "match": ["__default__"],
         "groups": [
           {
             "group": "Getting started",
             "pages": [
-              { "href": "/", "label": "Introduction" },
               { "href": "/quickstart", "label": "Quickstart" },
               { "href": "/cli", "label": "CLI" }
             ]
@@ -44,7 +43,8 @@
             "pages": [
               { "href": "/deployment", "label": "Deployment" },
               { "href": "/versions", "label": "Versions & i18n" },
-              { "href": "/ai", "label": "Ask AI (BYOK)" }
+              { "href": "/ai", "label": "Ask AI (BYOK)" },
+              { "href": "/feedback", "label": "Feedback" }
             ]
           }
         ]
@@ -67,10 +67,12 @@
     "provider": "openrouter",
     "model": "deepseek/deepseek-v4-flash",
     "mode": "proxy",
+    "endpoint": "https://ask.markline.dev",
     "label": "Ask AI",
     "maxTokens": 1024,
     "rateLimit": { "perMinute": 10 }
   },
+  "feedback": { "endpoint": "https://feedback.markline.dev" },
   "editUrl": "https://github.com/markline-dev/markline/edit/main/site",
   "seo": {
     "title": "Markline — open-source docs framework",

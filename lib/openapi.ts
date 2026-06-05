@@ -85,7 +85,8 @@ export type OpenAPIDoc = {
 
 const METHODS = ["get", "post", "put", "patch", "delete", "options", "head"] as const;
 
-let _cache: OpenAPIDoc | undefined;
+// Parsed-spec cache, keyed by version id ("" = the default/unprefixed version).
+const _cache = new Map<string, OpenAPIDoc>();
 
 const EMPTY_DOC: OpenAPIDoc = {
   info: { title: "", version: "" },
@@ -95,21 +96,37 @@ const EMPTY_DOC: OpenAPIDoc = {
   securitySchemes: {},
 };
 
-/** Whether the content has an OpenAPI spec (docs-only sites don't). */
-export function hasOpenApiSpec(): boolean {
-  return fs.existsSync(path.join(contentRoot(), "api", "openapi.json"));
+/**
+ * Filesystem path to an OpenAPI spec. The default version lives at
+ * `<content>/api/openapi.json`; a named version `id` lives at
+ * `<content>/<id>/api/openapi.json` — the same per-id folder convention the
+ * docs use (`<content>/<id>/docs`).
+ */
+export function apiSpecPath(variantId?: string): string {
+  return variantId
+    ? path.join(contentRoot(), variantId, "api", "openapi.json")
+    : path.join(contentRoot(), "api", "openapi.json");
 }
 
-export function loadOpenApi(): OpenAPIDoc {
-  if (_cache) return _cache;
-  const file = path.join(contentRoot(), "api", "openapi.json");
+/** Whether the content has an OpenAPI spec (docs-only sites don't). Pass a
+ *  version id to check that version's spec. */
+export function hasOpenApiSpec(variantId?: string): boolean {
+  return fs.existsSync(apiSpecPath(variantId));
+}
+
+export function loadOpenApi(variantId?: string): OpenAPIDoc {
+  const key = variantId ?? "";
+  const hit = _cache.get(key);
+  if (hit) return hit;
+  const file = apiSpecPath(variantId);
   if (!fs.existsSync(file)) {
-    _cache = EMPTY_DOC;
-    return _cache;
+    _cache.set(key, EMPTY_DOC);
+    return EMPTY_DOC;
   }
   const raw = JSON.parse(fs.readFileSync(file, "utf8"));
-  _cache = normalize(raw);
-  return _cache;
+  const doc = normalize(raw);
+  _cache.set(key, doc);
+  return doc;
 }
 
 function normalize(raw: any): OpenAPIDoc {
@@ -299,6 +316,6 @@ export function sampleFromSchema(schema: JSONSchema | undefined, root?: any): un
   }
 }
 
-export function operationHref(op: OpenAPIOperation) {
-  return `/api-reference/${op.operationId}`;
+export function operationHref(op: OpenAPIOperation, base = "/api-reference") {
+  return `${base}/${op.operationId}`;
 }

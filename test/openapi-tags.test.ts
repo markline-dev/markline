@@ -9,18 +9,17 @@ import {
 
 test("tagSlug collapses non-alphanumerics, keeping the full path", () => {
   assert.equal(tagSlug("payments"), "payments");
-  assert.equal(tagSlug("tools/merchants"), "tools-merchants");
+  assert.equal(tagSlug("billing/invoices"), "billing-invoices");
   assert.equal(tagSlug("Card Programs"), "card-programs");
-  assert.equal(tagSlug("simulation/grp/cards"), "simulation-grp-cards");
+  assert.equal(tagSlug("admin/api/keys"), "admin-api-keys");
 });
 
 test("segmentDisplayName title-cases segments and applies acronyms", () => {
-  assert.equal(segmentDisplayName("merchants"), "Merchants");
-  assert.equal(segmentDisplayName("card-programs"), "Card Programs");
-  assert.equal(segmentDisplayName("cardPrograms"), "Card Programs");
+  assert.equal(segmentDisplayName("invoices"), "Invoices");
+  assert.equal(segmentDisplayName("payment-methods"), "Payment Methods");
+  assert.equal(segmentDisplayName("paymentMethods"), "Payment Methods");
   assert.equal(segmentDisplayName("fx"), "FX");
-  assert.equal(segmentDisplayName("grp"), "GRP");
-  assert.equal(segmentDisplayName("configuration"), "Configuration");
+  assert.equal(segmentDisplayName("api"), "API");
 });
 
 test("parseOpenApiTag: single segment behaves as a top-level leaf", () => {
@@ -33,25 +32,25 @@ test("parseOpenApiTag: single segment behaves as a top-level leaf", () => {
 });
 
 test("parseOpenApiTag: two segments split parent/leaf", () => {
-  const p = parseOpenApiTag("tools/merchants");
-  assert.deepEqual(p.segments, ["tools", "merchants"]);
-  assert.equal(p.parentPath, "tools");
-  assert.equal(p.leaf, "merchants");
-  assert.equal(p.slug, "tools-merchants");
-  assert.equal(p.displayName, "Merchants");
-  assert.deepEqual(p.parentDisplayNames, ["Tools"]);
+  const p = parseOpenApiTag("billing/invoices");
+  assert.deepEqual(p.segments, ["billing", "invoices"]);
+  assert.equal(p.parentPath, "billing");
+  assert.equal(p.leaf, "invoices");
+  assert.equal(p.slug, "billing-invoices");
+  assert.equal(p.displayName, "Invoices");
+  assert.deepEqual(p.parentDisplayNames, ["Billing"]);
 });
 
 test("parseOpenApiTag: three segments nest to full depth", () => {
-  const p = parseOpenApiTag("simulation/grp/cards");
-  assert.equal(p.parentPath, "simulation/grp");
-  assert.equal(p.leaf, "cards");
-  assert.equal(p.slug, "simulation-grp-cards");
-  assert.deepEqual(p.parentDisplayNames, ["Simulation", "GRP"]);
+  const p = parseOpenApiTag("admin/api/keys");
+  assert.equal(p.parentPath, "admin/api");
+  assert.equal(p.leaf, "keys");
+  assert.equal(p.slug, "admin-api-keys");
+  assert.deepEqual(p.parentDisplayNames, ["Admin", "API"]);
 });
 
 test("buildTagTree: flat tags stay top-level leaves", () => {
-  const tree = buildTagTree(["payments", "cards"]);
+  const tree = buildTagTree(["payments", "customers"]);
   assert.equal(tree.length, 2);
   assert.equal(tree[0].type, "leaf");
   assert.equal(tree[0].tag, "payments");
@@ -60,45 +59,45 @@ test("buildTagTree: flat tags stay top-level leaves", () => {
 
 test("buildTagTree: groups by shared prefix at full depth", () => {
   const tree = buildTagTree([
-    "tools/banks",
-    "tools/fx",
-    "simulation/payments",
-    "simulation/grp/cards",
+    "billing/invoices",
+    "billing/fx",
+    "admin/users",
+    "admin/api/keys",
   ]);
-  assert.deepEqual(tree.map((n) => n.path), ["tools", "simulation"]);
+  assert.deepEqual(tree.map((n) => n.path), ["billing", "admin"]);
 
-  const tools = tree[0];
-  assert.equal(tools.type, "group");
-  assert.equal(tools.tag, undefined); // synthetic parent, not a real tag
-  assert.deepEqual(tools.children.map((c) => c.name), ["Banks", "FX"]);
-  assert.equal(tools.children[0].type, "leaf");
-  assert.equal(tools.children[0].tag, "tools/banks");
-  assert.equal(tools.children[0].slug, "tools-banks");
+  const billing = tree[0];
+  assert.equal(billing.type, "group");
+  assert.equal(billing.tag, undefined); // synthetic parent, not a real tag
+  assert.deepEqual(billing.children.map((c) => c.name), ["Invoices", "FX"]);
+  assert.equal(billing.children[0].type, "leaf");
+  assert.equal(billing.children[0].tag, "billing/invoices");
+  assert.equal(billing.children[0].slug, "billing-invoices");
 
-  const sim = tree[1];
-  const grp = sim.children.find((c) => c.path === "simulation/grp");
-  assert.ok(grp);
-  assert.equal(grp.type, "group");
-  assert.equal(grp.name, "GRP");
-  assert.equal(grp.children[0].tag, "simulation/grp/cards");
+  const admin = tree[1];
+  const api = admin.children.find((c) => c.path === "admin/api");
+  assert.ok(api);
+  assert.equal(api.type, "group");
+  assert.equal(api.name, "API");
+  assert.equal(api.children[0].tag, "admin/api/keys");
 });
 
 test("buildTagTree: preserves spec (input) order", () => {
-  const tree = buildTagTree(["zebra", "tools/banks", "alpha"]);
-  assert.deepEqual(tree.map((n) => n.path), ["zebra", "tools", "alpha"]);
+  const tree = buildTagTree(["zebra", "billing/invoices", "alpha"]);
+  assert.deepEqual(tree.map((n) => n.path), ["zebra", "billing", "alpha"]);
 });
 
 test("buildTagTree: a prefix that is also a real tag is a group AND a tag", () => {
-  const tree = buildTagTree(["tools", "tools/banks"]);
+  const tree = buildTagTree(["billing", "billing/invoices"]);
   assert.equal(tree.length, 1);
-  const tools = tree[0];
-  assert.equal(tools.type, "group"); // has children
-  assert.equal(tools.tag, "tools"); // but is a real tag too
-  assert.equal(tools.children[0].tag, "tools/banks");
+  const billing = tree[0];
+  assert.equal(billing.type, "group"); // has children
+  assert.equal(billing.tag, "billing"); // but is a real tag too
+  assert.equal(billing.children[0].tag, "billing/invoices");
 });
 
 test("buildTagTree: one group per prefix, no duplicates", () => {
-  const tree = buildTagTree(["tools/a", "tools/b", "tools/c"]);
+  const tree = buildTagTree(["store/a", "store/b", "store/c"]);
   assert.equal(tree.length, 1);
   assert.equal(tree[0].children.length, 3);
 });

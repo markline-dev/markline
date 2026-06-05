@@ -76,32 +76,32 @@ reference is instant — it's one app, not a separate site.</Note>
 
 ## Nested tags
 
-Slash-separated tags — the convention NestJS emits from `@ApiTags('tools/banks')`
+Slash-separated tags — the convention NestJS emits from `@ApiTags('store/orders')`
 — become a **nested sidebar**. No config: Markline groups by shared prefix and
-title-cases each segment (with an acronym map, so `fx` → `FX`, `grp` → `GRP`).
+title-cases each segment (with an acronym map, so `fx` → `FX`, `api` → `API`).
 
 ```
-tools/banks          Tools
-tools/fx        →      ├── Banks
-tools/merchants        ├── FX
-simulation/payments    └── Merchants
-simulation/grp/cards Simulation
-                       ├── Payments
-                       └── Grp
-                             └── Cards
+store/products       Store
+store/orders    →      ├── Products
+store/refunds          ├── Orders
+admin/users            └── Refunds
+admin/api/keys       Admin
+                       ├── Users
+                       └── API
+                             └── Keys
 ```
 
 - **Parent groups are nav-only** accordions (expand/collapse), opening to the
   active resource. Each **leaf** tag stays a normal resource page.
-- **URLs are unchanged** — the slug is still the whole tag, so `tools/merchants`
-  lives at `/api-reference/tools-merchants` and existing links keep working.
-- Depth is arbitrary (`simulation/grp/cards` nests three levels); the page title
-  shows the leaf (`Cards`) with a `Simulation / Grp` breadcrumb.
+- **URLs are unchanged** — the slug is still the whole tag, so `store/orders`
+  lives at `/api-reference/store-orders` and existing links keep working.
+- Depth is arbitrary (`admin/api/keys` nests three levels); the page title
+  shows the leaf (`Keys`) with an `Admin / API` breadcrumb.
 - Single-segment tags (`payments`) are unchanged — plain top-level entries.
 
 <Note>This is automatic for any spec using slash tags — you don't flatten your
 `@ApiTags` to get clean resource boundaries. Per-resource
-[MDX overlays](#overlays) still key off the full slug (`tools-merchants.mdx`).</Note>
+[MDX overlays](#overlays) still key off the full slug (`store-orders.mdx`).</Note>
 
 ## Code samples
 

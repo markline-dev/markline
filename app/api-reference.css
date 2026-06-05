@@ -180,6 +180,20 @@
 .ml-apiref .ep-row .ep-path { display: flex; align-items: center; gap: 8px; margin-top: 4px; font-family: var(--mono); font-size: 12px; color: var(--ink-3); }
 .ml-apiref .ep-row .chev { margin-left: auto; color: var(--ink-4); flex: none; }
 .ml-apiref .ep-row:hover .chev { color: var(--accent-ink); }
+.ml-apiref [data-panel] { display: none; }
+.ml-apiref [data-panel].active { display: block; }
+.ml-apiref .ep-row-event { align-items: flex-start; }
+.ml-apiref .ep-event-name { font-family: var(--mono); font-size: 13px; font-weight: 500; color: var(--ink); }
+.ml-apiref .ep-event-name-inline { font-family: var(--mono); font-size: 0.92em; font-weight: 500; }
+.ml-apiref .ep-event-desc { margin-top: 4px; font-size: 12.5px; line-height: 1.45; color: var(--ink-3); }
+.ml-apiref .ep-row-event .doc-ico { color: var(--ink-4); flex: none; margin-left: auto; margin-top: 2px; }
+.ml-apiref .ep-row-event:hover .doc-ico { color: var(--accent-ink); }
+
+/* "Triggers events" (on an endpoint) / "Emitted by" (on an event) chip rows */
+.ml-apiref .ep-triggers { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 12px 0 4px; }
+.ml-apiref .ep-triggers-label { font-family: var(--mono); font-size: 10.5px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-4); margin-right: 2px; }
+.ml-apiref .ep-trigger { font-family: var(--mono); font-size: 11.5px; color: var(--accent-ink); background: var(--accent-dim); border: 1px solid var(--accent-line); border-radius: 6px; padding: 2px 8px; cursor: pointer; text-decoration: none; transition: background .15s, color .15s; }
+.ml-apiref .ep-trigger:hover { background: var(--accent); color: var(--on-accent); }
 
 /* section title */
 .ml-apiref .api-sec h2 { font-size: 22px; font-weight: 500; letter-spacing: -0.02em; }

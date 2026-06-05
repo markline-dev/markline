@@ -45,6 +45,20 @@
     }
   },
   "security": [{ "bearer": [] }],
+  "x-webhooks": {
+    "project.archived": {
+      "post": {
+        "summary": "A project was archived",
+        "description": "Sent when a project is archived and its deployments are taken offline.",
+        "tags": ["projects"],
+        "requestBody": {
+          "content": {
+            "application/json": { "schema": { "$ref": "#/components/schemas/Project" } }
+          }
+        }
+      }
+    }
+  },
   "paths": {
     "/projects": {
       "get": {
@@ -84,6 +98,13 @@
         "summary": "Create a project",
         "description": "Create a new documentation project. The slug is derived from the name.",
         "tags": ["projects"],
+        "x-events": {
+          "project.created": {
+            "summary": "A new project was created.",
+            "description": "Emitted once the project is provisioned and ready to receive deployments.",
+            "payload": { "$ref": "#/components/schemas/Project" }
+          }
+        },
         "requestBody": {
           "required": true,
           "content": {
@@ -154,6 +175,16 @@
         "summary": "Trigger a deployment",
         "description": "Build the project and publish it. Returns immediately with a queued deployment.",
         "tags": ["deployments"],
+        "x-events": {
+          "deployment.succeeded": {
+            "summary": "A deployment finished building and is live.",
+            "payload": { "$ref": "#/components/schemas/Deployment" }
+          },
+          "deployment.failed": {
+            "summary": "A deployment failed to build.",
+            "payload": { "$ref": "#/components/schemas/Deployment" }
+          }
+        },
         "parameters": [
           {
             "name": "projectId",

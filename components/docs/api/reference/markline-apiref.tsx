@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import type { ApiRefView, AttrView, EndpointView, NavTreeNode, NavParent } from "@/lib/apiref-view";
+import type { ApiRefView, AttrView, EndpointView, EventView, NavTreeNode, NavParent } from "@/lib/apiref-view";
 import type { AiPublicConfig } from "@/lib/config";
 import { ApiExplorer, PlaygroundProvider, usePlayground } from "../playground";
 import { AskDock, openAskPanel } from "../../ai/ask-dock";
@@ -287,6 +287,11 @@ export function MarklineApiRef({
                   <button className="ep-tab active" data-tab="endpoints">
                     Endpoints
                   </button>
+                  {r.events.length > 0 && (
+                    <button className="ep-tab" data-tab="events">
+                      Events
+                    </button>
+                  )}
                 </div>
                 <div id={`ep-panels-${r.slug}`}>
                   <div data-panel="endpoints" className="active">
@@ -302,12 +307,30 @@ export function MarklineApiRef({
                       </div>
                     ))}
                   </div>
+                  {r.events.length > 0 && (
+                    <div data-panel="events">
+                      {r.events.map((ev) => (
+                        <div className="ep-row ep-row-event" data-jump={ev.id} key={ev.id}>
+                          <div>
+                            <div className="ep-event-name">{ev.name}</div>
+                            {ev.summary && <div className="ep-event-desc">{ev.summary}</div>}
+                          </div>
+                          <Ico d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z M14 2v6h6 M16 13H8 M16 17H8 M10 9H8" cls="chev doc-ico" w={16} />
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
           </section>
 
-          {/* 2 · The object */}
+          {/* 2 · Webhook events */}
+          {r.events.map((ev) => (
+            <EventSection key={ev.id} ev={ev} resourceName={r.name} aiEnabled={aiOn} />
+          ))}
+
+          {/* 3 · The object */}
           {r.object && (
             <section className="api-sec" id={`${r.slug}-object`}>
               <div className="api-l">
@@ -333,7 +356,7 @@ export function MarklineApiRef({
             </section>
           )}
 
-          {/* 3..N · Endpoints */}
+          {/* 4..N · Endpoints */}
           {r.sections.map((ep) => (
             <EndpointSection key={ep.opId} ep={ep} aiEnabled={aiOn} />
           ))}
@@ -418,6 +441,64 @@ function NavParentView({ node, base }: { node: NavParent; base: string }) {
   );
 }
 
+/* ── webhook event section ─────────────────────────────────────────────── */
+function EventSection({
+  ev,
+  resourceName,
+  aiEnabled,
+}: {
+  ev: EventView;
+  resourceName: string;
+  aiEnabled: boolean;
+}) {
+  return (
+    <section className="api-sec" id={ev.id}>
+      <div className="api-l">
+        <h2>
+          <code className="ep-event-name-inline">{ev.name}</code>
+        </h2>
+        {ev.summary && <p className="sec-lead">{ev.summary}</p>}
+        {ev.description && <p className="sec-lead">{ev.description}</p>}
+        {ev.guideHref && (
+          <p className="sec-lead">
+            <Link href={ev.guideHref}>Full guide →</Link>
+          </p>
+        )}
+        {ev.emittedBy.length > 0 && (
+          <div className="ep-triggers ev-emitted">
+            <span className="ep-triggers-label">Emitted by</span>
+            {ev.emittedBy.map((e) => (
+              <a key={e.id} className="ep-trigger" data-jump={e.id}>
+                {e.title}
+              </a>
+            ))}
+          </div>
+        )}
+        {ev.attrs.length > 0 && (
+          <>
+            <div className="attr-h">Payload</div>
+            {ev.attrs.map((a) => (
+              <Attr key={a.name} attr={a} />
+            ))}
+          </>
+        )}
+      </div>
+      <div className="api-r">
+        <AiActions resource={`${resourceName} ${ev.name}`} aiEnabled={aiEnabled} />
+        <div className="code-card">
+          <div className="cc-head">
+            <span className="cc-title">Example payload</span>
+            <button className="cc-copy" data-copy={textFromHtml(ev.sampleHtml)} data-copy-icon aria-label="Copy">
+              <CopyIco />
+            </button>
+          </div>
+          <pre dangerouslySetInnerHTML={{ __html: ev.sampleHtml }} />
+        </div>
+      </div>
+    </section>
+  );
+}
+
 /* ── endpoint section ──────────────────────────────────────────────────── */
 function EndpointSection({ ep, aiEnabled }: { ep: EndpointView; aiEnabled: boolean }) {
   return (
@@ -432,6 +513,16 @@ function EndpointSection({ ep, aiEnabled }: { ep: EndpointView; aiEnabled: boole
           </span>
         </div>
         {ep.lead && <p className="sec-lead">{ep.lead}</p>}
+        {ep.triggers.length > 0 && (
+          <div className="ep-triggers">
+            <span className="ep-triggers-label">Triggers</span>
+            {ep.triggers.map((t) => (
+              <a key={t.id} className="ep-trigger" data-jump={t.id}>
+                {t.name}
+              </a>
+            ))}
+          </div>
+        )}
         {ep.groups.map((g) => (
           <div key={g.title}>
             <div className="attr-h">{g.title}</div>

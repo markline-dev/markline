@@ -1,5 +1,5 @@
-import type { JSONSchema, OpenAPIDoc, OpenAPIOperation } from "./openapi";
-import { resolveSchema } from "./openapi";
+import type { JSONSchema, OpenAPIDoc, OpenAPIEvent, OpenAPIOperation, OpenAPITag } from "./openapi";
+import { eventAnchor, resolveSchema } from "./openapi";
 import { codeSamples, colorizeJson, successResponse, type CodeRail } from "./openapi-codegen";
 import { buildPlaygroundSpec } from "./playground-spec";
 import type { PlaygroundSpec } from "@/components/docs/api/playground";
@@ -46,6 +46,8 @@ export type EndpointView = {
   hasBearer: boolean;
   /** Drives the live proxy explorer (PlaygroundProvider) on write endpoints. */
   playground?: PlaygroundSpec;
+  /** Events this endpoint emits — chips that link up to the resource catalog. */
+  triggers: { name: string; id: string }[];
 };
 
 export type NavOp = { id: string; verb: string | null; name: string; opId: string };
@@ -68,6 +70,18 @@ export type NavTreeNode = NavResource | NavParent;
 
 export type ObjectView = { name: string; attrs: AttrView[]; sampleHtml: string };
 
+export type EventView = {
+  id: string;
+  name: string;
+  summary?: string;
+  description?: string;
+  guideHref?: string;
+  attrs: AttrView[];
+  sampleHtml: string;
+  /** Endpoints in this resource that emit the event (title + section anchor). */
+  emittedBy: { title: string; id: string }[];
+};
+
 export type ResourceView = {
   name: string;
   slug: string;
@@ -76,6 +90,8 @@ export type ResourceView = {
   lead?: string;
   /** Endpoint-list card rows. */
   endpoints: { title: string; verb: string; path: string; id: string }[];
+  /** Webhook / async events for this resource (`x-events`). */
+  events: EventView[];
   object?: ObjectView;
   sections: EndpointView[];
 };
@@ -263,6 +279,10 @@ function buildEndpoint(
     field,
     hasBearer,
     playground: interactive ? buildPlaygroundSpec(op, doc, root, base) : undefined,
+    triggers: [...new Map(op.events.map((e) => [e.name, e])).values()].map((e) => ({
+      name: e.name,
+      id: eventAnchor(e.name),
+    })),
   };
 }
 
@@ -298,6 +318,9 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
   // the active leaf carries its in-page operation jumps.
   const activeSlug2 = activeTag ? tagSlug(activeTag.name) : "";
   const activeParsed = activeTag ? parseOpenApiTag(activeTag.name) : undefined;
+  // Full event catalog for the active resource (tag events + matching root
+  // webhooks, with emittedBy). Shared by the nav jumps and the Events tab.
+  const events = buildResourceEvents(activeTag, doc, root);
   const activeOps: NavOp[] = activeTag
     ? [
         { id: tagSlug(activeTag.name), verb: null, name: activeParsed!.displayName, opId: "" },
@@ -307,6 +330,7 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
           name: op.summary ?? op.operationId,
           opId: op.operationId,
         })),
+        ...events.map((ev) => ({ id: ev.id, verb: null, name: ev.name, opId: "" })),
       ]
     : [];
 
@@ -351,6 +375,7 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
       path: op.path,
       id: anchorFor(op),
     })),
+    events,
     object,
     sections: (activeTag?.operations ?? []).map((op) => buildEndpoint(op, doc, root, baseUrl, langs, interactive, base)),
   };
@@ -391,8 +416,65 @@ function buildSearchIndex(doc: OpenAPIDoc, base = "/api-reference"): SearchEntry
         href: `${base}/${slug}#${anchorFor(op)}`,
       });
     }
+    for (const ev of tag.events ?? []) {
+      out.push({
+        title: ev.name,
+        crumbs: [...groupCrumbs, name, "Events"],
+        snippet: ev.summary || ev.description || `Webhook event ${ev.name}`,
+        href: `${base}/${slug}#${eventAnchor(ev.name)}`,
+      });
+    }
   }
   return out;
+}
+
+function buildEventView(ev: OpenAPIEvent, root: unknown): EventView {
+  const schema = ev.payloadSchema ? resolveSchema(ev.payloadSchema, root) : undefined;
+  return {
+    id: eventAnchor(ev.name),
+    name: ev.name,
+    summary: ev.summary,
+    description: ev.description,
+    guideHref: ev.guideHref,
+    attrs: attrsFromSchema(schema, root),
+    sampleHtml: colorizeJson(objectSample(schema, root)),
+    emittedBy: [],
+  };
+}
+
+/**
+ * The resource's full event catalog: the tag's merged `x-events`/`callbacks`
+ * (already on `tag.events`) plus any root `webhooks`/`x-webhooks` tagged for this
+ * resource, with `emittedBy` back-links derived from each operation's events.
+ */
+function buildResourceEvents(activeTag: OpenAPITag | undefined, doc: OpenAPIDoc, root: unknown): EventView[] {
+  if (!activeTag) return [];
+
+  const merged = new Map<string, OpenAPIEvent>();
+  for (const ev of activeTag.events) merged.set(ev.name, ev);
+  for (const wh of doc.webhooks) {
+    if (!wh.tags.includes(activeTag.name)) continue;
+    const prev = merged.get(wh.name);
+    merged.set(
+      wh.name,
+      prev ? { ...wh, ...prev, payloadSchema: prev.payloadSchema ?? wh.payloadSchema, guideHref: prev.guideHref ?? wh.guideHref } : wh,
+    );
+  }
+
+  // Which operations emit each event (from per-operation events).
+  const emittedBy = new Map<string, { title: string; id: string }[]>();
+  for (const op of activeTag.operations) {
+    for (const ev of op.events) {
+      const id = anchorFor(op);
+      const list = emittedBy.get(ev.name) ?? [];
+      if (!list.some((e) => e.id === id)) list.push({ title: op.summary ?? op.operationId, id });
+      emittedBy.set(ev.name, list);
+    }
+  }
+
+  return [...merged.values()]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((ev) => ({ ...buildEventView(ev, root), emittedBy: emittedBy.get(ev.name) ?? [] }));
 }
 
 /**

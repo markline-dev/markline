@@ -109,8 +109,13 @@ export default {
       )
         .bind(answer, scope, target, path, reason, comment, origin ?? null, await ipHash(ip))
         .run();
-    } catch {
-      return new Response("Store failed", { status: 500, headers: cors });
+    } catch (err) {
+      // Surface the cause — almost always "no such table: feedback" (run schema.sql
+      // with --remote) or an unbound DB (database_id mismatch). Shows in
+      // `wrangler tail` and the response body so setup mistakes are obvious.
+      console.error("feedback insert failed:", err);
+      const detail = err instanceof Error ? err.message : String(err);
+      return new Response(`Store failed: ${detail}`.slice(0, 300), { status: 500, headers: cors });
     }
 
     // Optional Slack forward — fire-and-forget, never blocks the response.

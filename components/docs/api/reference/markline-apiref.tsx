@@ -1,8 +1,8 @@
 "use client";
 
-import { Fragment, useEffect, useRef, useState } from "react";
+import { createContext, Fragment, useContext, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import type { ApiRefView, AttrView, EndpointView, EventView, NavTreeNode, NavParent } from "@/lib/apiref-view";
+import type { ApiRefView, AttrView, EndpointView, EventColors, EventView, NavTreeNode, NavParent } from "@/lib/apiref-view";
 import type { AiPublicConfig } from "@/lib/config";
 import { ApiExplorer, PlaygroundProvider, usePlayground } from "../playground";
 import { AskDock, openAskPanel } from "../../ai/ask-dock";
@@ -28,6 +28,36 @@ import {
  * the simulated explorer Send). The real proxy explorer, docked AI chat, search
  * palette and version selector land in later phases.
  */
+/* ── event-dot coloring ────────────────────────────────────────────────────
+ * Status mode lets the CSS tone class (.g/.r/.n) color the dot. Palette mode
+ * maps each event to a stable color (hash of name → palette entry) so the same
+ * event reads the same color in the overview, sidebar, trigger chip and card.
+ * None forces neutral. Returns an inline style that overrides the tone class. */
+const EventColorsContext = createContext<EventColors>({ mode: "status", palette: [], colors: {} });
+
+function hashName(s: string): number {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0;
+  return Math.abs(h);
+}
+
+function eventDotStyle(name: string, ec: EventColors): React.CSSProperties | undefined {
+  if (ec.mode === "palette" && ec.palette.length) {
+    // Server resolves a per-resource color by position; hash is a fallback for
+    // any name not in that map (shouldn't happen on a resource page).
+    return { background: ec.colors[name] ?? ec.palette[hashName(name) % ec.palette.length] };
+  }
+  if (ec.mode === "none") return { background: "var(--ink-4)" };
+  return undefined; // status → the tone class colors it
+}
+
+/** For dot sites rendered inside <EventColorsContext.Provider>. Sites in the top
+ *  component (above the provider) must call eventDotStyle(name, view.eventColors). */
+function useEventDot(): (name: string) => React.CSSProperties | undefined {
+  const ec = useContext(EventColorsContext);
+  return (name: string) => eventDotStyle(name, ec);
+}
+
 export function MarklineApiRef({
   view,
   summary,
@@ -293,6 +323,7 @@ export function MarklineApiRef({
   const r = view.resource;
 
   return (
+   <EventColorsContext.Provider value={view.eventColors}>
     <div className="ml-apiref" ref={root}>
       {/* NAV is the shared <SiteNav/> rendered once in app/layout.tsx. The mobile
           drawer toggle for the API sidebar lives in the api-tools row below. */}
@@ -377,7 +408,7 @@ export function MarklineApiRef({
                         <div className="ep-row ep-row-event" data-jump={ev.id} key={ev.id}>
                           <div>
                             <div className="ep-title">
-                              <span className={`edot ${ev.tone}`} />
+                              <span className={`edot ${ev.tone}`} style={eventDotStyle(ev.name, view.eventColors)} />
                               <span className="ep-event-name">{ev.name}</span>
                             </div>
                             {ev.summary && <div className="ep-evtdesc">{ev.summary}</div>}
@@ -434,11 +465,13 @@ export function MarklineApiRef({
       <MarkdownModal />
       {ai && <AskDock ai={ai} />}
     </div>
+   </EventColorsContext.Provider>
   );
 }
 
 /* ── sidebar nav (nested, derived from slash-separated tags) ─────────────── */
 function NavNodeView({ node, base }: { node: NavTreeNode; base: string }) {
+  const eventDot = useEventDot();
   if (node.kind === "group") return <NavParentView node={node} base={base} />;
 
   // A resource leaf. Inactive → a quiet link to its page. Active → expanded with
@@ -465,7 +498,7 @@ function NavNodeView({ node, base }: { node: NavTreeNode; base: string }) {
             {op.evt && !node.ops[i - 1]?.evt && <div className="nav-evt-h">Events</div>}
             <a className={i === 0 ? "on" : undefined} data-jump={op.id}>
               {op.evt ? (
-                <span className={`ndot ${op.evt}`} />
+                <span className={`ndot ${op.evt}`} style={eventDot(op.name)} />
               ) : (
                 op.verb && <span className={`verb ${verbClass(op.verb)}`}>{op.verb}</span>
               )}
@@ -528,11 +561,12 @@ function EventSection({
   first?: boolean;
 }) {
   const lead = ev.description || ev.summary;
+  const eventDot = useEventDot();
   return (
     <section className={`api-sec evt-sec${first ? " evt-first" : ""}`} id={ev.id}>
       <div className="evt-card" data-evt>
         <button className="evt-head" type="button" data-evt-toggle aria-expanded="false">
-          <span className={`edot ${ev.tone}`} />
+          <span className={`edot ${ev.tone}`} style={eventDot(ev.name)} />
           <span className="evt-hname">{ev.name}</span>
           {ev.summary && <span className="evt-hdesc">{ev.summary}</span>}
           <Ico d="m9 6 6 6-6 6" cls="evt-chev" w={16} />
@@ -588,6 +622,7 @@ function EventSection({
 
 /* ── endpoint section ──────────────────────────────────────────────────── */
 function EndpointSection({ ep, aiEnabled }: { ep: EndpointView; aiEnabled: boolean }) {
+  const eventDot = useEventDot();
   return (
     <section className="api-sec" id={ep.id}>
       <div className="api-l">
@@ -605,7 +640,7 @@ function EndpointSection({ ep, aiEnabled }: { ep: EndpointView; aiEnabled: boole
             <span className="trig-lbl">Triggers</span>
             {ep.triggers.map((t) => (
               <a key={t.id} className="trig-chip" data-jump={t.id}>
-                <span className={`tdot ${t.tone}`} />
+                <span className={`tdot ${t.tone}`} style={eventDot(t.name)} />
                 {t.name}
               </a>
             ))}

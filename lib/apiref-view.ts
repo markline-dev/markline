@@ -120,6 +120,24 @@ export type VersionEntry = {
   latest?: boolean;
 };
 
+/** Resolved event-dot coloring strategy, passed to the client for rendering.
+ *  `colors` maps each active-resource event name to a concrete color (palette
+ *  mode only) — assigned by position so events on a page never collide. */
+export type EventColors = { mode: "status" | "palette" | "none"; palette: string[]; colors: Record<string, string> };
+
+/** Brand palette used when `api.events.dots: "palette"` and no custom palette is
+ *  set. Ordered to avoid leading with red/green (which would imply status). */
+export const DEFAULT_EVENT_PALETTE = [
+  "var(--c-purple)",
+  "var(--c-cyan)",
+  "var(--c-pink)",
+  "var(--c-tan)",
+  "var(--c-green)",
+  "var(--c-orange)",
+  "var(--c-yellow)",
+  "var(--c-red)",
+];
+
 export type ApiRefView = {
   title: string;
   version: string;
@@ -134,6 +152,8 @@ export type ApiRefView = {
   search: SearchEntry[];
   /** Version selector entries (spec version, or config versions when present). */
   versions: VersionEntry[];
+  /** How to color event status dots (status / palette / none). */
+  eventColors: EventColors;
 };
 
 const VERB: Record<string, string> = {
@@ -401,6 +421,17 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
     resource,
     search: buildSearchIndex(doc, base),
     versions: buildVersions(doc, variantId),
+    eventColors: ((): EventColors => {
+      const mode = api.events?.dots ?? "palette";
+      const palette = api.events?.palette?.length ? api.events.palette : DEFAULT_EVENT_PALETTE;
+      // Assign by position in the resource's (sorted) event list so adjacent
+      // events always differ, then cycle the palette.
+      const colors: Record<string, string> = {};
+      if (mode === "palette" && palette.length) {
+        events.forEach((ev, i) => { colors[ev.name] = palette[i % palette.length]; });
+      }
+      return { mode, palette, colors };
+    })(),
   };
 }
 

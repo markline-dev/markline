@@ -78,6 +78,7 @@
     "title": "Markline — open-source docs framework",
     "titleTemplate": "%s · Markline",
     "description": "Open-source, self-hostable documentation framework with first-class OpenAPI, search, and an interactive API playground.",
-    "metadataBase": "https://markline.dev"
+    "metadataBase": "https://markline.dev",
+    "ogImage": "/og.png"
   }
 }

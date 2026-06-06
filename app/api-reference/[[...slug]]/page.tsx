@@ -130,12 +130,14 @@ export async function generateMetadata({ params }: { params: Promise<{ slug?: st
   const { variantId, rest } = parseVariant(slug);
   const doc = loadOpenApi(variantId);
   const path = "/api-reference" + (slug?.length ? `/${slug.join("/")}` : "");
+  // Next replaces openGraph/twitter per-page, so re-declare the default image.
+  const images = loadConfig().seo.ogImage ? [loadConfig().seo.ogImage!] : undefined;
   const meta = (title: string, description?: string): Metadata => ({
     title,
     description,
     alternates: { canonical: path },
-    openGraph: { title, description, url: path, type: "article" },
-    twitter: { title, description },
+    openGraph: { title, description, url: path, type: "article", images },
+    twitter: { title, description, images },
   });
   const first = rest[0];
   if (!first) return meta("API reference");

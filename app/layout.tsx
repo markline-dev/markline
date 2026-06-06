@@ -38,9 +38,17 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: config.seo.siteName ?? config.name,
+    title: config.seo.title ?? config.name,
+    description: config.seo.description,
+    ...(config.seo.metadataBase ? { url: config.seo.metadataBase } : {}),
     ...(config.seo.ogImage ? { images: [config.seo.ogImage] } : {}),
   },
-  twitter: { card: "summary_large_image" },
+  twitter: {
+    card: "summary_large_image",
+    title: config.seo.title ?? config.name,
+    description: config.seo.description,
+    ...(config.seo.ogImage ? { images: [config.seo.ogImage] } : {}),
+  },
 };
 
 /**

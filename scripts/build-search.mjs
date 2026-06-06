@@ -250,6 +250,30 @@ function writeLlms(root) {
   fs.mkdirSync(pub, { recursive: true });
   fs.writeFileSync(path.join(pub, "llms.txt"), `${idx.trim()}\n`);
   fs.writeFileSync(path.join(pub, "llms-full.txt"), `${full.trim().replace(/\n{3,}/g, "\n\n")}\n`);
+
+  // ---- sitemap.xml + robots.txt ----
+  // Written as static files (like llms.txt) so they survive `output: export`,
+  // where Next strips `.ts` metadata routes. Sitemaps need absolute URLs, so a
+  // sitemap is only written when seo.metadataBase is set.
+  const xmlEsc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const pages = new Set([...docMap.keys()]);
+  if (apis.length) {
+    pages.add("/api-reference");
+    for (const a of apis) pages.add(a.url);
+  }
+  if (base) {
+    const urls = [...pages]
+      .map((u) => `  <url>\n    <loc>${xmlEsc(base + u)}</loc>\n    <changefreq>weekly</changefreq>\n  </url>`)
+      .join("\n");
+    fs.writeFileSync(
+      path.join(pub, "sitemap.xml"),
+      `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`,
+    );
+  }
+  fs.writeFileSync(
+    path.join(pub, "robots.txt"),
+    `User-agent: *\nAllow: /\n${base ? `\nSitemap: ${base}/sitemap.xml\n` : ""}`,
+  );
   const docCount = sections.reduce((n, s) => n + s.pages.length, 0) + leftover.length;
   console.log(`[markline] llms.txt (${docCount} docs, ${apis.length} API resources) + llms-full.txt -> public/`);
 }

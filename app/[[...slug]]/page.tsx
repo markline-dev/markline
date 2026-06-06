@@ -37,9 +37,20 @@ export async function generateMetadata({ params }: { params: Promise<{ slug?: st
   const { slug } = await params;
   const doc = getDoc(slug);
   if (!doc) return {};
+  // Description precedence: frontmatter `description`, then the page `lede`, then
+  // the site-wide `seo.description` — so every page (incl. the landing) has one.
+  const description =
+    (typeof doc.fm.description === "string" && doc.fm.description) ||
+    (typeof doc.fm.lede === "string" && doc.fm.lede) ||
+    loadConfig().seo.description;
+  const pathname = doc.slug.length ? `/${doc.slug.join("/")}` : "/";
+  const title = typeof doc.fm.title === "string" ? doc.fm.title : undefined;
   return {
-    title: doc.fm.title,
-    description: typeof doc.fm.lede === "string" ? doc.fm.lede : undefined,
+    title,
+    description,
+    alternates: { canonical: pathname },
+    openGraph: { title, description, url: pathname, type: "article" },
+    twitter: { title, description },
   };
 }
 

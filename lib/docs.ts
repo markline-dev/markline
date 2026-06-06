@@ -9,6 +9,8 @@ export type TocItem = { id: string; label: string };
 export type DocFrontmatter = {
   title: string;
   lede?: string;
+  /** SEO meta description; falls back to `lede`, then `seo.description`. */
+  description?: string;
   toc?: TocItem[];
   last_updated?: string;
   crumbs?: { label: string; href?: string }[];
@@ -38,6 +40,7 @@ function readMdx(filePath: string): { fm: DocFrontmatter; body: string } {
   const fm: DocFrontmatter = {
     title: String(data.title ?? ""),
     lede: data.lede ? String(data.lede) : undefined,
+    description: data.description ? String(data.description) : undefined,
     toc: Array.isArray(data.toc) ? data.toc as TocItem[] : undefined,
     last_updated: data.last_updated ? String(data.last_updated) : undefined,
     crumbs: Array.isArray(data.crumbs) ? data.crumbs : undefined,

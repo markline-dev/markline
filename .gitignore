@@ -17,6 +17,8 @@ next-env.d.ts
 /public/pagefind
 /public/llms.txt
 /public/llms-full.txt
+/public/sitemap.xml
+/public/robots.txt
 
 # misc
 .DS_Store

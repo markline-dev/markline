@@ -129,20 +129,21 @@ export async function generateMetadata({ params }: { params: Promise<{ slug?: st
   const { slug } = await params;
   const { variantId, rest } = parseVariant(slug);
   const doc = loadOpenApi(variantId);
+  const path = "/api-reference" + (slug?.length ? `/${slug.join("/")}` : "");
+  const meta = (title: string, description?: string): Metadata => ({
+    title,
+    description,
+    alternates: { canonical: path },
+    openGraph: { title, description, url: path, type: "article" },
+    twitter: { title, description },
+  });
   const first = rest[0];
-  if (!first) {
-    return { title: "API reference" };
-  }
+  if (!first) return meta("API reference");
   const tag = doc.tags.find((t) => tagSlug(t.name) === first);
-  if (tag) {
-    return { title: `${tag.name} · API reference`, description: tag.description };
-  }
+  if (tag) return meta(`${tag.name} · API reference`, tag.description);
   const op = doc.operationsById[first];
   if (!op) return {};
-  return {
-    title: `${op.summary ?? op.operationId} · API`,
-    description: op.description,
-  };
+  return meta(`${op.summary ?? op.operationId} · API`, op.description);
 }
 
 export default async function ApiReferencePage({ params }: { params: Promise<{ slug?: string[] }> }) {

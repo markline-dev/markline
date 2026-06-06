@@ -39,18 +39,22 @@ export async function generateMetadata({ params }: { params: Promise<{ slug?: st
   if (!doc) return {};
   // Description precedence: frontmatter `description`, then the page `lede`, then
   // the site-wide `seo.description` — so every page (incl. the landing) has one.
+  const config = loadConfig();
   const description =
     (typeof doc.fm.description === "string" && doc.fm.description) ||
     (typeof doc.fm.lede === "string" && doc.fm.lede) ||
-    loadConfig().seo.description;
+    config.seo.description;
   const pathname = doc.slug.length ? `/${doc.slug.join("/")}` : "/";
   const title = typeof doc.fm.title === "string" ? doc.fm.title : undefined;
+  // Next replaces (not deep-merges) openGraph/twitter when set per-page, so the
+  // default image must be re-declared here or it'd be dropped.
+  const images = config.seo.ogImage ? [config.seo.ogImage] : undefined;
   return {
     title,
     description,
     alternates: { canonical: pathname },
-    openGraph: { title, description, url: pathname, type: "article" },
-    twitter: { title, description },
+    openGraph: { title, description, url: pathname, type: "article", images },
+    twitter: { title, description, images },
   };
 }
 

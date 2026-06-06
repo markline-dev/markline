@@ -46,6 +46,13 @@
               { "href": "/ai", "label": "Ask AI (BYOK)" },
               { "href": "/feedback", "label": "Feedback" }
             ]
+          },
+          {
+            "group": "Compare",
+            "pages": [
+              { "href": "/mintlify-alternative", "label": "vs Mintlify" },
+              { "href": "/scalar-alternative", "label": "vs Scalar" }
+            ]
           }
         ]
       },

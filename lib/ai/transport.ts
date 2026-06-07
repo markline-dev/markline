@@ -8,7 +8,12 @@ import type { AiProvider } from "../config";
  * (reader-BYOK mode). See _docs/AI-BYOK-DESIGN.md §1.
  */
 
-export type ChatMessage = { role: "system" | "user" | "assistant"; content: string };
+/** OpenAI-compatible multimodal content part. */
+export type ContentPart =
+  | { type: "text"; text: string }
+  | { type: "image_url"; image_url: { url: string } };
+
+export type ChatMessage = { role: "system" | "user" | "assistant"; content: string | ContentPart[] };
 
 export const DEFAULT_SYSTEM_PROMPT =
   "You are the documentation assistant for an API reference built with Markline " +
@@ -21,12 +26,20 @@ export function buildMessages(
   systemPrompt: string | undefined,
   context: string | undefined,
   question: string,
+  images?: string[],
 ): ChatMessage[] {
   const system = systemPrompt || DEFAULT_SYSTEM_PROMPT;
   const grounded = context ? `${system}\n\nContext:\n${context}` : system;
+  const userContent: string | ContentPart[] =
+    images && images.length
+      ? [
+          { type: "text", text: question },
+          ...images.map((url): ContentPart => ({ type: "image_url", image_url: { url } })),
+        ]
+      : question;
   return [
     { role: "system", content: grounded },
-    { role: "user", content: question },
+    { role: "user", content: userContent },
   ];
 }
 

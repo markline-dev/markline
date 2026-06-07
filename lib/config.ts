@@ -191,6 +191,12 @@ export type AiConfig = {
   label?: string;
   /** Optional system-prompt override for docs Q&A. */
   systemPrompt?: string;
+  /**
+   * Whether the model accepts image attachments (multimodal). When unset, it's
+   * inferred from the model name (known vision models). Set explicitly to force
+   * the paperclip on/off regardless of the heuristic.
+   */
+  vision?: boolean;
   maxTokens?: number;
   /** Per-IP abuse limits for the proxy route. */
   rateLimit?: { perMinute?: number; perDay?: number };
@@ -207,7 +213,25 @@ export type AiPublicConfig = {
    *  provider directly (byok). Never carries a key. */
   endpoint: string | null;
   maxTokens: number;
+  /** Whether the composer should offer image attachments. */
+  vision: boolean;
 };
+
+/** Known vision-capable model families (substring match on the model id). */
+const VISION_MODEL_PATTERNS = [
+  "gpt-4o", "gpt-4.1", "gpt-4-turbo", "gpt-4-vision", "o1", "o3", "o4-mini", "chatgpt-4o",
+  "claude-3", "claude-4", "claude-opus", "claude-sonnet", "claude-haiku",
+  "gemini", "llava", "bakllava", "llama-3.2", "llama-4", "pixtral",
+  "-vl", "vision", "internvl", "molmo", "grok-2-vision", "grok-vision", "qwen2-vl", "qwen2.5-vl",
+];
+
+/** Resolve whether image attachments are supported: explicit override wins,
+ *  else infer from the model id. */
+export function modelSupportsVision(model: string | undefined, override?: boolean): boolean {
+  if (typeof override === "boolean") return override;
+  const m = (model ?? "").toLowerCase();
+  return VISION_MODEL_PATTERNS.some((p) => m.includes(p));
+}
 
 const AI_PROVIDER_LABELS: Record<AiProvider, string> = {
   openai: "OpenAI",
@@ -254,6 +278,7 @@ export function aiConfig(): AiPublicConfig | null {
         ? `${resolveAiBaseUrl(ai)}/chat/completions`
         : (ai.endpoint ?? "/api/ai"),
     maxTokens: ai.maxTokens ?? 1024,
+    vision: modelSupportsVision(ai.model ?? "gpt-4o-mini", ai.vision),
   };
 }
 

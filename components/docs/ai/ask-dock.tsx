@@ -233,8 +233,13 @@ export function AskDock({ ai }: { ai: AiPublicConfig }) {
   }
 
   async function callAi(question: string, images?: string[]): Promise<{ text: string; sources: string[] }> {
-    const sources = pickSources();
     const imgs = ai.vision && images?.length ? images : undefined;
+    // Real retrieval: ground the answer in the current page + the most relevant
+    // docs for the question (from llms-full.txt). `sources` are the pages used.
+    const { buildGroundingContext } = await import("@/lib/ai/retrieval");
+    const basePath = process.env.NEXT_PUBLIC_MARKLINE_BASE_PATH || "";
+    const { context: grounded, sources } = await buildGroundingContext(question, { basePath, sectionHint: context });
+
     if (ai.mode === "byok") {
       let key = "";
       try {
@@ -254,7 +259,7 @@ export function AskDock({ ai }: { ai: AiPublicConfig }) {
         key,
         provider: ai.provider,
         maxTokens: ai.maxTokens,
-        messages: buildMessages(undefined, `You are viewing the "${context}" section.`, question, imgs),
+        messages: buildMessages(undefined, grounded, question, imgs),
         referer: location.origin,
         title: document.title,
       });
@@ -264,7 +269,7 @@ export function AskDock({ ai }: { ai: AiPublicConfig }) {
     const res = await fetch(ai.endpoint || "/api/ai", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ question, context: `The user is viewing the "${context}" section.`, images: imgs }),
+      body: JSON.stringify({ question, context: grounded, images: imgs }),
     });
     if (!res.ok) throw new Error((await res.text().catch(() => "")) || `Request failed (${res.status})`);
     const data = await res.json();
@@ -330,11 +335,6 @@ export function AskDock({ ai }: { ai: AiPublicConfig }) {
     // retry the last unanswered question
     const last = [...messages].reverse().find((m) => m.role === "user");
     if (last) submit(last.text);
-  }
-
-  function pickSources(): string[] {
-    const all = [`API Reference — ${context}`, "Authentication", "The object model", "Errors", "Guides"];
-    return all.slice(0, 3);
   }
 
   const title = chats[cur]?.title || "New chat";

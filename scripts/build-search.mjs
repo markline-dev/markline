@@ -216,6 +216,7 @@ function writeLlms(root) {
   // ---- llms.txt (index) ----
   let idx = `# ${name}\n\n`;
   if (desc) idx += `> ${desc}\n\n`;
+  idx += `This index lists the documentation. The full text of every page concatenated into one file is available at [llms-full.txt](${abs("/llms-full.txt")}).\n\n`;
   for (const s of sections) {
     idx += `## ${s.group}\n\n`;
     for (const p of s.pages) idx += `- [${p.title}](${abs(p.url)})${p.lede ? `: ${p.lede}` : ""}\n`;

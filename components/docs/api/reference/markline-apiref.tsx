@@ -7,6 +7,7 @@ import type { AiPublicConfig } from "@/lib/config";
 import { ApiExplorer, PlaygroundProvider, usePlayground } from "../playground";
 import { AskDock, openAskPanel } from "../../ai/ask-dock";
 import { SectionRate } from "../../feedback";
+import { SiteCredit } from "@/components/site-credit";
 import {
   SearchPalette,
   VersionSelector,
@@ -64,6 +65,8 @@ export function MarklineApiRef({
   ai,
   feedbackEnabled = false,
   feedbackEndpoint,
+  siteName,
+  year,
 }: {
   view: ApiRefView;
   /** Server-rendered per-resource MDX summary (api/sections/<tag>.mdx), if any. */
@@ -75,6 +78,9 @@ export function MarklineApiRef({
   feedbackEnabled?: boolean;
   /** Endpoint for the per-section "Was this helpful?" widget (config.feedback.endpoint). */
   feedbackEndpoint?: string;
+  /** Site name + current year for the "built with Markline" credit footer. */
+  siteName: string;
+  year: number;
 }) {
   const root = useRef<HTMLDivElement>(null);
   const aiOn = !!ai;
@@ -460,6 +466,8 @@ export function MarklineApiRef({
           ))}
         </main>
       </div>
+
+      <SiteCredit name={siteName} year={year} />
 
       <SearchPalette index={view.search} aiEnabled={aiOn} />
       <MarkdownModal />

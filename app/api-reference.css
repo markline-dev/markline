@@ -79,7 +79,10 @@
 .ml-apiref .api { display: grid; grid-template-columns: 280px minmax(0,1fr); align-items: start; }
 
 /* ---------- left nav ---------- */
-.ml-apiref .api-side { position: sticky; top: 60px; height: calc(100vh - 60px); overflow-y: auto; border-right: 1px solid var(--line); padding: 18px 14px 60px; }
+/* No border-right here: .api-side is sticky with a fixed height, so its divider
+   would stop short of the footer. The vertical rule lives on .api-doc's
+   border-left instead (runs continuously down to the credit footer). */
+.ml-apiref .api-side { position: sticky; top: 60px; height: calc(100vh - 60px); overflow-y: auto; padding: 18px 14px 60px; }
 .ml-apiref .api-tools { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
 .ml-apiref .api-toolrow { display: flex; gap: 7px; align-items: stretch; }
 .ml-apiref .api-search { flex: 1; min-width: 0; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 9px; padding: 7px 10px; color: var(--ink-4); font-size: 12.5px; background: var(--panel-2); cursor: text; }
@@ -137,7 +140,7 @@
 .ml-apiref .api-crumbs { font-family: var(--mono); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-4); margin-bottom: 6px; }
 
 /* ---------- content ---------- */
-.ml-apiref .api-doc { padding: 0 52px; }
+.ml-apiref .api-doc { padding: 0 52px 72px; border-left: 1px solid var(--line); }
 .ml-apiref .api-sec { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 52px; padding: 46px 0; border-top: 1px solid var(--line); scroll-margin-top: 80px; }
 .ml-apiref .api-sec:first-child { border-top: 0; }
 .ml-apiref .api-l { min-width: 0; }
@@ -414,7 +417,7 @@ html[data-accent="purple"][data-theme="light"] .ml-apiref .code-card.resp { back
   }
   body.docnav-open .ml-apiref .api-side { transform: none; }
   body.docnav-open .ml-apiref .docnav-scrim { display: block; position: fixed; inset: 0; z-index: 55; background: rgba(0,0,0,.5); }
-  .ml-apiref .api-doc { padding: 0 20px; }
+  .ml-apiref .api-doc { padding: 0 20px; border-left: 0; }
   .ml-apiref .ai-actions { justify-content: flex-start; }
 }
 
@@ -510,6 +513,16 @@ body.aichat-open .ml-apiref .aichat { transform: none; }
 .ml-apiref .ac-send:disabled { opacity: .4; }
 .ml-apiref .ac-send .ico { width: 15px; height: 15px; }
 .ml-apiref .ac-disclaim { font-size: 11px; color: var(--ink-4); text-align: center; margin-top: 9px; }
+
+/* ============================================================
+   "Built with Markline" credit footer (shared <SiteCredit/>)
+   ============================================================ */
+.ml-apiref .site-credit { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 22px; border-top: 1px solid var(--line); background: transparent; font-family: var(--mono); font-size: 11px; color: var(--ink-4); flex-wrap: wrap; }
+.ml-apiref .site-credit > span { opacity: .8; }
+.ml-apiref .site-credit .credit-built { display: inline-flex; align-items: center; gap: 7px; }
+.ml-apiref .site-credit .heart { width: 12px; height: 12px; flex: none; color: var(--accent); }
+.ml-apiref .site-credit a { color: var(--ink-3); }
+.ml-apiref .site-credit a:hover { color: var(--ink); }
 
 /* ============================================================
    Command-palette search (search.css), scoped under .ml-apiref

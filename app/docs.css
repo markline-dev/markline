@@ -407,6 +407,30 @@ body.aichat-open .docs-shell .aichat { transform: none; }
 .docs-shell .ac-send .ico { width: 15px; height: 15px; }
 .docs-shell .ac-disclaim { font-size: 11px; color: var(--ink-4); text-align: center; margin-top: 9px; }
 
+/* ============================================================
+   "Built with Markline" credit footer (shared <SiteCredit/>).
+   A full-width row below the sidebar · main · toc grid.
+   ============================================================ */
+.docs-shell .site-credit { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 22px; border-top: 1px solid var(--line); background: transparent; font-family: var(--mono); font-size: 11px; color: var(--ink-4); flex-wrap: wrap; }
+.docs-shell .site-credit > span { opacity: .8; }
+.docs-shell .site-credit .credit-built { display: inline-flex; align-items: center; gap: 7px; }
+.docs-shell .site-credit .heart { width: 12px; height: 12px; flex: none; color: var(--accent); }
+.docs-shell .site-credit a { color: var(--ink-3); }
+.docs-shell .site-credit a:hover { color: var(--ink); }
+
+/* ============================================================
+   404 / not-found
+   ============================================================ */
+.ml-notfound { min-height: calc(100vh - 60px); display: flex; flex-direction: column; }
+.ml-notfound .nf { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 80px 22px; gap: 14px; }
+.ml-notfound .nf-code { font-family: var(--display); font-weight: 300; font-size: clamp(72px, 12vw, 132px); line-height: .9; letter-spacing: -0.02em; color: var(--ink); }
+.ml-notfound .nf-h { font-family: var(--serif); font-size: clamp(24px, 4vw, 34px); color: var(--ink); margin: 0; }
+.ml-notfound .nf-sub { font-size: 14px; color: var(--ink-3); margin: 0; max-width: 420px; }
+.ml-notfound .nf-cta { margin-top: 12px; }
+.ml-notfound .nf-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: var(--btn-radius, 9px); background: var(--accent); color: rgb(var(--c-on-brand)); font-size: 13.5px; font-weight: 500; }
+.ml-notfound .nf-btn:hover { background: color-mix(in srgb, var(--accent) 88%, #fff); }
+.ml-notfound .nf-btn svg { width: 16px; height: 16px; }
+
 /* Push the page when the chat is docked (desktop). */
 @media (min-width: 1101px) {
   body.aichat-open .docs-shell { transition: padding-right .26s cubic-bezier(.2,.7,.2,1); padding-right: var(--ac-chat-w); }

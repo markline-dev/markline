@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { Wordmark } from "./wordmark";
+import { Heart } from "@/components/site-credit";
 
 /**
  * Markline marketing home — a self-contained landing implemented from the
@@ -628,8 +629,11 @@ export function MarklineHome() {
             </div>
           </div>
           <div className="footer-bottom">
-            <span>© 2026 Markline · MIT</span>
-            <span>markline.dev · built with Markline</span>
+            <span>© {new Date().getFullYear()} Markline · MIT</span>
+            <span className="credit-built">
+              <Heart /> built with{" "}
+              <a href="https://markline.dev" target="_blank" rel="noopener noreferrer">Markline</a>
+            </span>
           </div>
         </div>
       </footer>

@@ -11,6 +11,7 @@ import { getHighlighter, shellEnhancer } from "@/lib/shiki";
 import { loadConfig, aiConfig, feedbackConfig } from "@/lib/config";
 import { getDocsTabs, pickActiveTab, getNav } from "@/components/docs/sections";
 import { LandingPage } from "@/components/landing/landing";
+import { SiteCredit } from "@/components/site-credit";
 import type { PageNavLink } from "@/components/docs/page";
 
 // One transformer instance reused across all blocks — it's stateless.
@@ -112,6 +113,7 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
       >
         {content}
       </DocsPage>
+      <SiteCredit name={config.name} year={new Date().getFullYear()} />
     </DocsShell>
   );
 }

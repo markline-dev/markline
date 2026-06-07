@@ -48,9 +48,33 @@ const RKEY_KEY = "markline-ai-key";
 
 const SUGGEST = ["Summarize this page", "Explain this with an example", "What are the key concepts here?"];
 
-function trunc(s: string, n: number) {
-  s = s.replace(/\s+/g, " ").trim();
-  return s.length > n ? s.slice(0, n - 1) + "…" : s;
+/** Condense the first question into a clean chat title: strip filler, capitalize,
+ *  cut on a word boundary (never mid-word), drop trailing punctuation. Purely
+ *  deterministic — no model call, so it works even when the assistant is down. */
+function summarizeTitle(q: string): string {
+  let s = q.replace(/\s+/g, " ").trim();
+  s = s.replace(/^(hi|hey|hello|yo|please|pls|so|um|ok|okay)[,\s]+/i, "");
+  if (!s) return "New chat";
+  s = s.charAt(0).toUpperCase() + s.slice(1);
+  const LIMIT = 42;
+  if (s.length <= LIMIT) return s.replace(/[\s?.!,;:]+$/, "");
+  let cut = s.slice(0, LIMIT);
+  const lastSpace = cut.lastIndexOf(" ");
+  if (lastSpace > 18) cut = cut.slice(0, lastSpace);
+  return cut.replace(/[\s?.!,;:]+$/, "") + "…";
+}
+
+/** Map a raw transport/provider error to a safe, public-facing message. The raw
+ *  detail is never surfaced to readers — it's logged to the console instead. */
+function friendlyError(detail: string, mode: "proxy" | "byok"): string {
+  const d = detail.toLowerCase();
+  if (/\b429\b|rate.?limit|too many/.test(d)) return "Too many requests right now. Please wait a moment and try again.";
+  if (mode === "byok") {
+    if (/\b401\b|\b403\b|unauthor|invalid.*key|api key|no auth/.test(d)) return "That key was rejected. Check your provider key and try again.";
+    if (/\b404\b|model|endpoint/.test(d)) return "Your provider couldn't serve that model. Check the model name in your settings.";
+    return "Couldn't reach your provider. Check your key and model, then try again.";
+  }
+  return "The assistant is unavailable right now. Please try again shortly.";
 }
 function esc(s: string) {
   return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -274,7 +298,7 @@ export function AskDock({ ai }: { ai: AiPublicConfig }) {
     setAttachments([]);
     const first = messages.length === 0;
     updateMessages((m) => [...m, { role: "user", text: q, images: imgs.length ? imgs : undefined }]);
-    if (first) setChats((cs) => cs.map((c, i) => (i === cur ? { ...c, title: trunc(q || "Image", 30) } : c)));
+    if (first) setChats((cs) => cs.map((c, i) => (i === cur ? { ...c, title: summarizeTitle(q || "Image") } : c)));
     setThinking(true);
     try {
       const { text, sources } = await callAi(q, imgs);
@@ -285,11 +309,9 @@ export function AskDock({ ai }: { ai: AiPublicConfig }) {
         setThinking(false);
         return; // key prompt shown; question stays in transcript
       }
-      const friendly =
-        ai.mode === "byok"
-          ? "Couldn't reach your provider. Check your key and model, then try again."
-          : "The assistant is unavailable right now. In a real deployment this runs on your own key (BYOK) — nothing routes through Markline.";
-      updateMessages((m) => [...m, { role: "ai", text: friendly + (msg && msg.length < 200 ? `\n\n\`${msg}\`` : ""), error: true }]);
+      // Log the raw detail for operators; show readers only a safe message.
+      console.error("[markline] Ask AI error:", e);
+      updateMessages((m) => [...m, { role: "ai", text: friendlyError(msg, ai.mode), error: true }]);
     } finally {
       setThinking(false);
     }

@@ -74,7 +74,14 @@ export async function POST(req: Request) {
     });
     return Response.json({ text });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "AI request failed";
-    return new Response(message, { status: 502 });
+    // Log the upstream detail for the operator; never leak provider internals
+    // (keys, billing/privacy URLs, model ids) to the reader.
+    const detail = e instanceof Error ? e.message : String(e);
+    console.error("[markline] AI proxy upstream error:", detail);
+    const isRate = /\b429\b|rate.?limit|too many/i.test(detail);
+    return new Response(
+      isRate ? "Too many requests. Please try again shortly." : "The assistant is temporarily unavailable.",
+      { status: isRate ? 429 : 502 },
+    );
   }
 }

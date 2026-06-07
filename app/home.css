@@ -152,6 +152,10 @@
 .ml-home .footer a { font-size: 13.5px; color: var(--ink-2); }
 .ml-home .footer a:hover { color: var(--ink); }
 .ml-home .footer-bottom { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 0 40px; border-top: 1px solid var(--line); margin-top: 36px; font-family: var(--mono); font-size: 11.5px; color: var(--ink-4); flex-wrap: wrap; }
+.ml-home .footer-bottom .credit-built { display: inline-flex; align-items: center; gap: 7px; }
+.ml-home .footer-bottom .credit-built .heart { width: 12px; height: 12px; flex: none; color: var(--accent); }
+.ml-home .footer-bottom .credit-built a { color: var(--ink-2); }
+.ml-home .footer-bottom .credit-built a:hover { color: var(--ink); }
 
 /* ---------- HERO ---------- */
 .ml-home .hero { position: relative; overflow: hidden; padding-top: 18px; }

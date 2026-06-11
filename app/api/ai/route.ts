@@ -46,7 +46,7 @@ export async function POST(req: Request) {
     return new Response("Rate limit exceeded", { status: 429 });
   }
 
-  let body: { question?: string; context?: string };
+  let body: { question?: string; context?: string; images?: string[] };
   try {
     body = await req.json();
   } catch {
@@ -54,7 +54,13 @@ export async function POST(req: Request) {
   }
   const question = (body.question ?? "").trim().slice(0, 4000);
   if (!question) return new Response("Empty question", { status: 400 });
-  const context = body.context?.slice(0, 8000);
+  // Retrieved grounding context (current page + top docs) — larger than the old
+  // section-name hint, so allow more headroom.
+  const context = body.context?.slice(0, 16000);
+  // Accept up to 4 inline image data URLs (~base64). Drop anything else.
+  const images = Array.isArray(body.images)
+    ? body.images.filter((u) => typeof u === "string" && /^data:image\//.test(u)).slice(0, 4)
+    : undefined;
 
   const baseUrl = resolveAiBaseUrl(ai);
   try {
@@ -64,13 +70,20 @@ export async function POST(req: Request) {
       key,
       provider: ai.provider ?? "openai",
       maxTokens: ai.maxTokens ?? 1024,
-      messages: buildMessages(ai.systemPrompt, context, question),
+      messages: buildMessages(ai.systemPrompt, context, question, images),
       referer: req.headers.get("origin") ?? undefined,
       title: cfg.name,
     });
     return Response.json({ text });
   } catch (e) {
-    const message = e instanceof Error ? e.message : "AI request failed";
-    return new Response(message, { status: 502 });
+    // Log the upstream detail for the operator; never leak provider internals
+    // (keys, billing/privacy URLs, model ids) to the reader.
+    const detail = e instanceof Error ? e.message : String(e);
+    console.error("[markline] AI proxy upstream error:", detail);
+    const isRate = /\b429\b|rate.?limit|too many/i.test(detail);
+    return new Response(
+      isRate ? "Too many requests. Please try again shortly." : "The assistant is temporarily unavailable.",
+      { status: isRate ? 429 : 502 },
+    );
   }
 }

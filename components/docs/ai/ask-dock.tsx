@@ -25,18 +25,56 @@ export function openAskPanel(context?: string) {
   window.dispatchEvent(new CustomEvent("ml-ai-open", { detail: { context: context ?? null } }));
 }
 
-type Msg = { role: "user" | "ai"; text: string; sources?: string[]; error?: boolean };
+type Msg = { role: "user" | "ai"; text: string; sources?: string[]; error?: boolean; images?: string[] };
+type Attachment = { name: string; url: string };
+
+const MAX_ATTACHMENTS = 4;
+const MAX_IMAGE_BYTES = 5 * 1024 * 1024; // 5 MB per image
+const COMPOSER_MAX_H = 168; // px — textarea grows to here, then scrolls
+
+function readAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(String(r.result));
+    r.onerror = () => reject(r.error);
+    r.readAsDataURL(file);
+  });
+}
 type Chat = { title: string; messages: Msg[] };
 
 const CHATS_KEY = "markline-ai-chats";
 const OPEN_KEY = "markline-ai-open";
 const RKEY_KEY = "markline-ai-key";
 
-const SUGGEST = ["How do I authenticate requests?", "How do I create a resource?", "What does an error response look like?"];
+const SUGGEST = ["Summarize this page", "Explain this with an example", "What are the key concepts here?"];
 
-function trunc(s: string, n: number) {
-  s = s.replace(/\s+/g, " ").trim();
-  return s.length > n ? s.slice(0, n - 1) + "…" : s;
+/** Condense the first question into a clean chat title: strip filler, capitalize,
+ *  cut on a word boundary (never mid-word), drop trailing punctuation. Purely
+ *  deterministic — no model call, so it works even when the assistant is down. */
+function summarizeTitle(q: string): string {
+  let s = q.replace(/\s+/g, " ").trim();
+  s = s.replace(/^(hi|hey|hello|yo|please|pls|so|um|ok|okay)[,\s]+/i, "");
+  if (!s) return "New chat";
+  s = s.charAt(0).toUpperCase() + s.slice(1);
+  const LIMIT = 42;
+  if (s.length <= LIMIT) return s.replace(/[\s?.!,;:]+$/, "");
+  let cut = s.slice(0, LIMIT);
+  const lastSpace = cut.lastIndexOf(" ");
+  if (lastSpace > 18) cut = cut.slice(0, lastSpace);
+  return cut.replace(/[\s?.!,;:]+$/, "") + "…";
+}
+
+/** Map a raw transport/provider error to a safe, public-facing message. The raw
+ *  detail is never surfaced to readers — it's logged to the console instead. */
+function friendlyError(detail: string, mode: "proxy" | "byok"): string {
+  const d = detail.toLowerCase();
+  if (/\b429\b|rate.?limit|too many/.test(d)) return "Too many requests right now. Please wait a moment and try again.";
+  if (mode === "byok") {
+    if (/\b401\b|\b403\b|unauthor|invalid.*key|api key|no auth/.test(d)) return "That key was rejected. Check your provider key and try again.";
+    if (/\b404\b|model|endpoint/.test(d)) return "Your provider couldn't serve that model. Check the model name in your settings.";
+    return "Couldn't reach your provider. Check your key and model, then try again.";
+  }
+  return "The assistant is unavailable right now. Please try again shortly.";
 }
 function esc(s: string) {
   return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -78,8 +116,10 @@ export function AskDock({ ai }: { ai: AiPublicConfig }) {
   const [thinking, setThinking] = useState(false);
   const [needKey, setNeedKey] = useState(false);
   const [keyDraft, setKeyDraft] = useState("");
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
   const bodyRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
 
   const messages = chats[cur]?.messages ?? [];
 
@@ -97,10 +137,15 @@ export function AskDock({ ai }: { ai: AiPublicConfig }) {
     }
   }, []);
 
-  /* persist chats */
+  /* persist chats — drop inline image data so we never blow the localStorage
+     quota; the conversation text survives a reload, the thumbnails don't. */
   useEffect(() => {
     try {
-      localStorage.setItem(CHATS_KEY, JSON.stringify({ chats, cur }));
+      const slim = chats.map((c) => ({
+        ...c,
+        messages: c.messages.map(({ images, ...m }) => m),
+      }));
+      localStorage.setItem(CHATS_KEY, JSON.stringify({ chats: slim, cur }));
     } catch {
       /* ignore */
     }
@@ -124,6 +169,14 @@ export function AskDock({ ai }: { ai: AiPublicConfig }) {
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
   }, [messages, thinking]);
+
+  /* auto-grow the composer textarea up to COMPOSER_MAX_H, then scroll */
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, COMPOSER_MAX_H) + "px";
+  }, [input, open]);
 
   /* external open trigger + keyboard shortcuts */
   useEffect(() => {
@@ -179,8 +232,14 @@ export function AskDock({ ai }: { ai: AiPublicConfig }) {
     setMenu(false);
   }
 
-  async function callAi(question: string): Promise<{ text: string; sources: string[] }> {
-    const sources = pickSources();
+  async function callAi(question: string, images?: string[]): Promise<{ text: string; sources: string[] }> {
+    const imgs = ai.vision && images?.length ? images : undefined;
+    // Real retrieval: ground the answer in the current page + the most relevant
+    // docs for the question (from llms-full.txt). `sources` are the pages used.
+    const { buildGroundingContext } = await import("@/lib/ai/retrieval");
+    const basePath = process.env.NEXT_PUBLIC_MARKLINE_BASE_PATH || "";
+    const { context: grounded, sources } = await buildGroundingContext(question, { basePath, sectionHint: context });
+
     if (ai.mode === "byok") {
       let key = "";
       try {
@@ -200,7 +259,7 @@ export function AskDock({ ai }: { ai: AiPublicConfig }) {
         key,
         provider: ai.provider,
         maxTokens: ai.maxTokens,
-        messages: buildMessages(undefined, `You are viewing the "${context}" section.`, question),
+        messages: buildMessages(undefined, grounded, question, imgs),
         referer: location.origin,
         title: document.title,
       });
@@ -210,23 +269,44 @@ export function AskDock({ ai }: { ai: AiPublicConfig }) {
     const res = await fetch(ai.endpoint || "/api/ai", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ question, context: `The user is viewing the "${context}" section.` }),
+      body: JSON.stringify({ question, context: grounded, images: imgs }),
     });
     if (!res.ok) throw new Error((await res.text().catch(() => "")) || `Request failed (${res.status})`);
     const data = await res.json();
     return { text: (data.text || "").trim(), sources };
   }
 
+  async function addFiles(files: FileList | null) {
+    if (!files?.length) return;
+    const room = MAX_ATTACHMENTS - attachments.length;
+    const picked: Attachment[] = [];
+    for (const file of Array.from(files).slice(0, Math.max(0, room))) {
+      if (!file.type.startsWith("image/") || file.size > MAX_IMAGE_BYTES) continue;
+      try {
+        picked.push({ name: file.name, url: await readAsDataUrl(file) });
+      } catch {
+        /* skip unreadable file */
+      }
+    }
+    if (picked.length) setAttachments((a) => [...a, ...picked].slice(0, MAX_ATTACHMENTS));
+    if (fileRef.current) fileRef.current.value = ""; // allow re-picking the same file
+  }
+  function removeAttachment(i: number) {
+    setAttachments((a) => a.filter((_, idx) => idx !== i));
+  }
+
   async function submit(forced?: string) {
     const q = (forced ?? input).trim();
-    if (!q || thinking) return;
+    const imgs = attachments.map((a) => a.url);
+    if ((!q && !imgs.length) || thinking) return;
     setInput("");
+    setAttachments([]);
     const first = messages.length === 0;
-    updateMessages((m) => [...m, { role: "user", text: q }]);
-    if (first) setChats((cs) => cs.map((c, i) => (i === cur ? { ...c, title: trunc(q, 30) } : c)));
+    updateMessages((m) => [...m, { role: "user", text: q, images: imgs.length ? imgs : undefined }]);
+    if (first) setChats((cs) => cs.map((c, i) => (i === cur ? { ...c, title: summarizeTitle(q || "Image") } : c)));
     setThinking(true);
     try {
-      const { text, sources } = await callAi(q);
+      const { text, sources } = await callAi(q, imgs);
       updateMessages((m) => [...m, { role: "ai", text, sources }]);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
@@ -234,11 +314,9 @@ export function AskDock({ ai }: { ai: AiPublicConfig }) {
         setThinking(false);
         return; // key prompt shown; question stays in transcript
       }
-      const friendly =
-        ai.mode === "byok"
-          ? "Couldn't reach your provider. Check your key and model, then try again."
-          : "The assistant is unavailable right now. In a real deployment this runs on your own key (BYOK) — nothing routes through Markline.";
-      updateMessages((m) => [...m, { role: "ai", text: friendly + (msg && msg.length < 200 ? `\n\n\`${msg}\`` : ""), error: true }]);
+      // Log the raw detail for operators; show readers only a safe message.
+      console.error("[markline] Ask AI error:", e);
+      updateMessages((m) => [...m, { role: "ai", text: friendlyError(msg, ai.mode), error: true }]);
     } finally {
       setThinking(false);
     }
@@ -257,11 +335,6 @@ export function AskDock({ ai }: { ai: AiPublicConfig }) {
     // retry the last unanswered question
     const last = [...messages].reverse().find((m) => m.role === "user");
     if (last) submit(last.text);
-  }
-
-  function pickSources(): string[] {
-    const all = [`API Reference — ${context}`, "Authentication", "The object model", "Errors", "Guides"];
-    return all.slice(0, 3);
   }
 
   const title = chats[cur]?.title || "New chat";
@@ -309,7 +382,7 @@ export function AskDock({ ai }: { ai: AiPublicConfig }) {
         <div className="ac-body" ref={bodyRef}>
           {messages.length === 0 && !thinking ? (
             <div className="ac-empty">
-              <div className="lead">Ask questions about this API and get help with your integration.</div>
+              <div className="lead">Ask questions about this page.</div>
               <div className="tip">
                 Tip: start a new chat with <kbd>⌘</kbd> <kbd>E</kbd>
               </div>
@@ -326,6 +399,14 @@ export function AskDock({ ai }: { ai: AiPublicConfig }) {
               {messages.map((m, i) =>
                 m.role === "user" ? (
                   <div key={i} className="ac-msg user">
+                    {m.images?.length ? (
+                      <div className="ac-msg-imgs">
+                        {m.images.map((src, k) => (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img key={k} src={src} alt="attachment" />
+                        ))}
+                      </div>
+                    ) : null}
                     {m.text}
                   </div>
                 ) : (
@@ -376,26 +457,79 @@ export function AskDock({ ai }: { ai: AiPublicConfig }) {
             <span className="bk">
               <Book />
             </span>
-            <span className="ctxl">API Reference — {context}</span>
+            <span className="ctxl">{context}</span>
           </div>
           <div className="ac-inwrap">
-            <input
+            {attachments.length > 0 && (
+              <div className="ac-attachments">
+                {attachments.map((a, i) => (
+                  <div key={i} className="ac-chip" title={a.name}>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={a.url} alt={a.name} />
+                    <button
+                      type="button"
+                      className="ac-chip-x"
+                      onClick={() => removeAttachment(i)}
+                      aria-label={`Remove ${a.name}`}
+                    >
+                      <Ico d="M6 6l12 12M18 6L6 18" w={12} />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            <textarea
               ref={inputRef}
               className="ac-in"
               value={input}
+              rows={1}
               onChange={(e) => setInput(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && submit()}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey) {
+                  e.preventDefault();
+                  submit();
+                }
+              }}
               placeholder="Ask a question about the page…"
               autoComplete="off"
               spellCheck={false}
               aria-label="Ask a question"
             />
-            <button className="ac-send" onClick={() => submit()} disabled={!input.trim() || thinking} aria-label="Send">
-              <Ico d="M12 19V5M6 11l6-6 6 6" w={15} />
-            </button>
+            <div className="ac-inbar">
+              {ai.vision && (
+                <>
+                  <input
+                    ref={fileRef}
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    hidden
+                    onChange={(e) => addFiles(e.target.files)}
+                  />
+                  <button
+                    type="button"
+                    className="ac-attach"
+                    onClick={() => fileRef.current?.click()}
+                    disabled={attachments.length >= MAX_ATTACHMENTS}
+                    aria-label="Attach image"
+                    title={attachments.length >= MAX_ATTACHMENTS ? `Up to ${MAX_ATTACHMENTS} images` : "Attach image"}
+                  >
+                    <Ico d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" w={17} />
+                  </button>
+                </>
+              )}
+              <button
+                className="ac-send"
+                onClick={() => submit()}
+                disabled={(!input.trim() && attachments.length === 0) || thinking}
+                aria-label="Send"
+              >
+                <Ico d="M12 19V5M6 11l6-6 6 6" w={15} />
+              </button>
+            </div>
           </div>
           <div className="ac-disclaim">
-            Answers run on {ai.mode === "byok" ? "your key" : "your model"} · {ai.providerLabel} · may contain mistakes
+            Answers are AI-generated and may contain mistakes
           </div>
         </div>
       </aside>

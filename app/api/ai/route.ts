@@ -54,7 +54,9 @@ export async function POST(req: Request) {
   }
   const question = (body.question ?? "").trim().slice(0, 4000);
   if (!question) return new Response("Empty question", { status: 400 });
-  const context = body.context?.slice(0, 8000);
+  // Retrieved grounding context (current page + top docs) — larger than the old
+  // section-name hint, so allow more headroom.
+  const context = body.context?.slice(0, 16000);
   // Accept up to 4 inline image data URLs (~base64). Drop anything else.
   const images = Array.isArray(body.images)
     ? body.images.filter((u) => typeof u === "string" && /^data:image\//.test(u)).slice(0, 4)

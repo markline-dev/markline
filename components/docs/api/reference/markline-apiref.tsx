@@ -463,7 +463,16 @@ export function MarklineApiRef({
 
       <SearchPalette index={view.search} aiEnabled={aiOn} />
       <MarkdownModal />
-      {ai && <AskDock ai={ai} />}
+      {ai && (
+        <AskDock
+          ai={ai}
+          suggestions={[
+            "How do I authenticate requests?",
+            `How do I use the ${r.name} API?`,
+            "What does an error response look like?",
+          ]}
+        />
+      )}
     </div>
    </EventColorsContext.Provider>
   );

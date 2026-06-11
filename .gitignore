@@ -19,6 +19,7 @@ next-env.d.ts
 /public/llms-full.txt
 /public/sitemap.xml
 /public/robots.txt
+/public/ai-suggestions.json
 
 # misc
 .DS_Store

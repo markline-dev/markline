@@ -41,8 +41,8 @@ function pickActiveTabId(tabs: TopTab[], pathname: string): string {
   return tabs.find((t) => t.matchPrefixes.includes("__default__"))?.id ?? tabs[0]?.id ?? "";
 }
 
-/** Numbered nav groups (the design's .docs-nav): "01 Get started", etc. The
- *  index is derived from the section's position. Method/badge chips are kept. */
+/** Nav groups (the design's .docs-nav): a section title over its links.
+ *  Method/badge chips on links are kept. */
 function SidebarSections({
   sections,
   pathname,
@@ -56,9 +56,7 @@ function SidebarSections({
     <nav className="docs-nav">
       {sections.map((sec, si) => (
         <div key={sec.title} className="docs-nav-grp">
-          <div className="t">
-            <span className="n">{String(si + 1).padStart(2, "0")}</span> {sec.title}
-          </div>
+          <div className="t">{sec.title}</div>
           {sec.links.map((l) => {
             const active = pathname === l.href;
             return (

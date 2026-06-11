@@ -98,7 +98,6 @@
   font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.13em; text-transform: uppercase;
   color: var(--ink-4); padding: 0 9px; margin-bottom: 8px; display: flex; align-items: center; gap: 7px;
 }
-.docs-shell .docs-nav-grp > .t .n { color: var(--ink-4); opacity: .6; }
 .docs-shell .docs-nav a {
   display: flex; align-items: center; gap: 8px; padding: 6.5px 9px; border-radius: 7px;
   font-size: 13.5px; color: var(--ink-3); line-height: 1.3; position: relative; text-decoration: none;
@@ -190,7 +189,7 @@
 
 /* callout */
 .docs-shell .callout {
-  margin-top: 20px; border: 1px solid var(--line); border-left: 2px solid var(--accent);
+  margin-top: 20px; border: 1px solid var(--line);
   border-radius: 9px; padding: 14px 16px;
   background: color-mix(in srgb, var(--accent) 5%, var(--panel));
   display: flex; gap: 12px; max-width: 68ch;
@@ -201,9 +200,9 @@
 .docs-shell .callout p, .docs-shell .callout .callout-body { margin: 0; font-size: 14px; color: var(--ink-2); line-height: 1.6; }
 .docs-shell .callout .callout-body > * + * { margin-top: 8px; }
 .docs-shell .callout strong { color: var(--ink); }
-.docs-shell .callout.tone-warn { border-left-color: var(--warn); background: color-mix(in srgb, var(--warn) 6%, var(--panel)); }
+.docs-shell .callout.tone-warn { background: color-mix(in srgb, var(--warn) 6%, var(--panel)); }
 .docs-shell .callout.tone-warn .ic { color: var(--warn); }
-.docs-shell .callout.tone-ok { border-left-color: var(--ok); background: color-mix(in srgb, var(--ok) 6%, var(--panel)); }
+.docs-shell .callout.tone-ok { background: color-mix(in srgb, var(--ok) 6%, var(--panel)); }
 .docs-shell .callout.tone-ok .ic { color: var(--ok); }
 
 /* steps */

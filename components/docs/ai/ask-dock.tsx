@@ -548,7 +548,7 @@ function Sources({ list }: { list: string[] }) {
         {list.map((s) => (
           <div key={s} className="ac-src">
             <span className="bk">
-              <Book sm />
+              <PageIcon />
             </span>
             {s}
           </div>
@@ -593,6 +593,25 @@ function Book({ sm }: { sm?: boolean }) {
     <svg width={n} height={n} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
       <path d="M4 5a2 2 0 0 1 2-2h11v18H6a2 2 0 0 1-2-2z" />
       {!sm && <path d="M9 3v18" />}
+    </svg>
+  );
+}
+/** Document/page glyph for retrieved sources (a file with a folded corner). */
+function PageIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M14 3v4a1 1 0 0 0 1 1h4" />
+      <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <path d="M8.5 13.5h7M8.5 17h4.5" />
     </svg>
   );
 }

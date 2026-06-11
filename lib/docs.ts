@@ -16,6 +16,8 @@ export type DocFrontmatter = {
   crumbs?: { label: string; href?: string }[];
   /** Page layout: "doc" (default, sidebar+TOC) or "landing" (full-width marketing). */
   layout?: "doc" | "landing";
+  /** Author-curated starter questions for the Ask AI panel on this page (max 3). */
+  aiSuggestions?: string[];
 };
 
 export type Doc = {
@@ -45,6 +47,9 @@ function readMdx(filePath: string): { fm: DocFrontmatter; body: string } {
     last_updated: data.last_updated ? String(data.last_updated) : undefined,
     crumbs: Array.isArray(data.crumbs) ? data.crumbs : undefined,
     layout: data.layout === "landing" ? "landing" : undefined,
+    aiSuggestions: Array.isArray(data.aiSuggestions)
+      ? data.aiSuggestions.filter((s: unknown) => typeof s === "string" && s.trim()).map((s: string) => s.trim()).slice(0, 3)
+      : undefined,
   };
   return { fm, body: content };
 }

@@ -286,7 +286,7 @@
 /* MDX callouts (Note / Tip / Info / Warning / Danger / Check) in section &
    operation overlays — ported from docs.css since the API route doesn't load it. */
 .ml-apiref .callout {
-  margin-top: 20px; border: 1px solid var(--line); border-left: 2px solid var(--accent);
+  margin-top: 20px; border: 1px solid var(--line);
   border-radius: 9px; padding: 14px 16px;
   background: color-mix(in srgb, var(--accent) 5%, var(--panel));
   display: flex; gap: 12px; max-width: 68ch;
@@ -297,9 +297,9 @@
 .ml-apiref .callout p, .ml-apiref .callout .callout-body { margin: 0; font-size: 14px; color: var(--ink-2); line-height: 1.6; }
 .ml-apiref .callout .callout-body > * + * { margin-top: 8px; }
 .ml-apiref .callout strong { color: var(--ink); }
-.ml-apiref .callout.tone-warn { border-left-color: var(--warn); background: color-mix(in srgb, var(--warn) 6%, var(--panel)); }
+.ml-apiref .callout.tone-warn { background: color-mix(in srgb, var(--warn) 6%, var(--panel)); }
 .ml-apiref .callout.tone-warn .ic { color: var(--warn); }
-.ml-apiref .callout.tone-ok { border-left-color: var(--ok); background: color-mix(in srgb, var(--ok) 6%, var(--panel)); }
+.ml-apiref .callout.tone-ok { background: color-mix(in srgb, var(--ok) 6%, var(--panel)); }
 .ml-apiref .callout.tone-ok .ic { color: var(--ok); }
 
 /* ---------- dark code rail ---------- */

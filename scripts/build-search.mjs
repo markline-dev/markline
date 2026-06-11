@@ -11,19 +11,25 @@ import path from "node:path";
 import matter from "gray-matter";
 import * as pagefind from "pagefind";
 
-/** Read MARKLINE_CONTENT from the environment, falling back to .env.local / .env. */
-function resolveContentEnv() {
-  if (process.env.MARKLINE_CONTENT) return process.env.MARKLINE_CONTENT;
+/** Read an env var, falling back to .env.local / .env (plain node script —
+ *  Next's automatic env loading doesn't apply here). */
+function readEnvVar(name) {
+  if (process.env[name]) return process.env[name];
   for (const f of [".env.local", ".env"]) {
     try {
       const txt = fs.readFileSync(path.join(process.cwd(), f), "utf8");
-      const m = txt.match(/^\s*MARKLINE_CONTENT\s*=\s*(.+?)\s*$/m);
+      const m = txt.match(new RegExp(`^\\s*${name}\\s*=\\s*(.+?)\\s*$`, "m"));
       if (m) return m[1].replace(/^["']|["']$/g, "");
     } catch {
       // no such file — keep looking
     }
   }
   return undefined;
+}
+
+/** Read MARKLINE_CONTENT from the environment, falling back to .env.local / .env. */
+function resolveContentEnv() {
+  return readEnvVar("MARKLINE_CONTENT");
 }
 
 function contentRoot() {
@@ -279,6 +285,123 @@ function writeLlms(root) {
   console.log(`[markline] llms.txt (${docCount} docs, ${apis.length} API resources) + llms-full.txt -> public/`);
 }
 
+/* ── ai-suggestions.json ───────────────────────────────────────────────────
+   Per-page Ask-AI starter questions, generated at build time on the operator's
+   key (opt-in: `ai.suggestions: true` + MARKLINE_AI_KEY). Written to public/
+   as a static file the dock fetches at runtime — zero runtime AI cost, works
+   on pure-static hosting. Pages are cached by content hash, so unchanged pages
+   never re-call the provider on rebuilds. Heading-template generation was
+   rejected on purpose: arbitrary docs headings produce embarrassing grammar. */
+
+const AI_BASE_URLS = {
+  openai: "https://api.openai.com/v1",
+  openrouter: "https://openrouter.ai/api/v1",
+  together: "https://api.together.xyz/v1",
+  groq: "https://api.groq.com/openai/v1",
+  fireworks: "https://api.fireworks.ai/inference/v1",
+  local: "http://localhost:11434/v1",
+};
+
+async function generateQuestions({ baseUrl, key, model, provider, title, lede, body }) {
+  const prompt =
+    `You write starter questions for a documentation page's AI assistant. ` +
+    `Given the page below, return a JSON array of exactly 3 short questions (each under 60 characters) ` +
+    `a reader of THIS page would actually ask. Write them in the same language as the page. ` +
+    `Return ONLY the JSON array, no prose.\n\n` +
+    `Page title: ${title}\n${lede ? `Summary: ${lede}\n` : ""}\n${body.slice(0, 5000)}`;
+  const headers = { Authorization: `Bearer ${key}`, "content-type": "application/json" };
+  if (provider === "openrouter") headers["X-Title"] = "Markline build (ai-suggestions)";
+  const res = await fetch(`${baseUrl}/chat/completions`, {
+    method: "POST",
+    headers,
+    body: JSON.stringify({
+      model,
+      stream: false,
+      // Generous cap: reasoning models (e.g. deepseek-flash) spend tokens on
+      // hidden reasoning BEFORE the visible answer — a small cap yields
+      // finish_reason=length with empty content.
+      max_tokens: 1500,
+      messages: [{ role: "user", content: prompt }],
+    }),
+    signal: AbortSignal.timeout(45000),
+  });
+  if (!res.ok) throw new Error(`provider ${res.status}`);
+  const data = await res.json();
+  const text = data?.choices?.[0]?.message?.content ?? "";
+  if (!text.includes("[")) throw new Error(`no JSON array (finish=${data?.choices?.[0]?.finish_reason})`);
+  const arr = JSON.parse(text.slice(text.indexOf("["), text.lastIndexOf("]") + 1));
+  const qs = (Array.isArray(arr) ? arr : [])
+    .filter((q) => typeof q === "string" && q.trim())
+    .map((q) => q.trim().slice(0, 80))
+    .slice(0, 3);
+  if (!qs.length) throw new Error("no questions in response");
+  return qs;
+}
+
+async function writeAiSuggestions(root) {
+  const cfg = loadJsonConfig(root);
+  const ai = cfg.ai;
+  if (!ai?.enabled || ai.suggestions !== true) return; // opt-in only
+  const key = readEnvVar("MARKLINE_AI_KEY");
+  if (!key) {
+    console.log("[markline] ai-suggestions: skipped (no MARKLINE_AI_KEY)");
+    return;
+  }
+  const provider = ai.provider ?? "openai";
+  const baseUrl = (ai.baseUrl ?? AI_BASE_URLS[provider] ?? "").replace(/\/$/, "");
+  if (!baseUrl) {
+    console.log("[markline] ai-suggestions: skipped (no base URL for provider)");
+    return;
+  }
+  const model = ai.model ?? "gpt-4o-mini";
+
+  const outFile = path.join(process.cwd(), "public", "ai-suggestions.json");
+  let prev = {};
+  try {
+    prev = JSON.parse(fs.readFileSync(outFile, "utf8"));
+  } catch {
+    // first run — no cache
+  }
+
+  const { createHash } = await import("node:crypto");
+  const pages = [...docPagesForLlms(root).values()].filter((d) => d.layout !== "landing");
+  const out = {};
+  let generated = 0, cached = 0, failed = 0;
+
+  // Small concurrency pool — be polite to the provider.
+  const queue = [...pages];
+  const workers = Array.from({ length: 5 }, async () => {
+    for (let d = queue.shift(); d; d = queue.shift()) {
+      const h = createHash("sha1").update(`${d.title}\n${d.lede}\n${d.body}`).digest("hex").slice(0, 12);
+      if (prev[d.url]?.h === h && prev[d.url]?.q?.length) {
+        out[d.url] = prev[d.url];
+        cached++;
+        continue;
+      }
+      let q = null;
+      for (let attempt = 0; attempt < 2 && !q; attempt++) {
+        try {
+          q = await generateQuestions({ baseUrl, key, model, provider, title: d.title, lede: d.lede, body: d.body });
+        } catch (e) {
+          if (attempt === 1) {
+            failed++;
+            if (failed <= 3) console.warn(`[markline] ai-suggestions: ${d.url} failed (${e.message ?? e})`);
+            if (prev[d.url]?.q?.length) out[d.url] = prev[d.url]; // keep stale over nothing
+          }
+        }
+      }
+      if (q) {
+        out[d.url] = { h, q };
+        generated++;
+      }
+    }
+  });
+  await Promise.all(workers);
+
+  fs.writeFileSync(outFile, JSON.stringify(out));
+  console.log(`[markline] ai-suggestions.json: ${generated} generated, ${cached} cached, ${failed} failed -> public/`);
+}
+
 async function main() {
   const root = contentRoot();
   const prefixes = contentPrefixIds(root);
@@ -306,6 +429,7 @@ async function main() {
   console.log(`[markline] search index built: ${records.length} records -> public/pagefind`);
 
   writeLlms(root);
+  await writeAiSuggestions(root);
 }
 
 main().catch((err) => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import type { AiPublicConfig } from "@/lib/config";
 
 /**
@@ -46,7 +47,21 @@ const CHATS_KEY = "markline-ai-chats";
 const OPEN_KEY = "markline-ai-open";
 const RKEY_KEY = "markline-ai-key";
 
+/** Last-resort starter questions — page-agnostic so they're never wrong. */
 const SUGGEST = ["Summarize this page", "Explain this with an example", "What are the key concepts here?"];
+
+/** Build-time generated per-page starter questions (public/ai-suggestions.json,
+ *  written by scripts/build-search.mjs when `ai.suggestions` is enabled).
+ *  Fetched once per session; missing file → empty map (fallbacks apply). */
+let suggestionsPromise: Promise<Record<string, { q: string[] }>> | null = null;
+function loadGeneratedSuggestions(basePath: string): Promise<Record<string, { q: string[] }>> {
+  if (!suggestionsPromise) {
+    suggestionsPromise = fetch(`${basePath}/ai-suggestions.json`)
+      .then((r) => (r.ok ? r.json() : {}))
+      .catch(() => ({}));
+  }
+  return suggestionsPromise;
+}
 
 /** Condense the first question into a clean chat title: strip filler, capitalize,
  *  cut on a word boundary (never mid-word), drop trailing punctuation. Purely
@@ -106,7 +121,15 @@ function mdBlocks(s: string): string {
   return html;
 }
 
-export function AskDock({ ai }: { ai: AiPublicConfig }) {
+export function AskDock({
+  ai,
+  suggestions,
+}: {
+  ai: AiPublicConfig;
+  /** Page-specific starter questions. Resolution: this prop (frontmatter /
+   *  surface defaults) → build-time generated (ai-suggestions.json) → generic. */
+  suggestions?: string[];
+}) {
   const [chats, setChats] = useState<Chat[]>([{ title: "New chat", messages: [] }]);
   const [cur, setCur] = useState(0);
   const [open, setOpen] = useState(false);
@@ -117,11 +140,31 @@ export function AskDock({ ai }: { ai: AiPublicConfig }) {
   const [needKey, setNeedKey] = useState(false);
   const [keyDraft, setKeyDraft] = useState("");
   const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [generated, setGenerated] = useState<string[] | null>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const pathname = usePathname();
 
   const messages = chats[cur]?.messages ?? [];
+
+  /* per-page starter questions from the build-time generator (when present);
+     skipped entirely when the page supplies its own via the prop. */
+  useEffect(() => {
+    if (suggestions?.length) return;
+    let on = true;
+    const basePath = process.env.NEXT_PUBLIC_MARKLINE_BASE_PATH || "";
+    const key =
+      (basePath && pathname.startsWith(basePath) ? pathname.slice(basePath.length) : pathname).replace(/\/+$/, "") || "/";
+    loadGeneratedSuggestions(basePath).then((map) => {
+      if (on) setGenerated(map[key]?.q?.length ? map[key].q.slice(0, 3) : null);
+    });
+    return () => {
+      on = false;
+    };
+  }, [pathname, suggestions]);
+
+  const starters = suggestions?.length ? suggestions.slice(0, 3) : generated ?? SUGGEST;
 
   /* hydrate from localStorage + restore open state */
   useEffect(() => {
@@ -387,7 +430,7 @@ export function AskDock({ ai }: { ai: AiPublicConfig }) {
                 Tip: start a new chat with <kbd>⌘</kbd> <kbd>E</kbd>
               </div>
               <div className="ac-sugg">
-                {SUGGEST.map((s) => (
+                {starters.map((s) => (
                   <button key={s} className="ac-sg" onClick={() => submit(s)}>
                     {s}
                   </button>
@@ -548,7 +591,7 @@ function Sources({ list }: { list: string[] }) {
         {list.map((s) => (
           <div key={s} className="ac-src">
             <span className="bk">
-              <Book sm />
+              <PageIcon />
             </span>
             {s}
           </div>
@@ -593,6 +636,25 @@ function Book({ sm }: { sm?: boolean }) {
     <svg width={n} height={n} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
       <path d="M4 5a2 2 0 0 1 2-2h11v18H6a2 2 0 0 1-2-2z" />
       {!sm && <path d="M9 3v18" />}
+    </svg>
+  );
+}
+/** Document/page glyph for retrieved sources (a file with a folded corner). */
+function PageIcon() {
+  return (
+    <svg
+      width="13"
+      height="13"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M14 3v4a1 1 0 0 0 1 1h4" />
+      <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <path d="M8.5 13.5h7M8.5 17h4.5" />
     </svg>
   );
 }

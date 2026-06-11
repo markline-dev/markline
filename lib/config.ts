@@ -197,6 +197,12 @@ export type AiConfig = {
    * the paperclip on/off regardless of the heuristic.
    */
   vision?: boolean;
+  /**
+   * Opt-in: generate per-page Ask-AI starter questions at build time (on the
+   * operator's key) into public/ai-suggestions.json. Cached by content hash,
+   * so only changed pages re-call the provider on rebuilds.
+   */
+  suggestions?: boolean;
   maxTokens?: number;
   /** Per-IP abuse limits for the proxy route. */
   rateLimit?: { perMinute?: number; perDay?: number };

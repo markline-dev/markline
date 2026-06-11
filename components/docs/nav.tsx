@@ -41,8 +41,8 @@ function pickActiveTabId(tabs: TopTab[], pathname: string): string {
   return tabs.find((t) => t.matchPrefixes.includes("__default__"))?.id ?? tabs[0]?.id ?? "";
 }
 
-/** Numbered nav groups (the design's .docs-nav): "01 Get started", etc. The
- *  index is derived from the section's position. Method/badge chips are kept. */
+/** Nav groups (the design's .docs-nav): a section title over its links.
+ *  Method/badge chips on links are kept. */
 function SidebarSections({
   sections,
   pathname,
@@ -56,9 +56,7 @@ function SidebarSections({
     <nav className="docs-nav">
       {sections.map((sec, si) => (
         <div key={sec.title} className="docs-nav-grp">
-          <div className="t">
-            <span className="n">{String(si + 1).padStart(2, "0")}</span> {sec.title}
-          </div>
+          <div className="t">{sec.title}</div>
           {sec.links.map((l) => {
             const active = pathname === l.href;
             return (
@@ -86,10 +84,21 @@ function SidebarSections({
  * <SiteNav/>; it no longer carries a topbar. The grid (sidebar · main · toc)
  * is styled in app/docs.css.
  */
-export function DocsShell({ nav, ai = null, children }: { nav: NavData; ai?: AiPublicConfig | null; children: React.ReactNode }) {
+export function DocsShell({
+  nav,
+  ai = null,
+  aiSuggestions,
+  children,
+}: {
+  nav: NavData;
+  ai?: AiPublicConfig | null;
+  /** Page-specific Ask AI starter questions (frontmatter `aiSuggestions`). */
+  aiSuggestions?: string[];
+  children: React.ReactNode;
+}) {
   return (
     <div className="docs-shell grid">
-      <DocsSidebar nav={nav} ai={ai} />
+      <DocsSidebar nav={nav} ai={ai} aiSuggestions={aiSuggestions} />
       {children}
       {/* ⌘K / sidebar-trigger search palette (modal only — the inline trigger
           lives in the sidebar). */}
@@ -98,7 +107,15 @@ export function DocsShell({ nav, ai = null, children }: { nav: NavData; ai?: AiP
   );
 }
 
-export function DocsSidebar({ nav, ai = null }: { nav: NavData; ai?: AiPublicConfig | null }) {
+export function DocsSidebar({
+  nav,
+  ai = null,
+  aiSuggestions,
+}: {
+  nav: NavData;
+  ai?: AiPublicConfig | null;
+  aiSuggestions?: string[];
+}) {
   const pathname = usePathname();
   const tabs = nav.tabsByVariant[pickVariantId(nav, pathname)] ?? [];
   const activeId = pickActiveTabId(tabs, pathname);
@@ -115,7 +132,7 @@ export function DocsSidebar({ nav, ai = null }: { nav: NavData; ai?: AiPublicCon
       </aside>
       {/* Page-level AI affordances (the doc-ai row + View-as-Markdown modal) live
           in the docs shell so they're available on every docs page. */}
-      {ai && <AskDock ai={ai} />}
+      {ai && <AskDock ai={ai} suggestions={aiSuggestions} />}
       <MarkdownModal />
     </>
   );

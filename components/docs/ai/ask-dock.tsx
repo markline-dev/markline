@@ -97,6 +97,30 @@ function esc(s: string) {
 function inline(s: string) {
   return s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/`([^`]+)`/g, "<code>$1</code>");
 }
+/** A GFM table separator row, e.g. `|---|:--:|` or `--- | ---`. */
+function isTableSep(ln: string): boolean {
+  return /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(ln);
+}
+function splitRow(ln: string): string[] {
+  return ln.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
+}
+function renderTable(lines: string[]): string {
+  const header = splitRow(lines[0]);
+  const body = lines.slice(2).filter((l) => l.trim()).map(splitRow);
+  let h = "<table><thead><tr>";
+  for (const c of header) h += `<th>${inline(esc(c))}</th>`;
+  h += "</tr></thead>";
+  if (body.length) {
+    h += "<tbody>";
+    for (const r of body) {
+      h += "<tr>";
+      for (let i = 0; i < header.length; i++) h += `<td>${inline(esc(r[i] ?? ""))}</td>`;
+      h += "</tr>";
+    }
+    h += "</tbody>";
+  }
+  return h + "</table>";
+}
 function mdBlocks(s: string): string {
   const parts = String(s).split(/```/);
   let html = "";
@@ -104,19 +128,37 @@ function mdBlocks(s: string): string {
     if (i % 2 === 1) {
       const code = parts[i].replace(/^[a-zA-Z]*\n/, "");
       html += "<pre>" + esc(code.replace(/\n$/, "")) + "</pre>";
-    } else {
-      parts[i].split(/\n{2,}/).forEach((para) => {
-        const t = para.trim();
-        if (!t) return;
-        const lines = t.split("\n").map((ln) => {
-          const h = ln.match(/^#{1,6}\s+(.*)$/);
-          if (h) return "<strong>" + inline(esc(h[1])) + "</strong>";
-          if (/^[-*]\s+/.test(ln)) return "&bull;&nbsp; " + inline(esc(ln.replace(/^[-*]\s+/, "")));
-          return inline(esc(ln));
-        });
-        html += "<p>" + lines.join("<br>") + "</p>";
-      });
+      continue;
     }
+    parts[i].split(/\n{2,}/).forEach((para) => {
+      const t = para.trim();
+      if (!t) return;
+      const rawLines = t.split("\n");
+      // GFM table: a header row, a `---` separator, then body rows. Render any
+      // contiguous table region; non-table lines around it stay as a paragraph.
+      let run: string[] = [];
+      const flush = () => {
+        if (run.length) html += "<p>" + run.join("<br>") + "</p>";
+        run = [];
+      };
+      for (let j = 0; j < rawLines.length; j++) {
+        const ln = rawLines[j];
+        if (ln.includes("|") && rawLines[j + 1] && isTableSep(rawLines[j + 1])) {
+          flush();
+          const tbl: string[] = [ln, rawLines[j + 1]];
+          j += 2;
+          while (j < rawLines.length && rawLines[j].includes("|")) tbl.push(rawLines[j++]);
+          j--;
+          html += renderTable(tbl);
+          continue;
+        }
+        const h = ln.match(/^#{1,6}\s+(.*)$/);
+        if (h) run.push("<strong>" + inline(esc(h[1])) + "</strong>");
+        else if (/^[-*]\s+/.test(ln)) run.push("&bull;&nbsp; " + inline(esc(ln.replace(/^[-*]\s+/, ""))));
+        else run.push(inline(esc(ln)));
+      }
+      flush();
+    });
   }
   return html;
 }

@@ -373,6 +373,9 @@ body.aichat-open .docs-shell .aichat { transform: none; }
 .docs-shell .ac-msg.ai .ac-out pre { background: var(--code-bg); border: 1px solid var(--code-line); border-radius: 9px; padding: 11px 12px; margin: 10px 0; overflow-x: auto; font-family: var(--mono); font-size: 11.5px; line-height: 1.7; color: var(--code-ink); white-space: pre; }
 .docs-shell .ac-msg.ai .ac-out p { margin: 9px 0; }
 .docs-shell .ac-msg.ai .ac-out p:first-child { margin-top: 0; }
+.docs-shell .ac-msg.ai .ac-out table { width: 100%; border-collapse: collapse; margin: 11px 0; font-size: 12.5px; display: block; overflow-x: auto; }
+.docs-shell .ac-msg.ai .ac-out th, .docs-shell .ac-msg.ai .ac-out td { border: 1px solid var(--line); padding: 6px 9px; text-align: left; vertical-align: top; }
+.docs-shell .ac-msg.ai .ac-out th { background: var(--panel-hi); color: var(--ink); font-weight: 600; }
 
 .docs-shell .ac-sources { margin: 4px 0 12px; }
 .docs-shell .ac-sources summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 500; color: var(--accent-ink); }
@@ -430,7 +433,10 @@ body.aichat-open .docs-shell .aichat { transform: none; }
 /* ============================================================
    404 / not-found
    ============================================================ */
-.ml-notfound { min-height: calc(100vh - 60px); display: flex; flex-direction: column; }
+/* align-items:stretch overrides the `align-items:start` inherited from the
+   .docs-shell grid rule — without it the flex children shrink to content and
+   left-align instead of filling the width for centering. */
+.ml-notfound { min-height: calc(100vh - 60px); display: flex; flex-direction: column; align-items: stretch; }
 .ml-notfound .nf { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 80px 22px; gap: 14px; }
 .ml-notfound .nf-code { font-family: var(--display); font-weight: 300; font-size: clamp(72px, 12vw, 132px); line-height: .9; letter-spacing: -0.02em; color: var(--ink); }
 .ml-notfound .nf-h { font-family: var(--serif); font-size: clamp(24px, 4vw, 34px); color: var(--ink); margin: 0; }

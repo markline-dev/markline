@@ -401,9 +401,11 @@ html[data-ai-open] .docs-shell .aichat { transform: none; }
 .docs-shell .ac-keyrow { display: flex; gap: 7px; margin-bottom: 10px; }
 .docs-shell .ac-keyin { flex: 1; min-width: 0; background: var(--panel-2); border: 1px solid var(--accent-line); border-radius: 9px; padding: 8px 11px; color: var(--ink); font-family: var(--mono); font-size: 12px; outline: 0; }
 .docs-shell .ac-keybtn { flex: none; background: var(--accent); color: rgb(var(--c-on-brand)); border: 0; border-radius: 9px; padding: 0 14px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
-.docs-shell .ac-ctx { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; font-size: 12px; color: var(--accent-ink); background: var(--accent-dim); border: 1px solid var(--accent-line); border-radius: 8px; padding: 6px 10px; margin-bottom: 10px; }
-.docs-shell .ac-ctx .bk { flex: none; display: inline-flex; }
-.docs-shell .ac-ctx .ctxl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* A read-only scope indicator (not a button): caption styling, default cursor. */
+.docs-shell .ac-ctx { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; font-size: 12px; color: var(--ink-2); background: transparent; border: 0; padding: 0; margin-bottom: 10px; cursor: default; }
+.docs-shell .ac-ctx .bk { flex: none; display: inline-flex; color: var(--accent-ink); }
+.docs-shell .ac-ctx .pre { color: var(--ink-2); flex: none; }
+.docs-shell .ac-ctx .ctxl { color: var(--accent-ink); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .docs-shell .ac-inwrap { display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--line-2); border-radius: 11px; padding: 10px 10px 8px; background: var(--panel-2); }
 .docs-shell .ac-inwrap:focus-within { border-color: var(--accent-line); }
 .docs-shell .ac-in { width: 100%; min-height: 46px; max-height: 168px; resize: none; overflow-y: auto; background: transparent; border: 0; outline: 0; font-family: inherit; font-size: 13.5px; line-height: 1.5; color: var(--ink); }

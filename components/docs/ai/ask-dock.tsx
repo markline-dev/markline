@@ -586,10 +586,14 @@ export function AskDock({
               </button>
             </div>
           )}
-          <div className="ac-ctx">
+          {/* Read-only indicator of the grounding scope — what slice of the docs
+              the answer is drawn from. Set by how the panel was opened (generic
+              Ask AI → "this page"; an inline section/endpoint "Ask" → that name). */}
+          <div className="ac-ctx" title={`Answers are grounded in ${context}`}>
             <span className="bk">
               <Book />
             </span>
+            <span className="pre">Grounded in</span>
             <span className="ctxl">{context}</span>
           </div>
           <div className="ac-inwrap">

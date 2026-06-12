@@ -326,9 +326,14 @@
   position: fixed; top: 0; right: 0; bottom: 0; width: var(--ac-chat-w);
   background: var(--panel); border-left: 1px solid var(--line);
   display: flex; flex-direction: column; z-index: 80;
-  transform: translateX(100%); transition: transform .26s cubic-bezier(.2,.7,.2,1);
+  transform: translateX(100%);
 }
 body.aichat-open .docs-shell .aichat { transform: none; }
+/* The slide only animates during an explicit open/close (body.ac-animating);
+   on load and navigation the panel just appears in place — no slide, no flicker. */
+body.ac-animating .docs-shell .aichat { transition: transform .26s cubic-bezier(.2,.7,.2,1); }
+/* Pre-paint state from layout.tsx — panel already in place on first paint. */
+html[data-ai-open] .docs-shell .aichat { transform: none; }
 .docs-shell .aichat-scrim { display: none; }
 @media (max-width: 1100px) {
   .docs-shell .aichat { width: min(410px, 100vw); box-shadow: -20px 0 60px -30px rgba(0,0,0,.5); }
@@ -336,7 +341,9 @@ body.aichat-open .docs-shell .aichat { transform: none; }
 }
 .docs-shell .aichat *, .docs-shell .aichat *::before, .docs-shell .aichat *::after { box-sizing: border-box; }
 
-.docs-shell .ac-head { display: flex; align-items: center; gap: 10px; height: 54px; padding: 0 12px 0 15px; border-bottom: 1px solid var(--line); flex: none; position: relative; }
+/* Borderless header — no divider, for a clean look. Height still matches the
+   site nav (60px row + 1px border) so the title lines up with the nav items. */
+.docs-shell .ac-head { display: flex; align-items: center; gap: 10px; height: 61px; padding: 0 12px 0 15px; flex: none; position: relative; }
 .docs-shell .ac-head .spark { color: var(--ac-purple); flex: none; display: inline-flex; }
 .docs-shell .ac-head .title { font-size: 14px; font-weight: 500; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .docs-shell .ac-titlebtn { display: inline-flex; align-items: center; gap: 5px; max-width: 210px; background: transparent; border: 0; padding: 5px 7px; border-radius: 7px; cursor: pointer; color: var(--ink); }
@@ -373,6 +380,9 @@ body.aichat-open .docs-shell .aichat { transform: none; }
 .docs-shell .ac-msg.ai .ac-out pre { background: var(--code-bg); border: 1px solid var(--code-line); border-radius: 9px; padding: 11px 12px; margin: 10px 0; overflow-x: auto; font-family: var(--mono); font-size: 11.5px; line-height: 1.7; color: var(--code-ink); white-space: pre; }
 .docs-shell .ac-msg.ai .ac-out p { margin: 9px 0; }
 .docs-shell .ac-msg.ai .ac-out p:first-child { margin-top: 0; }
+.docs-shell .ac-msg.ai .ac-out table { width: 100%; border-collapse: collapse; margin: 11px 0; font-size: 12.5px; display: block; overflow-x: auto; }
+.docs-shell .ac-msg.ai .ac-out th, .docs-shell .ac-msg.ai .ac-out td { border: 1px solid var(--line); padding: 6px 9px; text-align: left; vertical-align: top; }
+.docs-shell .ac-msg.ai .ac-out th { background: var(--panel-hi); color: var(--ink); font-weight: 600; }
 
 .docs-shell .ac-sources { margin: 4px 0 12px; }
 .docs-shell .ac-sources summary { list-style: none; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; font-weight: 500; color: var(--accent-ink); }
@@ -393,9 +403,6 @@ body.aichat-open .docs-shell .aichat { transform: none; }
 .docs-shell .ac-keyrow { display: flex; gap: 7px; margin-bottom: 10px; }
 .docs-shell .ac-keyin { flex: 1; min-width: 0; background: var(--panel-2); border: 1px solid var(--accent-line); border-radius: 9px; padding: 8px 11px; color: var(--ink); font-family: var(--mono); font-size: 12px; outline: 0; }
 .docs-shell .ac-keybtn { flex: none; background: var(--accent); color: rgb(var(--c-on-brand)); border: 0; border-radius: 9px; padding: 0 14px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
-.docs-shell .ac-ctx { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; font-size: 12px; color: var(--accent-ink); background: var(--accent-dim); border: 1px solid var(--accent-line); border-radius: 8px; padding: 6px 10px; margin-bottom: 10px; }
-.docs-shell .ac-ctx .bk { flex: none; display: inline-flex; }
-.docs-shell .ac-ctx .ctxl { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .docs-shell .ac-inwrap { display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--line-2); border-radius: 11px; padding: 10px 10px 8px; background: var(--panel-2); }
 .docs-shell .ac-inwrap:focus-within { border-color: var(--accent-line); }
 .docs-shell .ac-in { width: 100%; min-height: 46px; max-height: 168px; resize: none; overflow-y: auto; background: transparent; border: 0; outline: 0; font-family: inherit; font-size: 13.5px; line-height: 1.5; color: var(--ink); }
@@ -430,19 +437,28 @@ body.aichat-open .docs-shell .aichat { transform: none; }
 /* ============================================================
    404 / not-found
    ============================================================ */
-.ml-notfound { min-height: calc(100vh - 60px); display: flex; flex-direction: column; }
+/* align-items:stretch overrides the `align-items:start` inherited from the
+   .docs-shell grid rule — without it the flex children shrink to content and
+   left-align instead of filling the width for centering. */
+.ml-notfound { min-height: calc(100vh - 60px); display: flex; flex-direction: column; align-items: stretch; }
 .ml-notfound .nf { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 80px 22px; gap: 14px; }
 .ml-notfound .nf-code { font-family: var(--display); font-weight: 300; font-size: clamp(72px, 12vw, 132px); line-height: .9; letter-spacing: -0.02em; color: var(--ink); }
-.ml-notfound .nf-h { font-family: var(--serif); font-size: clamp(24px, 4vw, 34px); color: var(--ink); margin: 0; }
+.ml-notfound .nf-h { font-family: var(--display); font-weight: 600; font-size: clamp(24px, 4vw, 34px); letter-spacing: -0.02em; color: var(--ink); margin: 0; }
 .ml-notfound .nf-sub { font-size: 14px; color: var(--ink-3); margin: 0; max-width: 420px; }
 .ml-notfound .nf-cta { margin-top: 12px; }
 .ml-notfound .nf-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: var(--btn-radius, 9px); background: var(--accent); color: rgb(var(--c-on-brand)); font-size: 13.5px; font-weight: 500; }
 .ml-notfound .nf-btn:hover { background: color-mix(in srgb, var(--accent) 88%, #fff); }
 .ml-notfound .nf-btn svg { width: 16px; height: 16px; }
 
-/* Push the page when the chat is docked (desktop). */
+/* Push the page when the chat is docked (desktop). The padding is applied with
+   NO transition by default, so a reload (pre-paint <html data-ai-open>) or a
+   client navigation (body.aichat-open persists) never animates the content,
+   tables, or code. The width only animates during an explicit user open/close,
+   which adds body.ac-animating for the duration of the toggle. */
 @media (min-width: 1101px) {
-  body.aichat-open .docs-shell { transition: padding-right .26s cubic-bezier(.2,.7,.2,1); padding-right: var(--ac-chat-w); }
+  html[data-ai-open] .docs-shell,
+  body.aichat-open .docs-shell { padding-right: var(--ac-chat-w); }
+  body.ac-animating .docs-shell { transition: padding-right .26s cubic-bezier(.2,.7,.2,1); }
 }
 
 /* View-as-Markdown modal */

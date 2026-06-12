@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import type { Metadata } from "next";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
@@ -62,7 +62,17 @@ export async function generateMetadata({ params }: { params: Promise<{ slug?: st
 export default async function DocsCatchAll({ params }: { params: Promise<{ slug?: string[] }> }) {
   const { slug } = await params;
   const doc = getDoc(slug);
-  if (!doc) return notFound();
+  if (!doc) {
+    // A docs-only site with no root page: send "/" to the first nav entry so the
+    // brand/logo link lands somewhere instead of 404ing. Any other missing path
+    // is a genuine 404. (Static-export sites serving a public/index.html at "/"
+    // are unaffected — this only runs when the catch-all handles "/".)
+    if (!slug || slug.length === 0) {
+      const first = firstDocHref();
+      if (first && first !== "/") redirect(first);
+    }
+    return notFound();
+  }
   const crumbs = doc.fm.crumbs ?? deriveCrumbs(doc.slug, doc.fm.title);
   const config = loadConfig();
   const editUrl = config.editUrl
@@ -137,6 +147,17 @@ function pageNeighbors(pathname: string): { prev?: PageNavLink; next?: PageNavLi
     prev: i > 0 ? flat[i - 1] : undefined,
     next: i < flat.length - 1 ? flat[i + 1] : undefined,
   };
+}
+
+/** First real navigation link across the configured tabs — the de-facto home
+ *  for a docs-only site with no page at "/". */
+function firstDocHref(): string | undefined {
+  for (const tab of getDocsTabs()) {
+    for (const sec of tab.sections) {
+      if (sec.links.length) return sec.links[0].href;
+    }
+  }
+  return undefined;
 }
 
 function deriveCrumbs(slug: string[], title: string) {

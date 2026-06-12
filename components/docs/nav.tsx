@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { TocList } from "./toc";
@@ -121,9 +122,30 @@ export function DocsSidebar({
   const activeId = pickActiveTabId(tabs, pathname);
   const activeTab = tabs.find((t) => t.id === activeId) ?? tabs[0];
   const sections = activeTab?.sections ?? [];
+  const sideRef = useRef<HTMLElement>(null);
+
+  // After navigation the sidebar may render scrolled to the top, leaving the
+  // active link below the fold. Scroll *only the sidebar* (never the window) so
+  // the active link is in view — centered when it was off-screen. Deferred to a
+  // frame so it measures after layout has settled (fonts, reflow).
+  useEffect(() => {
+    const aside = sideRef.current;
+    if (!aside) return;
+    const id = requestAnimationFrame(() => {
+      const active = aside.querySelector<HTMLElement>("a.active");
+      if (!active) return;
+      const ar = aside.getBoundingClientRect();
+      const lr = active.getBoundingClientRect();
+      if (lr.top < ar.top || lr.bottom > ar.bottom) {
+        aside.scrollTop += lr.top - ar.top - (aside.clientHeight - active.clientHeight) / 2;
+      }
+    });
+    return () => cancelAnimationFrame(id);
+  }, [pathname]);
+
   return (
     <>
-      <aside className="docs-side">
+      <aside className="docs-side" ref={sideRef}>
         <div className="docs-tools">
           <SidebarSearchTrigger />
           {ai && <SidebarAskButton />}

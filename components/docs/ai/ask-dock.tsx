@@ -1,8 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import type { AiPublicConfig } from "@/lib/config";
+
+// The docs shell remounts on navigation, so the panel's open state must be
+// restored *before paint* to avoid a flash — a layout effect, falling back to a
+// plain effect during SSR where useLayoutEffect would warn.
+const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 /**
  * Docked "Ask AI" chat panel — ported from the Claude Design
@@ -97,6 +102,30 @@ function esc(s: string) {
 function inline(s: string) {
   return s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>").replace(/`([^`]+)`/g, "<code>$1</code>");
 }
+/** A GFM table separator row, e.g. `|---|:--:|` or `--- | ---`. */
+function isTableSep(ln: string): boolean {
+  return /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(ln);
+}
+function splitRow(ln: string): string[] {
+  return ln.trim().replace(/^\|/, "").replace(/\|$/, "").split("|").map((c) => c.trim());
+}
+function renderTable(lines: string[]): string {
+  const header = splitRow(lines[0]);
+  const body = lines.slice(2).filter((l) => l.trim()).map(splitRow);
+  let h = "<table><thead><tr>";
+  for (const c of header) h += `<th>${inline(esc(c))}</th>`;
+  h += "</tr></thead>";
+  if (body.length) {
+    h += "<tbody>";
+    for (const r of body) {
+      h += "<tr>";
+      for (let i = 0; i < header.length; i++) h += `<td>${inline(esc(r[i] ?? ""))}</td>`;
+      h += "</tr>";
+    }
+    h += "</tbody>";
+  }
+  return h + "</table>";
+}
 function mdBlocks(s: string): string {
   const parts = String(s).split(/```/);
   let html = "";
@@ -104,19 +133,37 @@ function mdBlocks(s: string): string {
     if (i % 2 === 1) {
       const code = parts[i].replace(/^[a-zA-Z]*\n/, "");
       html += "<pre>" + esc(code.replace(/\n$/, "")) + "</pre>";
-    } else {
-      parts[i].split(/\n{2,}/).forEach((para) => {
-        const t = para.trim();
-        if (!t) return;
-        const lines = t.split("\n").map((ln) => {
-          const h = ln.match(/^#{1,6}\s+(.*)$/);
-          if (h) return "<strong>" + inline(esc(h[1])) + "</strong>";
-          if (/^[-*]\s+/.test(ln)) return "&bull;&nbsp; " + inline(esc(ln.replace(/^[-*]\s+/, "")));
-          return inline(esc(ln));
-        });
-        html += "<p>" + lines.join("<br>") + "</p>";
-      });
+      continue;
     }
+    parts[i].split(/\n{2,}/).forEach((para) => {
+      const t = para.trim();
+      if (!t) return;
+      const rawLines = t.split("\n");
+      // GFM table: a header row, a `---` separator, then body rows. Render any
+      // contiguous table region; non-table lines around it stay as a paragraph.
+      let run: string[] = [];
+      const flush = () => {
+        if (run.length) html += "<p>" + run.join("<br>") + "</p>";
+        run = [];
+      };
+      for (let j = 0; j < rawLines.length; j++) {
+        const ln = rawLines[j];
+        if (ln.includes("|") && rawLines[j + 1] && isTableSep(rawLines[j + 1])) {
+          flush();
+          const tbl: string[] = [ln, rawLines[j + 1]];
+          j += 2;
+          while (j < rawLines.length && rawLines[j].includes("|")) tbl.push(rawLines[j++]);
+          j--;
+          html += renderTable(tbl);
+          continue;
+        }
+        const h = ln.match(/^#{1,6}\s+(.*)$/);
+        if (h) run.push("<strong>" + inline(esc(h[1])) + "</strong>");
+        else if (/^[-*]\s+/.test(ln)) run.push("&bull;&nbsp; " + inline(esc(ln.replace(/^[-*]\s+/, ""))));
+        else run.push(inline(esc(ln)));
+      }
+      flush();
+    });
   }
   return html;
 }
@@ -144,6 +191,16 @@ export function AskDock({
   const bodyRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const prevOpen = useRef<boolean | null>(null);
+
+  // Open/close the panel as a *user action*: enable the width transition just for
+  // this toggle (the push is otherwise instant, so reloads/navigation never
+  // animate), then set the state.
+  const userToggle = (next: boolean) => {
+    document.body.classList.add("ac-animating");
+    window.setTimeout(() => document.body.classList.remove("ac-animating"), 340);
+    setOpen(next);
+  };
   const pathname = usePathname();
 
   const messages = chats[cur]?.messages ?? [];
@@ -166,7 +223,7 @@ export function AskDock({
 
   const starters = suggestions?.length ? suggestions.slice(0, 3) : generated ?? SUGGEST;
 
-  /* hydrate from localStorage + restore open state */
+  /* hydrate chats from localStorage */
   useEffect(() => {
     try {
       const s = JSON.parse(localStorage.getItem(CHATS_KEY) || "null");
@@ -174,10 +231,31 @@ export function AskDock({
         setChats(s.chats);
         setCur(Math.min(s.cur || 0, s.chats.length - 1));
       }
-      if (localStorage.getItem(OPEN_KEY) === "1") setOpen(true);
     } catch {
       /* ignore */
     }
+  }, []);
+
+  /* Restore the open state on every (re)mount. The docs shell remounts on
+     navigation, so without this the panel would close when you change pages.
+     Done in a layout effect — applied before paint — and we add body.aichat-open
+     directly here so the content never flashes to full width before React's
+     state catches up. No body.ac-animating, so there's no transition: the panel
+     is simply already open. On a fresh load the inline script set the same state
+     pre-paint via <html data-ai-open>; this hands off to the React-owned class. */
+  useIsoLayoutEffect(() => {
+    let wasOpen = false;
+    try {
+      wasOpen = localStorage.getItem(OPEN_KEY) === "1";
+    } catch {
+      /* ignore */
+    }
+    if (wasOpen) {
+      document.body.classList.add("aichat-open");
+      setOpen(true);
+    }
+    document.documentElement.removeAttribute("data-ai-open");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* persist chats — drop inline image data so we never blow the localStorage
@@ -194,18 +272,30 @@ export function AskDock({
     }
   }, [chats, cur]);
 
-  /* reflect open state into the page push + persist */
+  /* reflect open state into the page push + persist.
+
+     The width change is intentionally NOT animated here — the transition is
+     gated behind body.ac-animating (added only by userToggle), so a reload or a
+     navigation never animates the content/tables/code. No unmount cleanup that
+     strips the class: that would thrash the push if this remounts during
+     navigation. */
   useEffect(() => {
     document.body.classList.toggle("aichat-open", open);
-    try {
-      localStorage.setItem(OPEN_KEY, open ? "1" : "0");
-    } catch {
-      /* ignore */
+    // Hand off from the pre-paint attribute only once the body class agrees, so
+    // there is never a frame with neither (which would flash content to full width).
+    if (open) document.documentElement.removeAttribute("data-ai-open");
+    // Persist real changes only: the first run just records the current value,
+    // so we never clobber the saved state before hydration adopts it (and React
+    // StrictMode's mount/remount replay can't write a stale "0").
+    if (prevOpen.current !== null && prevOpen.current !== open) {
+      try {
+        localStorage.setItem(OPEN_KEY, open ? "1" : "0");
+      } catch {
+        /* ignore */
+      }
     }
+    prevOpen.current = open;
     if (open) setTimeout(() => inputRef.current?.focus(), 60);
-    return () => {
-      document.body.classList.remove("aichat-open");
-    };
   }, [open]);
 
   /* auto-scroll the transcript */
@@ -226,7 +316,7 @@ export function AskDock({
     const onOpen = (e: Event) => {
       const detail = (e as CustomEvent).detail as { context?: string | null } | undefined;
       if (detail?.context) setContext(detail.context);
-      setOpen(true);
+      userToggle(true);
     };
     const onPrefill = (e: Event) => {
       const detail = (e as CustomEvent).detail as { q?: string } | undefined;
@@ -238,11 +328,11 @@ export function AskDock({
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
         e.preventDefault();
-        setOpen(true);
+        userToggle(true);
       }
       if ((e.metaKey || e.ctrlKey) && (e.key === "e" || e.key === "E")) {
         e.preventDefault();
-        setOpen(true);
+        userToggle(true);
         addChat();
       }
     };
@@ -384,7 +474,7 @@ export function AskDock({
 
   return (
     <>
-      <div className={`aichat-scrim${open ? " on" : ""}`} onClick={() => setOpen(false)} />
+      <div className={`aichat-scrim${open ? " on" : ""}`} onClick={() => userToggle(false)} />
       <aside className="aichat" aria-hidden={!open}>
         <div className="ac-head">
           <span className="spark">
@@ -398,7 +488,7 @@ export function AskDock({
             <button className="ac-ibtn" title="New chat (⌘E)" onClick={addChat}>
               <Ico d="M12 5v14M5 12h14" />
             </button>
-            <button className="ac-ibtn" title="Close" onClick={() => setOpen(false)}>
+            <button className="ac-ibtn" title="Close" onClick={() => userToggle(false)}>
               <Ico d="M18 6 6 18M6 6l12 12" />
             </button>
           </span>
@@ -496,12 +586,6 @@ export function AskDock({
               </button>
             </div>
           )}
-          <div className="ac-ctx">
-            <span className="bk">
-              <Book />
-            </span>
-            <span className="ctxl">{context}</span>
-          </div>
           <div className="ac-inwrap">
             {attachments.length > 0 && (
               <div className="ac-attachments">
@@ -627,15 +711,6 @@ function Check() {
   return (
     <svg className="ck" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
       <path d="M20 6 9 17l-5-5" />
-    </svg>
-  );
-}
-function Book({ sm }: { sm?: boolean }) {
-  const n = sm ? 13 : 13;
-  return (
-    <svg width={n} height={n} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
-      <path d="M4 5a2 2 0 0 1 2-2h11v18H6a2 2 0 0 1-2-2z" />
-      {!sm && <path d="M9 3v18" />}
     </svg>
   );
 }

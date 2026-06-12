@@ -451,9 +451,9 @@ html[data-ai-open] .ml-apiref .aichat { transform: none; }
   .ml-apiref .aichat-scrim.on { display: block; position: fixed; inset: 0; z-index: 79; background: rgba(0,0,0,.4); }
 }
 
-/* 61px = the site nav's 60px row + its 1px border, so the panel header's divider
-   lines up exactly with the nav's bottom border (the panel is fixed at top:0). */
-.ml-apiref .ac-head { display: flex; align-items: center; gap: 10px; height: 61px; padding: 0 12px 0 15px; border-bottom: 1px solid var(--line); flex: none; position: relative; }
+/* Borderless header — no divider, for a clean look. Height still matches the
+   site nav (60px row + 1px border) so the title lines up with the nav items. */
+.ml-apiref .ac-head { display: flex; align-items: center; gap: 10px; height: 61px; padding: 0 12px 0 15px; flex: none; position: relative; }
 .ml-apiref .ac-head .spark { color: var(--c-purple); flex: none; display: inline-flex; }
 .ml-apiref .ac-head .title { font-size: 14px; font-weight: 500; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ml-apiref .ac-titlebtn { display: inline-flex; align-items: center; gap: 5px; max-width: 210px; background: transparent; border: 0; padding: 5px 7px; border-radius: 7px; cursor: pointer; color: var(--ink); }

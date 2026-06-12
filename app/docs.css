@@ -341,9 +341,9 @@ html[data-ai-open] .docs-shell .aichat { transform: none; }
 }
 .docs-shell .aichat *, .docs-shell .aichat *::before, .docs-shell .aichat *::after { box-sizing: border-box; }
 
-/* 61px = the site nav's 60px row + its 1px border, so the panel header's divider
-   lines up exactly with the nav's bottom border (the panel is fixed at top:0). */
-.docs-shell .ac-head { display: flex; align-items: center; gap: 10px; height: 61px; padding: 0 12px 0 15px; border-bottom: 1px solid var(--line); flex: none; position: relative; }
+/* Borderless header — no divider, for a clean look. Height still matches the
+   site nav (60px row + 1px border) so the title lines up with the nav items. */
+.docs-shell .ac-head { display: flex; align-items: center; gap: 10px; height: 61px; padding: 0 12px 0 15px; flex: none; position: relative; }
 .docs-shell .ac-head .spark { color: var(--ac-purple); flex: none; display: inline-flex; }
 .docs-shell .ac-head .title { font-size: 14px; font-weight: 500; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .docs-shell .ac-titlebtn { display: inline-flex; align-items: center; gap: 5px; max-width: 210px; background: transparent; border: 0; padding: 5px 7px; border-radius: 7px; cursor: pointer; color: var(--ink); }

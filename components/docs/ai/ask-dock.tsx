@@ -586,16 +586,6 @@ export function AskDock({
               </button>
             </div>
           )}
-          {/* Read-only indicator of the grounding scope — what slice of the docs
-              the answer is drawn from. Set by how the panel was opened (generic
-              Ask AI → "this page"; an inline section/endpoint "Ask" → that name). */}
-          <div className="ac-ctx" title={`Answers are grounded in ${context}`}>
-            <span className="bk">
-              <Book />
-            </span>
-            <span className="pre">Grounded in</span>
-            <span className="ctxl">{context}</span>
-          </div>
           <div className="ac-inwrap">
             {attachments.length > 0 && (
               <div className="ac-attachments">
@@ -721,15 +711,6 @@ function Check() {
   return (
     <svg className="ck" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
       <path d="M20 6 9 17l-5-5" />
-    </svg>
-  );
-}
-function Book({ sm }: { sm?: boolean }) {
-  const n = sm ? 13 : 13;
-  return (
-    <svg width={n} height={n} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
-      <path d="M4 5a2 2 0 0 1 2-2h11v18H6a2 2 0 0 1-2-2z" />
-      {!sm && <path d="M9 3v18" />}
     </svg>
   );
 }

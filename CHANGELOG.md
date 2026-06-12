@@ -2,6 +2,28 @@
 
 All notable changes to `@markline/markline` and `@markline/create`.
 
+## 0.1.4
+
+### Fixed
+- **Ask AI renders Markdown tables.** Answers containing a GFM table were shown
+  as raw `| pipe |` text; they now render as real tables (inline bold/code in
+  cells and surrounding text preserved), in both the docs and API reference.
+- **Ask AI no longer flickers on navigation.** With the panel docked open,
+  changing pages no longer animates the content / tables / code shrinking — the
+  panel stays open and the layout holds steady. Only an explicit open/close
+  animates, and a reload with the panel open paints already-shrunk.
+- **Sidebar keeps the active link in view.** Navigating to a page whose nav link
+  sat below the fold no longer leaves it scrolled off-screen.
+- **Docs-only sites: `/` resolves.** The root path redirects to the first nav
+  entry instead of 404ing when there is no index page; every other missing path
+  still 404s, and static-export sites serving `public/index.html` are unaffected.
+- **404 page is centered**, with its heading in the display font.
+
+### Changed
+- Ask AI panel header is borderless and aligned with the site nav.
+- Removed the "Grounded in this page" scope label — answers draw on the full
+  docs context, so the per-page label was misleading.
+
 ## 0.1.3
 
 ### Added

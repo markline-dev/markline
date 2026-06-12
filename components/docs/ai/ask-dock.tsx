@@ -186,6 +186,7 @@ export function AskDock({
   const bodyRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const didInitPush = useRef(false);
   const pathname = usePathname();
 
   const messages = chats[cur]?.messages ?? [];
@@ -216,7 +217,8 @@ export function AskDock({
         setChats(s.chats);
         setCur(Math.min(s.cur || 0, s.chats.length - 1));
       }
-      if (localStorage.getItem(OPEN_KEY) === "1") setOpen(true);
+      // Open state is adopted in the push effect below (atomically with the
+      // pre-paint <html data-ai-open> handoff), so it isn't restored here.
     } catch {
       /* ignore */
     }
@@ -238,6 +240,24 @@ export function AskDock({
 
   /* reflect open state into the page push + persist */
   useEffect(() => {
+    if (!didInitPush.current) {
+      // First commit: adopt the pre-paint layout. The push was decided before
+      // paint via <html data-ai-open> (no transition), so content already
+      // rendered shrunk. Hand off to the React-managed body class and drop the
+      // attribute in the SAME tick — same padding value, so nothing animates.
+      didInitPush.current = true;
+      let wasOpen = false;
+      try {
+        wasOpen = localStorage.getItem(OPEN_KEY) === "1";
+      } catch {
+        /* ignore */
+      }
+      document.body.classList.toggle("aichat-open", wasOpen);
+      document.documentElement.removeAttribute("data-ai-open");
+      if (wasOpen && !open) setOpen(true);
+      return () => document.body.classList.remove("aichat-open");
+    }
+    // Subsequent toggles (user opened/closed): animate via the CSS transition.
     document.body.classList.toggle("aichat-open", open);
     try {
       localStorage.setItem(OPEN_KEY, open ? "1" : "0");
@@ -245,9 +265,7 @@ export function AskDock({
       /* ignore */
     }
     if (open) setTimeout(() => inputRef.current?.focus(), 60);
-    return () => {
-      document.body.classList.remove("aichat-open");
-    };
+    return () => document.body.classList.remove("aichat-open");
   }, [open]);
 
   /* auto-scroll the transcript */

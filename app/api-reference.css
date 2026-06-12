@@ -431,11 +431,15 @@ html[data-accent="purple"][data-theme="light"] .ml-apiref .code-card.resp { back
   transform: translateX(100%); transition: transform .26s cubic-bezier(.2,.7,.2,1);
 }
 body.aichat-open .ml-apiref .aichat { transform: none; }
+/* Pre-paint state from layout.tsx — panel in place on first paint, no slide-in. */
+html[data-ai-open] .ml-apiref .aichat { transform: none; transition: none; }
 
 /* push page content when docked (desktop): pad the whole takeover container so
    the sticky nav and the 3-pane both reflow left of the panel. */
 .ml-apiref { transition: padding-right .26s cubic-bezier(.2,.7,.2,1); }
 @media (min-width: 1101px) {
+  /* Pre-paint (no animation): content renders already-shrunk on reload. */
+  html[data-ai-open] .ml-apiref { padding-right: var(--chat-w); }
   body.aichat-open .ml-apiref { padding-right: var(--chat-w); }
 }
 .ml-apiref .aichat-scrim { display: none; }

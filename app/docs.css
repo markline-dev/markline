@@ -439,7 +439,7 @@ body.aichat-open .docs-shell .aichat { transform: none; }
 .ml-notfound { min-height: calc(100vh - 60px); display: flex; flex-direction: column; align-items: stretch; }
 .ml-notfound .nf { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 80px 22px; gap: 14px; }
 .ml-notfound .nf-code { font-family: var(--display); font-weight: 300; font-size: clamp(72px, 12vw, 132px); line-height: .9; letter-spacing: -0.02em; color: var(--ink); }
-.ml-notfound .nf-h { font-family: var(--serif); font-size: clamp(24px, 4vw, 34px); color: var(--ink); margin: 0; }
+.ml-notfound .nf-h { font-family: var(--display); font-weight: 600; font-size: clamp(24px, 4vw, 34px); letter-spacing: -0.02em; color: var(--ink); margin: 0; }
 .ml-notfound .nf-sub { font-size: 14px; color: var(--ink-3); margin: 0; max-width: 420px; }
 .ml-notfound .nf-cta { margin-top: 12px; }
 .ml-notfound .nf-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: var(--btn-radius, 9px); background: var(--accent); color: rgb(var(--c-on-brand)); font-size: 13.5px; font-weight: 500; }

@@ -1,8 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import type { AiPublicConfig } from "@/lib/config";
+
+// The docs shell remounts on navigation, so the panel's open state must be
+// restored *before paint* to avoid a flash — a layout effect, falling back to a
+// plain effect during SSR where useLayoutEffect would warn.
+const useIsoLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
 /**
  * Docked "Ask AI" chat panel — ported from the Claude Design
@@ -186,7 +191,16 @@ export function AskDock({
   const bodyRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
-  const didInitPush = useRef(false);
+  const prevOpen = useRef<boolean | null>(null);
+
+  // Open/close the panel as a *user action*: enable the width transition just for
+  // this toggle (the push is otherwise instant, so reloads/navigation never
+  // animate), then set the state.
+  const userToggle = (next: boolean) => {
+    document.body.classList.add("ac-animating");
+    window.setTimeout(() => document.body.classList.remove("ac-animating"), 340);
+    setOpen(next);
+  };
   const pathname = usePathname();
 
   const messages = chats[cur]?.messages ?? [];
@@ -209,7 +223,7 @@ export function AskDock({
 
   const starters = suggestions?.length ? suggestions.slice(0, 3) : generated ?? SUGGEST;
 
-  /* hydrate from localStorage + restore open state */
+  /* hydrate chats from localStorage */
   useEffect(() => {
     try {
       const s = JSON.parse(localStorage.getItem(CHATS_KEY) || "null");
@@ -217,11 +231,31 @@ export function AskDock({
         setChats(s.chats);
         setCur(Math.min(s.cur || 0, s.chats.length - 1));
       }
-      // Open state is adopted in the push effect below (atomically with the
-      // pre-paint <html data-ai-open> handoff), so it isn't restored here.
     } catch {
       /* ignore */
     }
+  }, []);
+
+  /* Restore the open state on every (re)mount. The docs shell remounts on
+     navigation, so without this the panel would close when you change pages.
+     Done in a layout effect — applied before paint — and we add body.aichat-open
+     directly here so the content never flashes to full width before React's
+     state catches up. No body.ac-animating, so there's no transition: the panel
+     is simply already open. On a fresh load the inline script set the same state
+     pre-paint via <html data-ai-open>; this hands off to the React-owned class. */
+  useIsoLayoutEffect(() => {
+    let wasOpen = false;
+    try {
+      wasOpen = localStorage.getItem(OPEN_KEY) === "1";
+    } catch {
+      /* ignore */
+    }
+    if (wasOpen) {
+      document.body.classList.add("aichat-open");
+      setOpen(true);
+    }
+    document.documentElement.removeAttribute("data-ai-open");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /* persist chats — drop inline image data so we never blow the localStorage
@@ -238,34 +272,30 @@ export function AskDock({
     }
   }, [chats, cur]);
 
-  /* reflect open state into the page push + persist */
+  /* reflect open state into the page push + persist.
+
+     The width change is intentionally NOT animated here — the transition is
+     gated behind body.ac-animating (added only by userToggle), so a reload or a
+     navigation never animates the content/tables/code. No unmount cleanup that
+     strips the class: that would thrash the push if this remounts during
+     navigation. */
   useEffect(() => {
-    if (!didInitPush.current) {
-      // First commit: adopt the pre-paint layout. The push was decided before
-      // paint via <html data-ai-open> (no transition), so content already
-      // rendered shrunk. Hand off to the React-managed body class and drop the
-      // attribute in the SAME tick — same padding value, so nothing animates.
-      didInitPush.current = true;
-      let wasOpen = false;
+    document.body.classList.toggle("aichat-open", open);
+    // Hand off from the pre-paint attribute only once the body class agrees, so
+    // there is never a frame with neither (which would flash content to full width).
+    if (open) document.documentElement.removeAttribute("data-ai-open");
+    // Persist real changes only: the first run just records the current value,
+    // so we never clobber the saved state before hydration adopts it (and React
+    // StrictMode's mount/remount replay can't write a stale "0").
+    if (prevOpen.current !== null && prevOpen.current !== open) {
       try {
-        wasOpen = localStorage.getItem(OPEN_KEY) === "1";
+        localStorage.setItem(OPEN_KEY, open ? "1" : "0");
       } catch {
         /* ignore */
       }
-      document.body.classList.toggle("aichat-open", wasOpen);
-      document.documentElement.removeAttribute("data-ai-open");
-      if (wasOpen && !open) setOpen(true);
-      return () => document.body.classList.remove("aichat-open");
     }
-    // Subsequent toggles (user opened/closed): animate via the CSS transition.
-    document.body.classList.toggle("aichat-open", open);
-    try {
-      localStorage.setItem(OPEN_KEY, open ? "1" : "0");
-    } catch {
-      /* ignore */
-    }
+    prevOpen.current = open;
     if (open) setTimeout(() => inputRef.current?.focus(), 60);
-    return () => document.body.classList.remove("aichat-open");
   }, [open]);
 
   /* auto-scroll the transcript */
@@ -286,7 +316,7 @@ export function AskDock({
     const onOpen = (e: Event) => {
       const detail = (e as CustomEvent).detail as { context?: string | null } | undefined;
       if (detail?.context) setContext(detail.context);
-      setOpen(true);
+      userToggle(true);
     };
     const onPrefill = (e: Event) => {
       const detail = (e as CustomEvent).detail as { q?: string } | undefined;
@@ -298,11 +328,11 @@ export function AskDock({
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && (e.key === "k" || e.key === "K")) {
         e.preventDefault();
-        setOpen(true);
+        userToggle(true);
       }
       if ((e.metaKey || e.ctrlKey) && (e.key === "e" || e.key === "E")) {
         e.preventDefault();
-        setOpen(true);
+        userToggle(true);
         addChat();
       }
     };
@@ -444,7 +474,7 @@ export function AskDock({
 
   return (
     <>
-      <div className={`aichat-scrim${open ? " on" : ""}`} onClick={() => setOpen(false)} />
+      <div className={`aichat-scrim${open ? " on" : ""}`} onClick={() => userToggle(false)} />
       <aside className="aichat" aria-hidden={!open}>
         <div className="ac-head">
           <span className="spark">
@@ -458,7 +488,7 @@ export function AskDock({
             <button className="ac-ibtn" title="New chat (⌘E)" onClick={addChat}>
               <Ico d="M12 5v14M5 12h14" />
             </button>
-            <button className="ac-ibtn" title="Close" onClick={() => setOpen(false)}>
+            <button className="ac-ibtn" title="Close" onClick={() => userToggle(false)}>
               <Ico d="M18 6 6 18M6 6l12 12" />
             </button>
           </span>

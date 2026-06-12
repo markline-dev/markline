@@ -428,19 +428,22 @@ html[data-accent="purple"][data-theme="light"] .ml-apiref .code-card.resp { back
   position: fixed; top: 0; right: 0; bottom: 0; width: var(--chat-w);
   background: var(--panel); border-left: 1px solid var(--line);
   display: flex; flex-direction: column; z-index: 80;
-  transform: translateX(100%); transition: transform .26s cubic-bezier(.2,.7,.2,1);
+  transform: translateX(100%);
 }
 body.aichat-open .ml-apiref .aichat { transform: none; }
-/* Pre-paint state from layout.tsx — panel in place on first paint, no slide-in. */
-html[data-ai-open] .ml-apiref .aichat { transform: none; transition: none; }
+/* Slide only during an explicit open/close; load + navigation appear in place. */
+body.ac-animating .ml-apiref .aichat { transition: transform .26s cubic-bezier(.2,.7,.2,1); }
+/* Pre-paint state from layout.tsx — panel in place on first paint. */
+html[data-ai-open] .ml-apiref .aichat { transform: none; }
 
 /* push page content when docked (desktop): pad the whole takeover container so
-   the sticky nav and the 3-pane both reflow left of the panel. */
-.ml-apiref { transition: padding-right .26s cubic-bezier(.2,.7,.2,1); }
+   the sticky nav and the 3-pane both reflow left of the panel. No transition by
+   default — reload (pre-paint) and navigation (persisted class) never animate;
+   only an explicit user toggle (body.ac-animating) does. */
 @media (min-width: 1101px) {
-  /* Pre-paint (no animation): content renders already-shrunk on reload. */
-  html[data-ai-open] .ml-apiref { padding-right: var(--chat-w); }
+  html[data-ai-open] .ml-apiref,
   body.aichat-open .ml-apiref { padding-right: var(--chat-w); }
+  body.ac-animating .ml-apiref { transition: padding-right .26s cubic-bezier(.2,.7,.2,1); }
 }
 .ml-apiref .aichat-scrim { display: none; }
 @media (max-width: 1100px) {

@@ -454,7 +454,7 @@ html[data-ai-open] .ml-apiref .aichat { transform: none; }
 /* Borderless header — no divider, for a clean look. Height still matches the
    site nav (60px row + 1px border) so the title lines up with the nav items. */
 .ml-apiref .ac-head { display: flex; align-items: center; gap: 10px; height: 61px; padding: 0 12px 0 15px; flex: none; position: relative; }
-.ml-apiref .ac-head .spark { color: var(--c-purple); flex: none; display: inline-flex; }
+.ml-apiref .ac-head .spark { color: var(--accent-ink); flex: none; display: inline-flex; }
 .ml-apiref .ac-head .title { font-size: 14px; font-weight: 500; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .ml-apiref .ac-titlebtn { display: inline-flex; align-items: center; gap: 5px; max-width: 210px; background: transparent; border: 0; padding: 5px 7px; border-radius: 7px; cursor: pointer; color: var(--ink); }
 .ml-apiref .ac-titlebtn:hover { background: var(--panel-hi); }
@@ -501,11 +501,11 @@ html[data-ai-open] .ml-apiref .aichat { transform: none; }
 .ml-apiref .ac-sources[open] summary .chev { transform: rotate(90deg); }
 .ml-apiref .ac-srclist { display: flex; flex-direction: column; gap: 6px; margin-top: 9px; }
 .ml-apiref .ac-src { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--ink-3); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; }
-.ml-apiref .ac-src .bk { color: var(--c-purple); flex: none; display: inline-flex; }
+.ml-apiref .ac-src .bk { color: var(--accent-ink); flex: none; display: inline-flex; }
 
 .ml-apiref .ac-think { display: inline-flex; align-items: center; gap: 9px; color: var(--ink-3); font-size: 13px; }
 .ml-apiref .ac-dots { display: inline-flex; gap: 4px; }
-.ml-apiref .ac-dots i { width: 6px; height: 6px; border-radius: 999px; background: var(--c-purple); animation: ml-aim-bounce 1s infinite; }
+.ml-apiref .ac-dots i { width: 6px; height: 6px; border-radius: 999px; background: var(--accent-ink); animation: ml-aim-bounce 1s infinite; }
 .ml-apiref .ac-dots i:nth-child(2){ animation-delay: .15s; } .ml-apiref .ac-dots i:nth-child(3){ animation-delay: .3s; }
 @keyframes ml-aim-bounce { 0%,80%,100%{ opacity:.3; transform: translateY(0);} 40%{ opacity:1; transform: translateY(-3px);} }
 
@@ -572,7 +572,7 @@ html[data-ai-open] .ml-apiref .aichat { transform: none; }
 [data-theme="light"] .ml-apiref .spx-row mark { background: color-mix(in srgb, var(--accent) 22%, transparent); }
 .ml-apiref .spx-go { flex: none; color: var(--ink-4); opacity: 0; }
 .ml-apiref .spx-row.active .spx-go { opacity: 1; color: var(--accent-ink); }
-.ml-apiref .spx-ask .hash { color: var(--c-purple); }
+.ml-apiref .spx-ask .hash { color: var(--accent-ink); }
 .ml-apiref .spx-ask .spx-title { color: var(--ink); }
 .ml-apiref .spx-empty { padding: 30px 16px; text-align: center; color: var(--ink-4); font-size: 14px; }
 .ml-apiref .spx-foot { display: flex; align-items: center; gap: 16px; padding: 10px 16px; border-top: 1px solid var(--line); background: var(--panel-2); font-size: 11.5px; color: var(--ink-4); white-space: nowrap; }

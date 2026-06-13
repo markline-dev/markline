@@ -18,6 +18,9 @@ All notable changes to `@markline/markline` and `@markline/create`.
   entry instead of 404ing when there is no index page; every other missing path
   still 404s, and static-export sites serving `public/index.html` are unaffected.
 - **404 page is centered**, with its heading in the display font.
+- **Ask AI follows your accent color.** The assistant sparkle, "Used N sources"
+  / source icons, loading dots, and the search-palette Ask glyph used a
+  hardcoded purple instead of the configured brand accent.
 
 ### Changed
 - Ask AI panel header is borderless and aligned with the site nav.

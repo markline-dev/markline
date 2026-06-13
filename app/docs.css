@@ -75,7 +75,7 @@
 .docs-shell .docs-tools .docs-search-trigger { flex: 1; min-width: 0; }
 .docs-shell .docs-search-trigger {
   display: flex; align-items: center; gap: 7px; width: 100%;
-  border: 1px solid var(--line); border-radius: 9px; padding: 8px 10px;
+  border: 1px solid var(--line); border-radius: 9px; padding: 8px 12px;
   color: var(--ink-4); font-size: 13px; background: var(--panel-2); cursor: text;
   white-space: nowrap; overflow: hidden; text-align: left;
 }

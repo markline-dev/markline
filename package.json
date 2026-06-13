@@ -1,6 +1,6 @@
 {
   "name": "@markline/markline",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "description": "Open-source, self-hostable documentation framework with first-class OpenAPI, search, and an interactive API playground.",
   "license": "MIT",
   "keywords": [

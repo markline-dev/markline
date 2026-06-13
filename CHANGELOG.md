@@ -2,6 +2,20 @@
 
 All notable changes to `@markline/markline` and `@markline/create`.
 
+## 0.1.5
+
+### Fixed
+- **Ask AI follows your accent color.** The assistant sparkle, "Used N sources" /
+  source icons, loading dots, and the search-palette Ask glyph used a hardcoded
+  purple instead of the configured brand accent.
+- **Cleaner search snippets.** Result previews no longer leak Markdown table
+  syntax (`| --- |`, stray pipes); the indexer strips separator rows and cell
+  pipes when extracting plain text.
+
+### Changed
+- **Search trigger** has a touch more padding so the `⌘K` hint doesn't crowd the
+  right edge.
+
 ## 0.1.4
 
 ### Fixed

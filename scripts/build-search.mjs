@@ -46,6 +46,8 @@ function toPlainText(md) {
     .replace(/<\/?[A-Za-z][^>]*>/g, " ")       // JSX / HTML tags
     .replace(/!\[[^\]]*\]\([^)]*\)/g, " ")     // images
     .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1")   // links -> text
+    .replace(/^[ \t]*[|:\-][ |:\-\t]*$/gm, " ") // table separator / divider rows (|---|, ---)
+    .replace(/\|/g, " ")                        // remaining table cell pipes -> space
     .replace(/^[ \t]*[#>*\-+]+[ \t]*/gm, " ")  // heading / list / quote markers
     .replace(/[*_~]/g, " ")                     // emphasis
     .replace(/\s+/g, " ")

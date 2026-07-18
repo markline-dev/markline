@@ -22,6 +22,13 @@ test("segmentDisplayName title-cases segments and applies acronyms", () => {
   assert.equal(segmentDisplayName("api"), "API");
 });
 
+test("segmentDisplayName honors whole-segment brand overrides", () => {
+  // Without the override the camelCase splitter would yield "Whats App".
+  assert.equal(segmentDisplayName("whatsapp"), "WhatsApp");
+  assert.equal(segmentDisplayName("WhatsApp"), "WhatsApp");
+  assert.equal(segmentDisplayName("WHATSAPP"), "WhatsApp");
+});
+
 test("parseOpenApiTag: single segment behaves as a top-level leaf", () => {
   const p = parseOpenApiTag("payments");
   assert.equal(p.parentPath, null);

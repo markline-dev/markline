@@ -186,11 +186,19 @@ function apiResources(root) {
     }
   }
   const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-  const pretty = (s) =>
-    String(s).split("/").pop()
+  // Whole-segment casing overrides — keep brand names the camelCase splitter
+  // would mangle ("WhatsApp" -> "Whats App"). Mirrors WORD_OVERRIDES in
+  // lib/openapi-tags.ts so llms.txt matches the rendered nav.
+  const OVERRIDES = { whatsapp: "WhatsApp" };
+  const pretty = (s) => {
+    const seg = String(s).split("/").pop();
+    const override = OVERRIDES[seg.toLowerCase()];
+    if (override) return override;
+    return seg
       .replace(/[-_]/g, " ").replace(/([a-z0-9])([A-Z])/g, "$1 $2")
       .split(/\s+/).filter(Boolean)
       .map((w) => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(" ");
+  };
   return [...tags].map(([name, desc]) => ({ url: `/api-reference/${slug(name)}`, title: pretty(name), desc }));
 }
 

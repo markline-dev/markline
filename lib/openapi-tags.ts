@@ -31,11 +31,24 @@ const ACRONYMS: Record<string, string> = {
 };
 
 /**
+ * Whole-segment casing overrides — brand/product names whose internal capitals
+ * the camelCase splitter would otherwise mangle ("WhatsApp" → "Whats App").
+ * Matched case-insensitively against the entire segment *before* any splitting,
+ * so the exact intended casing wins regardless of how the tag was written.
+ */
+const WORD_OVERRIDES: Record<string, string> = {
+  whatsapp: "WhatsApp",
+};
+
+/**
  * Title-case a single tag *segment* — splits camelCase / kebab / snake and
  * applies the acronym map. Operates on one segment, never the slashed path
  * ("invoices" → "Invoices", "payment-methods" → "Payment Methods", "fx" → "FX").
+ * A whole-segment override wins outright ("WhatsApp" stays "WhatsApp").
  */
 export function segmentDisplayName(seg: string): string {
+  const override = WORD_OVERRIDES[seg.toLowerCase()];
+  if (override) return override;
   const words = seg
     .replace(/[-_]/g, " ")
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")

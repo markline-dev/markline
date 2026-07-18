@@ -52,6 +52,26 @@ export function SiteNav({
   const pathname = usePathname();
   // The homepage ("/") uses its own width knob; every other route uses `width`.
   const layout = pathname === "/" ? homeWidth : width;
+  const [menuOpen, setMenuOpen] = useState(false);
+
+  // Close the mobile menu / page drawer whenever the route changes.
+  useEffect(() => {
+    setMenuOpen(false);
+    document.body.classList.remove("docnav-open");
+  }, [pathname]);
+
+  // Mobile menu button. Pages that ship a sidebar drawer (docs shell, API
+  // reference) use the shared body.docnav-open contract; pages without one
+  // (home, 404) fall back to the SiteNav's own dropdown panel with the links.
+  const onBurger = () => {
+    if (document.querySelector(".docs-side, .api-side")) {
+      setMenuOpen(false);
+      document.body.classList.toggle("docnav-open");
+      return;
+    }
+    document.body.classList.remove("docnav-open");
+    setMenuOpen((v) => !v);
+  };
 
   const isActive = (href: string) => {
     const path = href.split(/[#?]/)[0] || "/";
@@ -105,8 +125,44 @@ export function SiteNav({
               {cta.label}
             </Link>
           )}
+          <button
+            className="nav-burger"
+            type="button"
+            onClick={onBurger}
+            aria-label={menuOpen ? "Close menu" : "Open menu"}
+            aria-expanded={menuOpen}
+          >
+            {menuOpen ? (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                <path d="M4 7h16M4 12h16M4 17h16" />
+              </svg>
+            )}
+          </button>
         </div>
       </div>
+      {menuOpen && (
+        <div className="nav-mobile-panel">
+          {links.map((l) => (
+            <Link
+              key={l.href + l.label}
+              href={l.href}
+              className={isActive(l.href) ? "active" : undefined}
+              onClick={() => setMenuOpen(false)}
+            >
+              {l.label}
+            </Link>
+          ))}
+          {cta && (
+            <Link className="btn btn-primary btn-sm" href={cta.href} onClick={() => setMenuOpen(false)}>
+              {cta.label}
+            </Link>
+          )}
+        </div>
+      )}
     </header>
   );
 }

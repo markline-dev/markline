@@ -213,7 +213,39 @@ body {
 /* nav wrap (constrains content width, matches the design) */
 .nav .wrap { width: 100%; max-width: 1240px; margin-inline: auto; padding-inline: 32px; }
 
+/* mobile menu button — hidden on desktop, replaces the nav links ≤880px */
+.nav-burger { display: none; width: 36px; height: 36px; place-items: center; border-radius: 999px; border: 1px solid var(--line); background: transparent; color: var(--ink-2); transition: border-color .15s, color .15s; }
+.nav-burger:hover { color: var(--ink); border-color: var(--ink-4); }
+.nav-burger svg { width: 18px; height: 18px; }
+
+/* fallback dropdown for pages without a sidebar drawer (home, 404) */
+.nav-mobile-panel { display: none; }
+
 @media (max-width: 880px) {
   .nav .wrap { padding-inline: 20px; }
   .nav-links, .ghbadge .lbl { display: none; }
+  .nav-burger { display: grid; flex: none; }
+  /* Fit brand + actions on narrow screens: tighter gaps/padding, smaller logo,
+     and a shrinkable brand so nothing (the burger) gets pushed off-viewport. */
+  .nav-in { gap: 14px; }
+  .nav-in--full, .nav-in--contained { padding-inline: 16px; }
+  .nav-in .brand { min-width: 0; overflow: hidden; }
+  .brand .brand-logo { height: 22px; max-width: 100%; object-position: left center; }
+  .nav-right { gap: 8px; flex: none; }
+  .nav-right .theme-btn, .nav-right .ghbadge { flex: none; }
+  .nav-mobile-panel { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px 14px; border-top: 1px solid var(--line); background: var(--bg); }
+  .nav-mobile-panel a { font-size: 15px; color: var(--ink-2); padding: 11px 10px; border-radius: 9px; text-decoration: none; }
+  .nav-mobile-panel a:hover { color: var(--ink); background: var(--panel-hi); }
+  .nav-mobile-panel a.active { color: var(--ink); font-weight: 500; }
+  .nav-mobile-panel .btn { justify-content: center; margin-top: 8px; }
+}
+
+/* tab links pinned at the top of the mobile sidebar drawer (docs shell) so the
+   top-level sections stay reachable on mobile */
+.drawer-tabs { display: none; }
+@media (max-width: 880px) {
+  .drawer-tabs { display: flex; flex-direction: column; gap: 2px; margin: 0 0 14px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
+  .drawer-tabs a { display: block; font-size: 13.5px; font-weight: 500; color: var(--ink-2); padding: 8px 10px; border-radius: 8px; text-decoration: none; }
+  .drawer-tabs a:hover { color: var(--ink); background: var(--panel-hi); }
+  .drawer-tabs a.active { color: var(--accent-ink, rgb(var(--c-brand))); background: var(--accent-dim, rgb(var(--c-brand) / 0.10)); }
 }

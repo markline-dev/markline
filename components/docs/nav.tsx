@@ -143,14 +143,32 @@ export function DocsSidebar({
     return () => cancelAnimationFrame(id);
   }, [pathname]);
 
+  const closeDrawer = () => document.body.classList.remove("docnav-open");
+
   return (
     <>
+      {/* Mobile drawer scrim (body.docnav-open contract — see app/docs.css). */}
+      <div className="docnav-scrim" onClick={closeDrawer} />
       <aside className="docs-side" ref={sideRef}>
+        {tabs.length > 1 && (
+          <nav className="drawer-tabs">
+            {tabs.map((t) => (
+              <Link
+                key={t.id}
+                href={t.href}
+                className={t.id === activeId ? "active" : undefined}
+                onClick={closeDrawer}
+              >
+                {t.label}
+              </Link>
+            ))}
+          </nav>
+        )}
         <div className="docs-tools">
           <SidebarSearchTrigger />
           {ai && <SidebarAskButton />}
         </div>
-        <SidebarSections sections={sections} pathname={pathname} />
+        <SidebarSections sections={sections} pathname={pathname} onNavigate={closeDrawer} />
       </aside>
       {/* Page-level AI affordances (the doc-ai row + View-as-Markdown modal) live
           in the docs shell so they're available on every docs page. */}

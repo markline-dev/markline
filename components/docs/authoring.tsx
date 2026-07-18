@@ -111,7 +111,10 @@ export function Card({
         </span>
         {href && CardArrow}
       </div>
-      {children && <p>{children}</p>}
+      {/* Render children directly: in MDX the card body is block content
+          (already wrapped in its own <p>), so wrapping again in <p> produced
+          invalid <p>-in-<p> nesting → a hydration mismatch (React #418). */}
+      {children}
     </>
   );
   return href ? (

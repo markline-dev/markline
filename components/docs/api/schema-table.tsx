@@ -1,4 +1,5 @@
 import type { JSONSchema } from "@/lib/openapi";
+import { mdToHtml } from "@/lib/md-desc";
 
 export function ParamRow({
   name,
@@ -28,7 +29,10 @@ export function ParamRow({
         {schema?.format && <span className="ml-param-fmt">· {schema.format}</span>}
       </div>
       {(description || schema?.description) && (
-        <p className="ml-param-desc">{description ?? schema?.description}</p>
+        <div
+          className="ml-param-desc"
+          dangerouslySetInnerHTML={{ __html: mdToHtml((description ?? schema?.description)!) }}
+        />
       )}
       {enumValues && enumValues.length > 0 && (
         <div className="ml-param-enum">

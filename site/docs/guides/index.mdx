@@ -1,0 +1,96 @@
+---
+title: Framework guides
+lede: Point Markline at the OpenAPI document your backend already emits — then use four small extensions to shape the reference without touching your routes.
+crumbs:
+  - label: Docs
+    href: /
+  - label: Guides
+toc:
+  - id: what-each-guide-covers
+    label: What each guide covers
+  - id: the-contract
+    label: The contract
+  - id: pick-your-framework
+    label: Pick your framework
+  - id: not-listed
+    label: Not listed?
+---
+
+Markline doesn't ask you to describe your API twice. If your backend already
+produces an OpenAPI 3.0 or 3.1 document — and most do — that document *is* your
+reference. These guides cover the last mile: getting the document onto disk at
+build time, and annotating it so the generated site reads the way you'd write it
+by hand.
+
+## What each guide covers
+
+Every guide walks the same six steps, so you can skim across frameworks:
+
+1. **Emit the document** into `api/openapi.json` as a build step.
+2. **Tags become resources** — including nested `store/orders` tags.
+3. **Order the sidebar** with `x-nav-order`.
+4. **Document events** with `x-events`.
+5. **Replace generated code samples** with `x-codeSamples`.
+6. **Gotchas** — the framework-specific traps.
+
+## The contract
+
+The whole surface is four OpenAPI extensions plus your tags. Nothing here is
+Markline-specific plumbing: they're plain JSON keys on a standard document, so
+they survive `$ref` bundling, spec linting, and every other tool in the chain.
+
+| What you want | Where it goes | Reference |
+| --- | --- | --- |
+| Group endpoints into resources | `tags` on the operation | [Nested tags](/openapi#nested-tags) |
+| Reorder operations in a resource | `x-nav-order` on the operation | [Sidebar order](/openapi#sidebar-order) |
+| Document webhooks / async events | `x-events` on a tag or operation | [Events & webhooks](/openapi#events-webhooks) |
+| Hand-write the code rail | `x-codeSamples` on the operation | [Code samples](/openapi#code-samples) |
+
+<Note>Every one of these is optional. A plain, unannotated document already
+renders a complete reference — resource pages, parameter tables, generated
+cURL/Node/Python/Go samples, and the request explorer. The extensions are for
+when the default reading order isn't the one you want.</Note>
+
+## Pick your framework
+
+<CardGroup cols={2}>
+  <Card title="NestJS" href="/guides/nestjs">Decorator-driven, via `@nestjs/swagger` and `@ApiExtension`.</Card>
+  <Card title="FastAPI" href="/guides/fastapi">Native OpenAPI 3.1, shaped with `openapi_extra`.</Card>
+  <Card title="Spring Boot" href="/guides/spring-boot">springdoc-openapi, with `@Extension` and `@ExtensionProperty`.</Card>
+  <Card title="Hono + Zod OpenAPI" href="/guides/hono-zod-openapi">Schema-first TypeScript, extensions inline in `createRoute`.</Card>
+</CardGroup>
+
+## Not listed?
+
+You don't need a guide. Markline reads a standard document, so any generator
+works — Django REST with drf-spectacular, Laravel, Rails with rswag, ASP.NET
+with Swashbuckle, Go with huma or swaggo, or a hand-written YAML file.
+
+The only thing a guide really buys you is the idiomatic way to attach an
+`x-` key in that framework. If yours has no clean hook, post-process the emitted
+document instead — the extensions are just JSON:
+
+```js
+// scripts/annotate-spec.mjs — run after your generator, before `markline build`
+import { readFileSync, writeFileSync } from "node:fs";
+
+const spec = JSON.parse(readFileSync("api/openapi.json", "utf8"));
+
+const order = {
+  createSession: 1,
+  endSession: 2,
+};
+
+for (const item of Object.values(spec.paths)) {
+  for (const op of Object.values(item)) {
+    const n = order[op.operationId];
+    if (n !== undefined) op["x-nav-order"] = n;
+  }
+}
+
+writeFileSync("api/openapi.json", JSON.stringify(spec, null, 2));
+```
+
+<Note>This is also the honest answer for tag-level `x-events` in frameworks
+whose decorators only attach to handlers — see the note at the end of the
+[NestJS guide](/guides/nestjs#gotchas).</Note>

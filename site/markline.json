@@ -57,6 +57,39 @@
         ]
       },
       {
+        "id": "guides",
+        "label": "Guides",
+        "href": "/guides",
+        "match": ["/guides"],
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              { "href": "/guides", "label": "Framework guides" }
+            ]
+          },
+          {
+            "group": "Node & TypeScript",
+            "pages": [
+              { "href": "/guides/nestjs", "label": "NestJS" },
+              { "href": "/guides/hono-zod-openapi", "label": "Hono + Zod OpenAPI" }
+            ]
+          },
+          {
+            "group": "Python",
+            "pages": [
+              { "href": "/guides/fastapi", "label": "FastAPI" }
+            ]
+          },
+          {
+            "group": "JVM",
+            "pages": [
+              { "href": "/guides/spring-boot", "label": "Spring Boot" }
+            ]
+          }
+        ]
+      },
+      {
         "id": "api-reference",
         "label": "API reference",
         "href": "/api-reference",

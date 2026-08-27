@@ -1,0 +1,225 @@
+---
+title: NestJS
+lede: Emit your OpenAPI document from @nestjs/swagger, snapshot it into your docs, and shape the reference with decorators that survive regeneration.
+crumbs:
+  - label: Docs
+    href: /
+  - label: Guides
+    href: /guides
+  - label: NestJS
+toc:
+  - id: emit-the-document
+    label: Emit the document
+  - id: tags-become-resources
+    label: Tags become resources
+  - id: order-the-sidebar
+    label: Order the sidebar
+  - id: events
+    label: Events
+  - id: code-samples
+    label: Code samples
+  - id: gotchas
+    label: Gotchas
+---
+
+NestJS is the framework Markline's OpenAPI extensions were designed against.
+`@nestjs/swagger` builds the document from decorators you already write, and
+`@ApiExtension` gives you a clean hook for everything else — so the annotations
+live next to the handler and survive every regeneration.
+
+## Emit the document
+
+`SwaggerModule.createDocument()` returns a plain object. Write it to
+`api/openapi.json` in your docs project and commit it, so the docs build never
+depends on a running service.
+
+```ts
+// scripts/emit-openapi.ts
+import { NestFactory } from '@nestjs/core';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { writeFileSync, mkdirSync } from 'node:fs';
+import { AppModule } from '../src/app.module';
+
+async function main() {
+  const app = await NestFactory.create(AppModule, { logger: false });
+
+  const config = new DocumentBuilder()
+    .setTitle('Acme API')             // ← names the generated SDK samples
+    .setVersion('1.4.2')              // ← drives the version pill
+    .addServer('https://api.acme.com')
+    .addBearerAuth()
+    .build();
+
+  const document = SwaggerModule.createDocument(app, config);
+
+  mkdirSync('../docs/api', { recursive: true });
+  writeFileSync('../docs/api/openapi.json', JSON.stringify(document, null, 2));
+  await app.close();
+}
+
+main();
+```
+
+```jsonc
+// package.json
+"scripts": {
+  "docs:spec": "ts-node scripts/emit-openapi.ts",
+  "docs:build": "npm run docs:spec && cd ../docs && markline build"
+}
+```
+
+<Note>`setTitle` is load-bearing. Markline derives the client name in generated
+code samples from the first word of `info.title` — `"Acme API"` produces
+`acme.payments.create({ … })`. See [how samples are
+named](/openapi#code-samples).</Note>
+
+## Tags become resources
+
+`@ApiTags` is what Markline groups by. Slash-separated tags nest in the sidebar
+without changing any URLs:
+
+```ts
+@ApiTags('store/orders')
+@Controller('orders')
+export class OrdersController {}
+```
+
+That renders a **Store** parent with an **Orders** child, still routed at
+`/api-reference/store-orders`. Depth is arbitrary. See [Nested
+tags](/openapi#nested-tags).
+
+Declare the tags at the document level to control **resource** order — anything
+you omit sorts after the listed tags, alphabetically:
+
+```ts
+const config = new DocumentBuilder()
+  .addTag('accounts')
+  .addTag('payments')
+  .addTag('store/orders')
+  .build();
+```
+
+## Order the sidebar
+
+`@ApiTags` fixes which resource an endpoint lands on; `x-nav-order` fixes where
+it sits *inside* that resource.
+
+```ts
+import { ApiExtension, ApiOperation, ApiTags } from '@nestjs/swagger';
+
+@ApiTags('accounts')
+@Controller('accounts')
+export class AccountsController {
+  @Post()
+  @ApiExtension('x-nav-order', 1)
+  @ApiOperation({ summary: 'Create an account' })
+  create() { /* … */ }
+
+  @Get()
+  @ApiExtension('x-nav-order', 2)
+  @ApiOperation({ summary: 'List accounts' })
+  list() { /* … */ }
+}
+```
+
+This is the case you **cannot** solve by reordering anything. Markline reads
+verbs in a fixed order, so `GET /accounts` always precedes `POST /accounts` no
+matter how the controller is written — `x-nav-order` is the only way to put
+**Create an account** first.
+
+A tiny composed decorator keeps it readable when you're ordering a whole
+controller:
+
+```ts
+import { applyDecorators } from '@nestjs/common';
+import { ApiExtension } from '@nestjs/swagger';
+
+export const NavOrder = (n: number) => applyDecorators(ApiExtension('x-nav-order', n));
+
+// @NavOrder(1)
+```
+
+<Note>Number them `10, 20, 30` rather than `1, 2, 3` and you can slot a new
+endpoint in later without touching its neighbours.</Note>
+
+## Events
+
+NestJS has no `@ApiCallbacks`, which is exactly why `x-events` exists. Annotate
+the handler that causes the event — Markline aggregates it onto the resource,
+adds a **Triggers** chip to the endpoint, and an **Emitted by** back-link on the
+event.
+
+```ts
+import { ApiExtension, ApiExtraModels, ApiTags, getSchemaPath } from '@nestjs/swagger';
+
+@ApiTags('accounts')
+@ApiExtraModels(AccountCreatedEvent)
+@Controller('accounts')
+export class AccountsController {
+  @Post()
+  @ApiExtension('x-events', {
+    'account.created': {
+      summary: 'A new account was opened',
+      payload: { $ref: getSchemaPath(AccountCreatedEvent) },
+      guide: '/guides/webhooks#account-created',
+    },
+  })
+  create() { /* … */ }
+}
+```
+
+`@ApiExtraModels` is required — without it `getSchemaPath()` points at a schema
+that was never emitted into `components.schemas`. Full details in [Events &
+webhooks](/openapi#events-webhooks).
+
+## Code samples
+
+Markline generates cURL, Node, Python and Go rails from the operation itself.
+If you ship a real SDK whose signatures don't match, replace the rail for that
+operation:
+
+```ts
+@Post()
+@ApiExtension('x-codeSamples', [
+  {
+    lang: 'ruby',
+    label: 'Ruby',
+    source: "Acme::Account.create(\n  email: \"ada@example.com\",\n)",
+  },
+])
+create() { /* … */ }
+```
+
+<Warning>`x-codeSamples` is all-or-nothing per operation — one custom sample
+replaces the entire generated rail. List every language you want shown.</Warning>
+
+If you don't ship an SDK at all, don't annotate every operation. Set
+`"codeSamples": ["curl"]` in `markline.json` and the invented
+`acme.accounts.create(…)` snippets disappear everywhere at once.
+
+## Gotchas
+
+**`@ApiExtension` values aren't restricted to objects.** The decorator enforces
+only that the key starts with `x-`; the value is cloned through as-is, so
+`@ApiExtension('x-nav-order', 1)` is valid. Repeated calls merge, so `x-events`
+and `x-nav-order` coexist on one handler.
+
+**`@ApiExtension` on a controller class applies to every route in it.** Handy
+for `x-events` that any endpoint in a resource can emit — and a trap for
+`x-nav-order`, where it would give every operation the same rank.
+
+**Operations need stable `operationId`s.** Markline routes per-operation deep
+links and MDX overlays off `operationId`. NestJS derives it from the controller
+and method name (`AccountsController_create`), so renaming a method breaks
+existing links. Pin the ones you care about with
+`@ApiOperation({ operationId: 'createAccount' })`.
+
+**There's no decorator for tag objects.** An event with no single triggering
+endpoint — delivered by a processor or a batch job — can't be attached via
+decorators. Either hang it off the closest operation, or add it under
+`tags[].x-events` in a [post-processing step](/guides#not-listed) after
+`createDocument()` and before you write the file.
+
+**Snapshot, don't proxy.** Pointing the docs build at a live `/api-json`
+endpoint couples your docs deploy to your API being up. Emit to a committed
+file; the diff also gives you a review surface for accidental API changes.

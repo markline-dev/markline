@@ -6,6 +6,7 @@ import { buildPlaygroundSpec, sampleParam } from "@/lib/playground-spec";
 import { MethodBadge } from "./method-badge";
 import { EndpointPath } from "./endpoint-path";
 import { SchemaTable, ParamRow } from "./schema-table";
+import { mdToHtml } from "@/lib/md-desc";
 import { RequestPanel, ResponsePanel } from "./code-panel";
 import {
   PlaygroundProvider, RequestConsole, ParamInput, AuthInput, BodyEditor,
@@ -66,7 +67,9 @@ export function ApiOperationPage({
         )}
 
         <h1 className="api-title">{op.summary ?? op.operationId}</h1>
-        {op.description && <p className="api-desc">{op.description}</p>}
+        {op.description && (
+          <div className="api-desc" dangerouslySetInnerHTML={{ __html: mdToHtml(op.description) }} />
+        )}
 
         <EndpointPath method={op.method} path={op.path} />
 
@@ -174,7 +177,7 @@ export function ApiOperationPage({
               <div key={r.status} className="api-resp-row">
                 <div className="api-resp-head">
                   <StatusPill status={r.status} />
-                  <span className="desc">{r.description}</span>
+                  <span className="desc" dangerouslySetInnerHTML={{ __html: mdToHtml(r.description || "") }} />
                 </div>
                 {resolved && <SchemaTable schema={resolved} />}
               </div>

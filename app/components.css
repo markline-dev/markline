@@ -934,3 +934,14 @@ textarea.ml-pg-input { height: auto; padding: 8px 10px; line-height: 1.55; resiz
 .ml-l-showcase-title { margin-left: 8px; font-family: var(--mono); font-size: 11px; color: rgb(var(--c-panel-muted)); }
 .ml-l-showcase-body { padding: 16px 20px; overflow-x: auto; font-size: 13px; line-height: 1.7; font-family: var(--mono); }
 .ml-l-showcase-body pre { background: transparent !important; margin: 0; }
+
+/* Markdown rendered inside OpenAPI spec descriptions (operation / tag /
+   parameter descriptions — see lib/md-desc.ts). Keeps tables, lists and
+   inline code legible without pulling in the full docs-prose styles. */
+.api-desc table, .ml-param-desc table, .ml-eplist-desc table { border-collapse: collapse; margin: 0.5em 0; font-size: 0.95em; display: block; overflow-x: auto; max-width: 100%; }
+.api-desc th, .api-desc td, .ml-param-desc th, .ml-param-desc td, .ml-eplist-desc th, .ml-eplist-desc td { border: 1px solid color-mix(in srgb, currentColor 22%, transparent); padding: 0.3em 0.6em; text-align: left; }
+.api-desc ul, .api-desc ol, .ml-param-desc ul, .ml-param-desc ol, .ml-eplist-desc ul, .ml-eplist-desc ol { margin: 0.4em 0 0.4em 1.25em; padding: 0; }
+.api-desc p, .ml-param-desc p, .ml-eplist-desc p { margin: 0.35em 0; }
+.api-desc p:first-child, .ml-param-desc p:first-child, .ml-eplist-desc p:first-child { margin-top: 0; }
+.api-desc p:last-child, .ml-param-desc p:last-child, .ml-eplist-desc p:last-child { margin-bottom: 0; }
+.api-desc code, .ml-param-desc code, .ml-eplist-desc code { font-size: 0.92em; background: color-mix(in srgb, currentColor 10%, transparent); padding: 0.08em 0.35em; border-radius: 4px; }

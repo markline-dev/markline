@@ -43,7 +43,11 @@ export function segmentDisplayName(seg: string): string {
     .filter(Boolean);
   if (!words.length) return seg;
   return words
-    .map((w) => ACRONYMS[w.toLowerCase()] ?? w[0].toUpperCase() + w.slice(1).toLowerCase())
+    .map((w) => {
+      const lw = w.toLowerCase();
+      // Own keys only: "constructor" would otherwise resolve to Object.
+      return Object.prototype.hasOwnProperty.call(ACRONYMS, lw) ? ACRONYMS[lw] : w[0].toUpperCase() + w.slice(1).toLowerCase();
+    })
     .join(" ");
 }
 
@@ -62,7 +66,8 @@ function tagPath(raw: string): string {
 
 /** Collect `x-displayName` labels from tag entries, keyed by tag path. */
 export function tagLabels(tags: { name: string; displayName?: string }[]): TagLabels {
-  const labels: TagLabels = {};
+  // No prototype: a tag named "constructor" or "__proto__" is just a key.
+  const labels: TagLabels = Object.create(null);
   for (const t of tags) if (t.displayName) labels[tagPath(t.name)] = t.displayName;
   return labels;
 }
@@ -73,7 +78,10 @@ export function tagLabels(tags: { name: string; displayName?: string }[]): TagLa
  * so `tools/WhatsApp` labels the leaf and leaves the "Tools" group derived.
  */
 function nodeName(segments: string[], labels?: TagLabels): string {
-  return labels?.[segments.join("/")] ?? segmentDisplayName(segments[segments.length - 1]);
+  const key = segments.join("/");
+  // Own keys only, so a plain-object map can't answer "toString" with a function.
+  if (labels && Object.prototype.hasOwnProperty.call(labels, key)) return labels[key];
+  return segmentDisplayName(segments[segments.length - 1]);
 }
 
 export type ParsedTag = {

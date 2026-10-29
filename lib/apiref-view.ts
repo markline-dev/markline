@@ -390,7 +390,8 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
   const object: ObjectView | undefined =
     objAttrs.length && objSchema
       ? {
-          name: `The ${activeTag!.displayName ? singular(activeTag!.displayName) : singularDisplay(activeParsed!.leaf)} object`,
+          // A spec-authored label is shown as written, never re-inflected.
+          name: `The ${activeTag!.displayName ?? singularDisplay(activeParsed!.leaf)} object`,
           attrs: objAttrs,
           sampleHtml: colorizeJson(objectSample(objSchema, root)),
         }
@@ -569,12 +570,9 @@ function buildVersions(doc: OpenAPIDoc, variantId?: string): VersionEntry[] {
   return [{ label, sub, current: true, latest: true }];
 }
 
-function singular(s: string): string {
-  return s.replace(/ies$/, "y").replace(/s$/, "");
-}
-
 function singularDisplay(tag: string): string {
-  return displayName(singular(tag));
+  const s = tag.replace(/ies$/, "y").replace(/s$/, "");
+  return displayName(s);
 }
 
 /** Build a representative JSON sample object from the resolved schema. */

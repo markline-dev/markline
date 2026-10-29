@@ -15,6 +15,11 @@ test("tagSlug collapses non-alphanumerics, keeping the full path", () => {
   assert.equal(tagSlug("admin/api/keys"), "admin-api-keys");
 });
 
+test("segmentDisplayName ignores Object.prototype names in the acronym map", () => {
+  assert.equal(segmentDisplayName("constructor"), "Constructor");
+  assert.equal(segmentDisplayName("to-string"), "To String");
+});
+
 test("segmentDisplayName title-cases segments and applies acronyms", () => {
   assert.equal(segmentDisplayName("invoices"), "Invoices");
   assert.equal(segmentDisplayName("payment-methods"), "Payment Methods");
@@ -109,7 +114,7 @@ test("x-displayName labels the node at that exact path, leaving others derived",
     { name: "tools/sms" },
     { name: "integrations", displayName: "Integrations & Apps" },
   ]);
-  assert.deepEqual(labels, { "tools/WhatsApp": "WhatsApp", integrations: "Integrations & Apps" });
+  assert.deepEqual({ ...labels }, { "tools/WhatsApp": "WhatsApp", integrations: "Integrations & Apps" });
 
   // Without a label the title-caser splits the brand.
   assert.equal(parseOpenApiTag("tools/WhatsApp").displayName, "Whats App");
@@ -130,4 +135,17 @@ test("x-displayName labels the node at that exact path, leaving others derived",
   assert.deepEqual(tree[0].children.map((c) => c.name), ["WhatsApp", "SMS"]);
   assert.equal(tree[1].name, "Integrations & Apps");
   assert.equal(tree[1].tag, "integrations");
+});
+
+test("tag names that are Object.prototype members stay derived without labels", () => {
+  const labels = tagLabels([{ name: "tools/WhatsApp", displayName: "WhatsApp" }, { name: "__proto__", displayName: "Proto" }]);
+  for (const raw of ["constructor", "toString", "valueOf", "hasOwnProperty/items"]) {
+    assert.equal(parseOpenApiTag(raw, labels).displayName, parseOpenApiTag(raw).displayName);
+    assert.deepEqual(parseOpenApiTag(raw, labels).parentDisplayNames, parseOpenApiTag(raw).parentDisplayNames);
+  }
+  assert.equal(parseOpenApiTag("constructor", labels).displayName, "Constructor");
+  assert.equal(buildTagTree(["constructor"], labels)[0].name, "Constructor");
+  // "__proto__" is an ordinary key, not a prototype write.
+  assert.equal(parseOpenApiTag("__proto__", labels).displayName, "Proto");
+  assert.equal(Object.getPrototypeOf(labels), null);
 });

@@ -36,13 +36,32 @@ export type ThemeConfig = {
 };
 
 export type NavLink = {
-  href: string;
+  /** Page URL. Optional only on an item that holds `pages` — then the item is
+   *  a folder that just opens and closes. */
+  href?: string;
   label: string;
   badge?: "new" | "beta";
   method?: string;
+  /** A Phosphor icon name, e.g. "book-open" or "BookOpen" (phosphoricons.com). */
+  icon?: string;
+  /** Child pages, shown nested under this item. Any depth. */
+  pages?: NavLink[];
+  /** Whether an item with `pages` starts closed. Defaults to true; the branch
+   *  holding the current page always opens regardless. */
+  collapsed?: boolean;
 };
 
-export type NavGroup = { group: string; pages: NavLink[] };
+export type NavGroup = {
+  group: string;
+  pages: NavLink[];
+  /** A Phosphor icon name shown before the group title. */
+  icon?: string;
+  /** Let readers open and close the whole group from its title. */
+  collapsible?: boolean;
+  /** With `collapsible`, whether the group starts closed. Defaults to false;
+   *  a group holding the current page always opens. */
+  collapsed?: boolean;
+};
 
 export type NavTab = {
   id: string;

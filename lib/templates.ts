@@ -197,3 +197,15 @@ export function checkTemplateVersions(chain: ResolvedTemplate[], version: string
     if (ok === null) warn(`[markline] template "${t.spec}" declares Markline "${range}", a range this version can't check.`);
   }
 }
+
+/**
+ * Make CSS safe to inline in a <style> element. A literal `</style>` in the
+ * text would close the element early and let whatever follows run as HTML —
+ * a template's stylesheet or a cssVariables value could inject a <script>.
+ * Every `<` becomes the CSS escape `\3c `, which can't end the element and
+ * still reads as `<` inside CSS strings, comments and url()s.
+ */
+export function escapeStyleText(css: string): string {
+  return css.replace(/</g, "\\3c ");
+}
+

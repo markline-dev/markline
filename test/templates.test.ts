@@ -10,6 +10,7 @@ import {
   satisfiesVersion,
   templateCss,
   templateOptions,
+  escapeStyleText,
 } from "../lib/templates.ts";
 
 /** Lay out a throwaway tree: { "builtin/classic/template.json": {...} }. */
@@ -116,4 +117,15 @@ test("an npm-style spec resolves by walking up node_modules from the project", (
   assert.equal(scoped[0].manifest.name, "acme");
   assert.equal(loadTemplateChain("markline-template-zen", site, path.join(root, "builtin"))[0].manifest.name, "zen");
   assert.throws(() => loadTemplateChain("@acme/missing", site, path.join(root, "builtin")), /not installed/);
+});
+
+test("escapeStyleText stops CSS from closing its <style> element", () => {
+  const evil = '.x{}</style><script>alert(1)</script><style>';
+  const safe = escapeStyleText(evil);
+  assert.doesNotMatch(safe, /</);
+  assert.doesNotMatch(safe, /<\/style/i);
+  // Ordinary CSS passes through untouched.
+  assert.equal(escapeStyleText(":root{--c-paper:1 1 1}"), ":root{--c-paper:1 1 1}");
+  // A "<" inside a CSS string becomes an escape that still means "<".
+  assert.equal(escapeStyleText('a::before{content:"<"}'), 'a::before{content:"\\3c "}');
 });

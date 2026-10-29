@@ -10,6 +10,7 @@ import "./docs.css";
 import "./components.css";
 import { SiteNav } from "@/components/site-nav";
 import { loadConfig, loadTemplateCss, hexToRgbTriple } from "@/lib/config";
+import { escapeStyleText } from "@/lib/templates";
 import { Analytics } from "@/components/docs/analytics";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
@@ -94,8 +95,10 @@ function githubUrl(): string | undefined {
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
-  const brandCss = themeCss();
-  const tplCss = loadTemplateCss();
+  // Both can carry text from a template, so neither is trusted to stay inside
+  // its <style> element.
+  const brandCss = escapeStyleText(themeCss() ?? "");
+  const tplCss = escapeStyleText(loadTemplateCss());
   const appearance = config.theme.appearance ?? "system";
   return (
     <html lang="en" className={`${geist.variable} ${geistMono.variable} ${instrumentSerif.variable} ${schibsted.variable} ${cooper.variable}`} suppressHydrationWarning>

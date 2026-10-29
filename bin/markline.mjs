@@ -119,8 +119,55 @@ async function buildSearch(env) {
   await run(process.execPath, [SEARCH_SCRIPT], { env, cwd: WORK_DIR });
 }
 
+/**
+ * Resolve `--template <spec>` to its folder, mirroring lib/templates.ts: a
+ * "./path" is relative to where `init` runs, "@scope/name" or
+ * "markline-template-*" is an installed npm package, anything else is a
+ * built-in under lib/templates.
+ */
+function resolveTemplateForInit(spec) {
+  let dir;
+  if (spec.startsWith("./") || spec.startsWith("../") || path.isAbsolute(spec)) {
+    dir = path.resolve(CONTENT_DIR, spec);
+  } else if (spec.startsWith("@") || spec.startsWith("markline-template-")) {
+    try {
+      dir = path.dirname(createRequire(path.join(CONTENT_DIR, "package.json")).resolve(`${spec}/template.json`));
+    } catch {
+      console.error(`  Template "${spec}" is not installed. Run \`npm install ${spec}\` first.`);
+      process.exit(1);
+    }
+  } else {
+    dir = path.join(APP_DIR, "lib", "templates", spec);
+  }
+  if (!fs.existsSync(path.join(dir, "template.json"))) {
+    const builtins = fs.readdirSync(path.join(APP_DIR, "lib", "templates")).join(", ");
+    console.error(`  Template "${spec}" not found. Built-in templates: ${builtins}.`);
+    process.exit(1);
+  }
+  return dir;
+}
+
+/** Pull `--template <spec>` (or `--template=<spec>`) out of the arg list. */
+function takeTemplateFlag(args) {
+  const rest = [];
+  let spec;
+  for (let i = 0; i < args.length; i++) {
+    const a = args[i];
+    if (a === "--template" || a === "-t") spec = args[++i];
+    else if (a.startsWith("--template=")) spec = a.slice("--template=".length);
+    else rest.push(a);
+  }
+  if (spec === undefined && (args.includes("--template") || args.includes("-t"))) {
+    console.error("  --template needs a value, e.g. --template paper");
+    process.exit(1);
+  }
+  return { spec, rest };
+}
+
 const COMMANDS = {
-  async init(args) {
+  async init(rawArgs) {
+    const { spec, rest: args } = takeTemplateFlag(rawArgs);
+    const tplDir = spec ? resolveTemplateForInit(spec) : undefined;
     const target = args[0] ? path.resolve(CONTENT_DIR, args[0]) : CONTENT_DIR;
     if (!fs.existsSync(TEMPLATE_DIR)) {
       console.error(`  Template directory missing: ${TEMPLATE_DIR}`);
@@ -131,8 +178,26 @@ const COMMANDS = {
       process.exit(1);
     }
     copyDir(TEMPLATE_DIR, target);
+    if (tplDir) {
+      // The template's starter files replace the matching default ones.
+      const starter = path.join(tplDir, "starter");
+      if (fs.existsSync(starter)) copyDir(starter, target);
+      // Record the template. A local path is rewritten relative to the new
+      // markline.json, since that's what it resolves against at build time.
+      const cfgPath = path.join(target, "markline.json");
+      const cfg = JSON.parse(fs.readFileSync(cfgPath, "utf8"));
+      const local = spec.startsWith("./") || spec.startsWith("../") || path.isAbsolute(spec);
+      const relDir = path.relative(target, tplDir).split(path.sep).join("/");
+      const value = local ? (relDir.startsWith("../") ? relDir : `./${relDir}`) : spec;
+      // The default starter ships its own colours and appearance; with a
+      // template those would override it (user config wins), so the new
+      // project would never look like the template. Keep only the logo.
+      if (cfg.theme) cfg.theme = cfg.theme.logo ? { logo: cfg.theme.logo } : undefined;
+      const { name, ...restCfg } = cfg;
+      fs.writeFileSync(cfgPath, JSON.stringify({ name, template: value, ...restCfg }, null, 2) + "\n");
+    }
     const rel = path.relative(CONTENT_DIR, target) || ".";
-    console.log(`\n  Created a Markline docs project in ${rel}\n`);
+    console.log(`\n  Created a Markline docs project in ${rel}${spec ? ` using the "${spec}" template` : ""}\n`);
     console.log(`  Next steps:`);
     if (rel !== ".") console.log(`    cd ${rel}`);
     console.log(`    markline dev\n`);
@@ -187,6 +252,7 @@ const COMMANDS = {
 
   Commands:
     init [dir]   Scaffold a new docs project (markline.json + sample content)
+                 --template <name>  start from a template (built-in name, ./path or npm package)
     dev          Start the dev server against ./markline.json
     build        Build a production server bundle (Docker / Vercel / start)
     start        Serve a production build

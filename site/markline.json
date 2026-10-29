@@ -33,6 +33,7 @@
             "pages": [
               { "href": "/configuration", "label": "Configuration" },
               { "href": "/theming", "label": "Theming" },
+              { "href": "/templates", "label": "Templates" },
               { "href": "/components", "label": "Components" },
               { "href": "/openapi", "label": "API reference" },
               { "href": "/search", "label": "Search" }

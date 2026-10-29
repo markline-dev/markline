@@ -1,0 +1,3 @@
+/* Warm selection highlight to match the paper palette. Colours and surfaces
+   live in template.json; this file is only for what the options can't say. */
+::selection { background: rgb(180 71 28 / 0.18); }

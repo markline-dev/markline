@@ -206,7 +206,7 @@
 .api-body-type { font-family: var(--mono); font-size: 11px; color: var(--ink-4); margin: 0 0 4px; }
 .api-resp-row { margin-bottom: 24px; }
 .api-resp-row:last-child { margin-bottom: 0; }
-.api-resp-head { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.api-resp-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 8px; }
 .api-resp-head .desc { font-size: 13px; color: var(--ink-3); }
 
 /* status pill (operation-page + playground) */
@@ -945,3 +945,7 @@ textarea.ml-pg-input { height: auto; padding: 8px 10px; line-height: 1.55; resiz
 .api-desc p:first-child, .ml-param-desc p:first-child, .ml-eplist-desc p:first-child { margin-top: 0; }
 .api-desc p:last-child, .ml-param-desc p:last-child, .ml-eplist-desc p:last-child { margin-bottom: 0; }
 .api-desc code, .ml-param-desc code, .ml-eplist-desc code { font-size: 0.92em; background: color-mix(in srgb, currentColor 10%, transparent); padding: 0.08em 0.35em; border-radius: 4px; }
+.api-desc a, .ml-param-desc a, .ml-eplist-desc a, .api-resp-head .desc a { color: var(--accent-ink); border-bottom: 1px solid var(--accent-line); text-decoration: none; }
+.api-desc a:hover, .ml-param-desc a:hover, .ml-eplist-desc a:hover, .api-resp-head .desc a:hover { border-color: var(--accent-ink); }
+.api-resp-head .desc p { margin: 0; }
+.api-resp-head .desc ul, .api-resp-head .desc ol { margin: 0.2em 0 0 1.25em; padding: 0; }

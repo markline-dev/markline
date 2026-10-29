@@ -264,6 +264,10 @@
 /* section title */
 .ml-apiref .api-sec h2 { font-size: 22px; font-weight: 500; letter-spacing: -0.02em; }
 .ml-apiref .api-sec .sec-lead { font-size: 14px; color: var(--ink-2); margin-top: 10px; line-height: 1.6; max-width: 54ch; }
+.ml-apiref .api-sec .sec-lead a { color: var(--accent-ink); border-bottom: 1px solid var(--accent-line); }
+.ml-apiref .api-resource .lead p, .ml-apiref .api-sec .sec-lead p { margin: 0; }
+.ml-apiref .api-resource .lead p + p, .ml-apiref .api-sec .sec-lead p + p { margin-top: 0.6em; }
+.ml-apiref .api-resource .lead ul, .ml-apiref .api-resource .lead ol, .ml-apiref .api-sec .sec-lead ul, .ml-apiref .api-sec .sec-lead ol { margin: 0.4em 0 0 1.25em; padding: 0; }
 .ml-apiref .api-sec .sec-lead code, .ml-apiref .attr code, .ml-apiref .api-resource code { font-family: var(--mono); font-size: .86em; background: var(--panel-hi); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; color: var(--accent-ink); }
 
 /* method+path */

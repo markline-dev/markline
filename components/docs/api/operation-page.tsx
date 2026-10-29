@@ -177,7 +177,7 @@ export function ApiOperationPage({
               <div key={r.status} className="api-resp-row">
                 <div className="api-resp-head">
                   <StatusPill status={r.status} />
-                  <span className="desc" dangerouslySetInnerHTML={{ __html: mdToHtml(r.description || "") }} />
+                  <div className="desc" dangerouslySetInnerHTML={{ __html: mdToHtml(r.description || "") }} />
                 </div>
                 {resolved && <SchemaTable schema={resolved} />}
               </div>

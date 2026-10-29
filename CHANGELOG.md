@@ -2,6 +2,15 @@
 
 All notable changes to `@markline/markline` and `@markline/create`.
 
+## Unreleased
+
+### Fixed
+- **Links in operation-page MDX are readable.** Markdown links in
+  `api/operations/<operationId>.mdx` rendered in the browser's default blue
+  (about 2.1:1 on the dark theme), because the guides' link rule is scoped to
+  `.docs-shell` and operation pages don't have it. They now use the accent
+  color and underline border, like links in guides.
+
 ## 0.1.5
 
 ### Fixed

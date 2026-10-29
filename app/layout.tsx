@@ -70,6 +70,7 @@ function themeCss(): string | null {
   const primaryDark = t.colors?.primaryDark ? hexToRgbTriple(t.colors.primaryDark) : null;
   if (primary) {
     light.push(`--c-brand:${primary}`, `--c-brand-deep:${primaryDark ?? primary}`);
+    independent.push(`--c-brand-solid:${primary}`);
   }
   if (primaryDark) dark.push(`--c-brand:${primaryDark}`, `--c-brand-deep:${primaryDark}`);
 

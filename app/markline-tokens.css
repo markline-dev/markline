@@ -234,8 +234,8 @@ body {
   .nav-right { gap: 8px; flex: none; }
   .nav-right .theme-btn, .nav-right .ghbadge { flex: none; }
   .nav-mobile-panel { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px 14px; border-top: 1px solid var(--line); background: var(--bg); }
-  .nav-mobile-panel a { font-size: 15px; color: var(--ink-2); padding: 11px 10px; border-radius: 9px; text-decoration: none; }
-  .nav-mobile-panel a:hover { color: var(--ink); background: var(--panel-hi); }
+  .nav-mobile-panel a:not(.btn) { font-size: 15px; color: var(--ink-2); padding: 11px 10px; border-radius: 9px; text-decoration: none; }
+  .nav-mobile-panel a:not(.btn):hover { color: var(--ink); background: var(--panel-hi); }
   .nav-mobile-panel a.active { color: var(--ink); font-weight: 500; }
   .nav-mobile-panel .btn { justify-content: center; margin-top: 8px; }
 }

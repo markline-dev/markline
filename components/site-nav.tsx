@@ -53,6 +53,32 @@ export function SiteNav({
   // The homepage ("/") uses its own width knob; every other route uses `width`.
   const layout = pathname === "/" ? homeWidth : width;
   const [menuOpen, setMenuOpen] = useState(false);
+  // Mirror body.docnav-open: the drawer is also closed from outside this
+  // component (scrim, sidebar links), so the burger reads its state back
+  // instead of tracking it locally.
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const expanded = menuOpen || drawerOpen;
+
+  useEffect(() => {
+    const body = document.body;
+    const sync = () => setDrawerOpen(body.classList.contains("docnav-open"));
+    sync();
+    const mo = new MutationObserver(sync);
+    mo.observe(body, { attributes: true, attributeFilter: ["class"] });
+    return () => mo.disconnect();
+  }, []);
+
+  // Esc closes whichever menu is open.
+  useEffect(() => {
+    if (!expanded) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setMenuOpen(false);
+      document.body.classList.remove("docnav-open");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [expanded]);
 
   // Close the mobile menu / page drawer whenever the route changes.
   useEffect(() => {
@@ -129,10 +155,10 @@ export function SiteNav({
             className="nav-burger"
             type="button"
             onClick={onBurger}
-            aria-label={menuOpen ? "Close menu" : "Open menu"}
-            aria-expanded={menuOpen}
+            aria-label={expanded ? "Close menu" : "Open menu"}
+            aria-expanded={expanded}
           >
-            {menuOpen ? (
+            {expanded ? (
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
                 <path d="M6 6l12 12M18 6L6 18" />
               </svg>

@@ -248,7 +248,9 @@
 }
 .docs-shell .next-card .h .ico { width: 15px; height: 15px; color: var(--ink-4); flex: none; }
 .docs-shell .next-card:hover .h .ico { color: var(--accent); }
-.docs-shell .next-card p { font-size: 13px; color: var(--ink-3); margin-top: 5px; line-height: 1.5; }
+.docs-shell .next-card .ml-card-body { font-size: 13px; color: var(--ink-3); margin-top: 5px; line-height: 1.5; }
+.docs-shell .next-card .ml-card-body p { font-size: inherit; color: inherit; line-height: inherit; margin: 0; }
+.docs-shell .next-card .ml-card-body p + p { margin-top: 8px; }
 
 /* page footer nav */
 .docs-shell .page-nav {

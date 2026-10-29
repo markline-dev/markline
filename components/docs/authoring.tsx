@@ -111,10 +111,11 @@ export function Card({
         </span>
         {href && CardArrow}
       </div>
-      {/* Render children directly: in MDX the card body is block content
-          (already wrapped in its own <p>), so wrapping again in <p> produced
-          invalid <p>-in-<p> nesting → a hydration mismatch (React #418). */}
-      {children}
+      {/* A div, not a <p>: in MDX a body on its own line is already wrapped
+          in a <p>, and <p>-in-<p> is invalid nesting → a hydration mismatch
+          (React #418). An inline body stays a bare text node, so the div also
+          carries the styling for both forms. */}
+      {children && <div className="ml-card-body">{children}</div>}
     </>
   );
   return href ? (

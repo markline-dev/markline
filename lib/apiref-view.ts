@@ -348,7 +348,8 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
   // routable resource; shared prefixes become nav-only accordion groups. Only
   // the active leaf carries its in-page operation jumps.
   const activeSlug2 = activeTag ? tagSlug(activeTag.name) : "";
-  const activeParsed = activeTag ? parseOpenApiTag(activeTag.name) : undefined;
+  const labels = doc.tagLabels;
+  const activeParsed = activeTag ? parseOpenApiTag(activeTag.name, labels) : undefined;
   // Full event catalog for the active resource (tag events + matching root
   // webhooks, with emittedBy). Shared by the nav jumps and the Events tab.
   const events = buildResourceEvents(activeTag, doc, root);
@@ -382,14 +383,14 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
       children,
     };
   };
-  const nav: NavTreeNode[] = buildTagTree(doc.tags.map((t) => t.name)).map(toNav);
+  const nav: NavTreeNode[] = buildTagTree(doc.tags.map((t) => t.name), labels).map(toNav);
 
   const objSchema = activeTag ? pickObjectSchema(activeTag.operations, root) : undefined;
   const objAttrs = attrsFromSchema(objSchema, root);
   const object: ObjectView | undefined =
     objAttrs.length && objSchema
       ? {
-          name: `The ${singularDisplay(activeParsed!.leaf)} object`,
+          name: `The ${activeTag!.displayName ? singular(activeTag!.displayName) : singularDisplay(activeParsed!.leaf)} object`,
           attrs: objAttrs,
           sampleHtml: colorizeJson(objectSample(objSchema, root)),
         }
@@ -438,8 +439,9 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
 /** Full-reference command-palette index (every resource + operation). */
 function buildSearchIndex(doc: OpenAPIDoc, base = "/api-reference"): SearchEntry[] {
   const out: SearchEntry[] = [];
+  const labels = doc.tagLabels;
   for (const tag of doc.tags) {
-    const parsed = parseOpenApiTag(tag.name);
+    const parsed = parseOpenApiTag(tag.name, labels);
     const slug = parsed.slug;
     const name = parsed.displayName;
     const groupCrumbs = ["API", ...parsed.parentDisplayNames];
@@ -567,9 +569,12 @@ function buildVersions(doc: OpenAPIDoc, variantId?: string): VersionEntry[] {
   return [{ label, sub, current: true, latest: true }];
 }
 
+function singular(s: string): string {
+  return s.replace(/ies$/, "y").replace(/s$/, "");
+}
+
 function singularDisplay(tag: string): string {
-  const s = tag.replace(/ies$/, "y").replace(/s$/, "");
-  return displayName(s);
+  return displayName(singular(tag));
 }
 
 /** Build a representative JSON sample object from the resolved schema. */

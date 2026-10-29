@@ -5,6 +5,7 @@ import {
   segmentDisplayName,
   parseOpenApiTag,
   buildTagTree,
+  tagLabels,
 } from "../lib/openapi-tags.ts";
 
 test("tagSlug collapses non-alphanumerics, keeping the full path", () => {
@@ -100,4 +101,33 @@ test("buildTagTree: one group per prefix, no duplicates", () => {
   const tree = buildTagTree(["store/a", "store/b", "store/c"]);
   assert.equal(tree.length, 1);
   assert.equal(tree[0].children.length, 3);
+});
+
+test("x-displayName labels the node at that exact path, leaving others derived", () => {
+  const labels = tagLabels([
+    { name: "tools/WhatsApp", displayName: "WhatsApp" },
+    { name: "tools/sms" },
+    { name: "integrations", displayName: "Integrations & Apps" },
+  ]);
+  assert.deepEqual(labels, { "tools/WhatsApp": "WhatsApp", integrations: "Integrations & Apps" });
+
+  // Without a label the title-caser splits the brand.
+  assert.equal(parseOpenApiTag("tools/WhatsApp").displayName, "Whats App");
+
+  const p = parseOpenApiTag("tools/WhatsApp", labels);
+  assert.equal(p.displayName, "WhatsApp");
+  assert.deepEqual(p.parentDisplayNames, ["Tools"]);
+  assert.equal(p.slug, "tools-whatsapp"); // URLs never change
+
+  // A labelled parent path relabels the group and the breadcrumb.
+  assert.deepEqual(parseOpenApiTag("integrations/github", labels).parentDisplayNames, ["Integrations & Apps"]);
+
+  // Keys are normalized, so spacing around "/" doesn't drop the label.
+  assert.equal(parseOpenApiTag("tools / WhatsApp", labels).displayName, "WhatsApp");
+
+  const tree = buildTagTree(["tools/WhatsApp", "tools/sms", "integrations", "integrations/github"], labels);
+  assert.equal(tree[0].name, "Tools");
+  assert.deepEqual(tree[0].children.map((c) => c.name), ["WhatsApp", "SMS"]);
+  assert.equal(tree[1].name, "Integrations & Apps");
+  assert.equal(tree[1].tag, "integrations");
 });

@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { contentRoot } from "./paths";
 import { mergeTagEvents, parseOperationEvents, parseWebhooks, parseXEvents } from "./openapi-events";
+import { tagLabels, type TagLabels } from "./openapi-tags";
 
 export { eventAnchor } from "./openapi-events";
 
@@ -94,6 +95,8 @@ export type SecurityScheme = {
 
 export type OpenAPITag = {
   name: string;
+  /** Spec-authored label (`x-displayName`), shown instead of the derived name. */
+  displayName?: string;
   description?: string;
   operations: OpenAPIOperation[];
   /** Aggregated `x-events` from the tag and its operations. */
@@ -104,6 +107,9 @@ export type OpenAPIDoc = {
   info: { title: string; version: string; description?: string };
   servers: { url: string; description?: string }[];
   tags: OpenAPITag[];
+  /** `x-displayName` labels from every root `tags` entry, including ones that
+   *  only name a nav group and carry no operations themselves. */
+  tagLabels: TagLabels;
   operationsById: Record<string, OpenAPIOperation>;
   securitySchemes: Record<string, SecurityScheme>;
   /** Root-level events (OpenAPI 3.1 `webhooks` / Redoc `x-webhooks`). */
@@ -119,6 +125,7 @@ const EMPTY_DOC: OpenAPIDoc = {
   info: { title: "", version: "" },
   servers: [],
   tags: [],
+  tagLabels: {},
   operationsById: {},
   securitySchemes: {},
   webhooks: [],
@@ -161,9 +168,11 @@ export function normalize(raw: any): OpenAPIDoc {
   const components = raw.components ?? {};
   const securitySchemes: Record<string, SecurityScheme> = components.securitySchemes ?? {};
 
-  const tagMeta: Record<string, { description?: string; events?: OpenAPIEvent[] }> = {};
+  const tagMeta: Record<string, { displayName?: string; description?: string; events?: OpenAPIEvent[] }> = {};
   for (const t of raw.tags ?? []) {
+    const label = typeof t["x-displayName"] === "string" ? t["x-displayName"].trim() : "";
     tagMeta[t.name] = {
+      displayName: label || undefined,
       description: t.description,
       events: parseXEvents(t["x-events"]),
     };
@@ -254,6 +263,7 @@ export function normalize(raw: any): OpenAPIDoc {
       );
       return {
         name,
+        displayName: tagMeta[name]?.displayName,
         description: tagMeta[name]?.description,
         operations,
         events: mergeTagEvents(operations, tagMeta[name]?.events),
@@ -264,6 +274,7 @@ export function normalize(raw: any): OpenAPIDoc {
     info: raw.info ?? { title: "", version: "" },
     servers: raw.servers ?? [],
     tags,
+    tagLabels: tagLabels((raw.tags ?? []).map((t: any) => ({ name: t.name, displayName: tagMeta[t.name]?.displayName }))),
     operationsById: byId,
     securitySchemes,
     webhooks: parseWebhooks(raw),

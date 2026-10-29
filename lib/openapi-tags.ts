@@ -47,6 +47,35 @@ export function segmentDisplayName(seg: string): string {
     .join(" ");
 }
 
+/**
+ * Spec-authored tag labels, keyed by tag path (segments trimmed, joined by
+ * "/"). They come from `x-displayName` on `tags[]` entries — the Redoc
+ * convention — and let the spec author set a label the title-caser can't
+ * derive ("WhatsApp", "GitHub", "iOS").
+ */
+export type TagLabels = Record<string, string>;
+
+/** Normalized path key for a raw tag ("tools / WhatsApp" → "tools/WhatsApp"). */
+function tagPath(raw: string): string {
+  return raw.split("/").map((s) => s.trim()).filter(Boolean).join("/");
+}
+
+/** Collect `x-displayName` labels from tag entries, keyed by tag path. */
+export function tagLabels(tags: { name: string; displayName?: string }[]): TagLabels {
+  const labels: TagLabels = {};
+  for (const t of tags) if (t.displayName) labels[tagPath(t.name)] = t.displayName;
+  return labels;
+}
+
+/**
+ * Display name of the node at `segments`: the spec's label for that exact path
+ * when it has one, else the title-cased last segment. A label names one node,
+ * so `tools/WhatsApp` labels the leaf and leaves the "Tools" group derived.
+ */
+function nodeName(segments: string[], labels?: TagLabels): string {
+  return labels?.[segments.join("/")] ?? segmentDisplayName(segments[segments.length - 1]);
+}
+
 export type ParsedTag = {
   /** Original tag, e.g. "billing/invoices". */
   raw: string;
@@ -64,7 +93,7 @@ export type ParsedTag = {
   parentDisplayNames: string[];
 };
 
-export function parseOpenApiTag(raw: string): ParsedTag {
+export function parseOpenApiTag(raw: string, labels?: TagLabels): ParsedTag {
   const segments = raw.split("/").map((s) => s.trim()).filter(Boolean);
   const leaf = segments.length ? segments[segments.length - 1] : raw;
   const parents = segments.slice(0, -1);
@@ -74,8 +103,8 @@ export function parseOpenApiTag(raw: string): ParsedTag {
     parentPath: parents.length ? parents.join("/") : null,
     leaf,
     slug: tagSlug(raw),
-    displayName: segmentDisplayName(leaf),
-    parentDisplayNames: parents.map(segmentDisplayName),
+    displayName: segments.length ? nodeName(segments, labels) : segmentDisplayName(leaf),
+    parentDisplayNames: parents.map((_, i) => nodeName(segments.slice(0, i + 1), labels)),
   };
 }
 
@@ -104,7 +133,7 @@ export type TagTreeNode = {
  * position of its first child. Synthetic parents (a prefix with no tag of its
  * own, e.g. "billing") become nav-only groups.
  */
-export function buildTagTree(tagNames: string[]): TagTreeNode[] {
+export function buildTagTree(tagNames: string[], labels?: TagLabels): TagTreeNode[] {
   const roots: TagTreeNode[] = [];
   const byPath = new Map<string, TagTreeNode>();
 
@@ -114,7 +143,7 @@ export function buildTagTree(tagNames: string[]): TagTreeNode[] {
     if (existing) return existing;
     const node: TagTreeNode = {
       type: "group",
-      name: segmentDisplayName(segments[segments.length - 1]),
+      name: nodeName(segments, labels),
       path,
       slug: tagSlug(path),
       children: [],

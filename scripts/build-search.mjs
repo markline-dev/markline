@@ -180,8 +180,11 @@ function apiResources(root) {
   if (!fs.existsSync(specFile)) return [];
   const spec = JSON.parse(fs.readFileSync(specFile, "utf8"));
   const descriptions = new Map();
+  const labels = new Map(); // `x-displayName` (Redoc convention) wins over the derived title
   for (const t of spec.tags ?? []) {
     descriptions.set(t.name, t.description ? String(t.description).split("\n")[0].trim() : "");
+    const label = typeof t["x-displayName"] === "string" ? t["x-displayName"].trim() : "";
+    if (label) labels.set(t.name, label);
   }
   const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
   const pretty = (s) =>
@@ -191,7 +194,7 @@ function apiResources(root) {
       .map((w) => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(" ");
   return orderedResourceTags(spec).map((name) => ({
     url: `/api-reference/${slug(name)}`,
-    title: pretty(name),
+    title: labels.get(name) ?? pretty(name),
     desc: descriptions.get(name) ?? "",
   }));
 }

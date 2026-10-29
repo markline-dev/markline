@@ -107,7 +107,12 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
   // SiteNav. Only docs routes mount it — the home + API reference render their
   // own full-width content.
   return (
-    <DocsShell nav={getNav(config)} ai={aiConfig()} aiSuggestions={doc.fm.aiSuggestions}>
+    <DocsShell
+      nav={getNav(config)}
+      ai={aiConfig()}
+      aiSuggestions={doc.fm.aiSuggestions}
+      searchInSidebar={config.layout.search !== "header"}
+    >
       <DocsPage
         crumbs={crumbs}
         title={doc.fm.title}

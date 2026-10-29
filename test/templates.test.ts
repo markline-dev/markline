@@ -56,7 +56,16 @@ test("an extends cycle is reported, not looped", () => {
   assert.throws(() => loadTemplateChain("a", root, path.join(root, "builtin")), /extends cycle/);
 });
 
-test("templates can only set theme and the topbar widths", () => {
+test("templates can set layout, and it merges over the base template's", () => {
+  const root = tree({
+    "builtin/classic/template.json": { name: "classic", layout: { header: "single", search: "sidebar" } },
+    "builtin/product-docs/template.json": { name: "product-docs", extends: "classic", layout: { header: "stacked" } },
+  });
+  const chain = loadTemplateChain("product-docs", root, path.join(root, "builtin"));
+  assert.deepEqual(templateOptions(chain).layout, { header: "stacked", search: "sidebar" });
+});
+
+test("templates can only set theme, layout and the topbar widths", () => {
   const warnings: string[] = [];
   const picked = pickTemplateOptions(
     {

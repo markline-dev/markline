@@ -67,8 +67,11 @@ export function MarklineApiRef({
   feedbackEndpoint,
   siteName,
   year,
+  searchInSidebar = true,
 }: {
   view: ApiRefView;
+  /** False when layout.search puts the search box in the header instead. */
+  searchInSidebar?: boolean;
   /** Server-rendered per-resource MDX summary (api/sections/<tag>.mdx), if any. */
   summary?: React.ReactNode;
   /** Sanitized AI config; when present the docked Ask-AI panel is mounted and
@@ -340,11 +343,13 @@ export function MarklineApiRef({
         <aside className="api-side">
           <div className="api-tools">
             <div className="api-toolrow">
-              <div className="api-search" onClick={() => openSearch()} role="button" tabIndex={0}>
-                <Ico d="M0 0" search />
-                <span className="lbl">Find anything</span>
-                <span className="kbd">/</span>
-              </div>
+              {searchInSidebar && (
+                <div className="api-search" onClick={() => openSearch()} role="button" tabIndex={0}>
+                  <Ico d="M0 0" search />
+                  <span className="lbl">Find anything</span>
+                  <span className="kbd">/</span>
+                </div>
+              )}
               {aiOn && (
                 <button className="api-ask" type="button" onClick={() => openAskPanel(r.name)}>
                   <Spark />

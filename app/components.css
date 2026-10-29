@@ -434,8 +434,8 @@ textarea.ml-pg-input { height: auto; padding: 8px 10px; line-height: 1.55; resiz
   position: sticky;
   align-self: start;
   overflow-y: auto;
-  top: 60px;
-  height: calc(100vh - 60px);
+  top: var(--nav-h);
+  height: calc(100vh - var(--nav-h));
 }
 @media (max-width: 1080px) {
   .api-op-side { position: static; height: auto; border-left: 0; border-top: 1px solid var(--line); padding: 24px 48px 60px; }

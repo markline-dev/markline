@@ -177,6 +177,7 @@ export default async function ApiReferencePage({ params }: { params: Promise<{ s
         feedbackEndpoint={feedbackConfig()?.endpoint}
         siteName={loadConfig().name}
         year={new Date().getFullYear()}
+        searchInSidebar={loadConfig().layout.search !== "header"}
       />
     );
   }

@@ -101,7 +101,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const tplCss = escapeStyleText(loadTemplateCss());
   const appearance = config.theme.appearance ?? "system";
   return (
-    <html lang="en" className={`${geist.variable} ${geistMono.variable} ${instrumentSerif.variable} ${schibsted.variable} ${cooper.variable}`} suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${geist.variable} ${geistMono.variable} ${instrumentSerif.variable} ${schibsted.variable} ${cooper.variable}`}
+      data-header={config.layout.header}
+      suppressHydrationWarning
+    >
       <head>
         {/* Template styles first, so the site's own theme settings override them. */}
         {tplCss && <style data-markline-template dangerouslySetInnerHTML={{ __html: tplCss }} />}
@@ -119,12 +124,14 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Analytics config={config.analytics} />
         <SiteNav
           brand={{ name: config.name, logo: config.theme.logo }}
-          tabs={config.navigation.tabs.map((t) => ({ label: t.label, href: t.href }))}
+          tabs={config.navigation.tabs.map((t) => ({ label: t.label, href: t.href, match: t.match }))}
           navLinks={config.topbar.navLinks}
           githubUrl={githubUrl()}
           cta={config.topbar.cta}
           width={config.topbar.width}
           homeWidth={config.topbar.homeWidth}
+          header={config.layout.header}
+          search={config.layout.search}
         />
         {children}
       </body>

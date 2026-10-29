@@ -8,6 +8,8 @@ toc:
     label: Topbar
   - id: navigation
     label: Navigation
+  - id: layout
+    label: Layout
   - id: api-playground
     label: API & playground
   - id: integrations
@@ -107,6 +109,33 @@ to nest underneath it, as deep as you need:
 
 Previous/Next links and `llms.txt` follow the same order as the sidebar,
 nested pages included.
+
+## Layout
+
+`layout` changes the structure of the page, where `theme` changes its colours
+and fonts.
+
+```jsonc
+"layout": {
+  "header": "stacked",   // logo, search and actions on top; tabs on a row of their own
+  "search": "header"     // search box in the header instead of the sidebar
+}
+```
+
+<ParamField path="layout.header" type='"single" | "stacked"'>
+  `single` (default) puts the logo, tabs and actions on one row. `stacked`
+  moves the tabs to a second row with the current tab underlined. Below
+  880px wide the tabs row is hidden, as the single-row tabs already are.
+</ParamField>
+
+<ParamField path="layout.search" type='"sidebar" | "header"'>
+  `sidebar` (default) keeps the search box at the top of the docs sidebar.
+  `header` moves it into the header on every page, including landing pages
+  and the API reference, and removes the sidebar copy. ⌘K works either way.
+</ParamField>
+
+A [template](/templates) can set both. `product-docs` sets them to `stacked`
+and `header`.
 
 ## API & playground
 

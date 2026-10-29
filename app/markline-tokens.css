@@ -21,6 +21,9 @@
    theme.colors / theme.cssVariables), never hardcoded, so a consumer's palette
    reaches the nav, body, home and API reference — not just the docs shell. */
 :root {
+  /* Height of the sticky site header; sticky sidebars sit just below it. A
+     stacked header (layout.header: "stacked") adds the tabs row. */
+  --nav-h: 60px;
   --sans: var(--font-geist), "Helvetica Neue", Arial, system-ui, sans-serif;
   --mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
   --serif: var(--font-instrument-serif), "Spectral", Georgia, serif;
@@ -212,6 +215,44 @@ body {
 .nav-links a:hover { color: var(--ink); background: var(--panel-hi); }
 .nav-links a.active { color: var(--ink); }
 .nav-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+
+/* Header search box (layout.search: "header"). Styled as a field; it opens
+   the page's search dialog. */
+.nav-search {
+  flex: 1 1 auto; max-width: 420px; height: 34px; display: flex; align-items: center; gap: 8px;
+  padding: 0 8px 0 11px; border-radius: 9px; border: 1px solid var(--line-2); background: var(--panel);
+  color: var(--ink-4); font: inherit; font-size: 13.5px; cursor: pointer; text-align: left;
+  transition: border-color .15s, color .15s;
+}
+.nav-search:hover { border-color: var(--ink-4); color: var(--ink-3); }
+.nav-search .lbl { flex: 1; }
+.nav-search .kbd { font-family: var(--mono); font-size: 10.5px; border: 1px solid var(--line-2); border-radius: 5px; padding: 1px 5px; color: var(--ink-4); }
+/* With the search box in the row, it takes the free space and the actions
+   sit at the end. */
+.nav-in .nav-search + .nav-right { margin-left: 0; }
+.nav-in .nav-search { margin-left: auto; }
+.nav--stacked .nav-in .nav-search { margin-left: 6px; }
+.nav--stacked .nav-in .nav-search + .nav-right { margin-left: auto; }
+
+/* Stacked header (layout.header: "stacked"): the tabs get a row of their own,
+   with the current tab underlined. --nav-h grows to match so sticky
+   sidebars still sit just below the header. */
+html[data-header="stacked"] { --nav-h: 105px; }
+.nav-tabs { border-top: 1px solid var(--line); }
+.nav-tabs-in { height: 44px; }
+.nav-tabs .nav-links { gap: 2px; height: 100%; align-items: stretch; }
+.nav-tabs .nav-links a { display: flex; align-items: center; border-radius: 0; padding: 0 12px; position: relative; }
+.nav-tabs .nav-links a:hover { background: none; }
+.nav-tabs .nav-links a.active::after {
+  content: ""; position: absolute; left: 12px; right: 12px; bottom: -1px; height: 2px;
+  background: var(--accent-ink); border-radius: 2px 2px 0 0;
+}
+@media (max-width: 880px) {
+  html[data-header="stacked"] { --nav-h: 60px; }
+  .nav-tabs { display: none; }
+  .nav-search { flex: 0 0 auto; width: 34px; padding: 0; justify-content: center; }
+  .nav-search .lbl, .nav-search .kbd { display: none; }
+}
 .ghbadge { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 12.5px; color: var(--ink-2); border: 1px solid var(--line); border-radius: 999px; padding: 7px 12px; transition: border-color .15s, color .15s; text-decoration: none; }
 .ghbadge:hover { border-color: var(--ink-4); color: var(--ink); }
 .ghbadge .star { color: var(--warn); }

@@ -1,0 +1,25 @@
+{
+  "name": "paper",
+  "extends": "classic",
+  "markline": ">=0.1.0",
+  "theme": {
+    "appearance": "light",
+    "colors": { "primary": "#B4471C", "primaryDark": "#E0703F" },
+    "buttonRadius": "8px",
+    "cssVariables": {
+      "light": {
+        "--c-paper": "250 248 243",
+        "--c-paper-2": "255 254 250",
+        "--c-ink": "28 25 21",
+        "--c-slate-1": "252 250 245",
+        "--c-slate-2": "243 239 230",
+        "--c-slate-3": "229 223 211",
+        "--c-slate-4": "211 203 189",
+        "--c-slate-5": "158 149 134",
+        "--c-slate-6": "112 104 92",
+        "--c-slate-7": "72 66 58"
+      }
+    }
+  },
+  "topbar": { "width": "contained", "homeWidth": "contained" }
+}

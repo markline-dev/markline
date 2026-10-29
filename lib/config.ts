@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { contentRoot } from "./paths";
+import { checkTemplateVersions, deepMerge, loadTemplateChain, templateCss, templateOptions } from "./templates";
 
 /**
  * Markline configuration — the single source of truth for branding and
@@ -309,6 +310,13 @@ export type AnalyticsConfig = {
 
 export type MarklineConfig = {
   name: string;
+  /**
+   * A template to start from: a built-in name ("paper"), a folder relative to
+   * markline.json ("./templates/acme"), or an npm package
+   * ("@acme/markline-template"). It supplies defaults for `theme` and the
+   * topbar widths; anything set here in markline.json still wins.
+   */
+  template?: string;
   theme: ThemeConfig;
   topbar: {
     links: TopbarLink[];
@@ -365,12 +373,10 @@ const DEFAULT_CONFIG: MarklineConfig = {
 function mergeConfig(base: MarklineConfig, user: Partial<MarklineConfig>): MarklineConfig {
   return {
     name: user.name ?? base.name,
-    theme: {
-      ...base.theme,
-      ...user.theme,
-      colors: { ...base.theme.colors, ...user.theme?.colors },
-      logo: { ...base.theme.logo, ...user.theme?.logo },
-    },
+    template: user.template,
+    // Fully recursive, so a user can override one cssVariables entry without
+    // wiping out the rest of a template's palette.
+    theme: deepMerge(base.theme, user.theme),
     topbar: {
       links: user.topbar?.links ?? base.topbar.links,
       navLinks: user.topbar?.navLinks ?? base.topbar.navLinks,
@@ -431,6 +437,53 @@ export function resolveConfigPath(): string {
 }
 
 let _cache: MarklineConfig | undefined;
+let _templateCss = "";
+
+/** Built-in templates ship inside lib/, which the CLI stages next to the app. */
+function builtinTemplatesDir(): string {
+  return path.join(process.cwd(), "lib", "templates");
+}
+
+function frameworkVersion(): string {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(process.cwd(), "package.json"), "utf8")).version ?? "0.0.0";
+  } catch {
+    return "0.0.0";
+  }
+}
+
+/**
+ * Apply a template's defaults under the user's config. Throws when the
+ * template can't be found: a typo should fail the build, not quietly render
+ * the default look.
+ */
+function withTemplate(base: MarklineConfig, user: Partial<MarklineConfig>, configDir: string): MarklineConfig {
+  _templateCss = "";
+  const spec = user.template;
+  if (!spec) return base;
+  const chain = loadTemplateChain(spec, configDir, builtinTemplatesDir());
+  checkTemplateVersions(chain, frameworkVersion());
+  const opts = templateOptions(chain);
+  // primary and primaryDark are a pair. If the user sets either, drop the
+  // template's colours entirely, or a blue `primary` would sit next to the
+  // template's orange `primaryDark` the moment someone switches to dark mode.
+  if (user.theme?.colors && opts.theme) {
+    const { colors: _ignored, ...rest } = opts.theme;
+    opts.theme = rest;
+  }
+  _templateCss = templateCss(chain);
+  return {
+    ...base,
+    theme: deepMerge(base.theme, opts.theme),
+    topbar: { ...base.topbar, ...opts.topbar },
+  };
+}
+
+/** The active template's stylesheet (and those it extends), or "". */
+export function loadTemplateCss(): string {
+  loadConfig();
+  return _templateCss;
+}
 
 export function loadConfig(): MarklineConfig {
   if (_cache) return _cache;
@@ -442,7 +495,8 @@ export function loadConfig(): MarklineConfig {
   } catch {
     // No config file (or invalid) — fall back to defaults so the app still boots.
   }
-  _cache = mergeConfig(DEFAULT_CONFIG, user);
+  const base = withTemplate(DEFAULT_CONFIG, user, path.dirname(file));
+  _cache = mergeConfig(base, user);
   return _cache;
 }
 

@@ -9,7 +9,7 @@ import "./api-explorer.css";
 import "./docs.css";
 import "./components.css";
 import { SiteNav } from "@/components/site-nav";
-import { loadConfig, hexToRgbTriple } from "@/lib/config";
+import { loadConfig, loadTemplateCss, hexToRgbTriple } from "@/lib/config";
 import { Analytics } from "@/components/docs/analytics";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
@@ -95,10 +95,13 @@ function githubUrl(): string | undefined {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   const brandCss = themeCss();
+  const tplCss = loadTemplateCss();
   const appearance = config.theme.appearance ?? "system";
   return (
     <html lang="en" className={`${geist.variable} ${geistMono.variable} ${instrumentSerif.variable} ${schibsted.variable} ${cooper.variable}`} suppressHydrationWarning>
       <head>
+        {/* Template styles first, so the site's own theme settings override them. */}
+        {tplCss && <style data-markline-template dangerouslySetInnerHTML={{ __html: tplCss }} />}
         {brandCss && <style dangerouslySetInnerHTML={{ __html: brandCss }} />}
         <script
           // Inline pre-paint script: applies the saved theme, else the configured

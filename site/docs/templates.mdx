@@ -1,0 +1,130 @@
+---
+title: Templates
+lede: Start from a ready-made look, then change whatever you like. Your markline.json always wins over the template.
+toc:
+  - id: use-a-template
+    label: Use a template
+  - id: how-settings-combine
+    label: How settings combine
+  - id: where-templates-come-from
+    label: Where templates come from
+  - id: write-your-own
+    label: Write your own
+  - id: what-a-template-can-set
+    label: What a template can set
+---
+
+A template is a named set of defaults for your site's theme. Pick one, and
+everything you set yourself in `markline.json` is applied on top.
+
+## Use a template
+
+Add `template` to `markline.json`:
+
+```jsonc
+{
+  "name": "Acme Docs",
+  "template": "paper"
+}
+```
+
+Or start a new project from one:
+
+```bash
+markline init my-docs --template paper
+```
+
+`init --template` also copies the template's starter pages, if it has any, and
+leaves the colours out of the generated `markline.json` so the template's
+show through.
+
+Built-in templates:
+
+| Name | Look |
+| --- | --- |
+| `classic` | Markline's default. Other templates can build on it. |
+| `paper` | Light and warm, with terracotta accents and a centered top bar. |
+
+## How settings combine
+
+```
+Markline defaults  →  the template  →  your markline.json
+```
+
+Anything you set wins. Objects merge key by key, so you can override a single
+entry in a template's palette and keep the rest:
+
+```jsonc
+{
+  "template": "paper",
+  "theme": {
+    "cssVariables": { "light": { "--c-paper": "255 255 255" } }
+  }
+}
+```
+
+<Note>Colours are the one exception. `primary` and `primaryDark` go together,
+so if you set `theme.colors` at all, the template's colours are dropped
+completely. Otherwise your `primary` could end up next to the template's
+`primaryDark` in dark mode.</Note>
+
+## Where templates come from
+
+| `template` value | Resolves to |
+| --- | --- |
+| `"paper"` | A built-in template |
+| `"./templates/acme"` | A folder, relative to `markline.json` |
+| `"@acme/markline-template"` or `"markline-template-acme"` | An npm package installed in your project |
+
+A name that can't be found fails the build with a list of the built-in
+templates, rather than quietly falling back to the default look.
+
+## Write your own
+
+A template is a folder:
+
+```
+acme/
+├── template.json     # the defaults
+├── template.css      # optional: styling the options can't express
+└── starter/          # optional: copied by `markline init --template`
+    └── docs/index.mdx
+```
+
+```jsonc
+// template.json
+{
+  "name": "acme",
+  "extends": "paper",          // optional: start from another template
+  "markline": ">=0.2.0",       // optional: versions it's tested against
+  "theme": {
+    "buttonRadius": "4px",
+    "colors": { "primary": "#0F766E", "primaryDark": "#2DD4BF" }
+  },
+  "topbar": { "width": "contained" }
+}
+```
+
+- `extends` takes the same kinds of value as `template`. A path is relative to
+  the template's own folder, so a local template can build on a sibling with
+  `"./base"`.
+- `markline` accepts an exact version, `>=x.y.z` or `^x.y.z`. Outside that
+  range, Markline warns but still builds.
+- `template.css` is added before your site's own theme settings, so those can
+  still override it. Prefer `template.json` wherever an option exists — CSS
+  that targets Markline's internal class names can break between versions.
+
+To share a template, publish the folder as an npm package with
+`template.json` at its root. Name it `markline-template-<name>`, or put it
+under your own scope.
+
+## What a template can set
+
+Only `theme` and `topbar.width` / `topbar.homeWidth`. Templates can't set
+navigation, SEO, API, AI or analytics settings, so trying a template from
+someone else can't add links to your site or send your readers' questions
+somewhere else. Anything else in `template.json` is ignored, with a warning.
+
+Templates are data only: JSON, CSS and MDX starter pages, never JavaScript.
+That keeps them safe to try, and it keeps them working when Markline's
+internals change.

@@ -21,6 +21,9 @@ export function TocList({ items }: { items: TocItem[] }) {
     // Keep a live map of which sections are intersecting so we can pick the
     // first one (by document order) on each callback.
     const visible = new Map<string, boolean>();
+    // The sticky header covers the top of the viewport; it's taller when
+    // layout.header is "stacked", so read its height instead of assuming 60px.
+    const navH = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--nav-h")) || 60;
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -36,7 +39,7 @@ export function TocList({ items }: { items: TocItem[] }) {
           for (const i of items) {
             const el = document.getElementById(i.id);
             if (!el) continue;
-            if (el.getBoundingClientRect().top < 80) candidate = i.id;
+            if (el.getBoundingClientRect().top < navH + 20) candidate = i.id;
             else break;
           }
           setActiveId(candidate);
@@ -45,7 +48,7 @@ export function TocList({ items }: { items: TocItem[] }) {
       // Activate when a heading enters the top ~25% of the viewport. The
       // negative bottom margin shrinks the active band so only one section is
       // "current" at a time.
-      { rootMargin: "-72px 0px -70% 0px", threshold: 0 },
+      { rootMargin: `-${navH + 12}px 0px -70% 0px`, threshold: 0 },
     );
 
     els.forEach((el) => observer.observe(el));

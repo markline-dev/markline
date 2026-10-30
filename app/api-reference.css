@@ -146,7 +146,7 @@
 
 /* ---------- content ---------- */
 .ml-apiref .api-doc { padding: 0 52px 72px; border-left: 1px solid var(--line); }
-.ml-apiref .api-sec { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 52px; padding: 46px 0; border-top: 1px solid var(--line); scroll-margin-top: 80px; }
+.ml-apiref .api-sec { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 52px; padding: 46px 0; border-top: 1px solid var(--line); scroll-margin-top: calc(var(--nav-h) + 20px); }
 .ml-apiref .api-sec:first-child { border-top: 0; }
 .ml-apiref .api-l { min-width: 0; }
 .ml-apiref .api-r { min-width: 0; position: sticky; top: 80px; align-self: start; }

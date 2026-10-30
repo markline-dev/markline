@@ -1,0 +1,7 @@
+/* Serif headings read best at a regular weight, without the tight tracking
+   the default sans headings use. Only the weight and spacing live here; the
+   font itself is theme.font.heading in template.json. */
+html[data-heading-font] :is(.docs-shell .docs-h1, .docs-shell .docs-prose h2, .hub-hero h1) {
+  font-weight: 400;
+  letter-spacing: -0.01em;
+}

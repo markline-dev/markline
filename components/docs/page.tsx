@@ -8,7 +8,7 @@ export type PageNavLink = { href: string; label: string };
 
 export function DocsPage({
   crumbs, title, lede, toc, lastUpdated, editUrl, feedbackEndpoint,
-  feedbackEnabled = false, aiEnabled = false, prev, next, children,
+  feedbackEnabled = false, aiEnabled = false, prev, next, hub = false, children,
 }: {
   crumbs: Crumb[];
   title: string;
@@ -23,12 +23,15 @@ export function DocsPage({
   aiEnabled?: boolean;
   prev?: PageNavLink;
   next?: PageNavLink;
+  /** Under a HubHero: the hero already shows the title and lede, and there's
+   *  no table of contents. */
+  hub?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <>
       <main className="docs-main">
-        {crumbs.length > 0 && (
+        {!hub && crumbs.length > 0 && (
           <nav className="docs-bc">
             {crumbs.map((c, i) => (
               <span key={i} className="bc-seg">
@@ -43,10 +46,13 @@ export function DocsPage({
           </nav>
         )}
 
-        <h1 className="docs-h1">{title}</h1>
-        {lede && <p className="docs-lead">{lede}</p>}
-
-        <DocAiRow title={title} aiEnabled={aiEnabled} />
+        {!hub && (
+          <>
+            <h1 className="docs-h1">{title}</h1>
+            {lede && <p className="docs-lead">{lede}</p>}
+            <DocAiRow title={title} aiEnabled={aiEnabled} />
+          </>
+        )}
 
         <div className="docs-prose">{children}</div>
 
@@ -86,7 +92,7 @@ export function DocsPage({
         )}
       </main>
 
-      <DocsToc items={toc} helpful={feedbackEnabled} feedbackEndpoint={feedbackEndpoint} />
+      {!hub && <DocsToc items={toc} helpful={feedbackEnabled} feedbackEndpoint={feedbackEndpoint} />}
     </>
   );
 }

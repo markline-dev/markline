@@ -181,7 +181,18 @@ const COMMANDS = {
     if (tplDir) {
       // The template's starter files replace the matching default ones.
       const starter = path.join(tplDir, "starter");
-      if (fs.existsSync(starter)) copyDir(starter, target);
+      if (fs.existsSync(starter)) {
+        copyDir(starter, target);
+        // A starter with its own navigation and no API tab (a help center,
+        // say) doesn't want the default starter's sample spec: Markline builds
+        // an API reference whenever api/openapi.json exists, and nothing would
+        // link to it.
+        const own = path.join(starter, "markline.json");
+        if (fs.existsSync(own) && !fs.existsSync(path.join(starter, "api"))) {
+          const tabs = JSON.parse(fs.readFileSync(own, "utf8")).navigation?.tabs ?? [];
+          if (!tabs.some((t) => t.openapi)) fs.rmSync(path.join(target, "api"), { recursive: true, force: true });
+        }
+      }
       // Record the template. A local path is rewritten relative to the new
       // markline.json, since that's what it resolves against at build time.
       const cfgPath = path.join(target, "markline.json");

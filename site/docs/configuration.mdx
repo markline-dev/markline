@@ -107,8 +107,12 @@ to nest underneath it, as deep as you need:
   On a group: lets readers open and close the whole group from its title.
 </ParamField>
 
-Previous/Next links and `llms.txt` follow the same order as the sidebar,
-nested pages included.
+Set `"group": ""` to show a group's pages without a heading, which suits a
+sidebar that's a single list of collections.
+
+Previous/Next links, breadcrumbs and `llms.txt` all follow the sidebar,
+nested pages included. A page's breadcrumb is its tab, its group and each item
+it sits under, unless the page sets `crumbs` in its frontmatter.
 
 ## Layout
 
@@ -136,6 +140,30 @@ and fonts.
 
 A [template](/templates) can set both. `product-docs` sets them to `stacked`
 and `header`.
+
+### Page layouts
+
+A page picks its own layout in its frontmatter:
+
+| `layout` | What it renders |
+| --- | --- |
+| `doc` (default) | Sidebar, page and table of contents |
+| `landing` | Full width, no sidebar: for marketing pages built from components |
+| `hub` | A full-width hero with a large search box, above the sidebar and page: a help-center home |
+
+```mdx
+---
+title: How can we help?
+lede: Search for an answer, or browse a collection below.
+layout: hub
+hero:
+  placeholder: Search for articles…
+  image: /illustration.svg
+---
+```
+
+The hub hero shows the page's `title` and `lede`, and its search box opens the
+same search as ⌘K. `hero.image` is optional and hidden on narrow screens.
 
 ## API & playground
 

@@ -9,7 +9,8 @@ import { DocsShell } from "@/components/docs/nav";
 import { mdxComponents } from "@/components/docs/mdx";
 import { getHighlighter, shellEnhancer } from "@/lib/shiki";
 import { loadConfig, aiConfig, feedbackConfig } from "@/lib/config";
-import { getDocsTabs, pickActiveTab, getNav, flattenLinks } from "@/components/docs/sections";
+import { getDocsTabs, pickActiveTab, getNav, flattenLinks, findNavTrail } from "@/components/docs/sections";
+import { HubHero } from "@/components/docs/hub-hero";
 import { LandingPage } from "@/components/landing/landing";
 import { SiteCredit } from "@/components/site-credit";
 import type { PageNavLink } from "@/components/docs/page";
@@ -73,7 +74,7 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
     }
     return notFound();
   }
-  const crumbs = doc.fm.crumbs ?? deriveCrumbs(doc.slug, doc.fm.title);
+  const crumbs = doc.fm.crumbs ?? navCrumbs(doc.slug, doc.fm.title) ?? deriveCrumbs(doc.slug, doc.fm.title);
   const config = loadConfig();
   const editUrl = config.editUrl
     ? `${config.editUrl.replace(/\/$/, "")}/${doc.sourcePath}`
@@ -103,17 +104,21 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
     return <LandingPage>{content}</LandingPage>;
   }
 
+  const hub = doc.fm.layout === "hub";
+
   // The docs 3-pane shell (sidebar · main · toc) renders BELOW the shared
   // SiteNav. Only docs routes mount it — the home + API reference render their
-  // own full-width content.
-  return (
+  // own full-width content. A hub page puts a full-width hero above it.
+  const shell = (
     <DocsShell
       nav={getNav(config)}
       ai={aiConfig()}
       aiSuggestions={doc.fm.aiSuggestions}
       searchInSidebar={config.layout.search !== "header"}
+      variant={hub ? "hub" : undefined}
     >
       <DocsPage
+        hub={hub}
         crumbs={crumbs}
         title={doc.fm.title}
         lede={doc.fm.lede}
@@ -130,6 +135,13 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
       </DocsPage>
       <SiteCredit name={config.name} year={new Date().getFullYear()} />
     </DocsShell>
+  );
+  if (!hub) return shell;
+  return (
+    <>
+      <HubHero title={doc.fm.title} lede={doc.fm.lede} image={doc.fm.hero?.image} placeholder={doc.fm.hero?.placeholder} />
+      {shell}
+    </>
   );
 }
 
@@ -162,6 +174,25 @@ function firstDocHref(): string | undefined {
     }
   }
   return undefined;
+}
+
+/**
+ * Breadcrumbs from the page's place in the sidebar: tab › group › each item it
+ * sits under › the page. Follows nesting exactly, where guessing from the URL
+ * can't (/account/reset-password sits under "Account & security", not under a
+ * folder named "account"). Undefined when the page isn't in the sidebar.
+ */
+function navCrumbs(slug: string[], title: string) {
+  const pathname = slug.length ? `/${slug.join("/")}` : "/";
+  const tab = pickActiveTab(getDocsTabs(), pathname);
+  if (!tab || tab.id === "api-reference") return undefined;
+  const trail = findNavTrail(tab.sections, pathname);
+  if (!trail) return undefined;
+  const out: { label: string; href?: string }[] = [{ label: tab.label, href: tab.href }];
+  if (trail.section.title && trail.section.title !== tab.label) out.push({ label: trail.section.title });
+  for (const l of trail.chain.slice(0, -1)) out.push({ label: l.label, href: l.href });
+  out.push({ label: title });
+  return out;
 }
 
 function deriveCrumbs(slug: string[], title: string) {

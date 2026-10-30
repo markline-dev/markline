@@ -223,9 +223,9 @@ function SidebarSections({
                 {title}
                 <Chevron open={isOpen} />
               </button>
-            ) : (
+            ) : sec.title ? (
               <div className="t">{title}</div>
-            )}
+            ) : null}
             {isOpen && <div id={`docs-nav-${k}`}>{renderLinks(sec.links, k)}</div>}
           </div>
         );
@@ -245,18 +245,21 @@ export function DocsShell({
   ai = null,
   aiSuggestions,
   searchInSidebar = true,
+  variant,
   children,
 }: {
   nav: NavData;
   /** False when layout.search puts the search box in the header instead. */
   searchInSidebar?: boolean;
+  /** "hub": no table of contents column, for a page under a HubHero. */
+  variant?: "hub";
   ai?: AiPublicConfig | null;
   /** Page-specific Ask AI starter questions (frontmatter `aiSuggestions`). */
   aiSuggestions?: string[];
   children: React.ReactNode;
 }) {
   return (
-    <div className="docs-shell grid">
+    <div className={`docs-shell grid${variant === "hub" ? " docs-shell--hub" : ""}`}>
       <DocsSidebar nav={nav} ai={ai} aiSuggestions={aiSuggestions} searchInSidebar={searchInSidebar} />
       {children}
       {/* ⌘K / sidebar-trigger search palette (modal only — the inline trigger

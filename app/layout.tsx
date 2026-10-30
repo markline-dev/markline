@@ -77,6 +77,7 @@ function themeCss(): string | null {
 
   if (t.font?.sans) independent.push(`--font-geist:${t.font.sans}`);
   if (t.font?.mono) independent.push(`--font-geist-mono:${t.font.mono}`);
+  if (t.font?.heading) independent.push(`--heading-font:${t.font.heading}`);
   if (t.buttonRadius) independent.push(`--btn-radius:${t.buttonRadius}`);
 
   for (const [k, v] of Object.entries(t.cssVariables?.light ?? {})) light.push(`${k}:${v}`);
@@ -105,6 +106,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="en"
       className={`${geist.variable} ${geistMono.variable} ${instrumentSerif.variable} ${schibsted.variable} ${cooper.variable}`}
       data-header={config.layout.header}
+      // Heading-font rules only apply when one is configured, so sites that
+      // don't set it render exactly as before.
+      data-heading-font={config.theme.font?.heading ? "" : undefined}
       suppressHydrationWarning
     >
       <head>

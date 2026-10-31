@@ -332,33 +332,42 @@ export function MarkdownModal() {
       () => {},
     );
   };
+  // Named after the page, like the file you'd save: "Set up hand-off.md".
+  const file = `${(md.match(/^# (.+)$/m)?.[1] ?? "page").trim()}.md`;
   return (
     <div className="mdv open">
       <div className="mdv-scrim" onClick={() => setMd(null)} />
-      <div className="mdv-box">
+      <div className="mdv-box" role="dialog" aria-modal="true" aria-label={file}>
         <div className="mdv-head">
           <span className="t">
-            <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
-              <path d="M4 4h16v16H4z" opacity=".4" />
-              <path d="M7 9l2 3 2-3M14 9v6m3-6-1.5 2L14 9" />
-            </svg>{" "}
-            View as Markdown
+            <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden>
+              <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+              <path d="M14 3v5h5M9 13h6M9 17h4" />
+            </svg>
+            <span>{file}</span>
           </span>
-          <span className="sp" />
-          <button className={`mdv-cp${copied ? " copied" : ""}`} onClick={copy}>
-            <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
-              <rect x="9" y="9" width="11" height="11" rx="2" />
-              <path d="M5 15V5a2 2 0 0 1 2-2h10" />
-            </svg>{" "}
-            {copied ? "Copied" : "Copy"}
-          </button>
-          <button className="mdv-x" onClick={() => setMd(null)} aria-label="Close">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <button className="mdv-x" onClick={() => setMd(null)} aria-label="Close" autoFocus>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
               <path d="M18 6 6 18M6 6l12 12" />
             </svg>
           </button>
         </div>
         <pre className="mdv-pre">{md}</pre>
+        <div className="mdv-foot">
+          <button className={`mdv-cp${copied ? " copied" : ""}`} onClick={copy}>
+            <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden>
+              {copied ? (
+                <path d="M20 6 9 17l-5-5" />
+              ) : (
+                <>
+                  <rect x="9" y="9" width="11" height="11" rx="2" />
+                  <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+                </>
+              )}
+            </svg>{" "}
+            {copied ? "Copied" : "Copy markdown"}
+          </button>
+        </div>
       </div>
     </div>
   );

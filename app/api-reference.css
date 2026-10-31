@@ -543,14 +543,12 @@ html[data-ai-open] .ml-apiref .aichat { transform: none; }
 .ml-apiref .ac-disclaim { font-size: 11px; color: var(--ink-4); text-align: center; margin-top: 9px; }
 
 /* ============================================================
-   "Built with Markline" credit footer (shared <SiteCredit/>)
+   "Built with Markline" credit (shared <SiteCredit/>)
    ============================================================ */
-.ml-apiref .site-credit { display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 22px; border-top: 1px solid var(--line); background: transparent; font-family: var(--mono); font-size: 11px; color: var(--ink-4); flex-wrap: wrap; }
-.ml-apiref .site-credit > span { opacity: .8; }
-.ml-apiref .site-credit .credit-built { display: inline-flex; align-items: center; gap: 7px; }
-.ml-apiref .site-credit .heart { width: 12px; height: 12px; flex: none; color: var(--accent); }
-.ml-apiref .site-credit a { color: var(--ink-3); }
-.ml-apiref .site-credit a:hover { color: var(--ink); }
+.ml-apiref .site-credit { display: flex; justify-content: center; padding: 28px 22px 32px; font-size: 13px; color: var(--ink-4); }
+.ml-apiref .site-credit a { display: inline-flex; align-items: baseline; gap: 5px; color: inherit; text-decoration: none; transition: color .15s; }
+.ml-apiref .site-credit .wordmark { font-family: var(--display, inherit); font-weight: 600; letter-spacing: -0.01em; color: var(--ink-3); transition: color .15s; }
+.ml-apiref .site-credit a:hover, .ml-apiref .site-credit a:hover .wordmark { color: var(--ink); }
 
 /* ============================================================
    Command-palette search (search.css), scoped under .ml-apiref
@@ -596,16 +594,17 @@ html[data-ai-open] .ml-apiref .aichat { transform: none; }
 /* ---------- View-as-Markdown modal (mdv) ---------- */
 .ml-apiref .mdv { position: fixed; inset: 0; z-index: 220; display: none; }
 .ml-apiref .mdv.open { display: block; }
-.ml-apiref .mdv-scrim { position: absolute; inset: 0; background: color-mix(in srgb, var(--bg) 55%, transparent); backdrop-filter: blur(6px); }
-.ml-apiref .mdv-box { position: absolute; top: 8vh; left: 50%; transform: translateX(-50%); width: min(680px, calc(100vw - 32px)); max-height: 80vh; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line-2); border-radius: 15px; overflow: hidden; box-shadow: 0 40px 120px -30px rgba(0,0,0,0.7); }
-.ml-apiref .mdv-head { display: flex; align-items: center; gap: 12px; padding: 13px 14px; border-bottom: 1px solid var(--line); }
-.ml-apiref .mdv-head .t { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 500; color: var(--ink); }
-.ml-apiref .mdv-head .t .ico { width: 15px; height: 15px; color: var(--ink-3); }
-.ml-apiref .mdv-head .sp { margin-left: auto; }
-.ml-apiref .mdv-cp { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ink-2); border: 1px solid var(--line-2); border-radius: 8px; padding: 6px 11px; background: transparent; cursor: pointer; }
+.ml-apiref .mdv-scrim { position: absolute; inset: 0; background: rgb(0 0 0 / .32); backdrop-filter: blur(2px); }
+.ml-apiref .mdv-box { position: absolute; top: 8vh; left: 50%; transform: translateX(-50%); width: min(880px, calc(100vw - 32px)); max-height: 84vh; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line-2); border-radius: 14px; overflow: hidden; box-shadow: 0 40px 120px -30px rgb(0 0 0 / .45); }
+.ml-apiref .mdv-head { display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 18px; border-bottom: 1px solid var(--line); }
+.ml-apiref .mdv-head .t { display: inline-flex; align-items: center; gap: 9px; min-width: 0; font-family: var(--mono); font-size: 13px; color: var(--ink); }
+.ml-apiref .mdv-head .t span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ml-apiref .mdv-head .t .ico { flex: none; width: 15px; height: 15px; color: var(--ink-3); }
+.ml-apiref .mdv-x { margin-left: auto; flex: none; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 8px; border: 1px solid var(--line-2); background: var(--panel); color: var(--ink-2); cursor: pointer; }
+.ml-apiref .mdv-x:hover { color: var(--ink); background: var(--panel-hi); }
+.ml-apiref .mdv-pre { flex: 1; margin: 0; overflow: auto; padding: 20px 22px; font-family: var(--mono); font-size: 13px; line-height: 1.75; color: var(--ink-2); background: color-mix(in srgb, var(--ink) 3.5%, var(--panel)); white-space: pre-wrap; word-break: break-word; }
+.ml-apiref .mdv-foot { display: flex; justify-content: flex-end; padding: 12px 14px; border-top: 1px solid var(--line); }
+.ml-apiref .mdv-cp { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 500; color: var(--ink-2); border: 1px solid var(--line-2); border-radius: var(--btn-radius, 8px); padding: 7px 12px; background: var(--panel); cursor: pointer; }
 .ml-apiref .mdv-cp:hover { background: var(--panel-hi); color: var(--ink); }
 .ml-apiref .mdv-cp.copied { color: var(--c-green); border-color: var(--accent-line); }
 .ml-apiref .mdv-cp .ico { width: 14px; height: 14px; }
-.ml-apiref .mdv-x { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 7px; border: 0; background: transparent; color: var(--ink-3); cursor: pointer; }
-.ml-apiref .mdv-x:hover { color: var(--ink); background: var(--panel-hi); }
-.ml-apiref .mdv-pre { margin: 0; overflow: auto; padding: 16px 18px; font-family: var(--mono); font-size: 12.5px; line-height: 1.7; color: var(--code-ink); background: var(--code-bg); white-space: pre-wrap; word-break: break-word; }

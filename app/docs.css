@@ -199,7 +199,7 @@
 .docs-shell .docs-nav-grp > .t .ic svg { width: 14px; height: 14px; }
 
 /* ─────────────────────────── content ─────────────────────────── */
-.docs-shell .docs-main { padding: 40px 56px 100px; min-width: 0; }
+.docs-shell .docs-main { padding: 40px 56px 32px; min-width: 0; }
 .docs-shell .docs-bc {
   font-family: var(--mono); font-size: 12px; color: var(--ink-4);
   display: flex; align-items: center; gap: 8px; white-space: nowrap; flex-wrap: wrap;
@@ -248,12 +248,14 @@
 .docs-shell .doc-ai-split > button { padding: 7px 12px; color: var(--ink-2); font-weight: 500; }
 .docs-shell .doc-ai-split > .more { padding: 7px 10px; border-left: 1px solid var(--line-2); }
 .docs-shell .doc-ai-split > .main.copied { color: var(--ok); }
+.docs-shell .doc-ai-split > .more[aria-expanded="true"] { background: color-mix(in srgb, var(--accent) 9%, transparent); color: var(--ink); }
+/* The menu drops from the button's left edge and is at least as wide as it. */
 .docs-shell .doc-ai-pop {
-  position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 220px; padding: 5px;
+  position: absolute; left: -1px; top: calc(100% + 6px); z-index: 20; min-width: calc(100% + 2px); padding: 5px;
   display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line-2);
   border-radius: 10px; box-shadow: 0 10px 30px -12px rgb(0 0 0 / .25);
 }
-.docs-shell .doc-ai-pop button { width: 100%; padding: 8px 10px; border-radius: 6px; color: var(--ink-2); }
+.docs-shell .doc-ai-pop button { width: 100%; padding: 9px 12px; white-space: nowrap; border-radius: 6px; color: var(--ink-2); }
 .docs-shell .doc-ai-pop button:hover { background: var(--panel-hi); color: var(--ink); }
 
 /* ─────────────────────────── prose ─────────────────────────── */
@@ -410,16 +412,33 @@
 :is(.docs-shell, .ml-landing, .api-op-main) .next-card .ml-card-body p { font-size: inherit; color: inherit; line-height: inherit; margin: 0; }
 :is(.docs-shell, .ml-landing, .api-op-main) .next-card .ml-card-body p + p { margin-top: 8px; }
 
-/* page footer nav */
-.docs-shell .page-nav {
-  display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 56px; padding-top: 28px;
-  border-top: 1px solid var(--line);
+/* page footer nav: a small "‹ Previous" button, and the next page as a card */
+.docs-shell .page-nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 56px; }
+.docs-shell .page-nav a { text-decoration: none; }
+.docs-shell .page-nav .pn-prev {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 9px 14px 9px 11px;
+  border-radius: var(--btn-radius, 9px); background: color-mix(in srgb, var(--ink) 5%, transparent);
+  font-size: 14px; font-weight: 500; color: var(--ink-3); transition: color .15s, background .15s;
 }
-.docs-shell .page-nav a { border: 1px solid var(--line); border-radius: 11px; padding: 15px 18px; transition: border-color .18s; text-decoration: none; }
-.docs-shell .page-nav a:hover { border-color: var(--line-2); }
-.docs-shell .page-nav .d { font-family: var(--mono); font-size: 11px; color: var(--ink-4); }
-.docs-shell .page-nav .t { font-size: 15px; font-weight: 600; margin-top: 5px; color: var(--ink); }
-.docs-shell .page-nav .next-a { text-align: right; }
+.docs-shell .page-nav .pn-prev:hover { color: var(--ink); background: color-mix(in srgb, var(--ink) 9%, transparent); }
+.docs-shell .page-nav .pn-card {
+  margin-left: auto; min-width: 0; max-width: min(100%, 480px); display: flex; align-items: stretch;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--panel);
+  box-shadow: 0 1px 2px rgb(0 0 0 / .05); transition: border-color .15s, box-shadow .15s;
+}
+.docs-shell .page-nav .pn-card:hover { border-color: var(--line-2); box-shadow: 0 6px 18px -8px rgb(0 0 0 / .18); }
+.docs-shell .page-nav .pn-card .t {
+  min-width: 0; padding: 14px 18px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: 15px; font-weight: 600; color: var(--ink);
+}
+.docs-shell .page-nav .pn-card .d {
+  flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 0 16px;
+  border-left: 1px solid var(--line); font-size: 14px; color: var(--ink-3); transition: color .15s;
+}
+.docs-shell .page-nav .pn-card:hover .d { color: var(--ink); }
+/* Last page: there's no next, so the previous page gets the card. */
+.docs-shell .page-nav--last .pn-card { margin-left: 0; }
+.docs-shell .page-nav--last .pn-card .d { border-left: 0; border-right: 1px solid var(--line); padding: 0 16px 0 12px; }
 
 /* Related articles (frontmatter `related`, layout.related) */
 .docs-shell .doc-related { margin-top: 56px; }
@@ -473,7 +492,7 @@
    up with callouts, tables and code. */
 html[data-content="centered"] .docs-shell .docs-main {
   --content-pad: 56px;
-  width: 100%; max-width: calc(var(--content-width, 880px) + 2 * var(--content-pad)); margin-inline: auto;
+  box-sizing: border-box; width: 100%; max-width: calc(var(--content-width, 880px) + 2 * var(--content-pad)); margin-inline: auto;
 }
 html[data-content="centered"] .docs-shell :is(.docs-lead, .docs-prose p, .docs-prose ul, .docs-prose ol, .docs-prose .callout) {
   max-width: none;
@@ -481,12 +500,14 @@ html[data-content="centered"] .docs-shell :is(.docs-lead, .docs-prose p, .docs-p
 
 @media (max-width: 1080px) {
   html[data-content="centered"] .docs-shell .docs-main { --content-pad: 40px; }
-  .docs-shell .docs-main { padding: 36px 40px 90px; }
+  .docs-shell .docs-main { padding: 36px 40px 32px; }
 }
 @media (max-width: 720px) {
-  .docs-shell .docs-main { padding: 24px 20px 80px; }
+  .docs-shell .docs-main { padding: 24px 20px 24px; }
   .docs-shell .docs-h1 { font-size: 32px; }
-  :is(.docs-shell, .ml-landing, .api-op-main) .next-grid, .docs-shell .page-nav { grid-template-columns: 1fr; }
+  :is(.docs-shell, .ml-landing, .api-op-main) .next-grid { grid-template-columns: 1fr; }
+  /* The actions sit at the right edge here, so the menu opens leftwards. */
+  .docs-shell .doc-ai-pop { left: auto; right: -1px; }
 }
 
 /* ============================================================
@@ -600,15 +621,14 @@ html[data-ai-open] .docs-shell .aichat { transform: none; }
 .docs-shell .ac-disclaim { font-size: 11px; color: var(--ink-4); text-align: center; margin-top: 9px; }
 
 /* ============================================================
-   "Built with Markline" credit footer (shared <SiteCredit/>).
-   A full-width row below the sidebar · main · toc grid.
+   "Built with Markline" credit (shared <SiteCredit/>): one centred line at
+   the foot of the page column (docs) or the page (404).
    ============================================================ */
-.docs-shell .site-credit { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: center; gap: 16px; padding: 18px 22px; border-top: 1px solid var(--line); background: transparent; font-family: var(--mono); font-size: 11px; color: var(--ink-4); flex-wrap: wrap; }
-.docs-shell .site-credit > span { opacity: .8; }
-.docs-shell .site-credit .credit-built { display: inline-flex; align-items: center; gap: 7px; }
-.docs-shell .site-credit .heart { width: 12px; height: 12px; flex: none; color: var(--accent); }
-.docs-shell .site-credit a { color: var(--ink-3); }
-.docs-shell .site-credit a:hover { color: var(--ink); }
+.docs-shell .site-credit { display: flex; justify-content: center; margin-top: 64px; padding: 8px 0; font-size: 13px; color: var(--ink-4); }
+.ml-notfound .site-credit { margin-top: 0; padding: 20px 22px 28px; }
+.docs-shell .site-credit a { display: inline-flex; align-items: baseline; gap: 5px; color: inherit; text-decoration: none; transition: color .15s; }
+.docs-shell .site-credit .wordmark { font-family: var(--display); font-weight: 600; letter-spacing: -0.01em; color: var(--ink-3); transition: color .15s; }
+.docs-shell .site-credit a:hover, .docs-shell .site-credit a:hover .wordmark { color: var(--ink); }
 
 /* ============================================================
    404 / not-found
@@ -640,16 +660,17 @@ html[data-ai-open] .docs-shell .aichat { transform: none; }
 /* View-as-Markdown modal */
 .docs-shell .mdv { position: fixed; inset: 0; z-index: 220; display: none; }
 .docs-shell .mdv.open { display: block; }
-.docs-shell .mdv-scrim { position: absolute; inset: 0; background: color-mix(in srgb, var(--panel) 55%, transparent); backdrop-filter: blur(6px); }
-.docs-shell .mdv-box { position: absolute; top: 8vh; left: 50%; transform: translateX(-50%); width: min(680px, calc(100vw - 32px)); max-height: 80vh; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line-2); border-radius: 15px; overflow: hidden; box-shadow: 0 40px 120px -30px rgba(0,0,0,0.30); }
-.docs-shell .mdv-head { display: flex; align-items: center; gap: 12px; padding: 13px 14px; border-bottom: 1px solid var(--line); }
-.docs-shell .mdv-head .t { display: inline-flex; align-items: center; gap: 8px; font-size: 13.5px; font-weight: 500; color: var(--ink); }
-.docs-shell .mdv-head .t .ico { width: 15px; height: 15px; color: var(--ink-3); }
-.docs-shell .mdv-head .sp { margin-left: auto; }
-.docs-shell .mdv-cp { display: inline-flex; align-items: center; gap: 7px; font-size: 12.5px; color: var(--ink-2); border: 1px solid var(--line-2); border-radius: 8px; padding: 6px 11px; background: transparent; cursor: pointer; }
+.docs-shell .mdv-scrim { position: absolute; inset: 0; background: rgb(0 0 0 / .32); backdrop-filter: blur(2px); }
+.docs-shell .mdv-box { position: absolute; top: 8vh; left: 50%; transform: translateX(-50%); width: min(880px, calc(100vw - 32px)); max-height: 84vh; display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line-2); border-radius: 14px; overflow: hidden; box-shadow: 0 40px 120px -30px rgb(0 0 0 / .45); }
+.docs-shell .mdv-head { display: flex; align-items: center; gap: 12px; padding: 12px 12px 12px 18px; border-bottom: 1px solid var(--line); }
+.docs-shell .mdv-head .t { display: inline-flex; align-items: center; gap: 9px; min-width: 0; font-family: var(--mono); font-size: 13px; color: var(--ink); }
+.docs-shell .mdv-head .t span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.docs-shell .mdv-head .t .ico { flex: none; width: 15px; height: 15px; color: var(--ink-3); }
+.docs-shell .mdv-x { margin-left: auto; flex: none; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 8px; border: 1px solid var(--line-2); background: var(--panel); color: var(--ink-2); cursor: pointer; }
+.docs-shell .mdv-x:hover { color: var(--ink); background: var(--panel-hi); }
+.docs-shell .mdv-pre { flex: 1; margin: 0; overflow: auto; padding: 20px 22px; font-family: var(--mono); font-size: 13px; line-height: 1.75; color: var(--ink-2); background: color-mix(in srgb, var(--ink) 3.5%, var(--panel)); white-space: pre-wrap; word-break: break-word; }
+.docs-shell .mdv-foot { display: flex; justify-content: flex-end; padding: 12px 14px; border-top: 1px solid var(--line); }
+.docs-shell .mdv-cp { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 500; color: var(--ink-2); border: 1px solid var(--line-2); border-radius: var(--btn-radius, 8px); padding: 7px 12px; background: var(--panel); cursor: pointer; }
 .docs-shell .mdv-cp:hover { background: var(--panel-hi); color: var(--ink); }
 .docs-shell .mdv-cp.copied { color: var(--ok); border-color: var(--accent-line); }
 .docs-shell .mdv-cp .ico { width: 14px; height: 14px; }
-.docs-shell .mdv-x { width: 30px; height: 30px; display: grid; place-items: center; border-radius: 7px; border: 0; background: transparent; color: var(--ink-3); cursor: pointer; }
-.docs-shell .mdv-x:hover { color: var(--ink); background: var(--panel-hi); }
-.docs-shell .mdv-pre { margin: 0; overflow: auto; padding: 16px 18px; font-family: var(--mono); font-size: 12.5px; line-height: 1.7; color: var(--code-ink); background: var(--code-bg); white-space: pre-wrap; word-break: break-word; }

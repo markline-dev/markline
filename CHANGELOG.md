@@ -5,6 +5,16 @@ All notable changes to `@markline/markline` and `@markline/create`.
 ## Unreleased
 
 ### Added
+- **Image captions, zoom and theme variants.** An image's title shows as a
+  caption; images shrunk to fit open full size on click (`#nozoom` to turn it
+  off); `#light` / `#dark` on a URL, or `<Image dark>`, show a screenshot only
+  in that theme.
+- **Menu paths.** `<MenuPath>Teach > Playbooks</MenuPath>`, and any bold text
+  with ` → ` or ` › ` in it, render as bold steps with chevrons between them.
+- **Breaking changelog entries.** `breaking: true` adds a "Breaking" label,
+  and marks the entry in the RSS feed.
+- **Search results show where a page lives** ("Agents › Persona"), so pages
+  that share a title like "Overview" can be told apart.
 - **Changelog pages.** A `changelog/` folder of dated MDX files becomes a
   changelog at `/changelog`: entries newest first with the date beside
   them, "On this page" grouped by date, a page per entry

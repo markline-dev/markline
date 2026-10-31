@@ -110,3 +110,41 @@ test("searchGroups groups by tab when there are several docs tabs", async () => 
   assert.deepEqual(order, ["Docs", "Guides"]);
   assert.equal(byUrl.get("/guides/b"), "Guides");
 });
+
+async function loadSearchTrails() {
+  const modulePath = new URL("../scripts/search-groups.mjs", import.meta.url).href;
+  return ((await import(modulePath)) as unknown as { searchTrails: (cfg: unknown) => Map<string, string> }).searchTrails;
+}
+
+test("searchTrails tells same-named pages apart", async () => {
+  const searchTrails = await loadSearchTrails();
+  const trails = searchTrails({
+    navigation: {
+      tabs: [
+        {
+          label: "Documentation",
+          groups: [{
+            group: "",
+            pages: [
+              { href: "/", label: "Home" },
+              { label: "Agents", pages: [
+                { href: "/agents/overview", label: "Overview" },
+                { label: "Persona", pages: [{ href: "/agents/persona/tone", label: "Tone" }] },
+              ] },
+              { label: "Phone & voice", pages: [{ href: "/voice/overview", label: "Overview" }] },
+            ],
+          }],
+        },
+        { label: "Developers", groups: [{ group: "Guides", pages: [{ href: "/developers/sync", label: "Sync" }] }] },
+        { label: "Changelog", groups: [{ group: "", pages: [{ href: "/changelog", label: "Changelog" }] }] },
+        { label: "API", openapi: true },
+      ],
+    },
+  });
+  assert.equal(trails.get("/agents/overview"), "Agents");
+  assert.equal(trails.get("/voice/overview"), "Phone & voice");
+  assert.equal(trails.get("/agents/persona/tone"), "Agents › Persona");
+  assert.equal(trails.get("/developers/sync"), "Guides");
+  assert.equal(trails.get("/"), "Documentation");
+  assert.equal(trails.get("/changelog"), "Changelog");
+});

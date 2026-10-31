@@ -61,6 +61,7 @@ function Entry({ entry, linkDate = true }: { entry: ChangelogEntry; linkDate?: b
         ) : (
           <span className="cl-date">{date}</span>
         )}
+        {entry.breaking && <span className="cl-breaking">Breaking</span>}
         {entry.tags.length > 0 && (
           <ul className="cl-tags">
             {entry.tags.map((t) => <li key={t}>{t}</li>)}

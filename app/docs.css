@@ -346,10 +346,39 @@
    the text column, with a hairline frame so light screenshots keep an edge
    on a light page. Components that render their own images carry a class and
    are left alone. --prose-img-radius and --prose-img-border restyle them. */
-:is(.docs-shell, .api-op-main, .ml-landing) .docs-prose img:not([class]) {
+:is(.docs-shell, .api-op-main, .ml-landing) .docs-prose :is(img:not([class]), img.ml-img) {
   display: block; max-width: 100%; height: auto; margin: 24px 0 8px;
   border: var(--prose-img-border, 1px solid var(--line)); border-radius: var(--prose-img-radius, 12px);
 }
+/* `#light` / `#dark` on an image URL, or <Image dark>: one per theme. */
+/* !important: the image rule above sets display: block with a higher specificity. */
+[data-theme="dark"] .docs-prose .ml-img--light, :root:not([data-theme="dark"]) .docs-prose .ml-img--dark { display: none !important; }
+/* A title / caption under the image. Spans, since the image sits in a <p>. */
+.docs-prose .ml-figure { display: block; margin: 24px 0 8px; }
+.docs-prose .ml-figure img.ml-img { margin: 0; }
+.docs-prose .ml-figcaption { display: block; margin-top: 8px; font-size: 13px; color: var(--ink-3); text-align: center; }
+/* Images shrunk to fit open full size on click. */
+.docs-prose img.ml-img--zoom { cursor: zoom-in; }
+.ml-zoom {
+  position: fixed; inset: 0; z-index: 300; display: grid; place-items: center; padding: 32px;
+  background: rgb(0 0 0 / .78); cursor: zoom-out; animation: ml-zoom-in .16s ease-out;
+}
+.ml-zoom img { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 10px; box-shadow: 0 30px 80px -20px rgb(0 0 0 / .6); }
+.ml-zoom-x {
+  position: absolute; top: 16px; right: 16px; width: 38px; height: 38px; display: grid; place-items: center;
+  border: 0; border-radius: 999px; background: rgb(255 255 255 / .14); color: #fff; cursor: pointer;
+}
+.ml-zoom-x:hover { background: rgb(255 255 255 / .24); }
+.ml-zoom-x svg { width: 18px; height: 18px; }
+@keyframes ml-zoom-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .ml-zoom { animation: none; } }
+
+/* <MenuPath> and bold "Teach → Playbooks": bold steps with a chevron between. */
+.ml-menupath { display: inline; }
+.ml-menupath-step { white-space: nowrap; }
+.ml-menupath strong { color: var(--ink); font-weight: 600; }
+.ml-menupath .sep { display: inline-flex; vertical-align: -1px; margin: 0 3px; color: var(--ink-4); }
+.ml-menupath .sep svg { width: 13px; height: 13px; }
 :is(.docs-shell, .api-op-main, .ml-landing) .docs-prose ul,
 :is(.docs-shell, .api-op-main, .ml-landing) .docs-prose ol { margin: 14px 0 0 2px; padding-left: 20px; color: var(--ink-2); font-size: 15.5px; line-height: 1.7; max-width: 68ch; }
 :is(.docs-shell, .api-op-main, .ml-landing) .docs-prose ul { list-style: disc; }
@@ -751,6 +780,11 @@ html[data-ai-open] .docs-shell .aichat { transform: none; }
   font-size: 13px; font-weight: 500; color: var(--ink-2); text-decoration: none; white-space: nowrap;
 }
 .docs-shell a.cl-date:hover { color: var(--ink); }
+.docs-shell .cl-breaking {
+  display: inline-flex; align-items: center; padding: 2px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 600;
+  color: var(--cl-breaking-fg, #b42318); background: var(--cl-breaking-bg, color-mix(in srgb, #e5484d 13%, transparent));
+}
+[data-theme="dark"] .docs-shell .cl-breaking { color: var(--cl-breaking-fg, #ff9592); }
 .docs-shell .cl-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
 .docs-shell .cl-tags li { padding: 2px 8px; border: 1px solid var(--line); border-radius: 999px; font-size: 11.5px; color: var(--ink-3); }
 .docs-shell .cl-body { margin-top: 0; min-width: 0; }

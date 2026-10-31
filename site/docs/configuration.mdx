@@ -400,6 +400,7 @@ content/
 date: 2026-10-26            # optional when the file is named YYYY-MM-DD.mdx
 title: Faster replies and scoped API keys
 tags: [Agents, API]
+breaking: true              # optional: adds a "Breaking" label
 ---
 
 ### Scoped API keys
@@ -419,6 +420,9 @@ tags: [Agents, API]
 - **RSS.** With `seo.metadataBase` set, the build writes a feed of the
   latest 50 entries to `/changelog/rss.xml`, and the page shows "Subscribe
   via RSS". Feeds need absolute links, so without a site URL there's no feed.
+- **Breaking changes.** `breaking: true` puts a red "Breaking" label beside
+  the date, prefixes the feed item's title with "Breaking:", and adds a
+  "Breaking" category to it.
 - **Search and sitemap.** Entries are searchable, under their own
   "Changelog" filter, and listed in `sitemap.xml`.
 - **Navigation.** Link to it like any page, e.g. a tab with

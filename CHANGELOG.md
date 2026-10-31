@@ -22,6 +22,14 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **`<Video>`.** Embeds a video file in the browser's own player, or a
   YouTube, Vimeo, Loom or Wistia link as that provider's embed (YouTube via
   its no-cookie domain). Full column width at 16:9, with an optional caption.
+- **`<LinkList>` and `<LinkItem>`.** Rows of links with a title, optional
+  description and accent-coloured `meta` ("3 articles"), and an icon, with
+  the whole row highlighted on hover. For collection pages and "see also"
+  lists.
+- **Related articles.** A page's frontmatter `related: [/path, …]` lists
+  pages at its end, as a `<LinkList>`. With `layout.related: "collection"`,
+  pages without a list get the other pages in their sidebar folder. The
+  `help-center` template turns it on.
 
 ### Changed
 - **The search dialog keeps one height**, with a "Start typing to search"

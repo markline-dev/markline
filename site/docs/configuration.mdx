@@ -155,9 +155,19 @@ and fonts.
   in a dropdown, and moves the page's `last_updated` date beside it.
 </ParamField>
 
+<ParamField path="layout.related" type='"off" | "collection"'>
+  A "Related articles" list at the end of a page. A page can always list its
+  own in frontmatter (`related: [/billing/plans, /billing/invoices]`); labels
+  come from the sidebar. With `collection`, pages that don't list any get the
+  other pages in the same sidebar folder, up to five. Default `off`. The
+  `help-center` template turns it on. The list is a
+  [`<LinkList>`](/components#link-lists), which you can also use in any page.
+</ParamField>
+
 A [template](/templates) can set any of these. `product-docs` sets `header`
 and `search` to `stacked` and `header`; `help-center` uses `chevron`
-breadcrumbs starting at "All collections", and `menu` page actions.
+breadcrumbs starting at "All collections", `menu` page actions and
+`collection` related articles.
 
 ### Page layouts
 

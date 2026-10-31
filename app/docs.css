@@ -309,6 +309,25 @@
 /* tables */
 :is(.docs-shell, .api-op-main, .ml-landing) .docs-prose table { width: 100%; border-collapse: collapse; }
 
+/* <LinkList> / <LinkItem>: rows of links. The whole row is the link, so the
+   whole row lights up: a tinted, rounded background reaching a little past
+   the text, with the dividers around it hidden. */
+:is(.docs-shell, .ml-landing, .api-op-main) ul.ml-links { list-style: none; margin: 16px 0 0; padding: 0; max-width: none; }
+:is(.docs-shell, .ml-landing, .api-op-main) .ml-links li { margin: 0; border-bottom: 1px solid var(--line); transition: border-color .15s; }
+:is(.docs-shell, .ml-landing, .api-op-main) .ml-links li:has(.ml-link:hover),
+:is(.docs-shell, .ml-landing, .api-op-main) .ml-links li:has(+ li .ml-link:hover) { border-color: transparent; }
+:is(.docs-shell, .ml-landing, .api-op-main) .ml-links .ml-link {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  margin: 0 -16px; padding: 14px 16px; border: 0; border-radius: 10px;
+  color: var(--ink); text-decoration: none; transition: background .15s;
+}
+:is(.docs-shell, .ml-landing, .api-op-main) .ml-links .ml-link:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+:is(.docs-shell, .ml-landing, .api-op-main) .ml-link-txt { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+:is(.docs-shell, .ml-landing, .api-op-main) .ml-link-t { font-size: 15.5px; font-weight: 500; line-height: 1.4; }
+:is(.docs-shell, .ml-landing, .api-op-main) .ml-link-d { font-size: 13.5px; color: var(--ink-3); line-height: 1.5; }
+:is(.docs-shell, .ml-landing, .api-op-main) .ml-link-m { color: var(--accent-ink); }
+:is(.docs-shell, .ml-landing, .api-op-main) .ml-link-ic { flex: none; display: inline-flex; color: var(--ink-3); }
+
 /* <Video> */
 :is(.docs-shell, .ml-landing, .api-op-main) .ml-video { margin: 24px 0 0; }
 :is(.docs-shell, .ml-landing, .api-op-main) .ml-video-frame {
@@ -401,6 +420,10 @@
 .docs-shell .page-nav .d { font-family: var(--mono); font-size: 11px; color: var(--ink-4); }
 .docs-shell .page-nav .t { font-size: 15px; font-weight: 600; margin-top: 5px; color: var(--ink); }
 .docs-shell .page-nav .next-a { text-align: right; }
+
+/* Related articles (frontmatter `related`, layout.related) */
+.docs-shell .doc-related { margin-top: 56px; }
+.docs-shell .doc-related h2 { font-size: 24px; font-weight: 600; letter-spacing: -0.01em; color: var(--ink); margin: 0 0 12px; }
 
 /* edit / last-updated row */
 .docs-shell .doc-foot {

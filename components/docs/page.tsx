@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { DocsToc } from "./nav";
 import { DocAiRow } from "./doc-actions";
+import { LinkList, LinkItem } from "./authoring";
 
 export type Crumb = { label: string; href?: string };
 export type TocItem = { id: string; label: string };
@@ -14,7 +15,7 @@ const ChevronSep = (
 
 export function DocsPage({
   crumbs, title, lede, toc, lastUpdated, editUrl, feedbackEndpoint,
-  feedbackEnabled = false, aiEnabled = false, prev, next, hub = false,
+  feedbackEnabled = false, aiEnabled = false, prev, next, related = [], hub = false,
   crumbStyle = "slash", actionStyle = "inline", children,
 }: {
   crumbs: Crumb[];
@@ -34,6 +35,8 @@ export function DocsPage({
   aiEnabled?: boolean;
   prev?: PageNavLink;
   next?: PageNavLink;
+  /** "Related articles" at the end of the page. */
+  related?: PageNavLink[];
   /** Under a HubHero: the hero already shows the title and lede, and there's
    *  no table of contents. */
   hub?: boolean;
@@ -73,6 +76,17 @@ export function DocsPage({
         )}
 
         <div className="docs-prose">{children}</div>
+
+        {related.length > 0 && (
+          <section className="doc-related" aria-labelledby="related-articles">
+            <h2 id="related-articles">Related articles</h2>
+            <LinkList>
+              {related.map((r) => (
+                <LinkItem key={r.href} href={r.href} title={r.label} />
+              ))}
+            </LinkList>
+          </section>
+        )}
 
         {(prev || next) && (
           <div className="page-nav">

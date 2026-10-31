@@ -27,7 +27,8 @@
     "search": "header",
     "breadcrumbs": "chevron",
     "breadcrumbsRoot": "All collections",
-    "pageActions": "menu"
+    "pageActions": "menu",
+    "related": "collection"
   },
   "topbar": { "width": "full", "homeWidth": "full" }
 }

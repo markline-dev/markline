@@ -31,6 +31,7 @@ export type TemplateOptions = {
     breadcrumbs?: "slash" | "chevron";
     breadcrumbsRoot?: string;
     pageActions?: "inline" | "menu";
+    related?: "off" | "collection";
   };
   topbar?: { width?: "full" | "contained"; homeWidth?: "full" | "contained" };
 };

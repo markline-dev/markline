@@ -350,6 +350,11 @@ export type LayoutConfig = {
    *  "Copy for LLM" button with the rest in a dropdown, beside the
    *  last-updated date. */
   pageActions?: "inline" | "menu";
+  /** "Related articles" at the end of a page. A page's own frontmatter
+   *  `related` list always shows; "collection" also fills it, on pages
+   *  without one, with the other pages in the same sidebar folder. Default
+   *  "off". */
+  related?: "off" | "collection";
 };
 
 export type MarklineConfig = {
@@ -404,7 +409,7 @@ const DEFAULT_CONFIG: MarklineConfig = {
     appearance: "system",
     colors: { primary: "#3C87F0", primaryDark: "#6E86FA" },
   },
-  layout: { header: "single", search: "sidebar", breadcrumbs: "slash", pageActions: "inline" },
+  layout: { header: "single", search: "sidebar", breadcrumbs: "slash", pageActions: "inline", related: "off" },
   topbar: { links: [] },
   navigation: {
     tabs: [

@@ -2,6 +2,9 @@ import type { DocSection, DocLink, NavData } from "./nav";
 import { loadOpenApi, operationHref } from "@/lib/openapi";
 import { loadConfig, type NavLink, type NavTab, type MarklineConfig } from "@/lib/config";
 import { navIcon } from "./nav-icons";
+import { findNavTrail, flattenLinks, collectionLinks } from "./nav-tree";
+
+export { findNavTrail, flattenLinks, collectionLinks };
 
 /** Build the API-reference sidebar from the OpenAPI spec's tags. */
 function apiSections(): DocSection[] {
@@ -43,37 +46,6 @@ function tabToSections(tab: NavTab): DocSection[] {
     collapsible: g.collapsible,
     collapsed: g.collapsed,
   }));
-}
-
-/** Where a page sits in the sidebar: its group and the chain of items from
- *  the top of that group down to the page itself. */
-export function findNavTrail(
-  sections: DocSection[],
-  pathname: string,
-): { section: DocSection; chain: DocLink[] } | undefined {
-  const walk = (links: DocLink[], chain: DocLink[]): DocLink[] | undefined => {
-    for (const l of links) {
-      const here = [...chain, l];
-      if (l.href === pathname) return here;
-      const found = walk(l.children ?? [], here);
-      if (found) return found;
-    }
-    return undefined;
-  };
-  for (const section of sections) {
-    const chain = walk(section.links, []);
-    if (chain) return { section, chain };
-  }
-  return undefined;
-}
-
-/** Every page in sidebar order, depth first — nested pages included, folders
- *  (items with no `href`) skipped. */
-export function flattenLinks(links: DocLink[]): { href: string; label: string }[] {
-  return links.flatMap((l) => [
-    ...(l.href ? [{ href: l.href, label: l.label }] : []),
-    ...flattenLinks(l.children ?? []),
-  ]);
 }
 
 export type DocsTab = {

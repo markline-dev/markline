@@ -10,6 +10,8 @@ toc:
     label: Navigation
   - id: layout
     label: Layout
+  - id: footer
+    label: Footer
   - id: api-playground
     label: API & playground
   - id: integrations
@@ -221,6 +223,47 @@ toc:
   - id: configure
     label: Configure
 ```
+
+## Footer
+
+A footer across the bottom of every page: columns of links, then a row with
+your logo, copyright, small links and social icons. Without one, pages end
+with a single "Built with Markline" line; with one, that credit moves into the
+footer's bottom row.
+
+```jsonc
+"footer": {
+  "columns": [
+    { "title": "Product", "links": [{ "label": "Pricing", "href": "/pricing" }] },
+    { "title": "Company", "links": [{ "label": "Contact sales", "href": "https://acme.com/contact" }] }
+  ],
+  "socials": { "github": "https://github.com/acme", "x": "https://x.com/acme" },
+  "links": [{ "label": "Privacy", "href": "https://acme.com/privacy" }],
+  "copyright": "© 2026 Acme Inc."
+}
+```
+
+<ParamField path="footer.columns" type="array">
+  `{ title, links: [{ label, href }] }` for each column. Links that start with
+  `https:` (or `mailto:`) open in a new tab.
+</ParamField>
+<ParamField path="footer.logo" type="boolean">
+  Show the site logo from `theme.logo` (or the site name) in the bottom row.
+  Default `true`.
+</ParamField>
+<ParamField path="footer.socials" type="object">
+  Profile URLs by network: `github`, `x`, `discord`, `linkedin`, `youtube`,
+  `slack`, `bluesky`, `mastodon`, `instagram`, `facebook`, `reddit`, `twitch`,
+  `tiktok`, `threads` or `telegram`. Each shows as an icon.
+</ParamField>
+<ParamField path="footer.links" type="array">
+  Small `{ label, href }` links in the bottom row, such as Privacy and Terms.
+</ParamField>
+<ParamField path="footer.copyright" type="string">Text in the bottom row, e.g. `© 2026 Acme Inc.`</ParamField>
+
+The footer shows on docs, hub, landing and API reference pages and the 404
+page. Set its maximum width with `--footer-width` in `theme.cssVariables`
+(default `1120px`).
 
 ## API & playground
 

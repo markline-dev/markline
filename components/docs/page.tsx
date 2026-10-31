@@ -24,7 +24,7 @@ const ChevronSep = (
 export function DocsPage({
   crumbs, title, lede, toc, lastUpdated, editUrl, feedbackEndpoint,
   feedbackEnabled = false, aiEnabled = false, prev, next, related = [], hub = false,
-  crumbStyle = "slash", actionStyle = "inline", children,
+  crumbStyle = "slash", actionStyle = "inline", credit = true, children,
 }: {
   crumbs: Crumb[];
   /** `layout.breadcrumbs` */
@@ -48,6 +48,9 @@ export function DocsPage({
   /** Under a HubHero: the hero already shows the title and lede, and there's
    *  no table of contents. */
   hub?: boolean;
+  /** The "Built with Markline" line. Off when the site has a footer, which
+   *  carries the credit instead. */
+  credit?: boolean;
   children: React.ReactNode;
 }) {
   // With the menu-style actions the date sits beside them, not in the footer.
@@ -132,7 +135,7 @@ export function DocsPage({
           </div>
         )}
 
-        <SiteCredit />
+        {credit && <SiteCredit />}
       </main>
 
       {!hub && <DocsToc items={toc} helpful={feedbackEnabled} feedbackEndpoint={feedbackEndpoint} />}

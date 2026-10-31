@@ -14,6 +14,7 @@ import { HubHero } from "@/components/docs/hub-hero";
 import { LandingPage } from "@/components/landing/landing";
 import { remarkLandingProse } from "@/lib/landing-prose";
 import { extractToc } from "@/lib/toc";
+import { SiteFooter } from "@/components/site-footer";
 import type { Crumb, PageNavLink } from "@/components/docs/page";
 
 // One transformer instance reused across all blocks — it's stateless.
@@ -105,7 +106,12 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
   );
 
   if (landing) {
-    return <LandingPage>{content}</LandingPage>;
+    return (
+      <LandingPage>
+        {content}
+        <SiteFooter config={config} />
+      </LandingPage>
+    );
   }
 
   const hub = doc.fm.layout === "hub";
@@ -120,6 +126,7 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
       aiSuggestions={doc.fm.aiSuggestions}
       searchInSidebar={config.layout.search !== "header"}
       variant={hub ? "hub" : undefined}
+      footer={<SiteFooter config={config} />}
     >
       <DocsPage
         hub={hub}
@@ -137,6 +144,7 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
         prev={hub ? undefined : prev}
         next={hub ? undefined : next}
         related={hub ? [] : relatedLinks(doc.fm.related, pathname, config.layout.related)}
+        credit={!config.footer}
       >
         {content}
       </DocsPage>

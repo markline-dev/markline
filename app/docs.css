@@ -323,7 +323,9 @@
 }
 :is(.docs-shell, .ml-landing, .api-op-main) .next-card .h .ico { width: 15px; height: 15px; color: var(--ink-4); flex: none; }
 :is(.docs-shell, .ml-landing, .api-op-main) .next-card:hover .h .ico { color: var(--accent); }
-:is(.docs-shell, .ml-landing, .api-op-main) .next-card p { font-size: 13px; color: var(--ink-3); margin-top: 5px; line-height: 1.5; }
+:is(.docs-shell, .ml-landing, .api-op-main) .next-card .ml-card-body { font-size: 13px; color: var(--ink-3); margin-top: 5px; line-height: 1.5; }
+:is(.docs-shell, .ml-landing, .api-op-main) .next-card .ml-card-body p { font-size: inherit; color: inherit; line-height: inherit; margin: 0; }
+:is(.docs-shell, .ml-landing, .api-op-main) .next-card .ml-card-body p + p { margin-top: 8px; }
 
 /* page footer nav */
 .docs-shell .page-nav {

@@ -38,6 +38,9 @@ export type NavData = {
   locales: VariantMeta[];
   defaultId: string;
   tabsByVariant: Record<string, TopTabWithSections[]>;
+  /** The header's extra links (topbar.navLinks, topbar.links, secondaryCta),
+   *  repeated at the foot of the phone drawer, where the header hides them. */
+  headerLinks?: { label: string; href: string }[];
 };
 
 /** Active variant id for a pathname (first path segment if it's a non-default version/locale). */
@@ -338,6 +341,17 @@ export function DocsSidebar({
           </div>
         )}
         <SidebarSections sections={sections} pathname={pathname} onNavigate={closeDrawer} />
+        {nav.headerLinks && nav.headerLinks.length > 0 && (
+          <nav className="drawer-links" aria-label="More">
+            {nav.headerLinks.map((l) =>
+              /^[a-z][a-z0-9+.-]*:/i.test(l.href) ? (
+                <a key={l.href + l.label} href={l.href} target="_blank" rel="noopener noreferrer">{l.label}</a>
+              ) : (
+                <Link key={l.href + l.label} href={l.href} onClick={closeDrawer}>{l.label}</Link>
+              ),
+            )}
+          </nav>
+        )}
       </aside>
       {/* Page-level AI affordances (the doc-ai row + View-as-Markdown modal) live
           in the docs shell so they're available on every docs page. */}

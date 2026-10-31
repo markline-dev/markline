@@ -81,7 +81,8 @@ List versions in `markline.json`. The first is the default; each entry is
   </Step>
   <Step title="Ship">
     `markline build` emits every version statically. The header shows a
-    **version switcher**; picking one navigates under its prefix.
+    **version switcher**: picking one opens the same page in that version, or
+    its home page when the page doesn't exist there.
   </Step>
 </Steps>
 
@@ -134,8 +135,15 @@ content/
     └── docs/    # Spanish → /es/quickstart
 ```
 
-The header shows a **language switcher** that jumps to the same page under the
-chosen locale prefix.
+The header shows a **language switcher** (a globe on phones). Picking a
+language opens the same page in it, or that language's home page when the page
+hasn't been translated. The header tabs, sidebar, breadcrumbs and
+previous/next links follow the locale's own `navigation`, and the page's
+`lang` attribute is set to the locale's `id`, so use language codes (`es`,
+`pt-BR`) as ids.
+
+Markline's own labels ("On this page", "Previous", "Search") stay in English
+for now.
 
 ## Notes
 

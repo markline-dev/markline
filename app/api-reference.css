@@ -291,6 +291,23 @@
 .ml-apiref .attr .ad { font-size: 13px; color: var(--ink-2); margin-top: 6px; line-height: 1.55; max-width: 52ch; }
 .ml-apiref .attr .enum { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
 .ml-apiref .attr .enum code { font-family: var(--mono); font-size: 11px; background: var(--panel-hi); border: 1px solid var(--line); border-radius: 4px; padding: 1px 6px; color: var(--ink-3); }
+.ml-apiref .attr .nul { font-family: var(--mono); font-size: 10px; color: var(--ink-4); }
+.ml-apiref .ak.dep, .ml-apiref .api-sub-nav .nm.dep { text-decoration: line-through; text-decoration-color: var(--ink-4); }
+.ml-apiref .api-path.dep .seg { text-decoration: line-through; text-decoration-color: var(--ink-4); }
+.ml-apiref .dep-pill { display: inline-block; vertical-align: middle; margin-left: 10px; font-family: var(--mono); font-size: 10px; font-weight: 500; letter-spacing: .04em; text-transform: uppercase; color: var(--c-orange); border: 1px solid color-mix(in srgb, var(--c-orange) 40%, transparent); background: color-mix(in srgb, var(--c-orange) 10%, transparent); border-radius: 5px; padding: 1px 6px; line-height: 1.5; }
+.ml-apiref .attr .ah .dep-pill { margin-left: 0; }
+/* nested child attributes / union variants */
+.ml-apiref .attr-kids { margin-top: 10px; border: 1px solid var(--line); border-radius: 8px; }
+.ml-apiref .attr-kids > summary { display: flex; align-items: center; gap: 8px; padding: 7px 12px; cursor: pointer; font-size: 12.5px; color: var(--ink-3); list-style: none; }
+.ml-apiref .attr-kids > summary::-webkit-details-marker { display: none; }
+.ml-apiref .attr-kids > summary:hover { color: var(--accent-ink); }
+.ml-apiref .attr-kids .open-lbl, .ml-apiref .attr-kids[open] > summary .closed-lbl { display: none; }
+.ml-apiref .attr-kids[open] > summary .open-lbl { display: inline; }
+.ml-apiref .attr-kids .amb-count { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; font-family: var(--mono); font-size: 10.5px; color: var(--ink-3); background: var(--panel-hi); border: 1px solid var(--line); border-radius: 9px; }
+.ml-apiref .attr-kids-body { padding: 0 12px; border-top: 1px solid var(--line); }
+.ml-apiref .attr-kids-body > .attr:first-child, .ml-apiref .attr-variant > .attr:nth-child(2) { border-top: 0; }
+.ml-apiref .attr-variant + .attr-variant, .ml-apiref .attr-kids-body > .attr + .attr-variant { border-top: 1px solid var(--line); }
+.ml-apiref .av-h { font-family: var(--mono); font-size: 10.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--ink-4); padding: 12px 0 2px; }
 
 /* MDX callouts (Note / Tip / Info / Warning / Danger / Check) in section &
    operation overlays — ported from docs.css since the API route doesn't load it. */

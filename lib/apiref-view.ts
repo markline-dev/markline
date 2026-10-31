@@ -6,6 +6,8 @@ import { mdToHtml } from "./md-desc";
 import type { PlaygroundSpec } from "@/components/docs/api/playground";
 import { loadConfig, playgroundMode } from "./config";
 import { tagSlug, parseOpenApiTag, buildTagTree, segmentDisplayName, type TagTreeNode } from "./openapi-tags";
+import { isNullable, normalizeField, schemaFields, typeLabel, type FieldView } from "./openapi-schema";
+import { DEFAULT_HIDE_EXTENSIONS } from "./openapi-tag-config";
 
 // Re-export so existing imports (`@/lib/apiref-view`) keep resolving tagSlug.
 export { tagSlug, parseOpenApiTag, segmentDisplayName } from "./openapi-tags";
@@ -17,14 +19,9 @@ export { tagSlug, parseOpenApiTag, segmentDisplayName } from "./openapi-tags";
  * MDX summary is rendered separately (in the route) and passed as a node.
  */
 
-export type AttrView = {
-  name: string;
-  type: string;
-  required?: boolean;
-  optional?: boolean;
-  description?: string;
-  enums?: string[];
-};
+/** A field row: type with null stripped (`nullable` says so), nested
+ *  `children` for objects and `variants` for unions of objects. */
+export type AttrView = FieldView;
 
 export type ParamGroup = { title: string; attrs: AttrView[] };
 
@@ -39,6 +36,7 @@ export type EndpointView = {
   verb: string;
   path: string;
   baseUrl: string;
+  deprecated?: boolean;
   /** Operation description, rendered from markdown to sanitized HTML. */
   lead?: string;
   /** Raw operation description markdown, kept for the Markdown copy actions. */
@@ -60,7 +58,7 @@ export type EndpointView = {
   triggers: { name: string; id: string; tone: "g" | "r" | "n" }[];
 };
 
-export type NavOp = { id: string; verb: string | null; name: string; opId: string; evt?: "g" | "r" | "n" };
+export type NavOp = { id: string; verb: string | null; name: string; opId: string; evt?: "g" | "r" | "n"; deprecated?: boolean };
 
 /** A routable resource (a leaf tag). When active, `ops` carries its in-page jumps. */
 export type NavResource = { kind: "resource"; name: string; slug: string; active: boolean; ops: NavOp[] };
@@ -104,7 +102,7 @@ export type ResourceView = {
   /** Raw tag description markdown, kept for the Markdown copy actions. */
   leadMd?: string;
   /** Endpoint-list card rows. */
-  endpoints: { title: string; verb: string; path: string; id: string }[];
+  endpoints: { title: string; verb: string; path: string; id: string; deprecated?: boolean }[];
   /** Webhook / async events for this resource (`x-events`). */
   events: EventView[];
   object?: ObjectView;
@@ -185,30 +183,31 @@ export function displayName(s: string): string {
     .join(" ");
 }
 
-function describeType(schema?: JSONSchema): string {
-  if (!schema) return "any";
-  if (schema.enum) return "enum";
-  if (schema.type === "array") return `array<${describeType(schema.items)}>`;
-  if (Array.isArray(schema.type)) return schema.type.join(" | ");
-  if (typeof schema.type === "string") {
-    return schema.nullable ? `${schema.type} · nullable` : schema.type;
-  }
-  if (schema.oneOf || schema.anyOf) return "oneOf";
-  return "object";
+/** Field extensions that hide a property (the same list that hides operations). */
+function hideExtensions(): string[] {
+  return loadConfig().api.hideExtensions ?? DEFAULT_HIDE_EXTENSIONS;
 }
 
 function attrsFromSchema(schema: JSONSchema | undefined, root: unknown): AttrView[] {
   const resolved = schema ? resolveSchema(schema, root) : undefined;
-  if (!resolved?.properties) return [];
-  const required = new Set(resolved.required ?? []);
-  return Object.entries(resolved.properties).map(([name, s]) => ({
-    name,
-    type: describeType(s),
-    required: required.has(name),
-    optional: !required.has(name),
-    description: s.description,
-    enums: s.enum?.map((e) => String(e)),
-  }));
+  return schemaFields(resolved, { hideExtensions: hideExtensions() });
+}
+
+/** A path/query parameter row. */
+function paramAttr(p: { name: string; required?: boolean; description?: string; schema?: JSONSchema; deprecated?: boolean }, root: unknown, required: boolean): AttrView {
+  const schema = p.schema ? resolveSchema(p.schema, root) : undefined;
+  const { schema: s } = normalizeField(schema);
+  const attr: AttrView = {
+    name: p.name,
+    type: typeLabel(schema),
+    required,
+    optional: !required,
+    description: p.description,
+    enums: s.enum?.filter((e) => e !== null).map((e) => String(e)),
+  };
+  if (isNullable(schema)) attr.nullable = true;
+  if (p.deprecated === true || s.deprecated === true) attr.deprecated = true;
+  return attr;
 }
 
 /**
@@ -244,13 +243,7 @@ function paramGroups(op: OpenAPIOperation, root: unknown): ParamGroup[] {
   if (op.parameters.path.length) {
     groups.push({
       title: "Path parameters",
-      attrs: op.parameters.path.map((p) => ({
-        name: p.name,
-        type: describeType(p.schema),
-        required: true,
-        description: p.description,
-        enums: p.schema?.enum?.map((e) => String(e)),
-      })),
+      attrs: op.parameters.path.map((p) => ({ ...paramAttr(p, root, true), optional: undefined })),
     });
   }
   if (op.requestBody?.schema) {
@@ -260,14 +253,7 @@ function paramGroups(op: OpenAPIOperation, root: unknown): ParamGroup[] {
   if (op.parameters.query.length) {
     groups.push({
       title: "Query parameters",
-      attrs: op.parameters.query.map((q) => ({
-        name: q.name,
-        type: describeType(q.schema),
-        required: q.required,
-        optional: !q.required,
-        description: q.description,
-        enums: q.schema?.enum?.map((e) => String(e)),
-      })),
+      attrs: op.parameters.query.map((q) => paramAttr(q, root, !!q.required)),
     });
   }
   return groups;
@@ -307,6 +293,7 @@ function buildEndpoint(
     verb: VERB[op.method] ?? op.method.toUpperCase(),
     path: op.path,
     baseUrl,
+    deprecated: op.deprecated,
     lead: mdToHtml(op.description),
     leadMd: op.description,
     groups,
@@ -369,6 +356,7 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
           verb: VERB[op.method] ?? op.method.toUpperCase(),
           name: op.summary ?? op.operationId,
           opId: op.operationId,
+          deprecated: op.deprecated,
         })),
         ...events.map((ev) => ({ id: ev.id, verb: null, name: ev.name, opId: "", evt: ev.tone })),
       ]
@@ -416,6 +404,7 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
       verb: VERB[op.method] ?? op.method.toUpperCase(),
       path: op.path,
       id: anchorFor(op),
+      deprecated: op.deprecated,
     })),
     events,
     object,
@@ -595,8 +584,9 @@ function objectSample(schema: JSONSchema | undefined, root: unknown): unknown {
   return out;
 }
 
-function leaf(schema: JSONSchema | undefined): unknown {
-  if (!schema) return null;
+function leaf(raw: JSONSchema | undefined): unknown {
+  if (!raw) return null;
+  const schema = normalizeField(raw).schema;
   if (schema.example !== undefined) return schema.example;
   if (schema.enum?.length) return schema.enum[0];
   if (schema.default !== undefined) return schema.default;

@@ -2,6 +2,27 @@
 
 All notable changes to `@markline/markline` and `@markline/create`.
 
+## Unreleased
+
+### Added
+- **Tag overrides.** `api.tags` in markline.json renames (`label`), hides,
+  merges (`mergeInto`) and re-describes API tags without editing the spec, and
+  `api.tagOrder` puts chosen tags first in the sidebar.
+- **Hidden and deprecated operations.** Operations or fields with `x-hidden` /
+  `x-internal` are left out, or any extensions listed in `api.hideExtensions`
+  (e.g. `x-fern-ignore`). Deprecated operations and fields get a *Deprecated*
+  badge; `api.showDeprecated: false` hides them.
+- **`api.auth`** names the auth a spec doesn't declare (e.g. an `xi-api-key`
+  header), so Try it sends it.
+
+### Fixed
+- Tags that differ only by case (`dubbing` / `Dubbing`) shared one URL, and one
+  tag's operations vanished. They now merge into one page, with a build
+  warning naming them.
+- Nullable fields (`anyOf: [X, null]`, `type: [X, "null"]`) showed as a bare
+  "oneOf". They now show their type, a `nullable` label and their nested
+  fields; real unions list their members.
+
 ## 0.1.7
 
 ### Added

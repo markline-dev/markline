@@ -10,7 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
 import * as pagefind from "pagefind";
-import { orderedResourceTags } from "./openapi-order.mjs";
+import { resourcePlan } from "./openapi-order.mjs";
 import { searchGroups, searchTrails } from "./search-groups.mjs";
 import { unified } from "unified";
 import remarkParse from "remark-parse";
@@ -116,21 +116,24 @@ function apiRecords(root) {
   const specFile = path.join(root, "api", "openapi.json");
   if (!fs.existsSync(specFile)) return [];
   const spec = JSON.parse(fs.readFileSync(specFile, "utf8"));
+  const plan = resourcePlan(spec, loadJsonConfig(root).api);
+  // Same message the site build logs (lib/openapi-tag-config.ts), printed first.
+  for (const c of plan.collisions) {
+    const names = c.names.map((n) => `"${n}"`).join(", ");
+    console.warn(
+      `[markline] API tags ${names} share the URL /api-reference/${c.slug}; their operations are merged into "${c.into}". Use api.tags (label / mergeInto) in markline.json to rename or merge them explicitly.`,
+    );
+  }
   const records = [];
-  const methods = ["get", "post", "put", "patch", "delete", "options", "head"];
-  for (const [pathStr, item] of Object.entries(spec.paths ?? {})) {
-    for (const method of methods) {
-      const op = item[method];
-      if (!op) continue;
-      const operationId = op.operationId ?? slugifyOpId(method, pathStr);
-      const title = op.summary ?? operationId;
-      const content = toPlainText(
-        [op.summary, op.description, `${method.toUpperCase()} ${pathStr}`, (op.tags ?? []).join(" ")]
-          .filter(Boolean)
-          .join(" "),
-      );
-      records.push({ url: `/api-reference/${operationId}`, title, content, meta: "API reference" });
-    }
+  for (const { method, path: pathStr, op } of plan.ops) {
+    const operationId = op.operationId ?? slugifyOpId(method, pathStr);
+    const title = op.summary ?? operationId;
+    const content = toPlainText(
+      [op.summary, op.description, `${method.toUpperCase()} ${pathStr}`, (op.tags ?? []).join(" ")]
+        .filter(Boolean)
+        .join(" "),
+    );
+    records.push({ url: `/api-reference/${operationId}`, title, content, meta: "API reference" });
   }
   return records;
 }
@@ -287,6 +290,7 @@ function apiResources(root) {
   const specFile = path.join(root, "api", "openapi.json");
   if (!fs.existsSync(specFile)) return [];
   const spec = JSON.parse(fs.readFileSync(specFile, "utf8"));
+  const api = loadJsonConfig(root).api;
   const descriptions = new Map();
   const labels = new Map(); // `x-displayName` (Redoc convention) wins over the derived title
   for (const t of spec.tags ?? []) {
@@ -294,13 +298,18 @@ function apiResources(root) {
     const label = typeof t["x-displayName"] === "string" ? t["x-displayName"].trim() : "";
     if (label) labels.set(t.name, label);
   }
+  // ...and `api.tags` overrides win over both.
+  for (const [name, o] of Object.entries(api?.tags ?? {})) {
+    if (typeof o?.label === "string" && o.label.trim()) labels.set(name, o.label.trim());
+    if (typeof o?.description === "string") descriptions.set(name, o.description.split("\n")[0].trim());
+  }
   const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
   const pretty = (s) =>
     String(s).split("/").pop()
       .replace(/[-_]/g, " ").replace(/([a-z0-9])([A-Z])/g, "$1 $2")
       .split(/\s+/).filter(Boolean)
       .map((w) => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(" ");
-  return orderedResourceTags(spec).map((name) => ({
+  return resourcePlan(spec, api).tags.map((name) => ({
     url: `/api-reference/${slug(name)}`,
     title: labels.get(name) ?? pretty(name),
     desc: descriptions.get(name) ?? "",

@@ -107,6 +107,18 @@ function singular(tag: string): string {
   return tag.replace(/ies$/, "y").replace(/s$/, "");
 }
 
+/** Valid result-variable name for a tag ("tools/fx" → "fx", "payment-methods" → "paymentMethod").
+ *  Tags may contain "/", "-" or spaces, none of which can appear in an identifier
+ *  in the generated JS, Python or Go samples. */
+function resultVar(tag: string): string {
+  const last = tag.split("/").pop() ?? tag;
+  const pascalized = singular(last).replace(/(^|[^a-zA-Z0-9]+)([a-zA-Z0-9])/g, (_, __, c: string) => c.toUpperCase());
+  const alnum = pascalized.replace(/[^a-zA-Z0-9]/g, "");
+  if (!alnum) return "result";
+  const camel = alnum[0].toLowerCase() + alnum.slice(1);
+  return /^[0-9]/.test(camel) ? `r${camel}` : camel;
+}
+
 /** SDK method name from HTTP method + path cardinality. */
 function fnName(op: OpenAPIOperation): string {
   const hasPathParam = /\{[^}]+\}/.test(op.path);
@@ -178,7 +190,7 @@ export function codeSamples(
   const fields = bodyFields(op, root);
   const ns = op.tag.toLowerCase().replace(/[^a-z0-9]/g, "");
   const cv = clientVar(doc);
-  const rv = singular(op.tag) || "result";
+  const rv = resultVar(op.tag);
   const fn = fnName(op);
 
   /* cURL */

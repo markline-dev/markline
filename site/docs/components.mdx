@@ -25,9 +25,16 @@ toc:
 ## Cards
 
 <CardGroup cols={2}>
-  <Card title="Quickstart" href="/quickstart">Link cards group neatly.</Card>
-  <Card title="CLI" href="/cli">Use them for navigation.</Card>
+  <Card title="Quickstart" icon="rocket-launch" href="/quickstart">Link cards group neatly.</Card>
+  <Card title="CLI" icon="terminal-window" href="/cli">Use them for navigation.</Card>
 </CardGroup>
+
+`icon` takes a [Phosphor](https://phosphoricons.com) icon name, like sidebar
+icons do. An emoji works too.
+
+```mdx
+<Card title="Quickstart" icon="rocket-launch" href="/quickstart">…</Card>
+```
 
 ## Steps
 

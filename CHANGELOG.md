@@ -2,6 +2,29 @@
 
 All notable changes to `@markline/markline` and `@markline/create`.
 
+## Unreleased
+
+### Added
+- **SDK names from Fern extensions.** Generated Node, Python and Go samples
+  use an operation's `x-fern-sdk-group-name` and `x-fern-sdk-method-name`
+  when present (`client.text_to_speech.convert(...)`,
+  `client.textToSpeech.convert(...)`). `api.sdkNaming: "off"` keeps the
+  tag + verb naming.
+- **Binary responses.** Non-JSON success responses (`audio/mpeg`, zip, CSV)
+  get a response panel naming their media type, and in "Try it" audio
+  responses play inline while other binary ones get a download link.
+- **File uploads in "Try it".** Multipart bodies get file pickers and are sent
+  as form data, directly or through the proxy.
+
+### Fixed
+- Generated cURL sends JSON bodies as JSON (`Content-Type` header and
+  `-d '{…}'`) instead of `-d field=value`, multipart bodies as `-F` with
+  `-F file=@…` for files, and urlencoded bodies with `--data-urlencode`.
+  It also sends `apiKey` header auth from the operation's security, and
+  keeps `-X POST` when a POST has no body.
+- Request bodies and responses that aren't `application/json` keep their
+  media type and schema, so multipart fields are documented.
+
 ## 0.1.7
 
 ### Added

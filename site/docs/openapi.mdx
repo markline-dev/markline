@@ -212,9 +212,9 @@ or author your own per-operation samples with `x-codeSamples` below.</Note>
 
 ### How generated samples are named
 
-There's no separate "SDK name" setting — the generated snippets build their
-identifiers from your spec. A sample like `acme.payments.create({ … })` is
-assembled from four derived tokens:
+The generated snippets build their identifiers from your spec. Unless the
+operation carries [Fern's SDK names](#sdk-names-from-fern-extensions), a sample
+like `acme.payments.create({ … })` is assembled from four derived tokens:
 
 | Token | Derived from | Example |
 | --- | --- | --- |
@@ -227,6 +227,60 @@ So the two levers on the generated rails are **`info.title`** (the client name)
 and **your tag names** (the resource accessors). To match a real SDK exactly —
 custom client name, hand-written method signatures, a language Markline doesn't
 generate — reach for `x-codeSamples`.
+
+### SDK names from Fern extensions
+
+Specs generated for [Fern](https://buildwithfern.com) SDKs name the real call on
+each operation with `x-fern-sdk-group-name` (a string, or an array for nested
+groups) and `x-fern-sdk-method-name`. When an operation has them, the generated
+samples use them, cased the way each language's SDK does:
+
+```jsonc
+"post": {
+  "operationId": "text_to_speech_full",
+  "x-fern-sdk-group-name": ["text_to_speech"],
+  "x-fern-sdk-method-name": "convert"
+}
+```
+
+| Language | Call |
+| --- | --- |
+| Node | `client.textToSpeech.convert("voice_id", { text: "…", modelId: "…" })` (camelCase keys) |
+| Python | `client.text_to_speech.convert(voice_id="…", text="…")` (keyword arguments) |
+| Go | `client.TextToSpeech.Convert(ctx, "voice_id", &…)` |
+
+Nested groups chain: `["conversational_ai", "agents"]` → `client.conversationalAi.agents.…`.
+Operations without the extensions keep the derived naming above, and names that
+would start with a digit get a `_` prefix so they stay valid identifiers.
+
+<ParamField path="api.sdkNaming" type='"auto" | "off"'>
+  `auto` (default) uses the Fern extensions when an operation has them. `off`
+  always uses the tag + HTTP-verb naming.
+</ParamField>
+
+### Request bodies and file uploads
+
+The generated cURL follows the request body's media type:
+
+| Body | cURL |
+| --- | --- |
+| `application/json` | `-H "Content-Type: application/json"` and `-d '{ … }'` |
+| `multipart/form-data` | one `-F field=value` per field; `format: binary` fields as `-F file=@path/to/file` |
+| `application/x-www-form-urlencoded` | `--data-urlencode field=value` |
+| other (e.g. `application/octet-stream`) | its `Content-Type` and `--data-binary @path/to/file` |
+
+Samples show the body's required fields and its file fields (or its first few
+fields when none are required), using each field's `example`/`examples`. In the
+Node and Python samples a file is a stream (`fs.createReadStream(…)`,
+`open(…, "rb")`). If an operation's security uses an `apiKey` scheme in a
+header, the cURL sends it (`-H "X-Api-Key: $API_KEY"`); the SDK samples leave
+the key to the client's setup.
+
+### Binary responses
+
+A success response that isn't JSON (`audio/mpeg`, `application/zip`,
+`text/csv`, …) gets its own panel, e.g. *Returns `audio/mpeg` (binary)* with its
+`Content-Type`, instead of being left out.
 
 ### Bring your own with `x-codeSamples`
 
@@ -302,6 +356,11 @@ response with status + latency. It's the same engine on every surface.
   and falls back to the built-in server proxy on CORS failure; `always` forces
   the proxy; `never` is direct-only — **required for static export**.
 </ParamField>
+
+Multipart bodies get a file picker for each `format: binary` field. When a live
+response is audio (`audio/*`), it plays inline; any other binary response
+(an archive, a video) gets a download link with its size. Both work through
+the direct fetch and the server proxy.
 
 <Warning>The server proxy (`/api/playground`) only runs on a Node/Vercel
 deployment and is dropped in static export. On a static host, set

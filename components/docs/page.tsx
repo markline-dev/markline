@@ -6,11 +6,22 @@ export type Crumb = { label: string; href?: string };
 export type TocItem = { id: string; label: string };
 export type PageNavLink = { href: string; label: string };
 
+const ChevronSep = (
+  <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
+    <path d="m9 6 6 6-6 6" />
+  </svg>
+);
+
 export function DocsPage({
   crumbs, title, lede, toc, lastUpdated, editUrl, feedbackEndpoint,
-  feedbackEnabled = false, aiEnabled = false, prev, next, hub = false, children,
+  feedbackEnabled = false, aiEnabled = false, prev, next, hub = false,
+  crumbStyle = "slash", actionStyle = "inline", children,
 }: {
   crumbs: Crumb[];
+  /** `layout.breadcrumbs` */
+  crumbStyle?: "slash" | "chevron";
+  /** `layout.pageActions` */
+  actionStyle?: "inline" | "menu";
   title: string;
   lede?: React.ReactNode;
   toc: TocItem[];
@@ -28,14 +39,16 @@ export function DocsPage({
   hub?: boolean;
   children: React.ReactNode;
 }) {
+  // With the menu-style actions the date sits beside them, not in the footer.
+  const footDate = actionStyle === "menu" ? undefined : lastUpdated;
   return (
     <>
       <main className="docs-main">
         {!hub && crumbs.length > 0 && (
-          <nav className="docs-bc">
+          <nav className={`docs-bc docs-bc--${crumbStyle}`} aria-label="Breadcrumb">
             {crumbs.map((c, i) => (
               <span key={i} className="bc-seg">
-                {i > 0 && <span className="sep">/</span>}
+                {i > 0 && <span className="sep" aria-hidden>{crumbStyle === "chevron" ? ChevronSep : "/"}</span>}
                 {c.href ? (
                   <a href={c.href}>{c.label}</a>
                 ) : (
@@ -50,7 +63,12 @@ export function DocsPage({
           <>
             <h1 className="docs-h1">{title}</h1>
             {lede && <p className="docs-lead">{lede}</p>}
-            <DocAiRow title={title} aiEnabled={aiEnabled} />
+            <DocAiRow
+              title={title}
+              aiEnabled={aiEnabled}
+              variant={actionStyle}
+              lastUpdated={actionStyle === "menu" ? lastUpdated : undefined}
+            />
           </>
         )}
 
@@ -77,9 +95,9 @@ export function DocsPage({
           </div>
         )}
 
-        {(lastUpdated || editUrl) && (
+        {(footDate || editUrl) && (
           <div className="doc-foot">
-            <span>{lastUpdated ? `Last updated ${lastUpdated}` : ""}</span>
+            <span>{footDate ? `Last updated ${footDate}` : ""}</span>
             {editUrl && (
               <a href={editUrl} target="_blank" rel="noreferrer">
                 <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>

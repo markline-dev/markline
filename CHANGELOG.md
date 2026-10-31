@@ -2,6 +2,18 @@
 
 All notable changes to `@markline/markline` and `@markline/create`.
 
+## Unreleased
+
+### Added
+- **Search filters by collection.** The docs search dialog shows a chip for
+  each sidebar group (or top-level folder, or tab), plus the API reference, and
+  narrows results to the one you pick. Each result also shows its group.
+
+### Changed
+- **The search dialog keeps one height**, with a "Start typing to search"
+  state and a footer of keyboard hints, instead of a thin strip that grew as
+  results arrived.
+
 ## 0.1.6
 
 ### Added

@@ -370,12 +370,19 @@
 .docs-shell .doc-related h2 { font-size: 24px; font-weight: 600; letter-spacing: -0.01em; color: var(--ink); margin: 0 0 12px; }
 .docs-shell .doc-related ul { list-style: none; margin: 0; padding: 0; }
 .docs-shell .doc-related li { border-bottom: 1px solid var(--line); }
+/* The whole row is the link, so the whole row lights up: a tinted, rounded
+   background that reaches a little past the text, with the dividers around
+   it hidden. */
+.docs-shell .doc-related li { transition: border-color .15s; }
 .docs-shell .doc-related a {
   display: flex; align-items: center; justify-content: space-between; gap: 16px;
-  padding: 14px 0; color: var(--ink); text-decoration: none; font-size: 15.5px; transition: color .15s;
+  margin: 0 -16px; padding: 14px 16px; border-radius: 10px;
+  color: var(--ink); text-decoration: none; font-size: 15.5px; transition: background .15s;
 }
-.docs-shell .doc-related a svg { flex: none; color: var(--ink-3); transition: color .15s; }
-.docs-shell .doc-related a:hover, .docs-shell .doc-related a:hover svg { color: var(--accent-ink); }
+.docs-shell .doc-related a svg { flex: none; color: var(--ink-3); }
+.docs-shell .doc-related a:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.docs-shell .doc-related li:has(a:hover),
+.docs-shell .doc-related li:has(+ li a:hover) { border-color: transparent; }
 
 /* edit / last-updated row */
 .docs-shell .doc-foot {

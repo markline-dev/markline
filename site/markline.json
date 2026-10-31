@@ -33,6 +33,7 @@
             "pages": [
               { "href": "/configuration", "label": "Configuration" },
               { "href": "/theming", "label": "Theming" },
+              { "href": "/templates", "label": "Templates" },
               { "href": "/components", "label": "Components" },
               { "href": "/openapi", "label": "API reference" },
               { "href": "/search", "label": "Search" }
@@ -52,6 +53,39 @@
             "pages": [
               { "href": "/mintlify-alternative", "label": "vs Mintlify" },
               { "href": "/scalar-alternative", "label": "vs Scalar" }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "guides",
+        "label": "Guides",
+        "href": "/guides",
+        "match": ["/guides"],
+        "groups": [
+          {
+            "group": "Overview",
+            "pages": [
+              { "href": "/guides", "label": "Framework guides" }
+            ]
+          },
+          {
+            "group": "Node & TypeScript",
+            "pages": [
+              { "href": "/guides/nestjs", "label": "NestJS" },
+              { "href": "/guides/hono-zod-openapi", "label": "Hono + Zod OpenAPI" }
+            ]
+          },
+          {
+            "group": "Python",
+            "pages": [
+              { "href": "/guides/fastapi", "label": "FastAPI" }
+            ]
+          },
+          {
+            "group": "JVM",
+            "pages": [
+              { "href": "/guides/spring-boot", "label": "Spring Boot" }
             ]
           }
         ]

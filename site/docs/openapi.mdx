@@ -8,15 +8,17 @@ toc:
     label: What you get
   - id: nested-tags
     label: Nested tags
+  - id: sidebar-order
+    label: Sidebar order
   - id: code-samples
     label: Code samples
-  - id: playground
+  - id: the-playground
     label: The playground
-  - id: events
+  - id: events-webhooks
     label: Events & webhooks
-  - id: overlays
+  - id: mdx-overlays
     label: MDX overlays
-  - id: ai-and-actions
+  - id: ai-page-actions
     label: AI & page actions
   - id: versions
     label: Versions
@@ -104,6 +106,64 @@ admin/api/keys       Admin
 <Note>This is automatic for any spec using slash tags — you don't flatten your
 `@ApiTags` to get clean resource boundaries. Per-resource
 [MDX overlays](#overlays) still key off the full slug (`store-orders.mdx`).</Note>
+
+## Sidebar order
+
+Within a resource, operations render in the order Markline reads them from the
+document. That's rarely the order you'd teach in — the "create a session"
+call is usually declared after the read endpoints, and it's the one that should
+open the page.
+
+Set `x-nav-order` (a number) on any operation to pin it:
+
+```jsonc
+"paths": {
+  "/session": {
+    "post": {
+      "operationId": "createSession",
+      "summary": "Create a session",
+      "x-nav-order": 1              // opens the resource
+    }
+  },
+  "/session/{id}": {
+    "delete": {
+      "operationId": "endSession",
+      "summary": "End a session",
+      "x-nav-order": 2
+    }
+  }
+}
+```
+
+- Operations carrying `x-nav-order` sort **ascending**, ahead of everything else.
+- Operations without it keep document order, after the ordered ones.
+- You annotate only what you care about — a spec with no `x-nav-order` anywhere
+  renders exactly as it did before.
+- Numbers are relative, not positional. Use `10, 20, 30` and you can insert
+  later without renumbering. Ties fall back to document order.
+- The order applies to all three surfaces that read the resource at once: the
+  sidebar tree, the **Endpoints** card, and the rendered section order.
+
+<Note>This orders operations **within** a tag. Resource order comes from the
+root `tags` array — list your tags there in the order you want them, and any
+tag you leave out sorts after the listed ones, alphabetically.</Note>
+
+### Why not just reorder the document?
+
+Two reasons the document's own order can't carry this:
+
+- **Methods on one path are fixed.** Markline reads verbs in a stable order —
+  `get`, `post`, `put`, `patch`, `delete`, `options`, `head` — so two operations
+  sharing a path item always come out GET before POST. Moving them around in the
+  document changes nothing. If you want **Create account** (`POST /accounts`)
+  above **List accounts** (`GET /accounts`), `x-nav-order` is the only lever.
+- **Generated documents get regenerated.** If your spec comes out of NestJS,
+  FastAPI, springdoc or similar, path order follows your route or handler
+  declaration order. Hand-sorting the emitted JSON is wiped on the next build,
+  and reordering handlers to fix the docs couples source layout to reading
+  order. An annotation on the handler survives regeneration.
+
+See the [framework guides](/guides) for the per-framework annotation.
 
 ## Code samples
 
@@ -344,9 +404,11 @@ export class CardsController {
   it the `$ref` points at a schema that was never emitted.
 - The event inherits `@ApiTags('cards')`, so it lands on the **Cards** resource
   and `POST /cards` gets the **Triggers** chip.
-- `@ApiExtension` requires an `x-`-prefixed key and an object value — both hold.
-  Placed on the **controller class** it applies to every route; on a **handler**,
-  just that operation.
+- `@ApiExtension` only enforces that the key starts with `x-`; the value is
+  passed through as-is, so objects, arrays and plain numbers all work. Repeated
+  `@ApiExtension` calls merge, so `x-events` and `x-nav-order` can sit on the
+  same handler. Placed on the **controller class** it applies to every route; on
+  a **handler**, just that operation.
 
 Reuse a shared set with a small composed decorator:
 
@@ -364,6 +426,11 @@ export const Emits = (events: Record<string, unknown>) =>
 delivers), attach it to the most relevant operation, or add it under a tag's
 `x-events` by post-processing the generated document before you write
 `openapi.json` — NestJS has no decorator for tag objects.</Note>
+
+The [NestJS guide](/guides/nestjs) walks the whole setup end to end — emitting
+the document, tags, ordering, events and code samples. There are matching guides
+for [FastAPI](/guides/fastapi), [Spring Boot](/guides/spring-boot) and
+[Hono](/guides/hono-zod-openapi).
 
 ## MDX overlays
 
@@ -399,4 +466,4 @@ the spec's `info.version` (a semver `1.4.2` → `v1 · 1.4.2`; a date `2025-06-0
 With multiple [versions](/versions) configured, each version ships its **own**
 `<id>/api/openapi.json`, served at `/api-reference/<id>` — the selector switches
 the spec in place and every link stays under that version's prefix. See
-[Versions & i18n](/versions#api-reference) for the folder layout.
+[Versions & i18n](/versions#api-reference-per-version) for the folder layout.

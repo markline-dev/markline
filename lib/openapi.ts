@@ -49,6 +49,8 @@ export type OpenAPIOperation = {
   tag: string;
   summary?: string;
   description?: string;
+  /** Explicit position within the tag (`x-nav-order`); unordered ops keep spec order after ordered ones. */
+  navOrder?: number;
   parameters: {
     path: OpenAPIParameter[];
     query: OpenAPIParameter[];
@@ -221,6 +223,7 @@ export function normalize(raw: any): OpenAPIDoc {
         tag,
         summary: op.summary,
         description: op.description,
+        navOrder: typeof op["x-nav-order"] === "number" ? op["x-nav-order"] : undefined,
         parameters: params,
         requestBody,
         responses,
@@ -244,12 +247,18 @@ export function normalize(raw: any): OpenAPIDoc {
       if (ib === -1) return -1;
       return ia - ib;
     })
-    .map((name) => ({
-      name,
-      description: tagMeta[name]?.description,
-      operations: tagsMap.get(name)!,
-      events: mergeTagEvents(tagsMap.get(name)!, tagMeta[name]?.events),
-    }));
+    .map((name) => {
+      // Stable sort: `x-nav-order` ops first (ascending), the rest keep spec order.
+      const operations = [...tagsMap.get(name)!].sort(
+        (a, b) => (a.navOrder ?? Infinity) - (b.navOrder ?? Infinity),
+      );
+      return {
+        name,
+        description: tagMeta[name]?.description,
+        operations,
+        events: mergeTagEvents(operations, tagMeta[name]?.events),
+      };
+    });
 
   return {
     info: raw.info ?? { title: "", version: "" },

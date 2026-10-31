@@ -1,0 +1,226 @@
+---
+title: Hono + Zod OpenAPI
+lede: Define routes and schemas once with @hono/zod-openapi, write the document to disk, and drop Markline's extensions straight into createRoute.
+crumbs:
+  - label: Docs
+    href: /
+  - label: Guides
+    href: /guides
+  - label: Hono + Zod OpenAPI
+toc:
+  - id: emit-the-document
+    label: Emit the document
+  - id: tags-become-resources
+    label: Tags become resources
+  - id: order-the-sidebar
+    label: Order the sidebar
+  - id: events
+    label: Events
+  - id: code-samples
+    label: Code samples
+  - id: gotchas
+    label: Gotchas
+---
+
+`@hono/zod-openapi` is the cleanest fit of the four. `createRoute()` takes an
+OpenAPI **operation object** — it destructures `method`, `path`, `request` and
+`responses` and spreads everything else through untouched — so Markline's
+extensions go in as literal keys, no decorator or post-process step in between.
+
+## Emit the document
+
+`OpenAPIHono` exposes the document directly. Write it to `api/openapi.json` as a
+build step:
+
+```ts
+// scripts/emit-openapi.ts
+import { mkdirSync, writeFileSync } from "node:fs";
+import { app } from "../src/app";
+
+const doc = app.getOpenAPI31Document({
+  openapi: "3.1.0",
+  info: { title: "Acme API", version: "1.4.2" },   // ← client name + version pill
+  servers: [{ url: "https://api.acme.com" }],
+});
+
+mkdirSync("../docs/api", { recursive: true });
+writeFileSync("../docs/api/openapi.json", JSON.stringify(doc, null, 2));
+```
+
+```jsonc
+// package.json
+"scripts": {
+  "docs:spec": "tsx scripts/emit-openapi.ts",
+  "docs:build": "npm run docs:spec && cd ../docs && markline build"
+}
+```
+
+<Note>`getOpenAPI31Document()` emits 3.1, which unlocks native root `webhooks`.
+`getOpenAPIDocument()` gives you 3.0 if you need it — Markline reads both.
+`app.doc()` / `app.doc31()` mount the same document on a route; use those for
+local inspection, not for the build.</Note>
+
+## Tags become resources
+
+`tags` on the route config is what Markline groups by, and slashes nest:
+
+```ts
+import { createRoute, z } from "@hono/zod-openapi";
+
+const createOrder = createRoute({
+  method: "post",
+  path: "/orders",
+  tags: ["store/orders"],
+  request: { body: { content: { "application/json": { schema: OrderCreate } } } },
+  responses: { 201: { description: "Created", content: { "application/json": { schema: Order } } } },
+});
+```
+
+That renders a **Store** parent with an **Orders** child, routed at
+`/api-reference/store-orders`. See [Nested tags](/openapi#nested-tags).
+
+Set **resource** order in the document config — omitted tags sort after the
+listed ones, alphabetically:
+
+```ts
+app.getOpenAPI31Document({
+  openapi: "3.1.0",
+  info: { title: "Acme API", version: "1.4.2" },
+  tags: [
+    { name: "accounts", description: "Balances and statements." },
+    { name: "payments" },
+    { name: "store/orders" },
+  ],
+});
+```
+
+## Order the sidebar
+
+`x-nav-order` is just another key on the route config:
+
+```ts
+const createAccount = createRoute({
+  method: "post",
+  path: "/accounts",
+  tags: ["accounts"],
+  operationId: "createAccount",
+  summary: "Create an account",
+  "x-nav-order": 1,
+  request: { body: { content: { "application/json": { schema: AccountCreate } } } },
+  responses: { 201: { description: "Created", content: { "application/json": { schema: Account } } } },
+});
+
+const listAccounts = createRoute({
+  method: "get",
+  path: "/accounts",
+  tags: ["accounts"],
+  operationId: "listAccounts",
+  summary: "List accounts",
+  "x-nav-order": 2,
+  responses: { 200: { description: "OK", content: { "application/json": { schema: z.array(Account) } } } },
+});
+```
+
+It type-checks: `RouteConfig` extends OpenAPI's `OperationObject`, which allows
+arbitrary `x-` keys.
+
+These two routes are the case nothing else can fix — they share a path, and
+Markline reads verbs in a fixed order, so `GET /accounts` would always come
+first no matter how you register them. Number your operations `10, 20, 30` and
+you can insert one later without renumbering.
+
+## Events
+
+On a 3.1 document you have both options.
+
+**Native webhooks**, registered on the underlying registry:
+
+```ts
+app.openAPIRegistry.registerWebhook({
+  method: "post",
+  path: "account.created",
+  tags: ["accounts"],
+  responses: { 200: { description: "Acknowledged" } },
+  request: { body: { content: { "application/json": { schema: AccountCreatedEvent } } } },
+});
+```
+
+<Warning>A root webhook only attaches to a resource if it carries a matching
+`tags` entry. Leave `tags` off and Markline parses it but has nowhere to put
+it.</Warning>
+
+**`x-events`** is lighter and gives you the emitter cross-link — the endpoint
+gets a **Triggers** chip, the event an **Emitted by** back-link:
+
+```ts
+const createAccount = createRoute({
+  method: "post",
+  path: "/accounts",
+  tags: ["accounts"],
+  "x-nav-order": 1,
+  "x-events": {
+    "account.created": {
+      summary: "A new account was opened",
+      payload: { $ref: "#/components/schemas/AccountCreatedEvent" },
+      guide: "/guides/webhooks#account-created",
+    },
+  },
+  // …
+});
+```
+
+For that `$ref` to resolve, register the schema under a name:
+
+```ts
+app.openAPIRegistry.register("AccountCreatedEvent", AccountCreatedEvent);
+```
+
+Or use `AccountCreatedEvent.openapi("AccountCreatedEvent")` at definition time —
+either way the component has to exist, or the payload renders empty. Full
+behaviour in [Events & webhooks](/openapi#events-webhooks).
+
+## Code samples
+
+```ts
+const createAccount = createRoute({
+  // …
+  "x-codeSamples": [
+    {
+      lang: "typescript",
+      label: "SDK",
+      source: 'await acme.accounts.create({ email: "ada@example.com" });',
+    },
+  ],
+});
+```
+
+<Warning>One custom sample replaces the **entire** generated rail for that
+operation — list every language you want shown.</Warning>
+
+No SDK? Skip this and set `"codeSamples": ["curl"]` in `markline.json`, which
+drops the invented `acme.accounts.create(…)` snippets everywhere at once.
+
+## Gotchas
+
+**Set `operationId` yourself.** Without it the generator falls back to a derived
+id, and Markline routes per-operation deep links and [MDX
+overlays](/openapi#mdx-overlays) off `operationId`. An explicit `operationId` keeps
+those URLs and overlay filenames stable across refactors.
+
+**Register schemas you `$ref`.** A `$ref` to
+`#/components/schemas/Foo` is only valid if `Foo` was registered — inline Zod
+schemas get inlined into the operation, not hoisted. `.openapi("Foo")` or
+`registry.register("Foo", schema)` hoists them, which also stops the same shape
+being duplicated across every operation that uses it.
+
+**Only the first tag groups.** `tags: ["accounts", "beta"]` lands the operation
+on **Accounts**; the second tag doesn't create a second placement.
+
+**`x-` keys are typed as `any`.** The spread-through is untyped, so a typo like
+`"x-navorder"` compiles fine and is silently ignored. Markline reads
+`x-nav-order`, and only when the value is a **number**.
+
+**`z.array()` at the top level of a response is fine, but name it.** An unnamed
+array response renders as an anonymous inline schema with no attribute table
+heading. `z.array(Account).openapi("AccountList")` gives readers something to
+anchor on.

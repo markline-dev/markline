@@ -1,0 +1,230 @@
+---
+title: Spring Boot
+lede: Pull the document springdoc-openapi already serves at /v3/api-docs into your docs build, then shape the reference with swagger-core's @Extension annotations.
+crumbs:
+  - label: Docs
+    href: /
+  - label: Guides
+    href: /guides
+  - label: Spring Boot
+toc:
+  - id: emit-the-document
+    label: Emit the document
+  - id: tags-become-resources
+    label: Tags become resources
+  - id: order-the-sidebar
+    label: Order the sidebar
+  - id: events
+    label: Events
+  - id: code-samples
+    label: Code samples
+  - id: gotchas
+    label: Gotchas
+---
+
+springdoc-openapi introspects your Spring MVC or WebFlux controllers and serves
+the document at `/v3/api-docs`. Everything Markline needs beyond that comes from
+swagger-core's `@Extension` / `@ExtensionProperty` annotations — with one sharp
+edge around value types that's worth reading before you start.
+
+## Emit the document
+
+springdoc generates at runtime, so the build step is "start the app, take a
+snapshot." The official Maven plugin does exactly that during
+`integration-test`:
+
+```xml
+<plugin>
+  <groupId>org.springdoc</groupId>
+  <artifactId>springdoc-openapi-maven-plugin</artifactId>
+  <version>1.4</version>
+  <executions>
+    <execution>
+      <phase>integration-test</phase>
+      <goals><goal>generate</goal></goals>
+    </execution>
+  </executions>
+  <configuration>
+    <apiDocsUrl>http://localhost:8080/v3/api-docs</apiDocsUrl>
+    <outputFileName>openapi.json</outputFileName>
+    <outputDir>${project.basedir}/../docs/api</outputDir>
+  </configuration>
+</plugin>
+```
+
+Pair it with `spring-boot-maven-plugin`'s `start` / `stop` goals in
+`pre-integration-test` / `post-integration-test`. On Gradle, the
+`org.springdoc.openapi-gradle-plugin` equivalent does the same.
+
+If you'd rather not wire a plugin, the framework-agnostic version is two lines
+and works everywhere:
+
+```bash
+java -jar target/app.jar &
+until curl -sf localhost:8080/v3/api-docs -o ../docs/api/openapi.json; do sleep 1; done
+kill %1
+```
+
+Set the document metadata once — `info.title` names the client in generated code
+samples, `info.version` drives the version pill:
+
+```java
+@OpenAPIDefinition(
+    info = @Info(title = "Acme API", version = "1.4.2"),
+    servers = @Server(url = "https://api.acme.com")
+)
+@SpringBootApplication
+public class AcmeApplication { }
+```
+
+## Tags become resources
+
+`@Tag` on the controller is what Markline groups by, and slashes nest:
+
+```java
+@Tag(name = "store/orders")
+@RestController
+@RequestMapping("/orders")
+public class OrderController { }
+```
+
+That renders a **Store** parent with an **Orders** child, routed at
+`/api-reference/store-orders`. See [Nested tags](/openapi#nested-tags).
+
+Declare tags at the document level to fix **resource** order and give each one a
+description — anything you omit sorts after the listed tags, alphabetically:
+
+```java
+@OpenAPIDefinition(
+    info = @Info(title = "Acme API", version = "1.4.2"),
+    tags = {
+        @Tag(name = "accounts", description = "Balances and statements."),
+        @Tag(name = "payments"),
+        @Tag(name = "store/orders")
+    }
+)
+```
+
+## Order the sidebar
+
+Here's the sharp edge. `@ExtensionProperty.value()` is a **`String`**, and
+`parseValue()` defaults to `false` — so the obvious spelling emits
+`"x-nav-order": "1"`, a JSON *string*. Markline only honours `x-nav-order` when
+it's a **number**, so a string is silently ignored and nothing moves.
+
+Set `parseValue = true`:
+
+```java
+@Operation(
+    summary = "Create an account",
+    extensions = @Extension(properties = @ExtensionProperty(
+        name = "x-nav-order", value = "1", parseValue = true
+    ))
+)
+@PostMapping
+public Account create(@RequestBody AccountCreate body) { … }
+```
+
+<Warning>Leave `parseValue` off and you get `"x-nav-order": "1"`. It's valid
+OpenAPI, it lints clean, and it does nothing. This is the single most common way
+to wire this up wrong on the JVM.</Warning>
+
+Note the empty `@Extension` name: with no `name`, swagger-core promotes each
+property to a **top-level** extension key (prefixing `x-` if you left it off).
+Give `@Extension` a name and you get a nested object instead — which is what you
+want for `x-events` below, and not what you want here.
+
+This is also the case that can't be solved by reordering source. Markline reads
+verbs in a fixed order, so `GET /accounts` always precedes `POST /accounts`
+however the controller is written. Number your operations `10, 20, 30` and you
+can insert one later without renumbering its neighbours.
+
+## Events
+
+Give `@Extension` a **name** and its properties become a nested object — which
+is exactly the shape `x-events` wants. The payload is JSON, so it needs
+`parseValue = true` too:
+
+```java
+@Operation(
+    summary = "Create an account",
+    extensions = @Extension(name = "events", properties = @ExtensionProperty(
+        name = "account.created",
+        value = """
+            {
+              "summary": "A new account was opened",
+              "payload": { "$ref": "#/components/schemas/AccountCreatedEvent" },
+              "guide": "/guides/webhooks#account-created"
+            }
+            """,
+        parseValue = true
+    ))
+)
+@PostMapping
+public Account create(@RequestBody AccountCreate body) { … }
+```
+
+`@Extension(name = "events", …)` produces the key `x-events` — swagger-core
+prepends `x-` for you. Placed on the operation, the event inherits the
+controller's `@Tag`, so `POST /accounts` gets a **Triggers** chip and the event
+an **Emitted by** back-link.
+
+<Note>The `$ref` only resolves if `AccountCreatedEvent` reached
+`components.schemas`. If no endpoint returns it, add
+`@Schema(implementation = AccountCreatedEvent.class)` somewhere reachable, or
+inline the payload schema instead of using `$ref`.</Note>
+
+Full behaviour in [Events & webhooks](/openapi#events-webhooks).
+
+## Code samples
+
+`x-codeSamples` is an **array**, which the nested-object form can't express. Use
+the empty-name form with a JSON array as the value:
+
+```java
+@Operation(
+    extensions = @Extension(properties = @ExtensionProperty(
+        name = "x-codeSamples",
+        value = """
+            [{ "lang": "java", "label": "Java SDK",
+               "source": "acme.accounts().create(AccountCreate.of(\\"ada@example.com\\"));" }]
+            """,
+        parseValue = true
+    ))
+)
+```
+
+<Warning>One custom sample replaces the **entire** generated rail for that
+operation — list every language you want shown.</Warning>
+
+If you don't publish an SDK, don't annotate anything: set
+`"codeSamples": ["curl"]` in `markline.json` and the invented
+`acme.accounts.create(…)` snippets disappear everywhere at once.
+
+## Gotchas
+
+**`parseValue = true` on every non-string value.** Numbers, booleans, objects
+and arrays all arrive as strings otherwise. It's the first thing to check when
+an extension "doesn't work."
+
+**Blank values are dropped.** swagger-core skips any `@ExtensionProperty` whose
+name or value is blank, so an empty string won't clear an inherited value.
+
+**Empty `@Extension` name vs named.** No name → each property becomes its own
+top-level `x-` key. A name → one `x-<name>` key holding a map of the properties.
+Picking the wrong one is the second most common failure.
+
+**`operationId`s collide and get suffixed.** springdoc derives them from the
+method name and appends `_1`, `_2` on collision. Markline routes per-operation
+deep links and [MDX overlays](/openapi#mdx-overlays) off `operationId`, so those
+suffixes leak into URLs and filenames — and shift when you add a method. Pin
+them with `@Operation(operationId = "createAccount")`.
+
+**Only the first tag groups.** A controller with two `@Tag`s puts its operations
+on the first one; the second doesn't create a second placement.
+
+**Text blocks and quotes.** A Java text block takes bare `"` happily, so the
+JSON keys and values above need no escaping. The exception is a quote that has
+to survive *into* the JSON string — write `\\"` so the runtime string holds
+`\"`, which the JSON parser then reads as a quote. Write `\"` and the block
+collapses it to `"`, terminating the JSON string early.

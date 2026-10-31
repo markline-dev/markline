@@ -1,0 +1,229 @@
+---
+title: FastAPI
+lede: FastAPI already emits OpenAPI 3.1 with native webhooks. Dump it to a file at build time and shape the reference with openapi_extra.
+crumbs:
+  - label: Docs
+    href: /
+  - label: Guides
+    href: /guides
+  - label: FastAPI
+toc:
+  - id: emit-the-document
+    label: Emit the document
+  - id: tags-become-resources
+    label: Tags become resources
+  - id: order-the-sidebar
+    label: Order the sidebar
+  - id: events
+    label: Events
+  - id: code-samples
+    label: Code samples
+  - id: gotchas
+    label: Gotchas
+---
+
+FastAPI builds an OpenAPI document from your type hints and Pydantic models
+with no extra annotation, and since 0.99 it emits **3.1** — so native
+`webhooks` work out of the box. The only Markline-specific hook you need is
+`openapi_extra`, which merges arbitrary keys onto an operation.
+
+## Emit the document
+
+`app.openapi()` returns the document as a dict. Write it to `api/openapi.json`
+in your docs project as a build step rather than pointing the docs at a running
+server.
+
+```python
+# scripts/emit_openapi.py
+import json
+from pathlib import Path
+
+from app.main import app
+
+out = Path("../docs/api/openapi.json")
+out.parent.mkdir(parents=True, exist_ok=True)
+out.write_text(json.dumps(app.openapi(), indent=2))
+```
+
+```bash
+python scripts/emit_openapi.py && (cd ../docs && markline build)
+```
+
+The document's `info` block comes from the app constructor, and it matters —
+Markline derives the client name in generated code samples from the first word
+of `info.title`, and the version pill from `info.version`:
+
+```python
+from fastapi import FastAPI
+
+app = FastAPI(
+    title="Acme API",        # → acme.accounts.create({ … }) in samples
+    version="1.4.2",         # → the version pill
+    servers=[{"url": "https://api.acme.com"}],
+)
+```
+
+## Tags become resources
+
+Tags are what Markline groups by. Set them per-router so a whole module lands on
+one resource, and use slashes to nest:
+
+```python
+from fastapi import APIRouter
+
+router = APIRouter(prefix="/orders", tags=["store/orders"])
+```
+
+That renders a **Store** parent with an **Orders** child, routed at
+`/api-reference/store-orders`. See [Nested tags](/openapi#nested-tags).
+
+Control **resource** order — and add resource descriptions — with
+`openapi_tags`. Tags you omit sort after the listed ones, alphabetically:
+
+```python
+app = FastAPI(
+    title="Acme API",
+    openapi_tags=[
+        {"name": "accounts", "description": "Balances and statements."},
+        {"name": "payments"},
+        {"name": "store/orders"},
+    ],
+)
+```
+
+## Order the sidebar
+
+`openapi_extra` merges straight onto the operation object, which is exactly
+where `x-nav-order` belongs:
+
+```python
+@router.post("", openapi_extra={"x-nav-order": 1})
+async def create_account(body: AccountCreate) -> Account:
+    ...
+
+
+@router.get("", openapi_extra={"x-nav-order": 2})
+async def list_accounts() -> list[Account]:
+    ...
+```
+
+This is the case reordering can't fix: Markline reads verbs in a fixed order,
+so `GET /accounts` always precedes `POST /accounts` regardless of the order you
+declare the handlers in. `x-nav-order` is the only way to open the resource on
+**Create account**.
+
+Number them `10, 20, 30` and you can insert an endpoint later without touching
+its neighbours. Operations you don't annotate keep document order, after the
+ordered ones.
+
+## Events
+
+On 3.1 you have two options, and Markline reads both.
+
+**Native webhooks** — the idiomatic FastAPI route, available since 0.99:
+
+```python
+@app.webhooks.post("account.created")
+async def account_created(body: AccountCreatedEvent):
+    """A new account was opened."""
+```
+
+FastAPI emits this under the document root's `webhooks` object.
+
+<Warning>A root webhook only attaches to a resource if its operation carries a
+matching `tags` entry — otherwise Markline parses it but has nowhere to show it.
+Pass `tags=["accounts"]` to the webhook decorator.</Warning>
+
+**`x-events`** — lighter, and it gives you the emitter cross-link. Put it on the
+operation that causes the event and the endpoint gets a **Triggers** chip while
+the event gets an **Emitted by** back-link:
+
+```python
+@router.post(
+    "",
+    openapi_extra={
+        "x-nav-order": 1,
+        "x-events": {
+            "account.created": {
+                "summary": "A new account was opened",
+                "payload": {"$ref": "#/components/schemas/AccountCreatedEvent"},
+                "guide": "/guides/webhooks#account-created",
+            }
+        },
+    },
+)
+async def create_account(body: AccountCreate) -> Account:
+    ...
+```
+
+<Note>For that `$ref` to resolve, `AccountCreatedEvent` has to actually reach
+`components.schemas`. If no endpoint returns or accepts it, FastAPI won't emit
+it — reference the model from a response somewhere, or inline the payload
+schema instead of using `$ref`.</Note>
+
+Full behaviour in [Events & webhooks](/openapi#events-webhooks).
+
+## Code samples
+
+Replace the generated rail on an operation when you ship an SDK whose calls
+don't match Markline's inferred ones:
+
+```python
+@router.post(
+    "",
+    openapi_extra={
+        "x-codeSamples": [
+            {
+                "lang": "python",
+                "label": "Python SDK",
+                "source": 'client.accounts.create(email="ada@example.com")',
+            }
+        ]
+    },
+)
+async def create_account(body: AccountCreate) -> Account:
+    ...
+```
+
+<Warning>One custom sample replaces the **entire** generated rail for that
+operation. List every language you want shown.</Warning>
+
+No SDK at all? Skip the annotation and set `"codeSamples": ["curl"]` in
+`markline.json` — that suppresses the invented SDK snippets everywhere at once.
+
+## Gotchas
+
+**`operationId`s are ugly and unstable by default.** FastAPI derives them from
+the function name, path and method — `create_account_accounts_post`. Markline
+routes per-operation deep links and [MDX overlays](/openapi#mdx-overlays) off
+`operationId`, so those names end up in URLs and overlay filenames. Pin them:
+
+```python
+@router.post("", operation_id="createAccount")
+```
+
+Or normalise the whole app once, before emitting:
+
+```python
+for route in app.routes:
+    if isinstance(route, APIRoute):
+        route.operation_id = route.name
+```
+
+**`app.openapi()` caches.** It memoises into `app.openapi_schema`, so if you
+mutate routes after the first call you'll dump a stale document. In a one-shot
+emit script this never bites; in a longer script, set
+`app.openapi_schema = None` before re-reading.
+
+**`openapi_extra` merges, it doesn't validate.** A typo like `x-navorder` is
+silently ignored — Markline only reads `x-nav-order`, and only when the value is
+a **number**. `"x-nav-order": "1"` is dropped.
+
+**Only the first tag counts for grouping.** An operation with
+`tags=["accounts", "beta"]` lands on **Accounts**; the second tag doesn't create
+a second placement.
+
+**Pydantic aliases show up verbatim.** Markline renders the emitted schema, so
+`alias`/`serialization_alias` names are what your readers see. That's usually
+what you want — just be aware the docs follow the wire format, not your Python
+attribute names.

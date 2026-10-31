@@ -14,12 +14,18 @@
   --c-green: #30a46c; --c-pink: #d6409f; --c-orange: #f76809; --c-tan: #daa16e;
   --c-purple: #9e8cfc; --c-red: #e5484d; --c-yellow: #f6d908; --c-cyan: #67ddfd;
 
-  --bg: #08080a; --bg-2: #0c0c0f; --panel: #0f0f12; --panel-2: #131317; --panel-hi: #17171c;
-  --ink: #f4f4f6; --ink-2: #b7b7c0; --ink-3: #7d7d88; --ink-4: #54545d;
-  --line: rgba(255,255,255,0.09); --line-2: rgba(255,255,255,0.14); --line-soft: rgba(255,255,255,0.045);
-  --grid: rgba(255,255,255,0.028);
-  --accent: #004aad; --accent-ink: #6ba5ff; --accent-dim: rgba(107,165,255,0.14); --accent-line: rgba(107,165,255,0.42);
-  --on-accent: #ffffff; --logo: #4f8ef0; --ok: #30a46c; --warn: #f6d908;
+  /* Surfaces, ink and accent come from the framework tokens (--c-*), so
+     theme.colors and theme.cssVariables reach the API reference exactly as
+     they reach the docs shell. The --c-* defaults in markline-tokens.css are
+     these same values, so an unthemed site renders as before. */
+  --bg: rgb(var(--c-paper)); --bg-2: color-mix(in srgb, rgb(var(--c-paper)), rgb(var(--c-ink)) 1.7%);
+  --panel: rgb(var(--c-paper-2)); --panel-2: rgb(var(--c-slate-1)); --panel-hi: rgb(var(--c-slate-2));
+  --ink: rgb(var(--c-ink)); --ink-2: rgb(var(--c-slate-7)); --ink-3: rgb(var(--c-slate-6)); --ink-4: rgb(var(--c-slate-5));
+  --line: rgb(var(--c-ink) / 0.09); --line-2: rgb(var(--c-ink) / 0.14); --line-soft: rgb(var(--c-ink) / 0.045);
+  --grid: rgb(var(--c-ink) / 0.028);
+  --accent: rgb(var(--c-brand-solid)); --accent-ink: rgb(var(--c-brand));
+  --accent-dim: rgb(var(--c-brand) / 0.14); --accent-line: rgb(var(--c-brand) / 0.42);
+  --on-accent: rgb(var(--c-on-brand)); --logo: rgb(var(--c-brand)); --ok: #30a46c; --warn: #f6d908;
   --shadow: 0 24px 70px -30px rgba(0,0,0,0.8);
   --chat-w: 410px;
 
@@ -36,12 +42,11 @@
   -webkit-font-smoothing: antialiased;
 }
 [data-theme="light"] .ml-apiref {
-  --bg: #f7f7f5; --bg-2: #f0f0ec; --panel: #ffffff; --panel-2: #fbfbf9; --panel-hi: #f2f2ee;
-  --ink: #16151c; --ink-2: #45434f; --ink-3: #6c6a78; --ink-4: #9a98a6;
-  --line: rgba(20,18,32,0.12); --line-2: rgba(20,18,32,0.2); --line-soft: rgba(20,18,32,0.06);
-  --grid: rgba(20,18,32,0.04);
-  --accent: #004aad; --accent-ink: #0a4fa6; --accent-dim: rgba(0,74,173,0.09); --accent-line: rgba(0,74,173,0.38);
-  --on-accent: #ffffff; --logo: #004aad; --ok: #18794e; --warn: #b78108;
+  --bg-2: color-mix(in srgb, rgb(var(--c-paper)), rgb(var(--c-ink)) 3%);
+  --line: rgb(var(--c-ink) / 0.12); --line-2: rgb(var(--c-ink) / 0.2); --line-soft: rgb(var(--c-ink) / 0.06);
+  --grid: rgb(var(--c-ink) / 0.04);
+  --accent-dim: rgb(var(--c-brand) / 0.09); --accent-line: rgb(var(--c-brand) / 0.38);
+  --ok: #18794e; --warn: #b78108;
   --shadow: 0 24px 60px -32px rgba(30,24,60,0.26);
 }
 
@@ -264,6 +269,10 @@
 /* section title */
 .ml-apiref .api-sec h2 { font-size: 22px; font-weight: 500; letter-spacing: -0.02em; }
 .ml-apiref .api-sec .sec-lead { font-size: 14px; color: var(--ink-2); margin-top: 10px; line-height: 1.6; max-width: 54ch; }
+.ml-apiref .api-sec .sec-lead a { color: var(--accent-ink); border-bottom: 1px solid var(--accent-line); }
+.ml-apiref .api-resource .lead p, .ml-apiref .api-sec .sec-lead p { margin: 0; }
+.ml-apiref .api-resource .lead p + p, .ml-apiref .api-sec .sec-lead p + p { margin-top: 0.6em; }
+.ml-apiref .api-resource .lead ul, .ml-apiref .api-resource .lead ol, .ml-apiref .api-sec .sec-lead ul, .ml-apiref .api-sec .sec-lead ol { margin: 0.4em 0 0 1.25em; padding: 0; }
 .ml-apiref .api-sec .sec-lead code, .ml-apiref .attr code, .ml-apiref .api-resource code { font-family: var(--mono); font-size: .86em; background: var(--panel-hi); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; color: var(--accent-ink); }
 
 /* method+path */

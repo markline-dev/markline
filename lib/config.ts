@@ -327,8 +327,19 @@ export type AnalyticsConfig = {
   posthog?: { apiKey: string; apiHost?: string };
 };
 
+/** Page structure, as opposed to `theme`'s colours and fonts. Templates can
+ *  set these too. */
+export type LayoutConfig = {
+  /** "single": logo, tabs and actions on one row (default). "stacked": logo,
+   *  search and actions on top, the tabs on a row of their own underneath. */
+  header?: "single" | "stacked";
+  /** Where the search box lives: in the docs sidebar (default) or the header. */
+  search?: "sidebar" | "header";
+};
+
 export type MarklineConfig = {
   name: string;
+  layout: LayoutConfig;
   /**
    * A template to start from: a built-in name ("paper"), a folder relative to
    * markline.json ("./templates/acme"), or an npm package
@@ -378,6 +389,7 @@ const DEFAULT_CONFIG: MarklineConfig = {
     appearance: "system",
     colors: { primary: "#3C87F0", primaryDark: "#6E86FA" },
   },
+  layout: { header: "single", search: "sidebar" },
   topbar: { links: [] },
   navigation: {
     tabs: [
@@ -393,6 +405,7 @@ function mergeConfig(base: MarklineConfig, user: Partial<MarklineConfig>): Markl
   return {
     name: user.name ?? base.name,
     template: user.template,
+    layout: { ...base.layout, ...user.layout },
     // Fully recursive, so a user can override one cssVariables entry without
     // wiping out the rest of a template's palette.
     theme: deepMerge(base.theme, user.theme),
@@ -494,6 +507,7 @@ function withTemplate(base: MarklineConfig, user: Partial<MarklineConfig>, confi
   return {
     ...base,
     theme: deepMerge(base.theme, opts.theme),
+    layout: { ...base.layout, ...opts.layout },
     topbar: { ...base.topbar, ...opts.topbar },
   };
 }

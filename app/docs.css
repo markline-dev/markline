@@ -14,7 +14,7 @@
   display: grid;
   grid-template-columns: 256px minmax(0, 1fr) 220px;
   align-items: start;
-  min-height: calc(100vh - 60px);
+  min-height: calc(100vh - var(--nav-h));
 }
 @media (max-width: 1080px) {
   .docs-shell { grid-template-columns: 240px minmax(0, 1fr) !important; }
@@ -67,8 +67,8 @@
   padding: 26px 18px 60px;
   position: sticky;
   align-self: start;
-  top: 60px;
-  height: calc(100vh - 60px);
+  top: var(--nav-h);
+  height: calc(100vh - var(--nav-h));
   overflow-y: auto;
 }
 .docs-shell .docs-tools { display: flex; align-items: stretch; gap: 8px; margin-bottom: 22px; }
@@ -197,9 +197,9 @@
 :is(.docs-shell, .api-op-main) .docs-prose > :first-child { margin-top: 0; }
 :is(.docs-shell, .api-op-main) .docs-prose h2 {
   font-size: 25px; font-weight: 700; letter-spacing: -0.02em; margin: 48px 0 0;
-  padding-top: 14px; scroll-margin-top: 80px; color: var(--ink);
+  padding-top: 14px; scroll-margin-top: calc(var(--nav-h) + 20px); color: var(--ink);
 }
-:is(.docs-shell, .api-op-main) .docs-prose h3 { font-size: 17.5px; font-weight: 600; margin: 32px 0 0; scroll-margin-top: 80px; color: var(--ink); }
+:is(.docs-shell, .api-op-main) .docs-prose h3 { font-size: 17.5px; font-weight: 600; margin: 32px 0 0; scroll-margin-top: calc(var(--nav-h) + 20px); color: var(--ink); }
 :is(.docs-shell, .api-op-main) .docs-prose p { font-size: 15.5px; color: var(--ink-2); margin-top: 14px; line-height: 1.7; max-width: 68ch; text-wrap: pretty; }
 .docs-shell .docs-prose a {
   color: var(--accent-ink); border-bottom: 1px solid var(--accent-line); text-decoration: none;
@@ -316,8 +316,8 @@
   padding: 40px 22px 60px;
   position: sticky;
   align-self: start;
-  top: 60px;
-  height: calc(100vh - 60px);
+  top: var(--nav-h);
+  height: calc(100vh - var(--nav-h));
   overflow-y: auto;
 }
 .docs-shell .docs-toc .toc-h {
@@ -481,7 +481,7 @@ html[data-ai-open] .docs-shell .aichat { transform: none; }
 /* align-items:stretch overrides the `align-items:start` inherited from the
    .docs-shell grid rule — without it the flex children shrink to content and
    left-align instead of filling the width for centering. */
-.ml-notfound { min-height: calc(100vh - 60px); display: flex; flex-direction: column; align-items: stretch; }
+.ml-notfound { min-height: calc(100vh - var(--nav-h)); display: flex; flex-direction: column; align-items: stretch; }
 .ml-notfound .nf { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 80px 22px; gap: 14px; }
 .ml-notfound .nf-code { font-family: var(--display); font-weight: 300; font-size: clamp(72px, 12vw, 132px); line-height: .9; letter-spacing: -0.02em; color: var(--ink); }
 .ml-notfound .nf-h { font-family: var(--display); font-weight: 600; font-size: clamp(24px, 4vw, 34px); letter-spacing: -0.02em; color: var(--ink); margin: 0; }

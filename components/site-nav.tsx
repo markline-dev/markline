@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import dynamic from "next/dynamic";
 import { Wordmark } from "./landing/home/wordmark";
 
 /**
@@ -18,6 +19,10 @@ import { Wordmark } from "./landing/home/wordmark";
  * - The GitHub badge + "Get started" CTA come from the config topbar.
  */
 
+// Loaded only on pages that have no search dialog of their own (home,
+// landing pages, 404), so the docs bundle isn't duplicated into every page.
+const FallbackSearch = dynamic(() => import("./docs/search").then((m) => m.DocsSearch), { ssr: false });
+
 export type SiteNavLink = { label: string; href: string };
 type Logo = { light?: string; dark?: string; text?: string };
 
@@ -30,12 +35,14 @@ export function SiteNav({
   cta,
   width = "full",
   homeWidth = "contained",
+  header = "single",
+  search = "sidebar",
 }: {
   /** Brand lockup: a logo image and/or text from config. Falls back to the
    *  Markline <Wordmark/> when no logo is configured. */
   brand?: { name?: string; logo?: Logo };
-  /** Primary nav links — the config navigation tabs (label + href). */
-  tabs?: SiteNavLink[];
+  /** Primary nav links — the config navigation tabs. */
+  tabs?: (SiteNavLink & { match?: string[] })[];
   /** Extra header links beyond the doc tabs (e.g. marketing anchors). */
   navLinks?: SiteNavLink[];
   /** Repo URL for the GitHub badge (from config topbar links). */
@@ -48,6 +55,10 @@ export function SiteNav({
   width?: "full" | "contained";
   /** Topbar layout on the homepage ("/") — independent from `width`. */
   homeWidth?: "full" | "contained";
+  /** layout.header: tabs on the logo row, or on a row of their own. */
+  header?: "single" | "stacked";
+  /** layout.search: "header" puts the search box in the topbar. */
+  search?: "sidebar" | "header";
 }) {
   const pathname = usePathname();
   // The homepage ("/") uses its own width knob; every other route uses `width`.
@@ -62,9 +73,25 @@ export function SiteNav({
   const logo = brand?.logo;
   const hasImg = !!(logo?.light || logo?.dark);
   const links = [...(tabs ?? []), ...(navLinks ?? [])];
+  const activeTab = pickActiveTab(tabs ?? [], pathname);
+  const stacked = header === "stacked";
+
+  const linksNav = (
+    <nav className="nav-links">
+      {links.map((l) => (
+        <Link
+          key={l.href + l.label}
+          href={l.href}
+          className={((tabs ?? []).includes(l) ? l === activeTab : isActive(l.href)) ? "active" : undefined}
+        >
+          {l.label}
+        </Link>
+      ))}
+    </nav>
+  );
 
   return (
-    <header className="nav">
+    <header className={`nav${stacked ? " nav--stacked" : ""}`}>
       <div className={`nav-in nav-in--${layout}`}>
         <Link className="brand" href="/" aria-label={`${brand?.name ?? "Markline"} home`}>
           {hasImg ? (
@@ -78,13 +105,8 @@ export function SiteNav({
             <Wordmark />
           )}
         </Link>
-        <nav className="nav-links">
-          {links.map((l) => (
-            <Link key={l.href + l.label} href={l.href} className={isActive(l.href) ? "active" : undefined}>
-              {l.label}
-            </Link>
-          ))}
-        </nav>
+        {!stacked && linksNav}
+        {search === "header" && <HeaderSearch pathname={pathname} />}
         <div className="nav-right">
           {githubUrl && (
             <a className="ghbadge" href={githubUrl} target="_blank" rel="noopener noreferrer">
@@ -107,7 +129,61 @@ export function SiteNav({
           )}
         </div>
       </div>
+      {stacked && (
+        <div className="nav-tabs">
+          <div className={`nav-in nav-in--${layout} nav-tabs-in`}>{linksNav}</div>
+        </div>
+      )}
     </header>
+  );
+}
+
+/**
+ * The tab the current page belongs to, using each tab's `match` prefixes the
+ * same way the docs sidebar does — so a "Documentation" tab whose href is "/"
+ * still reads as current on /quickstart. Tabs without `match` fall back to
+ * comparing hrefs. On the homepage only a tab linking to "/" is current.
+ */
+function pickActiveTab<T extends SiteNavLink & { match?: string[] }>(tabs: T[], pathname: string): T | undefined {
+  const under = (p: string) => pathname === p || pathname.startsWith(p.replace(/\/$/, "") + "/");
+  if (pathname === "/") return tabs.find((t) => t.href === "/");
+  const explicit = tabs.find((t) => t.match?.some((m) => m !== "__default__" && under(m)));
+  if (explicit) return explicit;
+  const byHref = tabs.find((t) => !t.match?.length && t.href !== "/" && under(t.href.split(/[#?]/)[0]));
+  if (byHref) return byHref;
+  return tabs.find((t) => t.match?.includes("__default__"));
+}
+
+/**
+ * The topbar search box (layout.search: "header"). Docs pages and the API
+ * reference each mount their own search dialog, so the box asks whichever one
+ * the page has. Pages with neither get a docs search mounted here instead —
+ * only there, so ⌘K never opens two dialogs at once.
+ */
+function HeaderSearch({ pathname }: { pathname: string }) {
+  const [needsFallback, setNeedsFallback] = useState(false);
+  useEffect(() => {
+    // Re-check after each navigation, once the new page has rendered.
+    setNeedsFallback(!document.querySelector(".docs-shell, .ml-apiref"));
+  }, [pathname]);
+
+  const open = () => {
+    const inApiRef = !!document.querySelector(".ml-apiref");
+    window.dispatchEvent(new CustomEvent(inApiRef ? "ml-search-open" : "ml-docs-search-open"));
+  };
+
+  return (
+    <>
+      <button type="button" className="nav-search" onClick={open} aria-label="Search">
+        <svg width={15} height={15} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
+          <circle cx="11" cy="11" r="7" />
+          <path d="m21 21-4.3-4.3" />
+        </svg>
+        <span className="lbl">Search</span>
+        <span className="kbd">⌘K</span>
+      </button>
+      {needsFallback && <FallbackSearch triggerless />}
+    </>
   );
 }
 

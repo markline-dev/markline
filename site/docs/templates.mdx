@@ -1,6 +1,6 @@
 ---
 title: Templates
-lede: Start from a ready-made look, then change whatever you like. Your markline.json always wins over the template.
+lede: Start from a ready-made look and layout, then change whatever you like. Your markline.json always wins over the template.
 toc:
   - id: use-a-template
     label: Use a template
@@ -14,8 +14,8 @@ toc:
     label: What a template can set
 ---
 
-A template is a named set of defaults for your site's theme. Pick one, and
-everything you set yourself in `markline.json` is applied on top.
+A template is a named set of defaults for your site's theme and layout. Pick
+one, and everything you set yourself in `markline.json` is applied on top.
 
 ## Use a template
 
@@ -44,6 +44,7 @@ Built-in templates:
 | --- | --- |
 | `classic` | Markline's default. Other templates can build on it. |
 | `paper` | Light and warm, with terracotta accents and a centered top bar. |
+| `product-docs` | A stacked header with search in the top bar and the tabs on a row of their own. |
 
 ## How settings combine
 
@@ -101,6 +102,7 @@ acme/
     "buttonRadius": "4px",
     "colors": { "primary": "#0F766E", "primaryDark": "#2DD4BF" }
   },
+  "layout": { "search": "header" },
   "topbar": { "width": "contained" }
 }
 ```
@@ -120,7 +122,8 @@ under your own scope.
 
 ## What a template can set
 
-Only `theme` and `topbar.width` / `topbar.homeWidth`. Templates can't set
+Only `theme`, [`layout`](/configuration#layout) and `topbar.width` /
+`topbar.homeWidth`. Templates can't set
 navigation, SEO, API, AI or analytics settings, so trying a template from
 someone else can't add links to your site or send your readers' questions
 somewhere else. Anything else in `template.json` is ignored, with a warning.

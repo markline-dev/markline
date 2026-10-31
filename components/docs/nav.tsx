@@ -244,9 +244,12 @@ export function DocsShell({
   nav,
   ai = null,
   aiSuggestions,
+  searchInSidebar = true,
   children,
 }: {
   nav: NavData;
+  /** False when layout.search puts the search box in the header instead. */
+  searchInSidebar?: boolean;
   ai?: AiPublicConfig | null;
   /** Page-specific Ask AI starter questions (frontmatter `aiSuggestions`). */
   aiSuggestions?: string[];
@@ -254,7 +257,7 @@ export function DocsShell({
 }) {
   return (
     <div className="docs-shell grid">
-      <DocsSidebar nav={nav} ai={ai} aiSuggestions={aiSuggestions} />
+      <DocsSidebar nav={nav} ai={ai} aiSuggestions={aiSuggestions} searchInSidebar={searchInSidebar} />
       {children}
       {/* ⌘K / sidebar-trigger search palette (modal only — the inline trigger
           lives in the sidebar). */}
@@ -267,8 +270,10 @@ export function DocsSidebar({
   nav,
   ai = null,
   aiSuggestions,
+  searchInSidebar = true,
 }: {
   nav: NavData;
+  searchInSidebar?: boolean;
   ai?: AiPublicConfig | null;
   aiSuggestions?: string[];
 }) {
@@ -301,10 +306,12 @@ export function DocsSidebar({
   return (
     <>
       <aside className="docs-side" ref={sideRef}>
-        <div className="docs-tools">
-          <SidebarSearchTrigger />
-          {ai && <SidebarAskButton />}
-        </div>
+        {(searchInSidebar || ai) && (
+          <div className="docs-tools">
+            {searchInSidebar && <SidebarSearchTrigger />}
+            {ai && <SidebarAskButton />}
+          </div>
+        )}
         <SidebarSections sections={sections} pathname={pathname} />
       </aside>
       {/* Page-level AI affordances (the doc-ai row + View-as-Markdown modal) live

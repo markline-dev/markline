@@ -87,7 +87,7 @@
 /* No border-right here: .api-side is sticky with a fixed height, so its divider
    would stop short of the footer. The vertical rule lives on .api-doc's
    border-left instead (runs continuously down to the credit footer). */
-.ml-apiref .api-side { position: sticky; top: 60px; height: calc(100vh - 60px); overflow-y: auto; padding: 18px 14px 60px; }
+.ml-apiref .api-side { position: sticky; top: var(--nav-h); height: calc(100vh - var(--nav-h)); overflow-y: auto; padding: 18px 14px 60px; }
 .ml-apiref .api-tools { display: flex; flex-direction: column; gap: 8px; margin-bottom: 18px; }
 .ml-apiref .api-toolrow { display: flex; gap: 7px; align-items: stretch; }
 .ml-apiref .api-search { flex: 1; min-width: 0; display: flex; align-items: center; gap: 7px; border: 1px solid var(--line); border-radius: 9px; padding: 7px 10px; color: var(--ink-4); font-size: 12.5px; background: var(--panel-2); cursor: text; }
@@ -146,7 +146,7 @@
 
 /* ---------- content ---------- */
 .ml-apiref .api-doc { padding: 0 52px 72px; border-left: 1px solid var(--line); }
-.ml-apiref .api-sec { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 52px; padding: 46px 0; border-top: 1px solid var(--line); scroll-margin-top: 80px; }
+.ml-apiref .api-sec { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 52px; padding: 46px 0; border-top: 1px solid var(--line); scroll-margin-top: calc(var(--nav-h) + 20px); }
 .ml-apiref .api-sec:first-child { border-top: 0; }
 .ml-apiref .api-l { min-width: 0; }
 .ml-apiref .api-r { min-width: 0; position: sticky; top: 80px; align-self: start; }

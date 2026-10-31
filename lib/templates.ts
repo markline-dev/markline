@@ -20,11 +20,12 @@ import path from "node:path";
  * Pure (no app imports) so it can be unit-tested directly.
  */
 
-/** What a template may set. Navigation, SEO, API and AI settings stay the
- *  user's: a template that could set `ai.endpoint` could route readers'
- *  questions elsewhere. */
+/** What a template may set: theme, layout and the topbar widths. Navigation,
+ *  SEO, API and AI settings stay the user's: a template that could set
+ *  `ai.endpoint` could route readers' questions elsewhere. */
 export type TemplateOptions = {
   theme?: Record<string, unknown>;
+  layout?: { header?: "single" | "stacked"; search?: "sidebar" | "header" };
   topbar?: { width?: "full" | "contained"; homeWidth?: "full" | "contained" };
 };
 
@@ -130,12 +131,13 @@ export function deepMerge<T>(base: T, over: unknown): T {
 /** Only the keys a template is allowed to set. Anything else is dropped with a
  *  warning rather than silently honoured. */
 export function pickTemplateOptions(m: TemplateManifest, warn: (msg: string) => void = console.warn): TemplateOptions {
-  const allowed = new Set(["name", "extends", "markline", "theme", "topbar"]);
+  const allowed = new Set(["name", "extends", "markline", "theme", "layout", "topbar"]);
   for (const k of Object.keys(m)) {
     if (!allowed.has(k)) warn(`[markline] template "${m.name ?? "?"}" sets "${k}", which templates can't change — ignored.`);
   }
   const out: TemplateOptions = {};
   if (isPlainObject(m.theme)) out.theme = m.theme;
+  if (isPlainObject(m.layout)) out.layout = m.layout;
   if (isPlainObject(m.topbar)) {
     const t: NonNullable<TemplateOptions["topbar"]> = {};
     if (m.topbar.width) t.width = m.topbar.width;

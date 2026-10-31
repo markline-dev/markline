@@ -1,0 +1,7 @@
+{
+  "name": "product-docs",
+  "extends": "classic",
+  "markline": ">=0.1.0",
+  "layout": { "header": "stacked", "search": "header" },
+  "topbar": { "width": "full" }
+}

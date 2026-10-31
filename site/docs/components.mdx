@@ -6,6 +6,8 @@ toc:
     label: Callouts
   - id: cards
     label: Cards
+  - id: video
+    label: Video
   - id: link-lists
     label: Link lists
   - id: steps
@@ -27,9 +29,36 @@ toc:
 ## Cards
 
 <CardGroup cols={2}>
-  <Card title="Quickstart" href="/quickstart">Link cards group neatly.</Card>
-  <Card title="CLI" href="/cli">Use them for navigation.</Card>
+  <Card title="Quickstart" icon="rocket-launch" href="/quickstart">Link cards group neatly.</Card>
+  <Card title="CLI" icon="terminal-window" href="/cli">Use them for navigation.</Card>
 </CardGroup>
+
+`icon` takes a [Phosphor](https://phosphoricons.com) icon name, like sidebar
+icons do. An emoji works too.
+
+```mdx
+<Card title="Quickstart" icon="rocket-launch" href="/quickstart">…</Card>
+```
+
+## Video
+
+```mdx
+<Video src="https://www.youtube.com/watch?v=…" title="Introduction" />
+<Video src="/videos/setup.mp4" poster="/videos/setup.jpg" caption="Setting up a workspace" />
+```
+
+`src` can be a video file (`.mp4`, `.webm`), played in the browser's own
+player, or a YouTube, Vimeo, Loom or Wistia link, which is turned into that
+provider's embed. YouTube links use its no-cookie domain, and a `?t=` start
+time carries over. Videos fill the column at 16:9, and embeds load when they
+scroll into view.
+
+| Prop | |
+| --- | --- |
+| `src` | A file path or URL, or a video page link |
+| `title` | Names the video for screen readers |
+| `poster` | Image shown before a video file plays |
+| `caption` | Text under the video |
 
 ## Link lists
 

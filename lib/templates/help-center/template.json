@@ -22,6 +22,13 @@
       }
     }
   },
-  "layout": { "header": "single", "search": "header", "related": "collection" },
+  "layout": {
+    "header": "single",
+    "search": "header",
+    "breadcrumbs": "chevron",
+    "breadcrumbsRoot": "All collections",
+    "pageActions": "menu",
+    "related": "collection"
+  },
   "topbar": { "width": "full", "homeWidth": "full" }
 }

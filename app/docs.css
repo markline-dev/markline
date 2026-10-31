@@ -209,6 +209,11 @@
 .docs-shell .docs-bc .sep { color: var(--line-2); }
 .docs-shell .docs-bc .cur { color: var(--ink-2); }
 .docs-shell .docs-bc .bc-seg { display: contents; }
+.docs-shell .docs-bc .sep { display: inline-flex; }
+/* layout.breadcrumbs: "chevron" */
+.docs-shell .docs-bc--chevron { font-family: inherit; font-size: 14px; gap: 10px; }
+.docs-shell .docs-bc--chevron .sep { color: var(--ink-4); }
+.docs-shell .docs-bc--chevron .cur { color: var(--ink); }
 .docs-shell .docs-h1 { font-size: 40px; font-weight: 700; letter-spacing: -0.03em; line-height: 1.04; margin: 16px 0 0; color: var(--ink); }
 .docs-shell .docs-lead { font-size: 17.5px; color: var(--ink-2); margin-top: 14px; line-height: 1.55; max-width: 62ch; text-wrap: pretty; }
 .docs-shell .docs-meta { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
@@ -231,6 +236,25 @@
 .docs-shell .doc-ai .ask { color: var(--accent-ink); }
 .docs-shell .doc-ai .copied { color: var(--ok); }
 .docs-shell .doc-ai .ico { width: 15px; height: 15px; }
+
+/* layout.pageActions: "menu": date on the left, a split "Copy for LLM" button
+   on the right. */
+.docs-shell .doc-ai--menu { justify-content: space-between; border-top: 0; padding-top: 0; margin-top: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--line); }
+.docs-shell .doc-ai--menu .date { font-size: 13.5px; color: var(--ink-4); }
+.docs-shell .doc-ai-split {
+  position: relative; display: inline-flex; border: 1px solid var(--line-2); border-radius: var(--btn-radius, 8px);
+  background: var(--panel);
+}
+.docs-shell .doc-ai-split > button { padding: 7px 12px; color: var(--ink-2); font-weight: 500; }
+.docs-shell .doc-ai-split > .more { padding: 7px 10px; border-left: 1px solid var(--line-2); }
+.docs-shell .doc-ai-split > .main.copied { color: var(--ok); }
+.docs-shell .doc-ai-pop {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; min-width: 220px; padding: 5px;
+  display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line-2);
+  border-radius: 10px; box-shadow: 0 10px 30px -12px rgb(0 0 0 / .25);
+}
+.docs-shell .doc-ai-pop button { width: 100%; padding: 8px 10px; border-radius: 6px; color: var(--ink-2); }
+.docs-shell .doc-ai-pop button:hover { background: var(--panel-hi); color: var(--ink); }
 
 /* ─────────────────────────── prose ─────────────────────────── */
 /* Operation pages render api/operations/*.mdx in .docs-prose inside
@@ -303,6 +327,19 @@
 :is(.docs-shell, .ml-landing, .api-op-main) .ml-link-d { font-size: 13.5px; color: var(--ink-3); line-height: 1.5; }
 :is(.docs-shell, .ml-landing, .api-op-main) .ml-link-m { color: var(--accent-ink); }
 :is(.docs-shell, .ml-landing, .api-op-main) .ml-link-ic { flex: none; display: inline-flex; color: var(--ink-3); }
+
+/* <Video> */
+:is(.docs-shell, .ml-landing, .api-op-main) .ml-video { margin: 24px 0 0; }
+:is(.docs-shell, .ml-landing, .api-op-main) .ml-video-frame {
+  position: relative; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden;
+  background: #000; border: 1px solid var(--line);
+}
+:is(.docs-shell, .ml-landing, .api-op-main) .ml-video-frame :is(video, iframe) {
+  position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block;
+}
+:is(.docs-shell, .ml-landing, .api-op-main) .ml-video figcaption {
+  margin-top: 10px; font-size: 13.5px; color: var(--ink-3); text-align: center;
+}
 
 /* callout */
 /* MDX authoring components (callouts, steps, tabs, cards) render on landing

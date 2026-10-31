@@ -138,6 +138,23 @@ and fonts.
   and the API reference, and removes the sidebar copy. ⌘K works either way.
 </ParamField>
 
+<ParamField path="layout.breadcrumbs" type='"slash" | "chevron"'>
+  `slash` (default) shows breadcrumbs in the monospace font with `/`
+  between them. `chevron` uses the body font with `›`.
+</ParamField>
+
+<ParamField path="layout.breadcrumbsRoot" type="string">
+  Renames the first breadcrumb, which is the page's tab, and links it to the
+  home page. For example `"All collections"`. Breadcrumbs set in a page's
+  frontmatter are left as they are.
+</ParamField>
+
+<ParamField path="layout.pageActions" type='"inline" | "menu"'>
+  `inline` (default) shows Copy for LLM, View as Markdown and Ask AI as links
+  under the page's lede. `menu` shows one Copy for LLM button with the others
+  in a dropdown, and moves the page's `last_updated` date beside it.
+</ParamField>
+
 <ParamField path="layout.related" type='"off" | "collection"'>
   A "Related articles" list at the end of a page. A page can always list its
   own in frontmatter (`related: [/billing/plans, /billing/invoices]`); labels
@@ -147,8 +164,10 @@ and fonts.
   [`<LinkList>`](/components#link-lists), which you can also use in any page.
 </ParamField>
 
-A [template](/templates) can set both. `product-docs` sets them to `stacked`
-and `header`.
+A [template](/templates) can set any of these. `product-docs` sets `header`
+and `search` to `stacked` and `header`; `help-center` uses `chevron`
+breadcrumbs starting at "All collections", `menu` page actions and
+`collection` related articles.
 
 ### Page layouts
 
@@ -178,6 +197,8 @@ width, with the same text styles as a docs page.
 
 The hub hero shows the page's `title` and `lede`, and its search box opens the
 same search as ⌘K. `hero.image` is optional and hidden on narrow screens.
+With `layout.search: "header"`, the header search box stays hidden until the
+hero's box scrolls out of view. Hub pages have no previous/next links.
 
 ## API & playground
 

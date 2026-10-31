@@ -231,9 +231,12 @@ html[data-heading-font] :is(
   flex: 1 1 auto; max-width: 420px; height: 34px; display: flex; align-items: center; gap: 8px;
   padding: 0 8px 0 11px; border-radius: 9px; border: 1px solid var(--line-2); background: var(--panel);
   color: var(--ink-4); font: inherit; font-size: 13.5px; cursor: pointer; text-align: left;
-  transition: border-color .15s, color .15s;
+  transition: border-color .15s, color .15s, opacity .15s, visibility .15s;
 }
 .nav-search:hover { border-color: var(--ink-4); color: var(--ink-3); }
+/* On a hub page the hero has its own search box; the header one waits until
+   that box scrolls out of view (set by HubHero). */
+html[data-hub-search="visible"] .nav-search { opacity: 0; visibility: hidden; }
 .nav-search .lbl { flex: 1; }
 .nav-search .kbd { font-family: var(--mono); font-size: 10.5px; border: 1px solid var(--line-2); border-radius: 5px; padding: 1px 5px; color: var(--ink-4); }
 /* With the search box in the row, it takes the free space and the actions

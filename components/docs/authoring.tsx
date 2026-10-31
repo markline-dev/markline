@@ -1,5 +1,6 @@
 import { Children, cloneElement, isValidElement } from "react";
 import Link from "next/link";
+import { resolveVideo } from "@/lib/video";
 import { navIcon } from "./nav-icons";
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -88,6 +89,13 @@ const CardArrow = (
   </svg>
 );
 
+/** A Phosphor name ("rocket-launch") becomes the icon; anything else, such as
+ * an emoji or an element, renders as given. */
+function cardIcon(icon: React.ReactNode): React.ReactNode {
+  if (typeof icon !== "string" || !/^[A-Za-z][\w-]*$/.test(icon)) return icon;
+  return navIcon(icon, 18) ?? icon;
+}
+
 export function Card({
   title,
   icon,
@@ -107,7 +115,7 @@ export function Card({
       {kicker && <div className="k">{kicker}</div>}
       <div className="h">
         <span className="ml-card-h-inner">
-          {icon && <span aria-hidden>{icon}</span>}
+          {icon && <span aria-hidden className="ml-card-icon">{cardIcon(icon)}</span>}
           {title}
         </span>
         {href && CardArrow}
@@ -232,7 +240,7 @@ export function LinkItem({
   /** A Phosphor icon name in place of the page icon, or "none". */
   icon?: string;
 }) {
-  const ic = icon === "none" ? null : icon ? navIcon(icon) ?? PageIcon : PageIcon;
+  const ic = icon === "none" ? null : icon ? navIcon(icon, 20) ?? PageIcon : PageIcon;
   return (
     <li>
       <Link href={href} className="ml-link">
@@ -249,5 +257,45 @@ export function LinkItem({
         {ic && <span className="ml-link-ic">{ic}</span>}
       </Link>
     </li>
+  );
+}
+
+/**
+ * A video: a file (`.mp4`, `.webm`) in the browser's own player, or a
+ * YouTube, Vimeo, Loom or Wistia link as that provider's embed. Full column
+ * width at 16:9; embeds load when scrolled into view.
+ */
+export function Video({
+  src,
+  title,
+  poster,
+  caption,
+}: {
+  src: string;
+  /** Names the embed for screen readers. */
+  title?: string;
+  /** Image shown before a video file plays. */
+  poster?: string;
+  caption?: React.ReactNode;
+}) {
+  const video = resolveVideo(src);
+  return (
+    <figure className="ml-video">
+      <div className="ml-video-frame">
+        {video.kind === "file" ? (
+          <video src={video.src} poster={poster} controls preload="metadata" playsInline title={title} />
+        ) : (
+          <iframe
+            src={video.src}
+            title={title ?? "Video"}
+            loading="lazy"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+            allowFullScreen
+            referrerPolicy="strict-origin-when-cross-origin"
+          />
+        )}
+      </div>
+      {caption && <figcaption>{caption}</figcaption>}
+    </figure>
   );
 }

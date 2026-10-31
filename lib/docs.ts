@@ -32,8 +32,14 @@ export type DocFrontmatter = {
     background?: string;
     /** "light" for light text on a dark background. */
     text?: "dark" | "light";
+    /** "center" centres the title, lede and search; for a hero without an
+     *  image beside it. */
+    align?: "left" | "center";
     placeholder?: string;
   };
+  /** `false` hides the sidebar on desktop, so the page uses the full width
+   *  (it stays in the phone menu). For a help-center home made of cards. */
+  sidebar?: boolean;
   /** Author-curated starter questions for the Ask AI panel on this page (max 3). */
   aiSuggestions?: string[];
 };
@@ -74,9 +80,11 @@ function readMdx(filePath: string): { fm: DocFrontmatter; body: string } {
             imageStyle: data.hero.imageStyle === "bleed" ? "bleed" : undefined,
             background: typeof data.hero.background === "string" ? data.hero.background : undefined,
             text: data.hero.text === "light" ? "light" : undefined,
+            align: data.hero.align === "center" ? "center" : undefined,
             placeholder: typeof data.hero.placeholder === "string" ? data.hero.placeholder : undefined,
           }
         : undefined,
+    sidebar: data.sidebar === false ? false : undefined,
     aiSuggestions: Array.isArray(data.aiSuggestions)
       ? data.aiSuggestions.filter((s: unknown) => typeof s === "string" && s.trim()).map((s: string) => s.trim()).slice(0, 3)
       : undefined,

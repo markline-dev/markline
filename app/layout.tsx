@@ -133,6 +133,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${geist.variable} ${geistMono.variable} ${instrumentSerif.variable} ${schibsted.variable} ${cooper.variable}`}
       data-header={config.layout.header}
       data-content={config.layout.content}
+      data-surface={config.layout.surface === "panel" ? "panel" : undefined}
       data-banner={banner ? "on" : undefined}
       // Heading-font rules only apply when one is configured, so sites that
       // don't set it render exactly as before.
@@ -167,6 +168,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           navLinks={config.topbar.navLinks}
           links={config.topbar.links?.filter((l) => !isGithub(l))}
           githubUrl={githubUrl()}
+          badge={config.topbar.badge}
           cta={config.topbar.cta}
           secondaryCta={config.topbar.secondaryCta}
           banner={banner}

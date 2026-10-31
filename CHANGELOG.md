@@ -50,6 +50,11 @@ All notable changes to `@markline/markline` and `@markline/create`.
   background behind it, and `hero.text: light` suits dark ones.
   `--hub-hero-bg` and `--hub-bg` (the content area, e.g. a dotted grid) set
   them site-wide.
+- **Centred hub heroes and full-width hub pages.** `hero.align: center`
+  centres the title, lede and search; `sidebar: false` drops the sidebar on
+  desktop for a home made of cards.
+- **`layout.surface: "panel"`** sets docs pages on a raised, rounded panel
+  beside the sidebar.
 - **Site footer.** `footer` in markline.json adds columns of links, the logo,
   a copyright line, small links (Privacy, Terms) and social icons across the
   bottom of every page, with "Built with Markline" in its bottom row. The
@@ -70,6 +75,8 @@ All notable changes to `@markline/markline` and `@markline/create`.
   left edge of the button, and the chevron stays highlighted while it's open.
 
 ### Fixed
+- **`topbar.badge` shows again.** The label beside the logo ("Docs") was
+  documented but no longer rendered.
 - **The version and language switcher is back.** Sites with `versions` or
   `i18n.locales` had no way to switch in the header since the site was
   unified, though the docs described one. Picking a version or language opens

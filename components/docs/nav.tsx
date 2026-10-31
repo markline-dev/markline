@@ -249,6 +249,7 @@ export function DocsShell({
   aiSuggestions,
   searchInSidebar = true,
   variant,
+  sidebar = true,
   footer,
   children,
 }: {
@@ -257,6 +258,9 @@ export function DocsShell({
   searchInSidebar?: boolean;
   /** "hub": no table of contents column, for a page under a HubHero. */
   variant?: "hub";
+  /** False: no sidebar on desktop (frontmatter `sidebar: false`); it stays
+   *  as the phone drawer. */
+  sidebar?: boolean;
   ai?: AiPublicConfig | null;
   /** Page-specific Ask AI starter questions (frontmatter `aiSuggestions`). */
   aiSuggestions?: string[];
@@ -265,7 +269,7 @@ export function DocsShell({
   children: React.ReactNode;
 }) {
   return (
-    <div className={`docs-shell grid${variant === "hub" ? " docs-shell--hub" : ""}`}>
+    <div className={`docs-shell grid${variant === "hub" ? " docs-shell--hub" : ""}${sidebar ? "" : " docs-shell--nosidebar"}`}>
       <DocsSidebar nav={nav} ai={ai} aiSuggestions={aiSuggestions} searchInSidebar={searchInSidebar} />
       {children}
       {footer}

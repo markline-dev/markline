@@ -5,6 +5,11 @@ All notable changes to `@markline/markline` and `@markline/create`.
 ## Unreleased
 
 ### Fixed
+- **MDX on API operation pages is styled.** Callouts (`<Note>`, `<Warning>`,
+  `<Tip>`), steps, tabs, cards and prose (paragraphs, lists, inline code) in
+  `api/operations/<operationId>.mdx` rendered unstyled, because their rules
+  were scoped to `.docs-shell` (and `.ml-landing`) and operation pages have
+  neither. They now match guides.
 - **Links in operation-page MDX are readable.** Markdown links in
   `api/operations/<operationId>.mdx` rendered in the browser's default blue
   (about 2.1:1 on the dark theme), because the guides' link rule is scoped to

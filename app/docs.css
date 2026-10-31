@@ -154,104 +154,110 @@
 .docs-shell .doc-ai .ico { width: 15px; height: 15px; }
 
 /* ─────────────────────────── prose ─────────────────────────── */
-.docs-shell .docs-prose { margin-top: 14px; }
-.docs-shell .docs-prose > h2:first-child,
-.docs-shell .docs-prose > :first-child { margin-top: 0; }
-.docs-shell .docs-prose h2 {
+/* Operation pages render api/operations/*.mdx in .docs-prose inside
+   .api-op-main, outside .docs-shell, so prose rules match there too. The
+   apiref's --accent is the solid brand color; give the overlay the docs
+   shell's (= --accent-ink) so callout icons and blockquotes match guides. */
+.api-op-main .docs-prose { --accent: var(--accent-ink); }
+:is(.docs-shell, .api-op-main) .docs-prose { margin-top: 14px; }
+:is(.docs-shell, .api-op-main) .docs-prose > h2:first-child,
+:is(.docs-shell, .api-op-main) .docs-prose > :first-child { margin-top: 0; }
+:is(.docs-shell, .api-op-main) .docs-prose h2 {
   font-size: 25px; font-weight: 700; letter-spacing: -0.02em; margin: 48px 0 0;
   padding-top: 14px; scroll-margin-top: 80px; color: var(--ink);
 }
-.docs-shell .docs-prose h3 { font-size: 17.5px; font-weight: 600; margin: 32px 0 0; scroll-margin-top: 80px; color: var(--ink); }
-.docs-shell .docs-prose p { font-size: 15.5px; color: var(--ink-2); margin-top: 14px; line-height: 1.7; max-width: 68ch; text-wrap: pretty; }
+:is(.docs-shell, .api-op-main) .docs-prose h3 { font-size: 17.5px; font-weight: 600; margin: 32px 0 0; scroll-margin-top: 80px; color: var(--ink); }
+:is(.docs-shell, .api-op-main) .docs-prose p { font-size: 15.5px; color: var(--ink-2); margin-top: 14px; line-height: 1.7; max-width: 68ch; text-wrap: pretty; }
 .docs-shell .docs-prose a {
   color: var(--accent-ink); border-bottom: 1px solid var(--accent-line); text-decoration: none;
 }
 .docs-shell .docs-prose a:hover { border-color: var(--accent-ink); }
-.docs-shell .docs-prose ul,
-.docs-shell .docs-prose ol { margin: 14px 0 0 2px; padding-left: 20px; color: var(--ink-2); font-size: 15.5px; line-height: 1.7; max-width: 68ch; }
-.docs-shell .docs-prose ul { list-style: disc; }
-.docs-shell .docs-prose ol { list-style: decimal; }
-.docs-shell .docs-prose li { margin-top: 7px; }
-.docs-shell .docs-prose li::marker { color: var(--ink-4); }
-.docs-shell .docs-prose strong { color: var(--ink); font-weight: 600; }
-.docs-shell .docs-prose blockquote {
+:is(.docs-shell, .api-op-main) .docs-prose ul,
+:is(.docs-shell, .api-op-main) .docs-prose ol { margin: 14px 0 0 2px; padding-left: 20px; color: var(--ink-2); font-size: 15.5px; line-height: 1.7; max-width: 68ch; }
+:is(.docs-shell, .api-op-main) .docs-prose ul { list-style: disc; }
+:is(.docs-shell, .api-op-main) .docs-prose ol { list-style: decimal; }
+:is(.docs-shell, .api-op-main) .docs-prose li { margin-top: 7px; }
+:is(.docs-shell, .api-op-main) .docs-prose li::marker { color: var(--ink-4); }
+:is(.docs-shell, .api-op-main) .docs-prose strong { color: var(--ink); font-weight: 600; }
+:is(.docs-shell, .api-op-main) .docs-prose blockquote {
   margin: 18px 0 0; padding-left: 16px; border-left: 2px solid var(--accent);
   color: var(--ink-2); font-style: italic;
 }
-.docs-shell .docs-prose hr { border: 0; border-top: 1px solid var(--line); margin: 44px 0; }
-.docs-shell .docs-prose :not(pre) > code {
+:is(.docs-shell, .api-op-main) .docs-prose hr { border: 0; border-top: 1px solid var(--line); margin: 44px 0; }
+:is(.docs-shell, .api-op-main) .docs-prose :not(pre) > code {
   font-family: var(--mono); font-size: 0.86em; background: var(--panel-hi);
   border: 1px solid var(--line); border-radius: 5px; padding: 1.5px 5px; color: var(--accent-ink);
 }
 
 /* tables */
-.docs-shell .docs-prose table { width: 100%; border-collapse: collapse; }
+:is(.docs-shell, .api-op-main) .docs-prose table { width: 100%; border-collapse: collapse; }
 
 /* callout */
 /* MDX authoring components (callouts, steps, tabs, cards) render on landing
-   pages too, so their rules match .ml-landing as well as the docs shell.
-   Without this a <CardGroup> on a `layout: landing` page renders unstyled. */
-:is(.docs-shell, .ml-landing) .callout {
+   pages and in the MDX overlay of API operation pages (.api-op-main), so their
+   rules match those as well as the docs shell. Without this a <CardGroup> on a
+   `layout: landing` page, or a <Note> in api/operations/*.mdx, renders unstyled. */
+:is(.docs-shell, .ml-landing, .api-op-main) .callout {
   margin-top: 20px; border: 1px solid var(--line);
   border-radius: 9px; padding: 14px 16px;
   background: color-mix(in srgb, var(--accent) 5%, var(--panel));
   display: flex; gap: 12px; max-width: 68ch;
 }
-:is(.docs-shell, .ml-landing) .callout .ic { color: var(--accent); flex: none; margin-top: 1px; }
-:is(.docs-shell, .ml-landing) .callout .ic svg { width: 17px; height: 17px; display: block; }
-:is(.docs-shell, .ml-landing) .callout .callout-body { min-width: 0; }
-:is(.docs-shell, .ml-landing) .callout p, :is(.docs-shell, .ml-landing) .callout .callout-body { margin: 0; font-size: 14px; color: var(--ink-2); line-height: 1.6; }
-:is(.docs-shell, .ml-landing) .callout .callout-body > * + * { margin-top: 8px; }
-:is(.docs-shell, .ml-landing) .callout strong { color: var(--ink); }
-:is(.docs-shell, .ml-landing) .callout.tone-warn { background: color-mix(in srgb, var(--warn) 6%, var(--panel)); }
-:is(.docs-shell, .ml-landing) .callout.tone-warn .ic { color: var(--warn); }
-:is(.docs-shell, .ml-landing) .callout.tone-ok { background: color-mix(in srgb, var(--ok) 6%, var(--panel)); }
-:is(.docs-shell, .ml-landing) .callout.tone-ok .ic { color: var(--ok); }
+:is(.docs-shell, .ml-landing, .api-op-main) .callout .ic { color: var(--accent); flex: none; margin-top: 1px; }
+:is(.docs-shell, .ml-landing, .api-op-main) .callout .ic svg { width: 17px; height: 17px; display: block; }
+:is(.docs-shell, .ml-landing, .api-op-main) .callout .callout-body { min-width: 0; }
+:is(.docs-shell, .ml-landing, .api-op-main) .callout p, :is(.docs-shell, .ml-landing, .api-op-main) .callout .callout-body { margin: 0; font-size: 14px; color: var(--ink-2); line-height: 1.6; }
+:is(.docs-shell, .ml-landing, .api-op-main) .callout .callout-body > * + * { margin-top: 8px; }
+:is(.docs-shell, .ml-landing, .api-op-main) .callout strong { color: var(--ink); }
+:is(.docs-shell, .ml-landing, .api-op-main) .callout.tone-warn { background: color-mix(in srgb, var(--warn) 6%, var(--panel)); }
+:is(.docs-shell, .ml-landing, .api-op-main) .callout.tone-warn .ic { color: var(--warn); }
+:is(.docs-shell, .ml-landing, .api-op-main) .callout.tone-ok { background: color-mix(in srgb, var(--ok) 6%, var(--panel)); }
+:is(.docs-shell, .ml-landing, .api-op-main) .callout.tone-ok .ic { color: var(--ok); }
 
 /* steps */
-:is(.docs-shell, .ml-landing) .steps {
+:is(.docs-shell, .ml-landing, .api-op-main) .steps {
   margin-top: 24px; border-left: 1px solid var(--line); padding-left: 28px;
   display: flex; flex-direction: column; gap: 26px;
 }
-:is(.docs-shell, .ml-landing) .step { position: relative; }
-:is(.docs-shell, .ml-landing) .step .num {
+:is(.docs-shell, .ml-landing, .api-op-main) .step { position: relative; }
+:is(.docs-shell, .ml-landing, .api-op-main) .step .num {
   position: absolute; left: -41px; top: -2px; width: 26px; height: 26px; border-radius: 999px;
   background: var(--panel); border: 1px solid var(--line-2); display: grid; place-items: center;
   font-family: var(--mono); font-size: 12px; color: var(--ink-2);
 }
-:is(.docs-shell, .ml-landing) .step h3 { margin: 0; font-size: 16px; color: var(--ink); font-weight: 600; }
-:is(.docs-shell, .ml-landing) .step .step-body { color: var(--ink-2); font-size: 15.5px; line-height: 1.7; }
-:is(.docs-shell, .ml-landing) .step .step-body > * { margin-top: 6px; }
-:is(.docs-shell, .ml-landing) .step .step-body > :first-child { margin-top: 6px; }
+:is(.docs-shell, .ml-landing, .api-op-main) .step h3 { margin: 0; font-size: 16px; color: var(--ink); font-weight: 600; }
+:is(.docs-shell, .ml-landing, .api-op-main) .step .step-body { color: var(--ink-2); font-size: 15.5px; line-height: 1.7; }
+:is(.docs-shell, .ml-landing, .api-op-main) .step .step-body > * { margin-top: 6px; }
+:is(.docs-shell, .ml-landing, .api-op-main) .step .step-body > :first-child { margin-top: 6px; }
 
 /* tabs (authoring) */
-:is(.docs-shell, .ml-landing) .tabs-bar {
+:is(.docs-shell, .ml-landing, .api-op-main) .tabs-bar {
   display: flex; gap: 2px; border: 1px solid var(--line); border-radius: 9px; padding: 3px;
   width: max-content; margin-top: 18px; background: var(--panel-2); flex-wrap: wrap;
 }
-:is(.docs-shell, .ml-landing) .tabs-bar button {
+:is(.docs-shell, .ml-landing, .api-op-main) .tabs-bar button {
   font-family: var(--mono); font-size: 12.5px; color: var(--ink-3); padding: 6px 13px;
   border-radius: 6px; border: 0; background: transparent; cursor: pointer;
 }
-:is(.docs-shell, .ml-landing) .tabs-bar button.active { color: var(--ink); background: var(--panel-hi); }
-:is(.docs-shell, .ml-landing) .tabs-body { margin-top: 6px; }
-:is(.docs-shell, .ml-landing) .tabs-body > :first-child { margin-top: 0; }
+:is(.docs-shell, .ml-landing, .api-op-main) .tabs-bar button.active { color: var(--ink); background: var(--panel-hi); }
+:is(.docs-shell, .ml-landing, .api-op-main) .tabs-body { margin-top: 6px; }
+:is(.docs-shell, .ml-landing, .api-op-main) .tabs-body > :first-child { margin-top: 0; }
 
 /* next cards */
-:is(.docs-shell, .ml-landing) .next-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 22px; }
-:is(.docs-shell, .ml-landing) .next-card {
+:is(.docs-shell, .ml-landing, .api-op-main) .next-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 22px; }
+:is(.docs-shell, .ml-landing, .api-op-main) .next-card {
   border: 1px solid var(--line); border-radius: 11px; padding: 16px 17px;
   transition: border-color .18s, transform .18s; display: block; text-decoration: none;
 }
-:is(.docs-shell, .ml-landing) .next-card:hover { border-color: var(--line-2); transform: translateY(-2px); }
-:is(.docs-shell, .ml-landing) .next-card .k { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-4); }
-:is(.docs-shell, .ml-landing) .next-card .h {
+:is(.docs-shell, .ml-landing, .api-op-main) .next-card:hover { border-color: var(--line-2); transform: translateY(-2px); }
+:is(.docs-shell, .ml-landing, .api-op-main) .next-card .k { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-4); }
+:is(.docs-shell, .ml-landing, .api-op-main) .next-card .h {
   font-size: 15px; font-weight: 600; margin-top: 8px; color: var(--ink);
   display: flex; align-items: center; justify-content: space-between; gap: 8px;
 }
-:is(.docs-shell, .ml-landing) .next-card .h .ico { width: 15px; height: 15px; color: var(--ink-4); flex: none; }
-:is(.docs-shell, .ml-landing) .next-card:hover .h .ico { color: var(--accent); }
-:is(.docs-shell, .ml-landing) .next-card p { font-size: 13px; color: var(--ink-3); margin-top: 5px; line-height: 1.5; }
+:is(.docs-shell, .ml-landing, .api-op-main) .next-card .h .ico { width: 15px; height: 15px; color: var(--ink-4); flex: none; }
+:is(.docs-shell, .ml-landing, .api-op-main) .next-card:hover .h .ico { color: var(--accent); }
+:is(.docs-shell, .ml-landing, .api-op-main) .next-card p { font-size: 13px; color: var(--ink-3); margin-top: 5px; line-height: 1.5; }
 
 /* page footer nav */
 .docs-shell .page-nav {
@@ -312,7 +318,7 @@
 @media (max-width: 720px) {
   .docs-shell .docs-main { padding: 24px 20px 80px; }
   .docs-shell .docs-h1 { font-size: 32px; }
-  :is(.docs-shell, .ml-landing) .next-grid, .docs-shell .page-nav { grid-template-columns: 1fr; }
+  :is(.docs-shell, .ml-landing, .api-op-main) .next-grid, .docs-shell .page-nav { grid-template-columns: 1fr; }
 }
 
 /* ============================================================

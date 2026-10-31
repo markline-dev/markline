@@ -22,8 +22,18 @@ export type DocFrontmatter = {
    *  marketing) or "hub" (a full-width hero with search above the sidebar —
    *  a help-center home). */
   layout?: "doc" | "landing" | "hub";
-  /** Hub layout only: an illustration beside the hero, and the search box text. */
-  hero?: { image?: string; placeholder?: string };
+  /** Hub layout only: the hero's image, background and search box text. */
+  hero?: {
+    image?: string;
+    /** "contained" (default): a boxed illustration. "bleed": fills the
+     *  hero's right side, top to bottom, cropped to fit. */
+    imageStyle?: "contained" | "bleed";
+    /** An image path or URL (cover-fitted), or any CSS background. */
+    background?: string;
+    /** "light" for light text on a dark background. */
+    text?: "dark" | "light";
+    placeholder?: string;
+  };
   /** Author-curated starter questions for the Ask AI panel on this page (max 3). */
   aiSuggestions?: string[];
 };
@@ -61,6 +71,9 @@ function readMdx(filePath: string): { fm: DocFrontmatter; body: string } {
       data.hero && typeof data.hero === "object"
         ? {
             image: typeof data.hero.image === "string" ? data.hero.image : undefined,
+            imageStyle: data.hero.imageStyle === "bleed" ? "bleed" : undefined,
+            background: typeof data.hero.background === "string" ? data.hero.background : undefined,
+            text: data.hero.text === "light" ? "light" : undefined,
             placeholder: typeof data.hero.placeholder === "string" ? data.hero.placeholder : undefined,
           }
         : undefined,

@@ -206,7 +206,34 @@ paragraphs, lists, callouts, cards) sits in a centred column at docs reading
 width, with the same text styles as a docs page.
 
 The hub hero shows the page's `title` and `lede`, and its search box opens the
-same search as ⌘K. `hero.image` is optional and hidden on narrow screens.
+same search as ⌘K. The rest of `hero` is optional:
+
+| Field | What it does |
+| --- | --- |
+| `image` | An illustration beside the title. Hidden on phones. |
+| `imageStyle` | `contained` (default) shows the whole image in a box beside the text. `bleed` fills the hero's right side from top to bottom, cropped to fit. |
+| `background` | The hero's background: an image path or URL (cover-fitted), or any CSS background such as a colour or gradient. |
+| `text` | `light` for white text on a dark background. The search box keeps its own fill. |
+
+```yaml
+hero:
+  image: /hero.png
+  imageStyle: bleed
+  background: "linear-gradient(135deg, #0b0d12, #3a1a08)"
+  text: light
+```
+
+For every hub page at once, set `--hub-hero-bg` in `theme.cssVariables`, per
+light and dark mode; a page's `hero.background` overrides it. `--hub-bg` sets
+a background for the content area beside the sidebar, such as a dotted grid:
+
+```jsonc
+"cssVariables": {
+  "light": { "--hub-bg": "radial-gradient(circle, rgb(0 0 0 / .13) 1px, transparent 1.5px) 0 0 / 18px 18px" },
+  "dark": { "--hub-bg": "radial-gradient(circle, rgb(255 255 255 / .1) 1px, transparent 1.5px) 0 0 / 18px 18px" }
+}
+```
+
 With `layout.search: "header"`, the header search box stays hidden until the
 hero's box scrolls out of view. Hub pages have no previous/next links.
 

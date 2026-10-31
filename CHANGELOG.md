@@ -37,6 +37,11 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **"On this page" builds itself.** Docs pages list their `##` and `###`
   headings (subheadings indented) unless the frontmatter sets `toc`.
   `toc: false` hides it.
+- **Hub hero images and backgrounds.** `hero.imageStyle: bleed` makes the
+  image fill the hero's right side, `hero.background` sets an image or any CSS
+  background behind it, and `hero.text: light` suits dark ones.
+  `--hub-hero-bg` and `--hub-bg` (the content area, e.g. a dotted grid) set
+  them site-wide.
 - **Site footer.** `footer` in markline.json adds columns of links, the logo,
   a copyright line, small links (Privacy, Terms) and social icons across the
   bottom of every page, with "Built with Markline" in its bottom row. The

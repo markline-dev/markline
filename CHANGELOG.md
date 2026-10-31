@@ -2,18 +2,50 @@
 
 All notable changes to `@markline/markline` and `@markline/create`.
 
-## Unreleased
+## 0.1.6
 
 ### Added
+- **Templates.** Set `"template"` in `markline.json` to start from a ready-made
+  theme and layout, then override anything: your config always wins. Built-ins
+  are `classic`, `paper`, `product-docs` and `help-center`; a template can also
+  be a folder next to `markline.json` or an npm package, and can `extend`
+  another. `markline init --template <name>` scaffolds a project from one,
+  starter pages included. Templates are data only (JSON, CSS, MDX), and can't
+  change navigation, SEO, API or AI settings.
+- **Sidebar icons, nesting and collapsing.** Any page or group can carry a
+  Phosphor `icon`, any page can hold its own `pages` to any depth, and nested
+  items open and close. The branch holding the current page always opens.
+  Icons render at build time and add nothing to the page's JavaScript.
+- **Header layout.** `layout.header: "stacked"` puts the tabs on a row of their
+  own under the logo; `layout.search: "header"` moves search into the header on
+  every page.
+- **Hub page layout.** `layout: hub` in a page's frontmatter renders a
+  full-width hero with a large search box above the sidebar and page, for a
+  help-center home.
+- **`theme.font.heading`** sets a separate font for page titles and section
+  headings.
 - **Mobile navigation.** Below 880px the topbar shows a menu button. On docs
   and API reference pages it opens the sidebar as a slide-in drawer (with the
   top-level tabs pinned at the top); on pages without a sidebar it opens a
   dropdown with the nav links. Esc, the scrim, or following a link closes it.
+- **Markdown in OpenAPI descriptions.** Resource and operation intros on the
+  API reference render their markdown (bold, code, links, lists, tables),
+  sanitized. Per-operation pages also render it in parameter and response
+  descriptions.
+- **`x-nav-order`** on an operation sets its position within its resource,
+  including between operations that share a path, which document order can't.
+- **`x-displayName`** on a root `tags[]` entry sets the label a resource shows
+  everywhere (sidebar, heading, breadcrumb, title, search, `llms.txt`) without
+  changing its URL.
 
 ### Changed
 - **The docs sidebar collapses at 880px instead of 720px**, matching the API
   reference. Between 721px and 880px it is now reached from the menu button
   rather than shown alongside the page.
+- **Breadcrumbs follow the sidebar**: the page's tab, group and each item it
+  sits under, instead of a guess from the URL. Frontmatter `crumbs` still wins.
+- **The topbar marks the current tab using each tab's `match` rules**, so a tab
+  whose `href` is `/` reads as current on its pages, not only the homepage.
 
 ### Fixed
 - **Markdown on landing pages is laid out.** Headings, paragraphs and lists
@@ -21,21 +53,20 @@ All notable changes to `@markline/markline` and `@markline/create`.
   default links. Runs of markdown between landing sections now render in a
   centred column at docs reading width, with the docs text styles. Templates
   can change it through `.ml-landing-prose` or `--landing-prose-width`.
-- **`llms.txt` and the sitemap only list API resources that have a page.**
-  A tag declared at the root but used by no operation, or used only as an
-  operation's second tag, was listed with a dead link, and untagged
-  operations' "Default" resource was left out. The list now follows the same
-  rules as the site's own API sidebar.
-- **MDX on API operation pages is styled.** Callouts (`<Note>`, `<Warning>`,
-  `<Tip>`), steps, tabs, cards and prose (paragraphs, lists, inline code) in
-  `api/operations/<operationId>.mdx` rendered unstyled, because their rules
-  were scoped to `.docs-shell` (and `.ml-landing`) and operation pages have
-  neither. They now match guides.
-- **Links in operation-page MDX are readable.** Markdown links in
-  `api/operations/<operationId>.mdx` rendered in the browser's default blue
-  (about 2.1:1 on the dark theme), because the guides' link rule is scoped to
-  `.docs-shell` and operation pages don't have it. They now use the accent
-  color and underline border, like links in guides.
+- **Theme colours reach the whole site.** `theme.colors` and
+  `theme.cssVariables` now apply to the API reference, the topbar and the page
+  background, not just the docs pages.
+- **Card bodies render without a hydration error.** A `<Card>` whose body sat
+  on its own line produced `<p>`-in-`<p>` markup and a React #418 error.
+- **MDX components work outside the docs shell.** Callouts, steps, tabs and
+  cards are styled on landing pages and in API operation-page MDX.
+- **MDX on API operation pages is styled**, prose and links included.
+- **`llms.txt` and the sitemap only list API resources that have a page**, in
+  the same order as the site's sidebar.
+- **Copy for LLM and View as Markdown keep link targets** from API reference
+  intros.
+- **A tag named `constructor` (or `toString`, `valueOf`) renders its name**
+  instead of `function Object() { [native code] }`.
 
 ## 0.1.5
 

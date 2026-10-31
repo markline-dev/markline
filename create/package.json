@@ -1,6 +1,6 @@
 {
   "name": "@markline/create",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "Scaffold a new Markline documentation project.",
   "license": "MIT",
   "keywords": [

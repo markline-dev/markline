@@ -20,6 +20,7 @@ next-env.d.ts
 /public/sitemap.xml
 /public/robots.txt
 /public/ai-suggestions.json
+/public/changelog/rss.xml
 
 # misc
 .DS_Store

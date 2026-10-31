@@ -381,6 +381,53 @@ The footer shows on docs, hub, landing and API reference pages and the 404
 page. Set its maximum width with `--footer-width` in `theme.cssVariables`
 (default `1120px`).
 
+### Changelog
+
+Add a `changelog/` folder next to `docs/`, with one file per release, and
+Markline lists them at `/changelog`, newest first: the date in a column on
+the left, the notes on the right, and "On this page" grouped by date.
+
+```
+content/
+├── docs/
+└── changelog/
+    ├── 2026-10-26.mdx
+    └── 2026-10-19.mdx
+```
+
+```mdx
+---
+date: 2026-10-26            # optional when the file is named YYYY-MM-DD.mdx
+title: Faster replies and scoped API keys
+tags: [Agents, API]
+---
+
+### Scoped API keys
+
+**API** keys can be limited to a set of scopes. See [Authentication](/developers).
+
+### All changes
+
+- Fixed duplicate pages when a sitemap listed a URL twice.
+```
+
+- **Pages.** `/changelog` shows ten entries per page (`/changelog/page/2`
+  and on). Each entry also has its own page, at `/changelog/2026/10/26`;
+  its date links there.
+- **Intro.** A `docs/changelog.mdx`, if you have one, gives the page its
+  title and lede, and its body shows above the entries.
+- **RSS.** With `seo.metadataBase` set, the build writes a feed of the
+  latest 50 entries to `/changelog/rss.xml`, and the page shows "Subscribe
+  via RSS". Feeds need absolute links, so without a site URL there's no feed.
+- **Search and sitemap.** Entries are searchable, under their own
+  "Changelog" filter, and listed in `sitemap.xml`.
+- **Navigation.** Link to it like any page, e.g. a tab with
+  `"href": "/changelog"`. The changelog pages have no sidebar.
+
+Headings inside an entry get ids prefixed with its date
+(`#2026-10-26-scoped-api-keys`), so the same heading can repeat across
+entries.
+
 ## API & playground
 
 <ParamField path="api.baseUrl" type="string">Base URL the playground sends requests to (overrides the spec's servers).</ParamField>

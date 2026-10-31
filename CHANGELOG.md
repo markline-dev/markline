@@ -5,6 +5,11 @@ All notable changes to `@markline/markline` and `@markline/create`.
 ## Unreleased
 
 ### Fixed
+- **`llms.txt` and the sitemap only list API resources that have a page.**
+  A tag declared at the root but used by no operation, or used only as an
+  operation's second tag, was listed with a dead link, and untagged
+  operations' "Default" resource was left out. The list now follows the same
+  rules as the site's own API sidebar.
 - **MDX on API operation pages is styled.** Callouts (`<Note>`, `<Warning>`,
   `<Tip>`), steps, tabs, cards and prose (paragraphs, lists, inline code) in
   `api/operations/<operationId>.mdx` rendered unstyled, because their rules

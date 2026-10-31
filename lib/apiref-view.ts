@@ -41,6 +41,8 @@ export type EndpointView = {
   baseUrl: string;
   /** Operation description, rendered from markdown to sanitized HTML. */
   lead?: string;
+  /** Raw operation description markdown, kept for the Markdown copy actions. */
+  leadMd?: string;
   groups: ParamGroup[];
   /** Write/path endpoints get the interactive explorer; reads get code cards. */
   explorer: boolean;
@@ -99,6 +101,8 @@ export type ResourceView = {
   crumbs: string[];
   /** Tag description, rendered from markdown to sanitized HTML. */
   lead?: string;
+  /** Raw tag description markdown, kept for the Markdown copy actions. */
+  leadMd?: string;
   /** Endpoint-list card rows. */
   endpoints: { title: string; verb: string; path: string; id: string }[];
   /** Webhook / async events for this resource (`x-events`). */
@@ -304,6 +308,7 @@ function buildEndpoint(
     path: op.path,
     baseUrl,
     lead: mdToHtml(op.description),
+    leadMd: op.description,
     groups,
     explorer,
     code,
@@ -403,6 +408,7 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
     slug: tagSlug(activeTag?.name ?? ""),
     crumbs: activeParsed?.parentDisplayNames ?? [],
     lead: mdToHtml(activeTag?.description),
+    leadMd: activeTag?.description,
     endpoints: (activeTag?.operations ?? []).map((op) => ({
       title: op.summary ?? op.operationId,
       verb: VERB[op.method] ?? op.method.toUpperCase(),

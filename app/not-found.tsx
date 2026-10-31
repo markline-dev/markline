@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { loadConfig } from "@/lib/config";
 import { SiteCredit } from "@/components/site-credit";
+import { SiteFooter } from "@/components/site-footer";
 
 /**
  * Global 404. Rendered inside the root layout (so the shared <SiteNav/> is
@@ -7,6 +9,7 @@ import { SiteCredit } from "@/components/site-credit";
  * carries the same "Built with Markline" credit as every other page.
  */
 export default function NotFound() {
+  const config = loadConfig();
   return (
     <div className="docs-shell ml-notfound">
       <main className="nf">
@@ -24,7 +27,7 @@ export default function NotFound() {
           </Link>
         </div>
       </main>
-      <SiteCredit />
+      {config.footer ? <SiteFooter config={config} /> : <SiteCredit />}
     </div>
   );
 }

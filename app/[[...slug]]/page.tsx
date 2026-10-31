@@ -164,7 +164,7 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
         actionStyle={config.layout.pageActions}
         title={doc.fm.title}
         lede={doc.fm.lede}
-        toc={doc.fm.toc ?? extractToc(doc.body)}
+        toc={doc.fm.toc ?? extractToc(doc.body, { steps: doc.fm.tocSteps })}
         lastUpdated={doc.fm.last_updated}
         editUrl={editUrl}
         feedbackEnabled={feedbackConfig() != null}

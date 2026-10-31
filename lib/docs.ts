@@ -14,6 +14,8 @@ export type DocFrontmatter = {
   /** SEO meta description; falls back to `lede`, then `seo.description`. */
   description?: string;
   toc?: TocItem[];
+  /** `toc: steps`: "On this page" lists every <Step> title as well. */
+  tocSteps?: boolean;
   last_updated?: string;
   crumbs?: { label: string; href?: string }[];
   /** Pages listed under "Related articles" at the end, by path. */
@@ -69,6 +71,7 @@ function readMdx(filePath: string): { fm: DocFrontmatter; body: string } {
     description: data.description ? String(data.description) : undefined,
     // A list replaces the automatic "On this page"; `toc: false` hides it.
     toc: Array.isArray(data.toc) ? (data.toc as TocItem[]) : data.toc === false ? [] : undefined,
+    tocSteps: data.toc === "steps" ? true : undefined,
     last_updated: data.last_updated ? String(data.last_updated) : undefined,
     crumbs: Array.isArray(data.crumbs) ? data.crumbs : undefined,
     related: Array.isArray(data.related) ? data.related.filter((r: unknown) => typeof r === "string") : undefined,

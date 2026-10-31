@@ -69,6 +69,11 @@ The logo can be an **icon + wordmark** (the common docs pattern), light/dark
 "theme": { "colors": { "primary": "#4f46e5", "primaryDark": "#818cf8" } }
 ```
 
+Text on these colours (the primary button, the brand banner) is white, or
+near-black when the colour is too light for white to read: below the 3:1
+contrast WCAG asks of buttons. A pale green or yellow `primaryDark` gets dark
+button text in dark mode without any setting.
+
 <Warning>
   Using a **light** accent (e.g. lime or yellow)? White text on it is invisible.
   Set the on-accent text color with the `--c-on-brand` variable (see below) — it

@@ -101,11 +101,15 @@ export function Card({
   icon,
   href,
   kicker,
+  variant,
   children,
 }: {
   title: string;
   icon?: React.ReactNode;
   href?: string;
+  /** "tile": the icon in a tinted square above the title, as on a
+   *  help-center home. `<CardGroup variant="tile">` sets it for a whole grid. */
+  variant?: "default" | "tile";
   /** Optional mono eyebrow (the design's .k). */
   kicker?: string;
   children?: React.ReactNode;
@@ -127,16 +131,26 @@ export function Card({
       {children && <div className="ml-card-body">{children}</div>}
     </>
   );
+  const cls = variant === "tile" ? "next-card next-card--tile" : "next-card";
   return href ? (
-    <Link href={href} className="next-card">{inner}</Link>
+    <Link href={href} className={cls}>{inner}</Link>
   ) : (
-    <div className="next-card">{inner}</div>
+    <div className={cls}>{inner}</div>
   );
 }
 
-export function CardGroup({ cols = 2, children }: { cols?: number; children: React.ReactNode }) {
+export function CardGroup({
+  cols = 2,
+  variant,
+  children,
+}: {
+  cols?: number;
+  /** "tile" for every card in the grid; see `<Card variant>`. */
+  variant?: "default" | "tile";
+  children: React.ReactNode;
+}) {
   return (
-    <div className="next-grid cardgroup" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+    <div className={`next-grid cardgroup${variant === "tile" ? " cardgroup--tile" : ""}`} style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
       <style>{`@media (max-width: 720px) { .cardgroup { grid-template-columns: 1fr !important; } }`}</style>
       {children}
     </div>

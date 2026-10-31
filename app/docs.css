@@ -473,6 +473,17 @@
 :is(.docs-shell, .ml-landing, .api-op-main) .next-card .ml-card-body { font-size: 13px; color: var(--ink-3); margin-top: 5px; line-height: 1.5; }
 :is(.docs-shell, .ml-landing, .api-op-main) .next-card .ml-card-body p { font-size: inherit; color: inherit; line-height: inherit; margin: 0; }
 :is(.docs-shell, .ml-landing, .api-op-main) .next-card .ml-card-body p + p { margin-top: 8px; }
+/* <Card variant="tile"> / <CardGroup variant="tile">: the icon in a tinted
+   square above the title, no arrow. */
+:is(.docs-shell, .ml-landing, .api-op-main) :is(.next-card--tile, .cardgroup--tile .next-card) { padding: 22px 22px 24px; border-radius: 14px; }
+:is(.docs-shell, .ml-landing, .api-op-main) :is(.next-card--tile, .cardgroup--tile .next-card) .h { margin-top: 0; }
+:is(.docs-shell, .ml-landing, .api-op-main) :is(.next-card--tile, .cardgroup--tile .next-card) .h > .ico { display: none; }
+:is(.docs-shell, .ml-landing, .api-op-main) :is(.next-card--tile, .cardgroup--tile .next-card) .ml-card-h-inner { flex-direction: column; align-items: flex-start; gap: 18px; }
+:is(.docs-shell, .ml-landing, .api-op-main) :is(.next-card--tile, .cardgroup--tile .next-card) .ml-card-icon {
+  width: 36px; height: 36px; place-items: center; display: grid; border-radius: 9px;
+  background: color-mix(in srgb, var(--accent-ink) 14%, transparent);
+}
+:is(.docs-shell, .ml-landing, .api-op-main) :is(.next-card--tile, .cardgroup--tile .next-card) .ml-card-body { margin-top: 8px; font-size: 13.5px; }
 
 /* page footer nav: a small "‹ Previous" button, and the next page as a card */
 .docs-shell .page-nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 56px; }
@@ -632,7 +643,7 @@ html[data-ai-open] .docs-shell .aichat { transform: none; }
 .docs-shell .ac-sg { text-align: left; font-size: 13px; color: var(--ink-2); border: 1px solid var(--line); border-radius: 9px; padding: 9px 11px; background: transparent; cursor: pointer; }
 .docs-shell .ac-sg:hover { border-color: var(--line-2); background: var(--panel-hi); color: var(--ink); }
 
-.docs-shell .ac-msg.user { align-self: flex-end; max-width: 86%; background: var(--accent); color: rgb(var(--c-on-brand)); font-size: 13.5px; line-height: 1.5; padding: 9px 13px; border-radius: 13px 13px 4px 13px; white-space: pre-wrap; }
+.docs-shell .ac-msg.user { align-self: flex-end; max-width: 86%; background: var(--accent); color: var(--on-accent); font-size: 13.5px; line-height: 1.5; padding: 9px 13px; border-radius: 13px 13px 4px 13px; white-space: pre-wrap; }
 .docs-shell .ac-msg.ai { align-self: stretch; font-size: 13.5px; line-height: 1.62; color: var(--ink-2); }
 .docs-shell .ac-msg.ai .ac-out strong { color: var(--ink); font-weight: 600; }
 .docs-shell .ac-msg.ai .ac-out code { font-family: var(--mono); font-size: .86em; background: var(--panel-hi); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; color: var(--accent-ink); }
@@ -661,7 +672,7 @@ html[data-ai-open] .docs-shell .aichat { transform: none; }
 .docs-shell .ac-foot { border-top: 1px solid var(--line); padding: 12px 14px 14px; flex: none; background: var(--panel); }
 .docs-shell .ac-keyrow { display: flex; gap: 7px; margin-bottom: 10px; }
 .docs-shell .ac-keyin { flex: 1; min-width: 0; background: var(--panel-2); border: 1px solid var(--accent-line); border-radius: 9px; padding: 8px 11px; color: var(--ink); font-family: var(--mono); font-size: 12px; outline: 0; }
-.docs-shell .ac-keybtn { flex: none; background: var(--accent); color: rgb(var(--c-on-brand)); border: 0; border-radius: 9px; padding: 0 14px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.docs-shell .ac-keybtn { flex: none; background: var(--accent); color: var(--on-accent); border: 0; border-radius: 9px; padding: 0 14px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
 .docs-shell .ac-inwrap { display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--line-2); border-radius: 11px; padding: 10px 10px 8px; background: var(--panel-2); }
 .docs-shell .ac-inwrap:focus-within { border-color: var(--accent-line); }
 .docs-shell .ac-in { width: 100%; min-height: 46px; max-height: 168px; resize: none; overflow-y: auto; background: transparent; border: 0; outline: 0; font-family: inherit; font-size: 13.5px; line-height: 1.5; color: var(--ink); }
@@ -676,7 +687,7 @@ html[data-ai-open] .docs-shell .aichat { transform: none; }
 .docs-shell .ac-chip-x { position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; display: grid; place-items: center; border: 0; border-radius: 50%; background: rgba(0,0,0,.6); color: #fff; cursor: pointer; padding: 0; }
 .docs-shell .ac-msg-imgs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
 .docs-shell .ac-msg-imgs img { max-width: 160px; max-height: 160px; border-radius: 8px; display: block; }
-.docs-shell .ac-send { margin-left: auto; width: 30px; height: 30px; flex: none; display: grid; place-items: center; border-radius: 8px; border: 0; background: var(--accent); color: rgb(var(--c-on-brand)); cursor: pointer; }
+.docs-shell .ac-send { margin-left: auto; width: 30px; height: 30px; flex: none; display: grid; place-items: center; border-radius: 8px; border: 0; background: var(--accent); color: var(--on-accent); cursor: pointer; }
 .docs-shell .ac-send:hover { background: color-mix(in srgb, var(--accent) 86%, #fff); }
 .docs-shell .ac-send:disabled { opacity: .4; }
 .docs-shell .ac-send .ico { width: 15px; height: 15px; }
@@ -738,7 +749,7 @@ html[data-ai-open] .docs-shell .aichat { transform: none; }
 .ml-notfound .nf-h { font-family: var(--display); font-weight: 600; font-size: clamp(24px, 4vw, 34px); letter-spacing: -0.02em; color: var(--ink); margin: 0; }
 .ml-notfound .nf-sub { font-size: 14px; color: var(--ink-3); margin: 0; max-width: 420px; }
 .ml-notfound .nf-cta { margin-top: 12px; }
-.ml-notfound .nf-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: var(--btn-radius, 9px); background: var(--accent); color: rgb(var(--c-on-brand)); font-size: 13.5px; font-weight: 500; }
+.ml-notfound .nf-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: var(--btn-radius, 9px); background: var(--accent); color: var(--on-accent); font-size: 13.5px; font-weight: 500; }
 .ml-notfound .nf-btn:hover { background: color-mix(in srgb, var(--accent) 88%, #fff); }
 .ml-notfound .nf-btn svg { width: 16px; height: 16px; }
 

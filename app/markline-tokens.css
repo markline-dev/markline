@@ -44,7 +44,7 @@
   --grid: rgb(var(--c-ink) / 0.028);
   --accent: rgb(var(--c-brand-solid)); --accent-ink: rgb(var(--c-brand));
   --accent-dim: rgb(var(--c-brand) / 0.14); --accent-line: rgb(var(--c-brand) / 0.42);
-  --on-accent: rgb(var(--c-on-brand)); --logo: rgb(var(--c-brand)); --ok: #30a46c; --warn: #f6d908;
+  --on-accent: rgb(var(--c-on-brand-solid, var(--c-on-brand))); --logo: rgb(var(--c-brand)); --ok: #30a46c; --warn: #f6d908;
   --shadow: 0 24px 70px -30px rgba(0,0,0,0.8);
   --code-bg: #0d0d11; --code-line: rgba(255,255,255,0.08); --code-ink: #c7c7d1;
   --code-k: #c792ea; --code-s: #9fd69c; --code-f: #82aaff; --code-c: #6b6b78;
@@ -60,7 +60,7 @@
   --grid: rgb(var(--c-ink) / 0.04);
   --accent: rgb(var(--c-brand-solid)); --accent-ink: rgb(var(--c-brand));
   --accent-dim: rgb(var(--c-brand) / 0.09); --accent-line: rgb(var(--c-brand) / 0.38);
-  --on-accent: rgb(var(--c-on-brand)); --logo: rgb(var(--c-brand)); --ok: #18794e; --warn: #b78108;
+  --on-accent: rgb(var(--c-on-brand-solid, var(--c-on-brand))); --logo: rgb(var(--c-brand)); --ok: #18794e; --warn: #b78108;
   --shadow: 0 24px 60px -32px rgba(30,24,60,0.26);
 }
 /* explicit dark restate so a later :root cannot win the cascade */
@@ -72,7 +72,7 @@
   --grid: rgb(var(--c-ink) / 0.028);
   --accent: rgb(var(--c-brand-solid)); --accent-ink: rgb(var(--c-brand));
   --accent-dim: rgb(var(--c-brand) / 0.14); --accent-line: rgb(var(--c-brand) / 0.42);
-  --on-accent: rgb(var(--c-on-brand)); --logo: rgb(var(--c-brand)); --ok: #30a46c; --warn: #f6d908;
+  --on-accent: rgb(var(--c-on-brand-solid, var(--c-on-brand))); --logo: rgb(var(--c-brand)); --ok: #30a46c; --warn: #f6d908;
   --shadow: 0 24px 70px -30px rgba(0,0,0,0.8);
   --code-bg: #0d0d11; --code-line: rgba(255,255,255,0.08); --code-ink: #c7c7d1;
 }
@@ -326,7 +326,7 @@ html:not([data-banner]) .site-banner { display: none; }
 }
 .site-banner .x:hover { opacity: 1; background: color-mix(in srgb, currentColor 10%, transparent); }
 .site-banner .x svg { width: 15px; height: 15px; }
-.site-banner--brand { background: var(--banner-bg, var(--accent)); color: var(--banner-fg, rgb(var(--c-on-brand))); border-bottom-color: transparent; }
+.site-banner--brand { background: var(--banner-bg, var(--accent)); color: var(--banner-fg, var(--on-accent)); border-bottom-color: transparent; }
 .site-banner--brand .lnk { color: inherit; }
 /* version / language switcher (versions or i18n.locales) */
 .nav-variant { position: relative; flex: none; }

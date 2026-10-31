@@ -55,6 +55,8 @@ All notable changes to `@markline/markline` and `@markline/create`.
   desktop for a home made of cards.
 - **`layout.surface: "panel"`** sets docs pages on a raised, rounded panel
   beside the sidebar.
+- **Tile cards.** `<Card variant="tile">`, or `<CardGroup variant="tile">` for
+  a whole grid, puts the icon in a tinted square above the title.
 - **Site footer.** `footer` in markline.json adds columns of links, the logo,
   a copyright line, small links (Privacy, Terms) and social icons across the
   bottom of every page, with "Built with Markline" in its bottom row. The
@@ -75,6 +77,10 @@ All notable changes to `@markline/markline` and `@markline/create`.
   left edge of the button, and the chevron stays highlighted while it's open.
 
 ### Fixed
+- **Readable text on light brand colours.** Primary buttons and other
+  brand-coloured surfaces used white text even on a pale primary colour.
+  They now switch to near-black when white falls below 3:1 contrast, for
+  `primary` and `primaryDark` separately.
 - **`topbar.badge` shows again.** The label beside the logo ("Docs") was
   documented but no longer rendered.
 - **The version and language switcher is back.** Sites with `versions` or

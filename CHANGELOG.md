@@ -5,12 +5,24 @@ All notable changes to `@markline/markline` and `@markline/create`.
 ## Unreleased
 
 ### Added
+- **`npm create @markline -- --template <name>`** starts a project from a
+  built-in template or a `./folder`, starter pages included, the same as
+  `markline init --template`.
+- **Card icons by name.** `<Card icon="rocket-launch">` renders a Phosphor
+  icon, like sidebar icons. Emoji and elements still work.
 - **Breadcrumb and page-action styles.** `layout.breadcrumbs: "chevron"`
   shows breadcrumbs in the body font with `›`, and `layout.breadcrumbsRoot`
   renames the first one (e.g. "All collections"). `layout.pageActions: "menu"`
   turns Copy for LLM, View as Markdown and Ask AI into one button with a
   dropdown, beside the page's last-updated date. The `help-center` template
   uses all three.
+
+### Fixed
+- **One search box on hub pages.** With `layout.search: "header"`, a hub page
+  showed two search boxes, the header's and the hero's. The header one now
+  stays hidden until the hero's box scrolls out of view.
+- **No previous/next links on hub pages.** A help-center home showed "Next"
+  to the first article.
 
 ## 0.1.6
 

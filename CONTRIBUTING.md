@@ -40,8 +40,22 @@ npm run typecheck    # tsc --noEmit — must pass
 npm run build        # production build (CI runs the static export)
 ```
 
-CI runs `typecheck` and a static export build on every PR. Please keep both
-green.
+CI runs `typecheck`, the tests and a static export build on every PR. Please
+keep them green.
+
+## Tests
+
+```bash
+npm test             # node --test, with test/setup.mjs loaded first
+```
+
+Tests import code from `lib/` directly. `lib/` files import their siblings
+without extensions (`./paths`), so `npm test` preloads `test/setup.mjs`, which
+teaches Node to resolve those. To run a single file, pass the same flag:
+
+```bash
+node --import ./test/setup.mjs --test test/openapi-normalize.test.ts
+```
 
 ## Testing the CLI from a real install
 

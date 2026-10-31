@@ -1,30 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import * as nodeModule from "node:module";
 import type { OpenAPIDoc, OpenAPIOperation } from "../lib/openapi.ts";
-
-type ResolveResult = { url: string };
-type NextResolve = (specifier: string, context?: object) => ResolveResult;
-// @types/node 22 predates module.registerHooks, which Node 24 provides.
-const { registerHooks } = nodeModule as unknown as {
-  registerHooks(hooks: {
-    resolve(specifier: string, context: object, nextResolve: NextResolve): ResolveResult;
-  }): void;
-};
-
-// lib/ imports siblings without extensions; Node's type stripping needs them spelled out.
-registerHooks({
-  resolve(specifier, context, nextResolve) {
-    try {
-      return nextResolve(specifier, context);
-    } catch (err) {
-      if (!specifier.startsWith(".") || /\.\w+$/.test(specifier)) throw err;
-      return nextResolve(`${specifier}.ts`, context);
-    }
-  },
-});
-const { buildApiRefView } = await import("../lib/apiref-view.ts");
+// lib/ imports resolve via test/setup.mjs, which `npm test` loads first.
+import { buildApiRefView } from "../lib/apiref-view.ts";
 
 // The Copy for LLM / View as Markdown actions can only keep link targets if the
 // view hands them the original markdown, not just the rendered HTML.

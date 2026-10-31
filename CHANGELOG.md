@@ -15,6 +15,11 @@ All notable changes to `@markline/markline` and `@markline/create`.
   `api/operations/<operationId>.mdx` rendered unstyled, because their rules
   were scoped to `.docs-shell` (and `.ml-landing`) and operation pages have
   neither. They now match guides.
+- **Links in operation-page MDX are readable.** Markdown links in
+  `api/operations/<operationId>.mdx` rendered in the browser's default blue
+  (about 2.1:1 on the dark theme), because the guides' link rule is scoped to
+  `.docs-shell` and operation pages don't have it. They now use the accent
+  color and underline border, like links in guides.
 
 ## 0.1.5
 

@@ -63,6 +63,7 @@ export function SiteNav({
   navLinks,
   links: extraLinks = [],
   githubUrl,
+  badge,
   stars,
   cta,
   secondaryCta,
@@ -87,6 +88,8 @@ export function SiteNav({
   links?: SiteNavItem[];
   /** Repo URL for the GitHub badge (from config topbar links). */
   githubUrl?: string;
+  /** topbar.badge: a short label beside the logo, e.g. "Docs". */
+  badge?: string;
   /** Optional star count shown in the badge. */
   stars?: string;
   /** Primary CTA (from config topbar.cta). */
@@ -200,6 +203,7 @@ export function SiteNav({
             <Wordmark />
           )}
         </Link>
+        {badge && <span className="nav-badge">{badge}</span>}
         {!stacked && linksNav}
         {search === "header" && <HeaderSearch pathname={pathname} />}
         <div className="nav-right">

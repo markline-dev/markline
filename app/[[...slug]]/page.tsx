@@ -132,6 +132,7 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
       aiSuggestions={doc.fm.aiSuggestions}
       searchInSidebar={config.layout.search !== "header"}
       variant={hub ? "hub" : undefined}
+      sidebar={doc.fm.sidebar !== false}
       footer={<SiteFooter config={config} />}
     >
       <DocsPage
@@ -166,6 +167,7 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
         imageStyle={doc.fm.hero?.imageStyle}
         background={doc.fm.hero?.background}
         text={doc.fm.hero?.text}
+        align={doc.fm.hero?.align}
         placeholder={doc.fm.hero?.placeholder}
       />
       {shell}

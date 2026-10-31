@@ -392,6 +392,9 @@ export type LayoutConfig = {
    *  without one, with the other pages in the same sidebar folder. Default
    *  "off". */
   related?: "off" | "collection";
+  /** "flat" (default): the page sits on the background. "panel": the page
+   *  and "On this page" sit on a raised, rounded panel beside the sidebar. */
+  surface?: "flat" | "panel";
 };
 
 export type MarklineConfig = {

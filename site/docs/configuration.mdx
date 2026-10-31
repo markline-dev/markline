@@ -206,6 +206,13 @@ and fonts.
   (default `880px`). The `help-center` template uses `centered`.
 </ParamField>
 
+<ParamField path="layout.surface" type='"flat" | "panel"'>
+  `flat` (default) puts docs pages straight on the page background. `panel`
+  sets the page and "On this page" on a raised, rounded panel beside the
+  sidebar. Its colour is `--surface-bg` in `theme.cssVariables`. Phones stay
+  flat.
+</ParamField>
+
 <ParamField path="layout.breadcrumbs" type='"slash" | "chevron"'>
   `slash` (default) shows breadcrumbs in the monospace font with `/`
   between them. `chevron` uses the body font with `›`.
@@ -272,6 +279,7 @@ same search as ⌘K. The rest of `hero` is optional:
 | `imageStyle` | `contained` (default) shows the whole image in a box beside the text. `bleed` fills the hero's right side from top to bottom, cropped to fit. |
 | `background` | The hero's background: an image path or URL (cover-fitted), or any CSS background such as a colour or gradient. |
 | `text` | `light` for white text on a dark background. The search box keeps its own fill. |
+| `align` | `center` centres the title, lede and search, for a hero with a background and no image beside it. |
 
 ```yaml
 hero:
@@ -279,6 +287,19 @@ hero:
   imageStyle: bleed
   background: "linear-gradient(135deg, #0b0d12, #3a1a08)"
   text: light
+```
+
+A page can also set `sidebar: false` to drop the sidebar on desktop, so a
+help-center home made of cards uses the full width. Phones still get the
+sidebar from the menu button.
+
+```yaml
+layout: hub
+sidebar: false
+hero:
+  background: /images/hero-bg.jpg
+  text: light
+  align: center
 ```
 
 For every hub page at once, set `--hub-hero-bg` in `theme.cssVariables`, per

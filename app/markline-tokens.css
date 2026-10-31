@@ -283,6 +283,12 @@ html[data-banner][data-header="stacked"] { --nav-h: 145px; }
 :root:not(.dark):not([data-theme="dark"]) .theme-btn .moon { display: none; }
 :root:not(.dark):not([data-theme="dark"]) .theme-btn .sun { display: block; }
 
+/* topbar.badge: a label after the logo, set off by a hairline */
+.nav-badge {
+  flex: none; margin-left: -12px; padding-left: 12px; border-left: 1px solid var(--line-2);
+  font-size: 14px; line-height: 18px; color: var(--ink-3); white-space: nowrap;
+}
+
 /* topbar.links: text links and dropdowns on the right */
 .nav-extra { display: flex; align-items: center; gap: 2px; }
 .nav-xlink {
@@ -370,6 +376,7 @@ html:not([data-banner]) .site-banner { display: none; }
   .brand .brand-logo { height: 22px; max-width: 100%; object-position: left center; }
   .nav-right { gap: 8px; flex: none; }
   .nav-right .theme-btn, .nav-right .ghbadge { flex: none; }
+  .nav-badge { margin-left: -6px; padding-left: 8px; }
   /* A language shows as just the globe; a version keeps its label. */
   .nav-variant--locale .nav-variant-btn .lbl, .nav-variant--locale .nav-variant-btn .chev { display: none; }
   .nav-variant--locale .nav-variant-btn { width: 36px; padding: 0; justify-content: center; }

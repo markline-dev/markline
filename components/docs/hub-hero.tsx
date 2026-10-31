@@ -20,6 +20,7 @@ export function HubHero({
   imageStyle = "contained",
   background,
   text = "dark",
+  align = "left",
   placeholder = "Search for articles…",
 }: {
   title: string;
@@ -32,6 +33,8 @@ export function HubHero({
   background?: string;
   /** "light" text for a dark background. */
   text?: "dark" | "light";
+  /** "center": title, lede and search centred. */
+  align?: "left" | "center";
   placeholder?: string;
 }) {
   const searchRef = useRef<HTMLButtonElement>(null);
@@ -50,7 +53,7 @@ export function HubHero({
   }, []);
 
   const bg = heroBackground(background);
-  const cls = ["hub-hero", image && `hub-hero--image hub-hero--${imageStyle}`, text === "light" && "hub-hero--light"];
+  const cls = ["hub-hero", image && `hub-hero--image hub-hero--${imageStyle}`, text === "light" && "hub-hero--light", align === "center" && "hub-hero--center"];
   return (
     <section
       className={cls.filter(Boolean).join(" ")}

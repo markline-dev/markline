@@ -54,6 +54,10 @@
   position: absolute; z-index: 0; top: 0; right: 0; bottom: 0; width: min(50%, 760px);
   max-width: none; max-height: none; height: 100%; object-fit: cover; object-position: center;
 }
+/* hero.align: "center": title, lede and search centred. */
+.hub-hero--center .hub-hero-in { justify-content: center; text-align: center; }
+.hub-hero--center .hub-hero-txt { flex: 0 1 720px; max-width: 720px; display: flex; flex-direction: column; align-items: center; }
+.hub-hero--center .hub-search { max-width: 560px; }
 /* hero.text: "light", for a dark background. The search box keeps its own
    solid fill. */
 .hub-hero--light h1 { color: #fff; }
@@ -97,6 +101,35 @@
   }
   body.docnav-open .docs-shell > aside.docs-side { transform: none; }
   body.docnav-open .docs-shell .docnav-scrim { display: block; position: fixed; inset: 0; z-index: 45; background: rgba(0,0,0,.5); }
+}
+
+/* Frontmatter `sidebar: false`: no sidebar on desktop, so the page takes the
+   full width (a help-center home made of cards). Below 880px the sidebar is
+   the phone drawer as usual. */
+@media (min-width: 881px) {
+  .docs-shell.docs-shell--nosidebar { grid-template-columns: minmax(0, 1fr) 220px !important; }
+  .docs-shell.docs-shell--hub.docs-shell--nosidebar { grid-template-columns: minmax(0, 1fr) !important; }
+  .docs-shell--nosidebar > aside.docs-side { display: none; }
+  .docs-shell--hub.docs-shell--nosidebar .docs-main { width: 100%; max-width: 1180px; margin-inline: auto; }
+  .docs-shell--hub.docs-shell--nosidebar::before { left: 0; }
+}
+@media (max-width: 1080px) {
+  .docs-shell.docs-shell--nosidebar { grid-template-columns: minmax(0, 1fr) !important; }
+}
+
+/* layout.surface: "panel": the page and "On this page" sit on a raised,
+   rounded panel beside the sidebar. The panel is the shell's ::before,
+   placed in the grid behind the main and toc columns, so it grows with the
+   page. Flat below 880px, where the sidebar is a drawer. */
+@media (min-width: 881px) {
+  html[data-surface="panel"] .docs-shell:not(.docs-shell--hub):not(.docs-shell--nosidebar)::before {
+    content: ""; grid-row: 1; grid-column: 2 / -1; align-self: stretch;
+    margin: 12px 16px 16px 0; border: 1px solid var(--line); border-radius: 18px;
+    background: var(--surface-bg, color-mix(in srgb, var(--ink) 2.5%, var(--bg)));
+  }
+  html[data-surface="panel"] .docs-shell:not(.docs-shell--hub):not(.docs-shell--nosidebar) > .docs-side { grid-row: 1; grid-column: 1; border-right: 0; }
+  html[data-surface="panel"] .docs-shell:not(.docs-shell--hub):not(.docs-shell--nosidebar) > .docs-main { grid-row: 1; grid-column: 2; padding-top: 52px; }
+  html[data-surface="panel"] .docs-shell:not(.docs-shell--hub):not(.docs-shell--nosidebar) > .docs-toc { grid-row: 1; grid-column: 3; margin-right: 16px; }
 }
 .docs-shell .docnav-scrim { display: none; }
 

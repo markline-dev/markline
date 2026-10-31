@@ -208,6 +208,20 @@ same search as ⌘K. `hero.image` is optional and hidden on narrow screens.
 With `layout.search: "header"`, the header search box stays hidden until the
 hero's box scrolls out of view. Hub pages have no previous/next links.
 
+### On this page
+
+The "On this page" list beside a docs page is built from its `##` and `###`
+headings. To choose the entries yourself, list them in frontmatter; to hide
+it, set `toc: false`:
+
+```yaml
+toc:
+  - id: install
+    label: Install
+  - id: configure
+    label: Configure
+```
+
 ## API & playground
 
 <ParamField path="api.baseUrl" type="string">Base URL the playground sends requests to (overrides the spec's servers).</ParamField>

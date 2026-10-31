@@ -34,6 +34,9 @@ All notable changes to `@markline/markline` and `@markline/create`.
   (`--content-width`, 880px) centred between the sidebar and "On this page",
   with text the same width as tables and callouts. The default, `"fluid"`, is
   unchanged. The `help-center` template uses `"centered"`.
+- **"On this page" builds itself.** Docs pages list their `##` and `###`
+  headings (subheadings indented) unless the frontmatter sets `toc`.
+  `toc: false` hides it.
 
 ### Changed
 - **The search dialog keeps one height**, with a "Start typing to search"
@@ -46,6 +49,9 @@ All notable changes to `@markline/markline` and `@markline/create`.
   stays hidden until the hero's box scrolls out of view.
 - **No previous/next links on hub pages.** A help-center home showed "Next"
   to the first article.
+- **Headings with inline formatting get anchors.** A heading containing
+  code, bold or a link (``## The `init` command``) had no `id`, so it couldn't
+  be linked to.
 
 ## 0.1.6
 

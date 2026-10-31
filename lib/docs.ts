@@ -4,7 +4,9 @@ import matter from "gray-matter";
 import { contentRoot } from "./paths";
 import { loadConfig, contentPrefixIds } from "./config";
 
-export type TocItem = { id: string; label: string };
+import type { TocItem } from "./toc";
+
+export type { TocItem };
 
 export type DocFrontmatter = {
   title: string;
@@ -49,7 +51,8 @@ function readMdx(filePath: string): { fm: DocFrontmatter; body: string } {
     title: String(data.title ?? ""),
     lede: data.lede ? String(data.lede) : undefined,
     description: data.description ? String(data.description) : undefined,
-    toc: Array.isArray(data.toc) ? data.toc as TocItem[] : undefined,
+    // A list replaces the automatic "On this page"; `toc: false` hides it.
+    toc: Array.isArray(data.toc) ? (data.toc as TocItem[]) : data.toc === false ? [] : undefined,
     last_updated: data.last_updated ? String(data.last_updated) : undefined,
     crumbs: Array.isArray(data.crumbs) ? data.crumbs : undefined,
     related: Array.isArray(data.related) ? data.related.filter((r: unknown) => typeof r === "string") : undefined,

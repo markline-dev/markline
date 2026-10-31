@@ -4,7 +4,9 @@ import { DocAiRow } from "./doc-actions";
 import { LinkList, LinkItem } from "./authoring";
 
 export type Crumb = { label: string; href?: string };
-export type TocItem = { id: string; label: string };
+import type { TocItem } from "@/lib/toc";
+
+export type { TocItem };
 export type PageNavLink = { href: string; label: string };
 
 const ChevronSep = (

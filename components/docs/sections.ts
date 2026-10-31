@@ -67,8 +67,12 @@ function buildTabs(navTabs: NavTab[]): DocsTab[] {
   }));
 }
 
-export function getDocsTabs(): DocsTab[] {
-  return buildTabs(loadConfig().navigation.tabs);
+/** The docs tabs of a version or locale (its own `navigation`), or the default's. */
+export function getDocsTabs(variant?: string): DocsTab[] {
+  const config = loadConfig();
+  const entries = config.versions?.length ? config.versions : (config.i18n?.locales ?? []);
+  const v = variant ? entries.find((e) => e.id === variant) : undefined;
+  return buildTabs((v?.navigation ?? config.navigation).tabs);
 }
 
 export const NO_VARIANT = "__default__";

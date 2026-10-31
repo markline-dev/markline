@@ -9,7 +9,7 @@ import "./api-explorer.css";
 import "./docs.css";
 import "./components.css";
 import { SiteNav } from "@/components/site-nav";
-import { loadConfig, loadTemplateCss, hexToRgbTriple, type TopbarItem, type TopbarLink } from "@/lib/config";
+import { loadConfig, loadTemplateCss, hexToRgbTriple, type MarklineConfig, type TopbarItem, type TopbarLink } from "@/lib/config";
 import { bannerExpired, bannerId, bannerScript } from "@/lib/banner";
 import { escapeStyleText } from "@/lib/templates";
 import { Analytics } from "@/components/docs/analytics";
@@ -91,6 +91,22 @@ function themeCss(): string | null {
   return out.length ? out.join("") : null;
 }
 
+/** `versions`, or else `i18n.locales`, when there's more than one. */
+const variants = (() => {
+  const kind = config.versions?.length ? ("versions" as const) : config.i18n?.locales?.length ? ("locales" as const) : null;
+  const entries = kind === "versions" ? config.versions! : kind === "locales" ? config.i18n!.locales : [];
+  return kind && entries.length > 1 ? { kind, entries, defaultId: entries[0].id } : null;
+})();
+/** What the header needs of them: ids and labels. */
+const switcher = variants && {
+  ...variants,
+  entries: variants.entries.map((e) => ({ id: e.id, label: e.label })),
+};
+
+function headerTabs(navigation: MarklineConfig["navigation"]) {
+  return navigation.tabs.map((t) => ({ label: t.label, href: t.href, match: t.match }));
+}
+
 const isGithub = (l: TopbarItem): l is TopbarLink => "href" in l && /github\.com/.test(l.href);
 
 /** GitHub repo URL from the topbar links (for the shared nav badge), if any. */
@@ -113,7 +129,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const appearance = config.theme.appearance ?? "system";
   return (
     <html
-      lang="en"
+      lang={variants?.kind === "locales" ? variants.defaultId : "en"}
       className={`${geist.variable} ${geistMono.variable} ${instrumentSerif.variable} ${schibsted.variable} ${cooper.variable}`}
       data-header={config.layout.header}
       data-content={config.layout.content}
@@ -141,7 +157,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Analytics config={config.analytics} />
         <SiteNav
           brand={{ name: config.name, logo: config.theme.logo }}
-          tabs={config.navigation.tabs.map((t) => ({ label: t.label, href: t.href, match: t.match }))}
+          tabs={headerTabs(config.navigation)}
+          variants={switcher}
+          tabsByVariant={
+            variants
+              ? Object.fromEntries(variants.entries.map((e) => [e.id, headerTabs(e.navigation ?? config.navigation)]))
+              : undefined
+          }
           navLinks={config.topbar.navLinks}
           links={config.topbar.links?.filter((l) => !isGithub(l))}
           githubUrl={githubUrl()}

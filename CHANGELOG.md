@@ -45,6 +45,10 @@ All notable changes to `@markline/markline` and `@markline/create`.
   above the header. It can end on a date (`until`) and readers can close it.
   `--banner-bg` (any colour or gradient) and `--banner-fg` in
   `theme.cssVariables` restyle it; `--nav-bg` sets the header's background.
+- **Site footer.** `footer` in markline.json adds columns of links, the logo,
+  a copyright line, small links (Privacy, Terms) and social icons across the
+  bottom of every page, with "Built with Markline" in its bottom row. The
+  `help-center` starter includes one.
 
 ### Changed
 - **The search dialog keeps one height**, with a "Start typing to search"
@@ -61,6 +65,14 @@ All notable changes to `@markline/markline` and `@markline/create`.
   left edge of the button, and the chevron stays highlighted while it's open.
 
 ### Fixed
+- **The version and language switcher is back.** Sites with `versions` or
+  `i18n.locales` had no way to switch in the header since the site was
+  unified, though the docs described one. Picking a version or language opens
+  the same page there, or its home page if the page doesn't exist in it. The
+  page's `lang` follows the locale.
+- **Translated and older-version pages follow their own sidebar.** Header
+  tabs, breadcrumbs, previous/next and related articles on `/es/…` or `/v1/…`
+  pages used the default navigation.
 - **Centred docs pages fit on phones.** With `layout.content: "centered"`,
   the page column was 40px wider than the screen.
 - **One search box on hub pages.** With `layout.search: "header"`, a hub page

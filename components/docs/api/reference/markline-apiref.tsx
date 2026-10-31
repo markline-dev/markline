@@ -66,8 +66,11 @@ export function MarklineApiRef({
   feedbackEnabled = false,
   feedbackEndpoint,
   searchInSidebar = true,
+  footer,
 }: {
   view: ApiRefView;
+  /** The site footer (`footer` in markline.json), rendered on the server. */
+  footer?: React.ReactNode;
   /** False when layout.search puts the search box in the header instead. */
   searchInSidebar?: boolean;
   /** Server-rendered per-resource MDX summary (api/sections/<tag>.mdx), if any. */
@@ -467,7 +470,7 @@ export function MarklineApiRef({
         </main>
       </div>
 
-      <SiteCredit />
+      {footer ?? <SiteCredit />}
 
       <SearchPalette index={view.search} aiEnabled={aiOn} />
       <MarkdownModal />

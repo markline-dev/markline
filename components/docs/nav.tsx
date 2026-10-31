@@ -249,6 +249,7 @@ export function DocsShell({
   aiSuggestions,
   searchInSidebar = true,
   variant,
+  footer,
   children,
 }: {
   nav: NavData;
@@ -259,12 +260,15 @@ export function DocsShell({
   ai?: AiPublicConfig | null;
   /** Page-specific Ask AI starter questions (frontmatter `aiSuggestions`). */
   aiSuggestions?: string[];
+  /** The site footer (`footer` in markline.json), across the full width. */
+  footer?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
     <div className={`docs-shell grid${variant === "hub" ? " docs-shell--hub" : ""}`}>
       <DocsSidebar nav={nav} ai={ai} aiSuggestions={aiSuggestions} searchInSidebar={searchInSidebar} />
       {children}
+      {footer}
       {/* ⌘K / sidebar-trigger search palette (modal only — the inline trigger
           lives in the sidebar). */}
       <DocsSearch triggerless />

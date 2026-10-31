@@ -102,6 +102,20 @@ export type BannerConfig = {
   tone?: "neutral" | "brand";
 };
 
+/** A site footer below every page. Omit it for just "Built with Markline". */
+export type FooterConfig = {
+  /** Columns of links, each under a heading. */
+  columns?: { title: string; links: TopbarLink[] }[];
+  /** Show the site logo (`theme.logo`, or the site name). Default true. */
+  logo?: boolean;
+  /** Social profiles by network: github, x, discord, linkedin, youtube, … */
+  socials?: Record<string, string>;
+  /** Small links in the bottom row, e.g. Privacy and Terms. */
+  links?: TopbarLink[];
+  /** Text in the bottom row, e.g. "© 2026 Acme Inc." */
+  copyright?: string;
+};
+
 /**
  * A documentation version. The first version in the list is the default and is
  * served unprefixed (e.g. /quickstart). Others are served under their id as a
@@ -411,6 +425,7 @@ export type MarklineConfig = {
     homeWidth?: "full" | "contained";
   };
   navigation: { tabs: NavTab[] };
+  footer?: FooterConfig;
   seo: SeoConfig;
   api: ApiConfig;
   /** Base URL for "Edit this page" links; the page's content-relative path is appended. */
@@ -470,6 +485,7 @@ function mergeConfig(base: MarklineConfig, user: Partial<MarklineConfig>): Markl
     navigation: {
       tabs: user.navigation?.tabs ?? base.navigation.tabs,
     },
+    footer: user.footer ?? base.footer,
     seo: { ...base.seo, ...user.seo },
     api: {
       ...base.api,

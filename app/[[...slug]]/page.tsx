@@ -159,7 +159,15 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
   if (!hub) return shell;
   return (
     <>
-      <HubHero title={doc.fm.title} lede={doc.fm.lede} image={doc.fm.hero?.image} placeholder={doc.fm.hero?.placeholder} />
+      <HubHero
+        title={doc.fm.title}
+        lede={doc.fm.lede}
+        image={doc.fm.hero?.image}
+        imageStyle={doc.fm.hero?.imageStyle}
+        background={doc.fm.hero?.background}
+        text={doc.fm.hero?.text}
+        placeholder={doc.fm.hero?.placeholder}
+      />
       {shell}
     </>
   );

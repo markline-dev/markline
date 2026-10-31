@@ -45,6 +45,11 @@ All notable changes to `@markline/markline` and `@markline/create`.
   above the header. It can end on a date (`until`) and readers can close it.
   `--banner-bg` (any colour or gradient) and `--banner-fg` in
   `theme.cssVariables` restyle it; `--nav-bg` sets the header's background.
+- **Hub hero images and backgrounds.** `hero.imageStyle: bleed` makes the
+  image fill the hero's right side, `hero.background` sets an image or any CSS
+  background behind it, and `hero.text: light` suits dark ones.
+  `--hub-hero-bg` and `--hub-bg` (the content area, e.g. a dotted grid) set
+  them site-wide.
 - **Site footer.** `footer` in markline.json adds columns of links, the logo,
   a copyright line, small links (Privacy, Terms) and social icons across the
   bottom of every page, with "Built with Markline" in its bottom row. The

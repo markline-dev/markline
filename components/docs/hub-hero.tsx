@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { heroBackground } from "@/lib/hero-background";
 
 /**
  * The hub layout's hero (frontmatter `layout: hub`): the page's title and lede
@@ -16,11 +17,21 @@ export function HubHero({
   title,
   lede,
   image,
+  imageStyle = "contained",
+  background,
+  text = "dark",
   placeholder = "Search for articles…",
 }: {
   title: string;
   lede?: string;
   image?: string;
+  /** "bleed" fills the hero's right side, cropped; "contained" boxes it. */
+  imageStyle?: "contained" | "bleed";
+  /** Frontmatter `hero.background`: an image or any CSS background. Without
+   *  it the site-wide `--hub-hero-bg` (theme.cssVariables) applies. */
+  background?: string;
+  /** "light" text for a dark background. */
+  text?: "dark" | "light";
   placeholder?: string;
 }) {
   const searchRef = useRef<HTMLButtonElement>(null);
@@ -38,8 +49,13 @@ export function HubHero({
     };
   }, []);
 
+  const bg = heroBackground(background);
+  const cls = ["hub-hero", image && `hub-hero--image hub-hero--${imageStyle}`, text === "light" && "hub-hero--light"];
   return (
-    <section className={`hub-hero${image ? " hub-hero--image" : ""}`}>
+    <section
+      className={cls.filter(Boolean).join(" ")}
+      style={bg ? ({ "--hub-hero-bg": bg } as React.CSSProperties) : undefined}
+    >
       <div className="hub-hero-in">
         <div className="hub-hero-txt">
           <h1>{title}</h1>

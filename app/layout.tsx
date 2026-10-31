@@ -13,6 +13,7 @@ import { loadConfig, loadTemplateCss, hexToRgbTriple, type MarklineConfig, type 
 import { bannerExpired, bannerId, bannerScript } from "@/lib/banner";
 import { onColor } from "@/lib/contrast";
 import { fontLinks } from "@/lib/font-urls";
+import { htmlLang } from "@/lib/lang";
 import { escapeStyleText } from "@/lib/templates";
 import { Analytics } from "@/components/docs/analytics";
 
@@ -139,7 +140,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const fonts = fontLinks(config.theme.font?.url, process.env.NEXT_PUBLIC_MARKLINE_BASE_PATH ?? "");
   return (
     <html
-      lang={variants?.kind === "locales" ? variants.defaultId : "en"}
+      lang={htmlLang(config)}
       className={`${geist.variable} ${geistMono.variable} ${instrumentSerif.variable} ${schibsted.variable} ${cooper.variable}`}
       data-header={config.layout.header}
       data-content={config.layout.content}

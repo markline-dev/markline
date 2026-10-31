@@ -23,6 +23,7 @@ toc:
 ## Theme & branding
 
 <ParamField path="name" type="string" required>The site name, used in the header and metadata.</ParamField>
+<ParamField path="lang" type="string">The site's language, as a language code (`es`, `pt-BR`), set as the pages' `lang` attribute. Defaults to the first locale's `id` (see [Versions & i18n](/versions)), or `en`.</ParamField>
 <ParamField path="theme.logo" type="object">`{ light, dark }` image paths, or `{ text }` for a wordmark.</ParamField>
 <ParamField path="theme.colors" type="object">`{ primary, primaryDark }` brand accents (hex). See [Theming](/theming) for the full palette and fonts.</ParamField>
 <ParamField path="theme.appearance" type='"light" | "dark" | "system"'>Default color scheme.</ParamField>

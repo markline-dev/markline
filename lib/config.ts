@@ -422,6 +422,11 @@ export type LayoutConfig = {
 
 export type MarklineConfig = {
   name: string;
+  /**
+   * The site's language, as a language code ("es", "pt-BR"): the pages'
+   * `<html lang>`. Defaults to the first locale's id, or "en".
+   */
+  lang?: string;
   layout: LayoutConfig;
   /**
    * A template to start from: a built-in name ("paper"), a folder relative to
@@ -493,6 +498,7 @@ const DEFAULT_CONFIG: MarklineConfig = {
 function mergeConfig(base: MarklineConfig, user: Partial<MarklineConfig>): MarklineConfig {
   return {
     name: user.name ?? base.name,
+    lang: user.lang ?? base.lang,
     template: user.template,
     layout: { ...base.layout, ...user.layout },
     // Fully recursive, so a user can override one cssVariables entry without

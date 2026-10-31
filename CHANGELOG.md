@@ -42,8 +42,19 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **The search dialog keeps one height**, with a "Start typing to search"
   state and a footer of keyboard hints, instead of a thin strip that grew as
   results arrived.
+- **New previous/next links.** The next page is a card with its title and
+  "Next ›"; the previous page is a small "‹ Previous" button. On the last
+  page, the previous page gets the card. One row on phones too.
+- **"Built with Markline" is one centred line** under the page, in place of
+  the footer row with the copyright and a heart.
+- **View as Markdown** opens as a file named after the page, on a light
+  panel that follows the theme, with "Copy markdown" at the bottom.
+- **The page-actions menu** (`layout.pageActions: "menu"`) opens under the
+  left edge of the button, and the chevron stays highlighted while it's open.
 
 ### Fixed
+- **Centred docs pages fit on phones.** With `layout.content: "centered"`,
+  the page column was 40px wider than the screen.
 - **One search box on hub pages.** With `layout.search: "header"`, a hub page
   showed two search boxes, the header's and the hero's. The header one now
   stays hidden until the hero's box scrolls out of view.

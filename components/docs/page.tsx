@@ -2,6 +2,7 @@ import Link from "next/link";
 import { DocsToc } from "./nav";
 import { DocAiRow } from "./doc-actions";
 import { LinkList, LinkItem } from "./authoring";
+import { SiteCredit } from "../site-credit";
 
 export type Crumb = { label: string; href?: string };
 import type { TocItem } from "@/lib/toc";
@@ -9,6 +10,11 @@ import type { TocItem } from "@/lib/toc";
 export type { TocItem };
 export type PageNavLink = { href: string; label: string };
 
+const ChevronLeft = (
+  <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
+    <path d="m15 6-6 6 6 6" />
+  </svg>
+);
 const ChevronSep = (
   <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
     <path d="m9 6 6 6-6 6" />
@@ -91,24 +97,25 @@ export function DocsPage({
         )}
 
         {(prev || next) && (
-          <div className="page-nav">
-            {prev ? (
-              <Link href={prev.href}>
-                <div className="d">← Previous</div>
-                <div className="t">{prev.label}</div>
+          <nav className={`page-nav${next ? "" : " page-nav--last"}`} aria-label="Previous and next pages">
+            {prev &&
+              (next ? (
+                <Link href={prev.href} className="pn-prev" title={prev.label} aria-label={`Previous: ${prev.label}`}>
+                  {ChevronLeft} Previous
+                </Link>
+              ) : (
+                <Link href={prev.href} className="pn-card">
+                  <span className="d">{ChevronLeft} Previous</span>
+                  <span className="t">{prev.label}</span>
+                </Link>
+              ))}
+            {next && (
+              <Link href={next.href} className="pn-card pn-next">
+                <span className="t">{next.label}</span>
+                <span className="d">Next {ChevronSep}</span>
               </Link>
-            ) : (
-              <span />
             )}
-            {next ? (
-              <Link href={next.href} className="next-a">
-                <div className="d">Next →</div>
-                <div className="t">{next.label}</div>
-              </Link>
-            ) : (
-              <span />
-            )}
-          </div>
+          </nav>
         )}
 
         {(footDate || editUrl) && (
@@ -124,6 +131,8 @@ export function DocsPage({
             )}
           </div>
         )}
+
+        <SiteCredit />
       </main>
 
       {!hub && <DocsToc items={toc} helpful={feedbackEnabled} feedbackEndpoint={feedbackEndpoint} />}

@@ -14,7 +14,6 @@ import { HubHero } from "@/components/docs/hub-hero";
 import { LandingPage } from "@/components/landing/landing";
 import { remarkLandingProse } from "@/lib/landing-prose";
 import { extractToc } from "@/lib/toc";
-import { SiteCredit } from "@/components/site-credit";
 import type { Crumb, PageNavLink } from "@/components/docs/page";
 
 // One transformer instance reused across all blocks — it's stateless.
@@ -141,7 +140,6 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
       >
         {content}
       </DocsPage>
-      <SiteCredit name={config.name} year={new Date().getFullYear()} />
     </DocsShell>
   );
   if (!hub) return shell;

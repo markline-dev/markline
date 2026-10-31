@@ -76,9 +76,14 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "rehype-pretty-code": "0.14.0",
+    "rehype-sanitize": "^6.0.0",
+    "rehype-stringify": "^10.0.1",
     "remark-gfm": "4.0.0",
+    "remark-parse": "^11.0.0",
+    "remark-rehype": "^11.1.2",
     "shiki": "1.22.2",
-    "typescript": "5.6.3"
+    "typescript": "5.6.3",
+    "unified": "^11.0.5"
   },
   "devDependencies": {
     "eslint": "9.14.0",

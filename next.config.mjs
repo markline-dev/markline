@@ -35,6 +35,21 @@ const nextConfig = {
   // dynamic grammar/theme imports resolve via node_modules at runtime.
   serverExternalPackages: ["shiki"],
   ...(isExport ? {} : { async redirects() { return []; } }),
+  // <page>.md and <section>/llms.txt are files in public/ after a build
+  // (scripts/build-search.mjs), and a static export serves just those. Under
+  // `next dev` and the Node server, a path with no such file falls through to
+  // the route handlers that render the same text. These run after public/
+  // files, so a built file always wins.
+  ...(isExport
+    ? {}
+    : {
+        async rewrites() {
+          return [
+            { source: "/:path+.md", destination: "/api/md/:path+" },
+            { source: "/:section/llms.txt", destination: "/api/llms/:section" },
+          ];
+        },
+      }),
 };
 
 const withMDX = createMDX({

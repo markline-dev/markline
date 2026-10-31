@@ -145,7 +145,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug?: st
   const tag = doc.tags.find((t) => tagSlug(t.name) === first);
   // Descriptions may be markdown; meta/OG tags need plain text, so syntax like
   // `code` or [links](url) doesn't surface verbatim in a snippet.
-  if (tag) return meta(`${tag.name} · API reference`, mdToText(tag.description));
+  if (tag) return meta(`${tag.displayName ?? tag.name} · API reference`, mdToText(tag.description));
   const op = doc.operationsById[first];
   if (!op) return {};
   return meta(`${op.summary ?? op.operationId} · API`, mdToText(op.description));
@@ -188,7 +188,7 @@ export default async function ApiReferencePage({ params }: { params: Promise<{ s
   const op = first ? doc.operationsById[first] : undefined;
   if (!op) return notFound();
 
-  const parsedTag = parseOpenApiTag(op.tag);
+  const parsedTag = parseOpenApiTag(op.tag, doc.tagLabels);
   const crumbs = [
     { label: "Docs", href: "/" },
     { label: "API reference", href: base },

@@ -26,7 +26,7 @@ export function EndpointList({ tags }: { tags?: string[] } = {}) {
 function TagSection({ tag }: { tag: OpenAPITag }) {
   return (
     <section className="ml-eplist-tag">
-      <h2>{capitalize(tag.name)}</h2>
+      <h2>{tag.displayName ?? capitalize(tag.name)}</h2>
       {tag.description && (
         <div className="ml-eplist-desc" dangerouslySetInnerHTML={{ __html: mdToHtml(tag.description) }} />
       )}

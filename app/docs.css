@@ -342,6 +342,14 @@
   color: var(--accent-ink); border-bottom: 1px solid var(--accent-line); text-decoration: none;
 }
 :is(.docs-shell, .ml-landing) .docs-prose a:not([class]):hover { border-color: var(--accent-ink); }
+/* Images in page text (markdown ![](), or a bare <img>): never wider than
+   the text column, with a hairline frame so light screenshots keep an edge
+   on a light page. Components that render their own images carry a class and
+   are left alone. --prose-img-radius and --prose-img-border restyle them. */
+:is(.docs-shell, .api-op-main, .ml-landing) .docs-prose img:not([class]) {
+  display: block; max-width: 100%; height: auto; margin: 24px 0 8px;
+  border: var(--prose-img-border, 1px solid var(--line)); border-radius: var(--prose-img-radius, 12px);
+}
 :is(.docs-shell, .api-op-main, .ml-landing) .docs-prose ul,
 :is(.docs-shell, .api-op-main, .ml-landing) .docs-prose ol { margin: 14px 0 0 2px; padding-left: 20px; color: var(--ink-2); font-size: 15.5px; line-height: 1.7; max-width: 68ch; }
 :is(.docs-shell, .api-op-main, .ml-landing) .docs-prose ul { list-style: disc; }

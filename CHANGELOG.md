@@ -95,6 +95,10 @@ All notable changes to `@markline/markline` and `@markline/create`.
   left edge of the button, and the chevron stays highlighted while it's open.
 
 ### Fixed
+- **Images in pages fit the column.** A markdown image showed at its
+  natural size, so a large screenshot ran past the text and under "On this
+  page". Images now shrink to the column width, with a hairline frame and
+  rounded corners (`--prose-img-radius`, `--prose-img-border`).
 - **`theme.logo.icon` shows again,** before the site name, as documented.
 - **Linked cards lost a stray underline.** The prose link style drew an
   accent line along the bottom of any `<Card href>` in a page, and turned the

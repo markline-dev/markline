@@ -433,6 +433,47 @@
 :is(.docs-shell, .ml-landing, .api-op-main) .ml-link-ic { flex: none; display: inline-flex; color: var(--ink-3); }
 
 /* <Video> */
+/* <Audio> / <AudioGroup>. --audio-accent colours the play button and the
+   progress (default: the text colour). */
+:is(.docs-shell, .ml-landing, .api-op-main) .ml-audio { margin: 24px 0 0; }
+.ml-audio-group { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px 32px; margin-top: 24px; }
+.ml-audio-group > .ml-audio { margin: 0; }
+.ml-audio-player { display: flex; align-items: center; gap: 18px; padding: 14px 4px; }
+.ml-audio-play {
+  flex: none; display: grid; place-items: center; width: 56px; height: 56px; padding: 0 0 0 2px; border: 0; border-radius: 999px;
+  background: var(--audio-accent, var(--ink)); color: var(--bg); cursor: pointer; transition: transform .12s, opacity .15s;
+}
+.ml-audio-play[aria-label^="Pause"] { padding-left: 0; }
+.ml-audio-play:hover { opacity: .88; }
+.ml-audio-play:active { transform: scale(.96); }
+.ml-audio-main { flex: 1; min-width: 0; display: flex; flex-direction: column; align-items: stretch; gap: 4px; }
+.ml-audio-title { text-align: center; font-size: 14.5px; font-weight: 500; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ml-audio-bar { display: flex; align-items: center; gap: 10px; }
+.ml-audio-time { flex: none; font-family: var(--mono); font-size: 12px; color: var(--ink-3); font-variant-numeric: tabular-nums; }
+.ml-audio-seek {
+  flex: 1; min-width: 0; height: 18px; margin: 0; background: transparent; cursor: pointer; -webkit-appearance: none; appearance: none;
+}
+.ml-audio-seek::-webkit-slider-runnable-track {
+  height: 4px; border-radius: 999px;
+  background: linear-gradient(to right, var(--audio-accent, var(--ink)) var(--pct, 0%), var(--line-2) var(--pct, 0%));
+}
+.ml-audio-seek::-moz-range-track { height: 4px; border-radius: 999px; background: var(--line-2); }
+.ml-audio-seek::-moz-range-progress { height: 4px; border-radius: 999px; background: var(--audio-accent, var(--ink)); }
+.ml-audio-seek::-webkit-slider-thumb { -webkit-appearance: none; width: 12px; height: 12px; margin-top: -4px; border-radius: 999px; background: var(--audio-accent, var(--ink)); }
+.ml-audio-seek::-moz-range-thumb { width: 12px; height: 12px; border: 0; border-radius: 999px; background: var(--audio-accent, var(--ink)); }
+.ml-audio-seek:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 4px; }
+.ml-audio-controls { display: flex; justify-content: center; align-items: center; gap: 22px; }
+.ml-audio-btn {
+  display: inline-grid; place-items: center; min-width: 30px; height: 30px; padding: 0 4px; border: 0; border-radius: 7px;
+  background: transparent; color: var(--ink-2); cursor: pointer; font: inherit; font-size: 13.5px; font-weight: 500;
+}
+.ml-audio-btn:hover { color: var(--ink); background: var(--panel-hi); }
+.ml-audio-rate { min-width: 48px; font-variant-numeric: tabular-nums; }
+.ml-audio figcaption { margin-top: 4px; font-size: 13px; color: var(--ink-3); text-align: center; }
+@media (max-width: 480px) {
+  .ml-audio-player { gap: 12px; }
+  .ml-audio-play { width: 46px; height: 46px; }
+}
 :is(.docs-shell, .ml-landing, .api-op-main) .ml-video { margin: 24px 0 0; }
 :is(.docs-shell, .ml-landing, .api-op-main) .ml-video-frame {
   position: relative; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden;

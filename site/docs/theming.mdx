@@ -149,13 +149,30 @@ not triples:
 ## Fonts
 
 <ParamField path="theme.font.sans / theme.font.mono" type="string">
-  Font-family overrides. The font must be system-available or self-loaded (e.g.
-  via a `@font-face` in a stylesheet you include). Defaults to Geist.
+  Font-family overrides. Defaults to Geist. The font must be installed on the
+  reader's device, or loaded with `theme.font.url`.
+</ParamField>
+
+<ParamField path="theme.font.url" type="string | string[]">
+  Stylesheets that load your web fonts, linked from every page: a
+  [Google Fonts](https://fonts.google.com) embed URL, Bunny Fonts, Fontshare,
+  or a CSS file of `@font-face` rules in `public/` (`/fonts/brand.css`). Use
+  an array for more than one. Only `https://` URLs and site paths are used.
 </ParamField>
 
 ```jsonc
-"theme": { "font": { "sans": "Inter", "mono": "JetBrains Mono" } }
+"theme": {
+  "font": {
+    "url": "https://fonts.googleapis.com/css2?family=Inter:wght@400..700&family=JetBrains+Mono&display=swap",
+    "sans": "Inter",
+    "mono": "JetBrains Mono"
+  }
+}
 ```
+
+Markline also preconnects to the font host, so the fonts start downloading
+early. Add `&display=swap` to Google Fonts URLs, so text shows in a fallback
+font while the web font loads.
 
 <ParamField path="theme.font.heading" type="string">
   A separate font for page titles and section headings: docs pages, the hub

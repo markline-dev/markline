@@ -42,8 +42,11 @@ export type ThemeConfig = {
   iconWeight?: "thin" | "light" | "regular" | "bold" | "fill" | "duotone";
   /** Favicon path (served from /public). */
   favicon?: string;
-  /** Font family overrides (the font must be system-available or self-loaded). */
+  /** Font family overrides. The font must be installed, or loaded by `url`. */
   font?: {
+    /** Stylesheet(s) that load the fonts, linked from every page: a Google
+     *  Fonts / Bunny / Fontshare URL, or a CSS file in /public. */
+    url?: string | string[];
     sans?: string;
     mono?: string;
     /** Font for page titles and section headings (docs, hub hero, API

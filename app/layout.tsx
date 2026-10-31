@@ -12,6 +12,7 @@ import { SiteNav } from "@/components/site-nav";
 import { loadConfig, loadTemplateCss, hexToRgbTriple, type MarklineConfig, type TopbarItem, type TopbarLink } from "@/lib/config";
 import { bannerExpired, bannerId, bannerScript } from "@/lib/banner";
 import { onColor } from "@/lib/contrast";
+import { fontLinks } from "@/lib/font-urls";
 import { escapeStyleText } from "@/lib/templates";
 import { Analytics } from "@/components/docs/analytics";
 
@@ -135,6 +136,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   const brandCss = escapeStyleText(themeCss() ?? "");
   const tplCss = escapeStyleText(loadTemplateCss());
   const appearance = config.theme.appearance ?? "system";
+  const fonts = fontLinks(config.theme.font?.url, process.env.NEXT_PUBLIC_MARKLINE_BASE_PATH ?? "");
   return (
     <html
       lang={variants?.kind === "locales" ? variants.defaultId : "en"}
@@ -149,6 +151,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       suppressHydrationWarning
     >
       <head>
+        {/* theme.font.url: the stylesheets that load the site's web fonts. */}
+        {fonts.origins.map((o) => (
+          <link key={o} rel="preconnect" href={o} crossOrigin="" />
+        ))}
+        {fonts.sheets.map((href) => (
+          <link key={href} rel="stylesheet" href={href} />
+        ))}
         {/* Template styles first, so the site's own theme settings override them. */}
         {tplCss && <style data-markline-template dangerouslySetInnerHTML={{ __html: tplCss }} />}
         {brandCss && <style dangerouslySetInnerHTML={{ __html: brandCss }} />}

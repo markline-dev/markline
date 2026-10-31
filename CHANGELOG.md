@@ -5,6 +5,9 @@ All notable changes to `@markline/markline` and `@markline/create`.
 ## Unreleased
 
 ### Added
+- **`theme.font.url`** loads web fonts from config: a Google Fonts, Bunny or
+  Fontshare URL, or a stylesheet in `public/`, linked from every page with a
+  preconnect to the font host.
 - **`<Audio>` and `<AudioGroup>`.** A player for voice samples and calls,
   with seek, 15-second skips, speed and mute, and side-by-side groups for
   comparisons. Only one plays at a time.

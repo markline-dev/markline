@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Image, ProseImage } from "./prose-image";
+import { Audio, AudioGroup } from "./audio";
 import { slugify } from "@/lib/toc";
 import type { MDXComponents } from "mdx/types";
 import { Callout, DocsH2, DocsP } from "./page";
@@ -171,6 +172,8 @@ export const mdxComponents: MDXComponents = {
   Path,
   MenuPath,
   Image,
+  Audio,
+  AudioGroup,
   ApiRefs,
   MigrationCallout,
   EndpointList,

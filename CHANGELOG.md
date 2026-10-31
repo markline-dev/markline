@@ -5,6 +5,9 @@ All notable changes to `@markline/markline` and `@markline/create`.
 ## Unreleased
 
 ### Added
+- **`<Audio>` and `<AudioGroup>`.** A player for voice samples and calls,
+  with seek, 15-second skips, speed and mute, and side-by-side groups for
+  comparisons. Only one plays at a time.
 - **Image captions, zoom and theme variants.** An image's title shows as a
   caption; images shrunk to fit open full size on click (`#nozoom` to turn it
   off); `#light` / `#dark` on a URL, or `<Image dark>`, show a screenshot only

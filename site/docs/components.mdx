@@ -12,6 +12,8 @@ toc:
     label: Menu paths
   - id: video
     label: Video
+  - id: audio
+    label: Audio
   - id: link-lists
     label: Link lists
   - id: steps
@@ -114,6 +116,29 @@ scroll into view.
 | `title` | Names the video for screen readers |
 | `poster` | Image shown before a video file plays |
 | `caption` | Text under the video |
+
+## Audio
+
+A player for voice samples and recorded calls: play and pause, a seek bar
+with the elapsed and total time, 15-second skips, playback speed and mute.
+
+```mdx
+<Audio src="/samples/greeting.mp3" title="Front desk voice" caption="A sample greeting" />
+```
+
+`<AudioGroup>` sets players side by side, for a before and after:
+
+```mdx
+<AudioGroup>
+  <Audio src="/samples/noisy.mp3" title="Original audio" />
+  <Audio src="/samples/clean.mp3" title="Isolated audio" />
+</AudioGroup>
+```
+
+`src` is a file in `public/` or a URL, in any format the browser plays (MP3,
+M4A, WAV, Ogg). Starting one player pauses any other on the page. On phones
+a group stacks. `--audio-accent` in `theme.cssVariables` colours the play
+button and progress (default: the text colour).
 
 ## Link lists
 

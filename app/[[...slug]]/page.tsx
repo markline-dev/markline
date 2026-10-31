@@ -249,8 +249,8 @@ function renderChangelog(slug: string[]) {
 }
 
 /**
- * "Related articles": the page's own frontmatter list, labelled from the
- * sidebar (or the page's title), or with `layout.related:
+ * "Related articles": the page's own frontmatter list, labelled with each
+ * page's title (or its sidebar label), or with `layout.related:
  * "collection"` the other pages in its sidebar folder.
  */
 function relatedLinks(
@@ -261,9 +261,11 @@ function relatedLinks(
 ): PageNavLink[] {
   if (listed?.length) {
     const labels = new Map(tabs.flatMap((t) => t.sections.flatMap((s) => flattenLinks(s.links))).map((l) => [l.href, l.label]));
+    // The page's own title first: a sidebar label is written for its folder
+    // ("Overview"), and reads as ambiguous once it's listed elsewhere.
     return listed.map((href) => ({
       href,
-      label: labels.get(href) ?? getDoc(href.split("/").filter(Boolean))?.fm.title ?? href,
+      label: getDoc(href.split("/").filter(Boolean))?.fm.title ?? labels.get(href) ?? href,
     }));
   }
   if (mode !== "collection") return [];

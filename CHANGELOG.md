@@ -108,6 +108,10 @@ All notable changes to `@markline/markline` and `@markline/create`.
   left edge of the button, and the chevron stays highlighted while it's open.
 
 ### Fixed
+- **Related articles use page titles.** Pages listed in frontmatter
+  `related` were labelled with their sidebar label, so several showed as just
+  "Overview". They now show each page's title, falling back to the sidebar
+  label.
 - **Images in pages fit the column.** A markdown image showed at its
   natural size, so a large screenshot ran past the text and under "On this
   page". Images now shrink to the column width, with a hairline frame and

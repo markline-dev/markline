@@ -14,7 +14,7 @@ import { HubHero } from "@/components/docs/hub-hero";
 import { LandingPage } from "@/components/landing/landing";
 import { remarkLandingProse } from "@/lib/landing-prose";
 import { SiteCredit } from "@/components/site-credit";
-import type { PageNavLink } from "@/components/docs/page";
+import type { Crumb, PageNavLink } from "@/components/docs/page";
 
 // One transformer instance reused across all blocks — it's stateless.
 const shellTransformer = shellEnhancer();
@@ -75,8 +75,10 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
     }
     return notFound();
   }
-  const crumbs = doc.fm.crumbs ?? navCrumbs(doc.slug, doc.fm.title) ?? deriveCrumbs(doc.slug, doc.fm.title);
   const config = loadConfig();
+  const crumbs =
+    doc.fm.crumbs ??
+    withCrumbsRoot(navCrumbs(doc.slug, doc.fm.title) ?? deriveCrumbs(doc.slug, doc.fm.title), config.layout.breadcrumbsRoot);
   const editUrl = config.editUrl
     ? `${config.editUrl.replace(/\/$/, "")}/${doc.sourcePath}`
     : undefined;
@@ -122,6 +124,8 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
       <DocsPage
         hub={hub}
         crumbs={crumbs}
+        crumbStyle={config.layout.breadcrumbs}
+        actionStyle={config.layout.pageActions}
         title={doc.fm.title}
         lede={doc.fm.lede}
         toc={doc.fm.toc ?? []}
@@ -130,8 +134,8 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
         feedbackEnabled={feedbackConfig() != null}
         feedbackEndpoint={feedbackConfig()?.endpoint}
         aiEnabled={aiConfig() != null}
-        prev={prev}
-        next={next}
+        prev={hub ? undefined : prev}
+        next={hub ? undefined : next}
       >
         {content}
       </DocsPage>
@@ -176,6 +180,13 @@ function firstDocHref(): string | undefined {
     }
   }
   return undefined;
+}
+
+/** `layout.breadcrumbsRoot` renames the first crumb (the tab), e.g. to
+ *  "All collections", and points it home. Frontmatter crumbs are left alone. */
+function withCrumbsRoot(crumbs: Crumb[], root: string | undefined): Crumb[] {
+  if (!root || crumbs.length === 0) return crumbs;
+  return [{ label: root, href: "/" }, ...crumbs.slice(1)];
 }
 
 /**

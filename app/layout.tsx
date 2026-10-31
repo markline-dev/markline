@@ -9,7 +9,8 @@ import "./api-explorer.css";
 import "./docs.css";
 import "./components.css";
 import { SiteNav } from "@/components/site-nav";
-import { loadConfig, loadTemplateCss, hexToRgbTriple } from "@/lib/config";
+import { loadConfig, loadTemplateCss, hexToRgbTriple, type TopbarItem, type TopbarLink } from "@/lib/config";
+import { bannerExpired, bannerId, bannerScript } from "@/lib/banner";
 import { escapeStyleText } from "@/lib/templates";
 import { Analytics } from "@/components/docs/analytics";
 
@@ -90,10 +91,19 @@ function themeCss(): string | null {
   return out.length ? out.join("") : null;
 }
 
+const isGithub = (l: TopbarItem): l is TopbarLink => "href" in l && /github\.com/.test(l.href);
+
 /** GitHub repo URL from the topbar links (for the shared nav badge), if any. */
 function githubUrl(): string | undefined {
-  return config.topbar.links?.find((l) => /github\.com/.test(l.href))?.href;
+  return config.topbar.links?.find(isGithub)?.href;
 }
+
+/** `topbar.banner`, unless its last day had passed when the site was built. */
+const banner = (() => {
+  const b = config.topbar.banner;
+  if (!b?.text || bannerExpired(b.until, new Date())) return undefined;
+  return { text: b.text, link: b.link, dismissible: b.dismissible !== false, tone: b.tone ?? "neutral", id: bannerId(b) };
+})();
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   // Both can carry text from a template, so neither is trusted to stay inside
@@ -107,6 +117,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${geist.variable} ${geistMono.variable} ${instrumentSerif.variable} ${schibsted.variable} ${cooper.variable}`}
       data-header={config.layout.header}
       data-content={config.layout.content}
+      data-banner={banner ? "on" : undefined}
       // Heading-font rules only apply when one is configured, so sites that
       // don't set it render exactly as before.
       data-heading-font={config.theme.font?.heading ? "" : undefined}
@@ -124,6 +135,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             __html: `(function(){try{var t=localStorage.getItem('docs-theme');if(!t){var d='${appearance}';t=(d==='dark'||d==='light')?d:(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');}document.documentElement.setAttribute('data-theme',t);if(t==='dark')document.documentElement.classList.add('dark');if(localStorage.getItem('markline-ai-open')==='1')document.documentElement.setAttribute('data-ai-open','1');}catch(e){}})();`,
           }}
         />
+        {banner && <script dangerouslySetInnerHTML={{ __html: bannerScript(config.topbar.banner!) }} />}
       </head>
       <body className="ml-body">
         <Analytics config={config.analytics} />
@@ -131,8 +143,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           brand={{ name: config.name, logo: config.theme.logo }}
           tabs={config.navigation.tabs.map((t) => ({ label: t.label, href: t.href, match: t.match }))}
           navLinks={config.topbar.navLinks}
+          links={config.topbar.links?.filter((l) => !isGithub(l))}
           githubUrl={githubUrl()}
           cta={config.topbar.cta}
+          secondaryCta={config.topbar.secondaryCta}
+          banner={banner}
           width={config.topbar.width}
           homeWidth={config.topbar.homeWidth}
           header={config.layout.header}

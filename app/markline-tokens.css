@@ -250,6 +250,10 @@ html[data-hub-search="visible"] .nav-search { opacity: 0; visibility: hidden; }
    with the current tab underlined. --nav-h grows to match so sticky
    sidebars still sit just below the header. */
 html[data-header="stacked"] { --nav-h: 105px; }
+/* topbar.banner adds a 40px strip on top. Plain pixel values, since
+   toc.tsx reads --nav-h with parseFloat. */
+html[data-banner] { --nav-h: 100px; }
+html[data-banner][data-header="stacked"] { --nav-h: 145px; }
 .nav-tabs { border-top: 1px solid var(--line); }
 .nav-tabs-in { height: 44px; }
 .nav-tabs .nav-links { gap: 2px; height: 100%; align-items: stretch; }
@@ -261,6 +265,7 @@ html[data-header="stacked"] { --nav-h: 105px; }
 }
 @media (max-width: 880px) {
   html[data-header="stacked"] { --nav-h: 60px; }
+  html[data-banner], html[data-banner][data-header="stacked"] { --nav-h: 100px; }
   .nav-tabs { display: none; }
   .nav-search { flex: 0 0 auto; width: 34px; padding: 0; justify-content: center; }
   .nav-search .lbl, .nav-search .kbd { display: none; }
@@ -277,6 +282,45 @@ html[data-header="stacked"] { --nav-h: 105px; }
 :root:not(.dark):not([data-theme="dark"]) .theme-btn .moon { display: none; }
 :root:not(.dark):not([data-theme="dark"]) .theme-btn .sun { display: block; }
 
+/* topbar.links: text links and dropdowns on the right */
+.nav-extra { display: flex; align-items: center; gap: 2px; }
+.nav-xlink {
+  display: inline-flex; align-items: center; gap: 4px; padding: 7px 10px; border: 0; border-radius: 8px;
+  background: transparent; font: inherit; font-size: 14px; color: var(--ink-2); white-space: nowrap;
+  text-decoration: none; cursor: pointer; transition: color .15s, background .15s;
+}
+.nav-xlink:hover, .nav-xlink[aria-expanded="true"] { color: var(--ink); background: var(--panel-hi); }
+.nav-xlink .chev { width: 13px; height: 13px; opacity: .7; }
+.nav-menu { position: relative; }
+.nav-menu-pop {
+  position: absolute; left: 0; top: calc(100% + 6px); z-index: 60; min-width: 220px; padding: 5px;
+  display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line-2);
+  border-radius: 10px; box-shadow: 0 10px 30px -12px rgb(0 0 0 / .25);
+}
+.nav-menu-pop a { display: flex; flex-direction: column; gap: 2px; padding: 8px 10px; border-radius: 6px; text-decoration: none; }
+.nav-menu-pop a:hover { background: var(--panel-hi); }
+.nav-menu-pop .t { font-size: 13.5px; color: var(--ink); white-space: nowrap; }
+.nav-menu-pop .d { font-size: 12.5px; color: var(--ink-3); }
+
+/* topbar.banner */
+.site-banner {
+  position: relative; display: flex; align-items: center; justify-content: center; height: 40px;
+  padding: 0 48px; font-size: 13.5px; background: var(--panel-hi); color: var(--ink-2);
+  border-bottom: 1px solid var(--line);
+}
+html:not([data-banner]) .site-banner { display: none; }
+.site-banner p { display: flex; align-items: baseline; gap: 10px; min-width: 0; margin: 0; }
+.site-banner .txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.site-banner .lnk { flex: none; font-weight: 600; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.site-banner .x {
+  position: absolute; right: 10px; top: 50%; transform: translateY(-50%); display: grid; place-items: center;
+  width: 28px; height: 28px; border: 0; border-radius: 6px; background: transparent; color: inherit; cursor: pointer; opacity: .75;
+}
+.site-banner .x:hover { opacity: 1; background: color-mix(in srgb, currentColor 10%, transparent); }
+.site-banner .x svg { width: 15px; height: 15px; }
+.site-banner--brand { background: var(--accent); color: rgb(var(--c-on-brand)); border-bottom-color: transparent; }
+.site-banner--brand .lnk { color: inherit; }
+
 /* nav wrap (constrains content width, matches the design) */
 .nav .wrap { width: 100%; max-width: 1240px; margin-inline: auto; padding-inline: 32px; }
 
@@ -290,7 +334,8 @@ html[data-header="stacked"] { --nav-h: 105px; }
 
 @media (max-width: 880px) {
   .nav .wrap { padding-inline: 20px; }
-  .nav-links, .ghbadge .lbl { display: none; }
+  .nav-links, .ghbadge .lbl, .nav-extra, .nav-cta2 { display: none; }
+  .site-banner { padding: 0 44px 0 16px; justify-content: flex-start; font-size: 13px; }
   .nav-burger { display: grid; flex: none; }
   /* Fit brand + actions on narrow screens: tighter gaps/padding, smaller logo,
      and a shrinkable brand so nothing (the burger) gets pushed off-viewport. */
@@ -309,10 +354,13 @@ html[data-header="stacked"] { --nav-h: 105px; }
 
 /* tab links pinned at the top of the mobile sidebar drawer (docs shell) so the
    top-level sections stay reachable on mobile */
-.drawer-tabs { display: none; }
+.drawer-tabs, .drawer-links { display: none; }
 @media (max-width: 880px) {
   .drawer-tabs { display: flex; flex-direction: column; gap: 2px; margin: 0 0 14px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
   .drawer-tabs a { display: block; font-size: 13.5px; font-weight: 500; color: var(--ink-2); padding: 8px 10px; border-radius: 8px; text-decoration: none; }
   .drawer-tabs a:hover { color: var(--ink); background: var(--panel-hi); }
+  .drawer-links { display: flex; flex-direction: column; gap: 2px; margin: 18px 0 0; padding-top: 12px; border-top: 1px solid var(--line); }
+  .drawer-links a { display: block; font-size: 13.5px; color: var(--ink-2); padding: 8px 10px; border-radius: 8px; text-decoration: none; }
+  .drawer-links a:hover { color: var(--ink); background: var(--panel-hi); }
   .drawer-tabs a.active { color: var(--accent-ink, rgb(var(--c-brand))); background: var(--accent-dim, rgb(var(--c-brand) / 0.10)); }
 }

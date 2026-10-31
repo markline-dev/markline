@@ -80,7 +80,19 @@ export const NO_VARIANT = "__default__";
  * uses the top-level `navigation`; others use their own `navigation` (with
  * already-prefixed hrefs), falling back to the default.
  */
+/** Header links the phone drawer repeats: navLinks, then topbar.links (menus
+ *  flattened, GitHub left to its badge), then the secondary button. */
+function headerLinks(config: MarklineConfig): { label: string; href: string }[] {
+  const t = config.topbar;
+  const links = (t.links ?? []).flatMap((l) => ("items" in l ? l.items : /github\.com/.test(l.href) ? [] : [l]));
+  return [...(t.navLinks ?? []), ...links, ...(t.secondaryCta ? [t.secondaryCta] : [])].map((l) => ({ label: l.label, href: l.href }));
+}
+
 export function getNav(config: MarklineConfig = loadConfig()): NavData {
+  return { ...buildNav(config), headerLinks: headerLinks(config) };
+}
+
+function buildNav(config: MarklineConfig): NavData {
   const buildVariantTabs = (v: { navigation?: { tabs: NavTab[] } }) =>
     buildTabs((v.navigation ?? config.navigation).tabs);
 

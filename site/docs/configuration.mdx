@@ -27,11 +27,45 @@ toc:
 
 ## Topbar
 
-<ParamField path="topbar.links" type="array">Right-aligned header links, e.g. a GitHub link.</ParamField>
+<ParamField path="topbar.links" type="array">
+  Links on the right of the header, like "Contact sales" or "Blog". A GitHub
+  link shows as the GitHub badge instead. An entry with `items` instead of
+  `href` is a dropdown; each item can have a `description`.
+</ParamField>
 <ParamField path="topbar.cta" type="object">`{ label, href }` for the primary "Get started" button.</ParamField>
+<ParamField path="topbar.secondaryCta" type="object">`{ label, href }` for an outlined button before the primary one, e.g. "Book a demo".</ParamField>
+<ParamField path="topbar.banner" type="object">
+  A strip across the top of every page for announcements. `text`, an
+  optional `link` (`{ label, href }`), and `until` (`YYYY-MM-DD`): the last day
+  it shows, after which it hides itself, even on a site built before then.
+  Readers can close it unless `dismissible` is `false`; a closed banner stays
+  closed until its `text` (or `id`) changes. `tone: "brand"` uses your primary
+  colour.
+</ParamField>
 <ParamField path="topbar.badge" type="string">A small label pill next to the logo (e.g. `docs · v1`).</ParamField>
 <ParamField path="topbar.width" type='"full" | "contained"'>Topbar layout on docs + the API reference. `"full"` (default) spans edge-to-edge; `"contained"` centers it to the content max-width.</ParamField>
 <ParamField path="topbar.homeWidth" type='"full" | "contained"'>The homepage topbar, independent of `width`. Defaults to `"contained"` so the marketing nav aligns with the hero.</ParamField>
+
+```jsonc
+"topbar": {
+  "links": [
+    { "label": "Resources", "items": [
+      { "label": "Blog", "href": "https://acme.com/blog", "description": "Product news" },
+      { "label": "Community", "href": "https://acme.com/community" }
+    ] },
+    { "label": "Contact sales", "href": "https://acme.com/contact" }
+  ],
+  "secondaryCta": { "label": "Book a demo", "href": "https://acme.com/demo" },
+  "cta": { "label": "Sign up", "href": "https://app.acme.com/signup" },
+  "banner": {
+    "text": "Acme 3.0 is out.",
+    "link": { "label": "See what's new", "href": "/changelog" },
+    "until": "2026-12-31"
+  }
+}
+```
+
+On phones the links, dropdown items and second button move into the menu.
 
 ## Navigation
 

@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Wordmark } from "./landing/home/wordmark";
+import { BANNER_KEY } from "@/lib/banner";
 
 /**
  * Shared site header — the design's `.nav`, rendered ONCE in app/layout.tsx for
@@ -24,15 +25,43 @@ import { Wordmark } from "./landing/home/wordmark";
 const FallbackSearch = dynamic(() => import("./docs/search").then((m) => m.DocsSearch), { ssr: false });
 
 export type SiteNavLink = { label: string; href: string };
+export type SiteNavMenu = { label: string; items: (SiteNavLink & { description?: string })[] };
+export type SiteNavItem = SiteNavLink | SiteNavMenu;
+export type SiteBannerData = {
+  text: string;
+  link?: SiteNavLink;
+  dismissible: boolean;
+  tone: "neutral" | "brand";
+  id: string;
+};
+
+const isMenu = (i: SiteNavItem): i is SiteNavMenu => "items" in i;
+const external = (href: string) => /^[a-z][a-z0-9+.-]*:/i.test(href);
+
+/** A link that opens other sites in a new tab. */
+function NavHref({ link, className, onClick, children }: {
+  link: SiteNavLink; className?: string; onClick?: () => void; children?: React.ReactNode;
+}) {
+  return external(link.href) ? (
+    <a className={className} href={link.href} target="_blank" rel="noopener noreferrer" onClick={onClick}>
+      {children ?? link.label}
+    </a>
+  ) : (
+    <Link className={className} href={link.href} onClick={onClick}>{children ?? link.label}</Link>
+  );
+}
 type Logo = { light?: string; dark?: string; text?: string };
 
 export function SiteNav({
   brand,
   tabs,
   navLinks,
+  links: extraLinks = [],
   githubUrl,
   stars,
   cta,
+  secondaryCta,
+  banner,
   width = "full",
   homeWidth = "contained",
   header = "single",
@@ -45,12 +74,18 @@ export function SiteNav({
   tabs?: (SiteNavLink & { match?: string[] })[];
   /** Extra header links beyond the doc tabs (e.g. marketing anchors). */
   navLinks?: SiteNavLink[];
+  /** topbar.links other than GitHub: links and dropdowns on the right. */
+  links?: SiteNavItem[];
   /** Repo URL for the GitHub badge (from config topbar links). */
   githubUrl?: string;
   /** Optional star count shown in the badge. */
   stars?: string;
   /** Primary CTA (from config topbar.cta). */
   cta?: SiteNavLink;
+  /** An outlined button before the CTA (topbar.secondaryCta). */
+  secondaryCta?: SiteNavLink;
+  /** topbar.banner, unless it had expired at build time. */
+  banner?: SiteBannerData;
   /** Topbar layout on docs + API reference. */
   width?: "full" | "contained";
   /** Topbar layout on the homepage ("/") — independent from `width`. */
@@ -141,6 +176,7 @@ export function SiteNav({
 
   return (
     <header className={`nav${stacked ? " nav--stacked" : ""}`}>
+      {banner && <SiteBanner banner={banner} />}
       <div className={`nav-in nav-in--${layout}`}>
         <Link className="brand" href="/" aria-label={`${brand?.name ?? "Markline"} home`}>
           {hasImg ? (
@@ -157,6 +193,17 @@ export function SiteNav({
         {!stacked && linksNav}
         {search === "header" && <HeaderSearch pathname={pathname} />}
         <div className="nav-right">
+          {extraLinks.length > 0 && (
+            <nav className="nav-extra" aria-label="More">
+              {extraLinks.map((l) =>
+                isMenu(l) ? (
+                  <NavMenu key={l.label} menu={l} pathname={pathname} />
+                ) : (
+                  <NavHref key={l.href + l.label} link={l} className="nav-xlink" />
+                ),
+              )}
+            </nav>
+          )}
           {githubUrl && (
             <a className="ghbadge" href={githubUrl} target="_blank" rel="noopener noreferrer">
               <svg width="15" height="15" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">
@@ -171,6 +218,7 @@ export function SiteNav({
             </a>
           )}
           <ThemeBtn />
+          {secondaryCta && <NavHref link={secondaryCta} className="btn btn-ghost btn-sm nav-cta2" />}
           {cta && (
             <Link className="btn btn-primary btn-sm" href={cta.href}>
               {cta.label}
@@ -212,6 +260,10 @@ export function SiteNav({
               {l.label}
             </Link>
           ))}
+          {extraLinks.flatMap((l) => (isMenu(l) ? l.items : [l])).map((l) => (
+            <NavHref key={"x" + l.href + l.label} link={l} onClick={() => setMenuOpen(false)} />
+          ))}
+          {secondaryCta && <NavHref link={secondaryCta} onClick={() => setMenuOpen(false)} />}
           {cta && (
             <Link className="btn btn-primary btn-sm" href={cta.href} onClick={() => setMenuOpen(false)}>
               {cta.label}
@@ -269,6 +321,75 @@ function HeaderSearch({ pathname }: { pathname: string }) {
       </button>
       {needsFallback && <FallbackSearch triggerless />}
     </>
+  );
+}
+
+/** A header dropdown (a topbar.links entry with `items`). */
+function NavMenu({ menu, pathname }: { menu: SiteNavMenu; pathname: string }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => setOpen(false), [pathname]);
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className="nav-menu" ref={ref}>
+      <button type="button" className="nav-xlink" aria-haspopup="true" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        {menu.label}
+        <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
+      {open && (
+        <div className="nav-menu-pop">
+          {menu.items.map((it) => (
+            <NavHref key={it.href + it.label} link={it} onClick={() => setOpen(false)}>
+              <span className="t">{it.label}</span>
+              {it.description && <span className="d">{it.description}</span>}
+            </NavHref>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** topbar.banner: a strip at the top of the header. Hidden by removing
+ *  html[data-banner], which the pre-paint script also does for a banner the
+ *  reader closed or one whose last day has passed. */
+function SiteBanner({ banner }: { banner: SiteBannerData }) {
+  const close = () => {
+    document.documentElement.removeAttribute("data-banner");
+    try {
+      localStorage.setItem(BANNER_KEY, banner.id);
+    } catch {}
+  };
+  return (
+    <div className={`site-banner site-banner--${banner.tone}`} role="region" aria-label="Announcement">
+      <p>
+        <span className="txt">{banner.text}</span>
+        {banner.link && <NavHref link={banner.link} className="lnk" />}
+      </p>
+      {banner.dismissible && (
+        <button type="button" className="x" onClick={close} aria-label="Dismiss announcement">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+            <path d="M18 6 6 18M6 6l12 12" />
+          </svg>
+        </button>
+      )}
+    </div>
   );
 }
 

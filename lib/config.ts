@@ -82,6 +82,25 @@ export type NavTab = {
 };
 
 export type TopbarLink = { label: string; href: string };
+/** A header dropdown: a label that opens a list of links. */
+export type TopbarMenu = { label: string; items: (TopbarLink & { description?: string })[] };
+export type TopbarItem = TopbarLink | TopbarMenu;
+
+/** A strip above the header for announcements and promotions. */
+export type BannerConfig = {
+  text: string;
+  /** A link after the text, e.g. `{ "label": "Subscribe", "href": "/pricing" }`. */
+  link?: TopbarLink;
+  /** Last day to show it (`YYYY-MM-DD`); it hides itself after that. */
+  until?: string;
+  /** Let readers close it (default true). Remembered per banner `id`. */
+  dismissible?: boolean;
+  /** Changing it shows the banner again to readers who closed an earlier one.
+   *  Defaults to a hash of the text. */
+  id?: string;
+  /** "neutral" (default) or "brand" (the primary colour). */
+  tone?: "neutral" | "brand";
+};
 
 /**
  * A documentation version. The first version in the list is the default and is
@@ -373,10 +392,15 @@ export type MarklineConfig = {
   template?: string;
   theme: ThemeConfig;
   topbar: {
-    links: TopbarLink[];
+    /** Links on the right of the header; a GitHub link shows as the badge.
+     *  An entry with `items` is a dropdown. */
+    links: TopbarItem[];
     /** Extra header nav links shown next to the doc tabs (e.g. marketing anchors). */
     navLinks?: TopbarLink[];
     cta?: TopbarLink;
+    /** A second, outlined button before `cta`. */
+    secondaryCta?: TopbarLink;
+    banner?: BannerConfig;
     badge?: string;
     /** Topbar layout on docs + API reference: "full" (edge-to-edge, default) or
      *  "contained" (centered max-width, aligned to page content). */
@@ -437,6 +461,8 @@ function mergeConfig(base: MarklineConfig, user: Partial<MarklineConfig>): Markl
       links: user.topbar?.links ?? base.topbar.links,
       navLinks: user.topbar?.navLinks ?? base.topbar.navLinks,
       cta: user.topbar?.cta ?? base.topbar.cta,
+      secondaryCta: user.topbar?.secondaryCta ?? base.topbar.secondaryCta,
+      banner: user.topbar?.banner ?? base.topbar.banner,
       badge: user.topbar?.badge ?? base.topbar.badge,
       width: user.topbar?.width ?? base.topbar.width ?? "full",
       homeWidth: user.topbar?.homeWidth ?? base.topbar.homeWidth ?? "full",

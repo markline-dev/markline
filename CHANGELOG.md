@@ -37,6 +37,12 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **"On this page" builds itself.** Docs pages list their `##` and `###`
   headings (subheadings indented) unless the frontmatter sets `toc`.
   `toc: false` hides it.
+- **More in the header.** `topbar.links` now show on the right of the header
+  (they were ignored apart from the GitHub link), and an entry with `items`
+  is a dropdown. `topbar.secondaryCta` adds an outlined button before the
+  CTA. On phones they move into the menu.
+- **Announcement banner.** `topbar.banner` puts a strip with text and a link
+  above the header. It can end on a date (`until`) and readers can close it.
 
 ### Changed
 - **The search dialog keeps one height**, with a "Start typing to search"

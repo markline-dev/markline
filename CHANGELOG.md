@@ -10,6 +10,12 @@ All notable changes to `@markline/markline` and `@markline/create`.
   `markline init --template`.
 - **Card icons by name.** `<Card icon="rocket-launch">` renders a Phosphor
   icon, like sidebar icons. Emoji and elements still work.
+- **Breadcrumb and page-action styles.** `layout.breadcrumbs: "chevron"`
+  shows breadcrumbs in the body font with `›`, and `layout.breadcrumbsRoot`
+  renames the first one (e.g. "All collections"). `layout.pageActions: "menu"`
+  turns Copy for LLM, View as Markdown and Ask AI into one button with a
+  dropdown, beside the page's last-updated date. The `help-center` template
+  uses all three.
 
 ### Fixed
 - **One search box on hub pages.** With `layout.search: "header"`, a hub page

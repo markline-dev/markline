@@ -25,7 +25,13 @@ import path from "node:path";
  *  `ai.endpoint` could route readers' questions elsewhere. */
 export type TemplateOptions = {
   theme?: Record<string, unknown>;
-  layout?: { header?: "single" | "stacked"; search?: "sidebar" | "header" };
+  layout?: {
+    header?: "single" | "stacked";
+    search?: "sidebar" | "header";
+    breadcrumbs?: "slash" | "chevron";
+    breadcrumbsRoot?: string;
+    pageActions?: "inline" | "menu";
+  };
   topbar?: { width?: "full" | "contained"; homeWidth?: "full" | "contained" };
 };
 

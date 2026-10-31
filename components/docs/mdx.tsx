@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { slugify } from "@/lib/toc";
 import type { MDXComponents } from "mdx/types";
 import { Callout, DocsH2, DocsP } from "./page";
 import { CodeBlock, type CodeSnippet } from "./code-block";
@@ -14,8 +15,15 @@ import {
 } from "@/components/landing/landing";
 import { MarklineHome } from "@/components/landing/home/markline-home";
 
-function slugify(s: string) {
-  return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+/** A heading's visible text, however it's nested (code, bold, links), so
+ *  its id matches the one lib/toc.ts gives it in "On this page". */
+function textOf(node: React.ReactNode): string {
+  if (typeof node === "string" || typeof node === "number") return String(node);
+  if (Array.isArray(node)) return node.map(textOf).join("");
+  if (node && typeof node === "object" && "props" in node) {
+    return textOf((node as { props: { children?: React.ReactNode } }).props.children);
+  }
+  return "";
 }
 
 /* ── Rich MDX-only components ── */
@@ -75,14 +83,8 @@ export const mdxComponents: MDXComponents = {
   // Prose elements are styled structurally by app/docs.css (.docs-prose …) so
   // they stay token-driven and theme-aware; the components only carry anchor ids.
   h1: ({ children }) => <h1 className="docs-h1">{children}</h1>,
-  h2: ({ children }) => {
-    const id = typeof children === "string" ? slugify(children) : undefined;
-    return <DocsH2 id={id ?? ""}>{children}</DocsH2>;
-  },
-  h3: ({ children }) => {
-    const id = typeof children === "string" ? slugify(children) : undefined;
-    return <h3 id={id}>{children}</h3>;
-  },
+  h2: ({ children }) => <DocsH2 id={slugify(textOf(children))}>{children}</DocsH2>,
+  h3: ({ children }) => <h3 id={slugify(textOf(children)) || undefined}>{children}</h3>,
   p: ({ children }) => <DocsP>{children}</DocsP>,
   ul: ({ children }) => <ul>{children}</ul>,
   ol: ({ children }) => <ol>{children}</ol>,

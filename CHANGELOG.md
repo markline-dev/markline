@@ -2,6 +2,18 @@
 
 All notable changes to `@markline/markline` and `@markline/create`.
 
+## Unreleased
+
+### Added
+- **"On this page" builds itself.** Docs pages list their `##` and `###`
+  headings (subheadings indented) unless the frontmatter sets `toc`.
+  `toc: false` hides it.
+
+### Fixed
+- **Headings with inline formatting get anchors.** A heading containing
+  code, bold or a link (``## The `init` command``) had no `id`, so it couldn't
+  be linked to.
+
 ## 0.1.6
 
 ### Added

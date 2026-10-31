@@ -13,6 +13,7 @@ import { getDocsTabs, pickActiveTab, getNav, flattenLinks, findNavTrail } from "
 import { HubHero } from "@/components/docs/hub-hero";
 import { LandingPage } from "@/components/landing/landing";
 import { remarkLandingProse } from "@/lib/landing-prose";
+import { extractToc } from "@/lib/toc";
 import { SiteCredit } from "@/components/site-credit";
 import type { PageNavLink } from "@/components/docs/page";
 
@@ -124,7 +125,7 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
         crumbs={crumbs}
         title={doc.fm.title}
         lede={doc.fm.lede}
-        toc={doc.fm.toc ?? []}
+        toc={doc.fm.toc ?? extractToc(doc.body)}
         lastUpdated={doc.fm.last_updated}
         editUrl={editUrl}
         feedbackEnabled={feedbackConfig() != null}

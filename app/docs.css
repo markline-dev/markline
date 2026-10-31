@@ -391,6 +391,7 @@
   display: block; font-size: 12.5px; color: var(--ink-4); padding: 5px 0 5px 14px; margin-left: -1px;
   border-left: 1px solid transparent; line-height: 1.4; text-decoration: none; transition: color .15s, border-color .15s;
 }
+.docs-shell .docs-toc .toc-list a.sub { padding-left: 26px; }
 .docs-shell .docs-toc .toc-list a:hover { color: var(--ink-2); }
 .docs-shell .docs-toc .toc-list a.active { color: var(--accent-ink); border-left-color: var(--accent); }
 

@@ -3,7 +3,9 @@ import { DocsToc } from "./nav";
 import { DocAiRow } from "./doc-actions";
 
 export type Crumb = { label: string; href?: string };
-export type TocItem = { id: string; label: string };
+import type { TocItem } from "@/lib/toc";
+
+export type { TocItem };
 export type PageNavLink = { href: string; label: string };
 
 export function DocsPage({

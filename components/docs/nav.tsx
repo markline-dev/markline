@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { TocList } from "./toc";
+import { TocList, type TocItem } from "./toc";
 import { DocsRate } from "./feedback";
 import { DocsSearch } from "./search";
 import { SidebarAskButton, SidebarSearchTrigger } from "./doc-actions";
@@ -364,7 +364,7 @@ export function DocsToc({
   helpful = true,
   feedbackEndpoint,
 }: {
-  items: { id: string; label: string }[];
+  items: TocItem[];
   helpful?: boolean;
   feedbackEndpoint?: string;
 }) {

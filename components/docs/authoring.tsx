@@ -89,11 +89,11 @@ const CardArrow = (
   </svg>
 );
 
-/** A Phosphor name ("rocket-launch") or an image path ("/icons/agents.svg")
+/** A Phosphor name ("rocket-launch", or "rocket-launch:duotone") or an image path ("/icons/agents.svg")
  * becomes the icon; anything else, such as an emoji or an element, renders as
  * given. */
 function cardIcon(icon: React.ReactNode): React.ReactNode {
-  if (typeof icon !== "string" || !(/^[A-Za-z][\w-]*$/.test(icon) || isIconPath(icon))) return icon;
+  if (typeof icon !== "string" || !(/^[A-Za-z][\w-]*(:[a-z]+)?$/.test(icon) || isIconPath(icon))) return icon;
   return navIcon(icon, 18) ?? icon;
 }
 

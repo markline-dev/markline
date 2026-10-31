@@ -71,13 +71,18 @@ function themeCss(): string | null {
 
   const primary = t.colors?.primary ? hexToRgbTriple(t.colors.primary) : null;
   const primaryDark = t.colors?.primaryDark ? hexToRgbTriple(t.colors.primaryDark) : null;
-  // Text on each brand surface: white, or dark when the colour is too light
-  // for white (a pale green or yellow primary).
+  // Text on each brand surface: primaryText / primaryTextDark when set, else
+  // white, or dark when the colour is too light for white (a pale green or
+  // yellow primary).
+  const textOn = (bg: string, set?: string) => (set && hexToRgbTriple(set)) || onColor(bg);
   if (primary) {
-    light.push(`--c-brand:${primary}`, `--c-brand-deep:${primaryDark ?? primary}`, `--c-on-brand:${onColor(primary)}`);
-    independent.push(`--c-brand-solid:${primary}`, `--c-on-brand-solid:${onColor(primary)}`);
+    const on = textOn(primary, t.colors?.primaryText);
+    light.push(`--c-brand:${primary}`, `--c-brand-deep:${primaryDark ?? primary}`, `--c-on-brand:${on}`);
+    independent.push(`--c-brand-solid:${primary}`, `--c-on-brand-solid:${on}`);
   }
-  if (primaryDark) dark.push(`--c-brand:${primaryDark}`, `--c-brand-deep:${primaryDark}`, `--c-on-brand:${onColor(primaryDark)}`);
+  if (primaryDark) {
+    dark.push(`--c-brand:${primaryDark}`, `--c-brand-deep:${primaryDark}`, `--c-on-brand:${textOn(primaryDark, t.colors?.primaryTextDark)}`);
+  }
 
   if (t.font?.sans) independent.push(`--font-geist:${t.font.sans}`);
   if (t.font?.mono) independent.push(`--font-geist-mono:${t.font.mono}`);

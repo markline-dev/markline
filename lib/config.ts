@@ -26,8 +26,20 @@ export type ThemeConfig = {
     iconTile?: boolean;
   };
   /** Brand accent as hex; `primaryDark` is used on dark surfaces. */
-  colors?: { primary?: string; primaryDark?: string };
+  colors?: {
+    primary?: string;
+    primaryDark?: string;
+    /** Text on `primary` (buttons, the brand banner). Default: white, or
+     *  near-black when `primary` is too light for white. */
+    primaryText?: string;
+    /** Text on `primaryDark`, in dark mode. Same default rule. */
+    primaryTextDark?: string;
+  };
   appearance?: "light" | "dark" | "system";
+  /** Phosphor icon weight for every icon: "thin", "light", "regular"
+   *  (default), "bold", "fill" or "duotone". One icon can choose its own as
+   *  "rocket-launch:duotone". */
+  iconWeight?: "thin" | "light" | "regular" | "bold" | "fill" | "duotone";
   /** Favicon path (served from /public). */
   favicon?: string;
   /** Font family overrides (the font must be system-available or self-loaded). */

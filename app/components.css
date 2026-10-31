@@ -649,7 +649,7 @@ textarea.ml-pg-input { height: auto; padding: 8px 10px; line-height: 1.55; resiz
 
 /* ── authoring.tsx ── */
 .ml-card-h-inner { display: inline-flex; align-items: center; gap: 8px; }
-.ml-card-icon { display: inline-flex; color: var(--accent-ink); }
+.ml-card-icon { display: inline-flex; color: var(--card-icon-color, var(--accent-ink)); }
 /* Custom icons (navIcon): an SVG mask in the text colour, or an image. */
 .ml-icon { display: inline-block; flex: none; vertical-align: middle; }
 .ml-icon--mask { background: currentColor; -webkit-mask: center / contain no-repeat; mask: center / contain no-repeat; }

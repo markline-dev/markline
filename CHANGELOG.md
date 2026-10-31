@@ -63,6 +63,13 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **Logo mark options.** `theme.logo.icon` can be `{ light, dark }`, and
   `theme.logo.iconTile` sets a single dark mark on a tile that works in both
   themes.
+- **Icon weights.** `theme.iconWeight` picks Phosphor's thin, light, regular,
+  bold, fill or duotone for every icon; one icon can choose its own as
+  `rocket-launch:duotone`.
+- **More to customise.** `theme.colors.primaryText` / `primaryTextDark` set
+  button text yourself; `--card-bg`, `--card-radius`, `--card-shadow`,
+  `--card-icon-bg` and friends restyle cards; `--brand-tile-*` restyle the
+  logo tile; an icon path ending in `?color` keeps the SVG's own colours.
 - **Site footer.** `footer` in markline.json adds columns of links, the logo,
   a copyright line, small links (Privacy, Terms) and social icons across the
   bottom of every page, with "Built with Markline" in its bottom row. The

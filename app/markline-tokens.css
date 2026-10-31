@@ -185,10 +185,16 @@ body {
 [data-theme="dark"] .brand .brand-icon.brand-logo--light { display: none; }
 [data-theme="dark"] .brand .brand-icon.brand-logo--dark { display: block; }
 /* logo.iconTile: the mark on a tile in the text colour, inverted on the dark
-   tile of light mode. */
-.brand .brand-tile { flex: none; display: grid; place-items: center; width: 30px; height: 30px; margin-right: 10px; border-radius: 9px; background: var(--ink); }
-.brand .brand-tile .brand-icon { height: 19px; max-width: 19px; margin: 0; filter: invert(1); }
-[data-theme="dark"] .brand .brand-tile .brand-icon { filter: none; }
+   tile of light mode. --brand-tile-bg, --brand-tile-size, --brand-tile-radius
+   and --brand-tile-filter (e.g. "none" for a mark that's already light)
+   restyle it, per mode in theme.cssVariables. */
+.brand .brand-tile {
+  flex: none; display: grid; place-items: center; margin-right: 10px;
+  width: var(--brand-tile-size, 30px); height: var(--brand-tile-size, 30px);
+  border-radius: var(--brand-tile-radius, 9px); background: var(--brand-tile-bg, var(--ink));
+}
+.brand .brand-tile .brand-icon { height: 64%; max-width: 64%; margin: 0; filter: var(--brand-tile-filter, invert(1)); }
+[data-theme="dark"] .brand .brand-tile .brand-icon { filter: var(--brand-tile-filter, none); }
 .brand .brand-text { font-weight: 600; font-size: 17px; letter-spacing: -0.022em; color: var(--ink); }
 
 /* buttons — solid, driven by the config brand color (--c-brand). The glossy

@@ -16,6 +16,14 @@ All notable changes to `@markline/markline` and `@markline/create`.
   turns Copy for LLM, View as Markdown and Ask AI into one button with a
   dropdown, beside the page's last-updated date. The `help-center` template
   uses all three.
+- **Search filters by collection.** The docs search dialog shows a chip for
+  each sidebar group (or top-level folder, or tab), plus the API reference, and
+  narrows results to the one you pick. Each result also shows its group.
+
+### Changed
+- **The search dialog keeps one height**, with a "Start typing to search"
+  state and a footer of keyboard hints, instead of a thin strip that grew as
+  results arrived.
 
 ### Fixed
 - **One search box on hub pages.** With `layout.search: "header"`, a hub page

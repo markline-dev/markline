@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Wordmark } from "./landing/home/wordmark";
+import { variantOf, variantPath, type Variants } from "@/lib/variant-path";
 
 /**
  * Shared site header — the design's `.nav`, rendered ONCE in app/layout.tsx for
@@ -24,11 +25,14 @@ import { Wordmark } from "./landing/home/wordmark";
 const FallbackSearch = dynamic(() => import("./docs/search").then((m) => m.DocsSearch), { ssr: false });
 
 export type SiteNavLink = { label: string; href: string };
+type NavTabLink = SiteNavLink & { match?: string[] };
 type Logo = { light?: string; dark?: string; text?: string };
 
 export function SiteNav({
   brand,
-  tabs,
+  tabs: defaultTabs,
+  variants,
+  tabsByVariant,
   navLinks,
   githubUrl,
   stars,
@@ -42,7 +46,11 @@ export function SiteNav({
    *  Markline <Wordmark/> when no logo is configured. */
   brand?: { name?: string; logo?: Logo };
   /** Primary nav links — the config navigation tabs. */
-  tabs?: (SiteNavLink & { match?: string[] })[];
+  tabs?: NavTabLink[];
+  /** `versions` or `i18n.locales`: shows a switcher and picks each one's tabs. */
+  variants?: Variants | null;
+  /** The tabs of each version or locale, by id. */
+  tabsByVariant?: Record<string, NavTabLink[]>;
   /** Extra header links beyond the doc tabs (e.g. marketing anchors). */
   navLinks?: SiteNavLink[];
   /** Repo URL for the GitHub badge (from config topbar links). */
@@ -61,6 +69,7 @@ export function SiteNav({
   search?: "sidebar" | "header";
 }) {
   const pathname = usePathname();
+  const tabs = (variants && tabsByVariant?.[variantOf(pathname, variants)]) || defaultTabs;
   // The homepage ("/") uses its own width knob; every other route uses `width`.
   const layout = pathname === "/" ? homeWidth : width;
   const [menuOpen, setMenuOpen] = useState(false);
@@ -170,6 +179,7 @@ export function SiteNav({
               )}
             </a>
           )}
+          {variants && variants.entries.length > 1 && <VariantSwitcher variants={variants} pathname={pathname} />}
           <ThemeBtn />
           {cta && (
             <Link className="btn btn-primary btn-sm" href={cta.href}>
@@ -269,6 +279,100 @@ function HeaderSearch({ pathname }: { pathname: string }) {
       </button>
       {needsFallback && <FallbackSearch triggerless />}
     </>
+  );
+}
+
+const GlobeIcon = (
+  <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+    <circle cx="12" cy="12" r="9" />
+    <path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" />
+  </svg>
+);
+
+/**
+ * The version or language picker. Picking one goes to the same page there,
+ * or to that version's or language's home page when the page doesn't exist
+ * in it.
+ */
+function VariantSwitcher({ variants, pathname }: { variants: Variants; pathname: string }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const current = variantOf(pathname, variants);
+  const label = variants.entries.find((e) => e.id === current)?.label ?? current;
+  const locales = variants.kind === "locales";
+
+  // The page's language, for screen readers and translation tools.
+  useEffect(() => {
+    if (locales) document.documentElement.lang = current;
+  }, [locales, current]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const pick = async (id: string) => {
+    setOpen(false);
+    if (id === current) return;
+    const target = variantPath(pathname, id, variants);
+    let dest = target;
+    try {
+      const res = await fetch(target, { method: "HEAD" });
+      if (!res.ok) dest = variantPath("/", id, variants);
+    } catch {
+      // Offline or blocked: try the page anyway.
+    }
+    router.push(dest);
+  };
+
+  return (
+    <div className={`nav-variant${locales ? " nav-variant--locale" : ""}`} ref={ref}>
+      <button
+        type="button"
+        className="nav-variant-btn"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`${locales ? "Language" : "Version"}: ${label}`}
+        onClick={() => setOpen((o) => !o)}
+      >
+        {locales && GlobeIcon}
+        <span className="lbl">{label}</span>
+        <svg className="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
+      {open && (
+        <div className="nav-variant-pop" role="menu">
+          {variants.entries.map((e) => (
+            <button
+              key={e.id}
+              type="button"
+              role="menuitemradio"
+              aria-checked={e.id === current}
+              lang={locales ? e.id : undefined}
+              onClick={() => pick(e.id)}
+            >
+              <span>{e.label}</span>
+              {e.id === current && (
+                <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { loadOpenApi, operationHref, type OpenAPITag } from "@/lib/openapi";
+import { mdToHtml } from "@/lib/md-desc";
 import { MethodBadge } from "./method-badge";
 
 /**
@@ -27,7 +28,7 @@ function TagSection({ tag }: { tag: OpenAPITag }) {
     <section className="ml-eplist-tag">
       <h2>{capitalize(tag.name)}</h2>
       {tag.description && (
-        <p className="ml-eplist-desc">{tag.description}</p>
+        <div className="ml-eplist-desc" dangerouslySetInnerHTML={{ __html: mdToHtml(tag.description) }} />
       )}
       <ul className="ml-eplist-ops">
         {tag.operations.map((op) => (

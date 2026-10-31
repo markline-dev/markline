@@ -378,7 +378,7 @@ export function MarklineApiRef({
               {summary ? (
                 <div className="api-summary">{summary}</div>
               ) : r.lead ? (
-                <p className="lead">{r.lead}</p>
+                <div className="lead" dangerouslySetInnerHTML={{ __html: r.lead }} />
               ) : (
                 <p className="lead">
                   The <code>{r.name}</code> resource and its endpoints.
@@ -656,7 +656,7 @@ function EndpointSection({ ep, aiEnabled }: { ep: EndpointView; aiEnabled: boole
             <span className="seg">{ep.path}</span>
           </span>
         </div>
-        {ep.lead && <p className="sec-lead">{ep.lead}</p>}
+        {ep.lead && <div className="sec-lead" dangerouslySetInnerHTML={{ __html: ep.lead }} />}
         {ep.triggers.length > 0 && (
           <div className="trig-row">
             <span className="trig-lbl">Triggers</span>

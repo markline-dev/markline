@@ -9,6 +9,7 @@ import { loadOpenApi, hasOpenApiSpec, apiSpecPath } from "@/lib/openapi";
 import { ApiOperationPage } from "@/components/docs/api/operation-page";
 import { MarklineApiRef } from "@/components/docs/api/reference/markline-apiref";
 import { buildApiRefView, tagSlug, parseOpenApiTag } from "@/lib/apiref-view";
+import { mdToText } from "@/lib/md-desc";
 import { mdxComponents } from "@/components/docs/mdx";
 import { getHighlighter, shellEnhancer } from "@/lib/shiki";
 import { contentRoot } from "@/lib/paths";
@@ -142,10 +143,12 @@ export async function generateMetadata({ params }: { params: Promise<{ slug?: st
   const first = rest[0];
   if (!first) return meta("API reference");
   const tag = doc.tags.find((t) => tagSlug(t.name) === first);
-  if (tag) return meta(`${tag.name} · API reference`, tag.description);
+  // Descriptions may be markdown; meta/OG tags need plain text, so syntax like
+  // `code` or [links](url) doesn't surface verbatim in a snippet.
+  if (tag) return meta(`${tag.name} · API reference`, mdToText(tag.description));
   const op = doc.operationsById[first];
   if (!op) return {};
-  return meta(`${op.summary ?? op.operationId} · API`, op.description);
+  return meta(`${op.summary ?? op.operationId} · API`, mdToText(op.description));
 }
 
 export default async function ApiReferencePage({ params }: { params: Promise<{ slug?: string[] }> }) {

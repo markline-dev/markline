@@ -11,6 +11,7 @@ import path from "node:path";
 import matter from "gray-matter";
 import * as pagefind from "pagefind";
 import { orderedResourceTags } from "./openapi-order.mjs";
+import { searchGroups } from "./search-groups.mjs";
 
 /** Read an env var, falling back to .env.local / .env (plain node script —
  *  Next's automatic env loading doesn't apply here). */
@@ -429,13 +430,20 @@ async function main() {
     ...apiRecords(root),
   ];
 
+  // Filter chips in the search dialog: each page's collection or sidebar group.
+  const { order, byUrl } = searchGroups(loadJsonConfig(root));
+  const groupOf = (r) => byUrl.get(r.url) ?? (r.meta === "API reference" ? r.meta : undefined);
+  if (records.some((r) => r.meta === "API reference")) order.push("API reference");
+
   const { index } = await pagefind.createIndex();
   for (const r of records) {
+    const group = groupOf(r);
     await index.addCustomRecord({
       url: r.url,
       content: `${r.title}. ${r.content}`,
       language: "en",
-      meta: { title: r.title, ...(r.meta ? { section: r.meta } : {}) },
+      meta: { title: r.title, ...((r.meta ?? group) ? { section: r.meta ?? group } : {}) },
+      ...(group ? { filters: { group: [group] } } : {}),
     });
   }
 
@@ -443,6 +451,8 @@ async function main() {
   fs.mkdirSync(outDir, { recursive: true });
   await index.writeFiles({ outputPath: outDir });
   await pagefind.close();
+  // Pagefind reports filter values unordered; the dialog shows them in sidebar order.
+  fs.writeFileSync(path.join(outDir, "groups.json"), JSON.stringify(order));
 
   console.log(`[markline] search index built: ${records.length} records -> public/pagefind`);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { openAskPanel } from "./ai/ask-dock";
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -10,6 +10,9 @@ import { openAskPanel } from "./ai/ask-dock";
  * - "View as Markdown"        → opens the shared View-as-Markdown modal.
  * All three derive their Markdown from the rendered .docs-prose, so they stay
  * bound to the real page content (no fabricated text).
+ *
+ * `layout.pageActions: "menu"` shows them as one "Copy for LLM" button with
+ * the others in a dropdown, beside the last-updated date.
  * ────────────────────────────────────────────────────────────────────────── */
 
 const SparkIcon = (
@@ -79,7 +82,23 @@ function openMarkdownModal(md: string) {
   window.dispatchEvent(new CustomEvent("ml-mdv-open", { detail: { md } }));
 }
 
-export function DocAiRow({ title, aiEnabled }: { title: string; aiEnabled: boolean }) {
+const ChevronDown = (
+  <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
+    <path d="m6 9 6 6 6-6" />
+  </svg>
+);
+
+export function DocAiRow({
+  title,
+  aiEnabled,
+  variant = "inline",
+  lastUpdated,
+}: {
+  title: string;
+  aiEnabled: boolean;
+  variant?: "inline" | "menu";
+  lastUpdated?: string;
+}) {
   const [copied, setCopied] = useState(false);
 
   const copyForLlm = () => {
@@ -92,6 +111,22 @@ export function DocAiRow({ title, aiEnabled }: { title: string; aiEnabled: boole
       () => {},
     );
   };
+
+  if (variant === "menu") {
+    return (
+      <div className="doc-ai doc-ai--menu">
+        <span className="date">{lastUpdated}</span>
+        <ActionMenu
+          copied={copied}
+          onCopy={copyForLlm}
+          items={[
+            { label: "View as Markdown", icon: MarkdownIcon, run: () => openMarkdownModal(pageToMarkdown(title)) },
+            ...(aiEnabled ? [{ label: "Ask AI about this page", icon: SparkIcon, run: () => openAskPanel(title) }] : []),
+          ]}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="doc-ai">
@@ -106,6 +141,65 @@ export function DocAiRow({ title, aiEnabled }: { title: string; aiEnabled: boole
       <button type="button" onClick={() => openMarkdownModal(pageToMarkdown(title))}>
         {MarkdownIcon} View as Markdown
       </button>
+    </div>
+  );
+}
+
+type MenuItem = { label: string; icon: React.ReactNode; run: () => void };
+
+/** "Copy for LLM" with a chevron that opens the other actions. */
+function ActionMenu({ copied, onCopy, items }: { copied: boolean; onCopy: () => void; items: MenuItem[] }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (!ref.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className="doc-ai-split" ref={ref}>
+      <button type="button" className={`main${copied ? " copied" : ""}`} onClick={onCopy}>
+        {copied ? CopiedIcon : CopyIcon} {copied ? "Copied" : "Copy for LLM"}
+      </button>
+      <button
+        type="button"
+        className="more"
+        aria-label="More page actions"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+      >
+        {ChevronDown}
+      </button>
+      {open && (
+        <div className="doc-ai-pop" role="menu">
+          {items.map((it) => (
+            <button
+              key={it.label}
+              type="button"
+              role="menuitem"
+              onClick={() => {
+                setOpen(false);
+                it.run();
+              }}
+            >
+              {it.icon} {it.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -5,11 +5,50 @@ All notable changes to `@markline/markline` and `@markline/create`.
 ## Unreleased
 
 ### Added
+- **`npm create @markline -- --template <name>`** starts a project from a
+  built-in template or a `./folder`, starter pages included, the same as
+  `markline init --template`.
+- **Card icons by name.** `<Card icon="rocket-launch">` renders a Phosphor
+  icon, like sidebar icons. Emoji and elements still work.
+- **Breadcrumb and page-action styles.** `layout.breadcrumbs: "chevron"`
+  shows breadcrumbs in the body font with `›`, and `layout.breadcrumbsRoot`
+  renames the first one (e.g. "All collections"). `layout.pageActions: "menu"`
+  turns Copy for LLM, View as Markdown and Ask AI into one button with a
+  dropdown, beside the page's last-updated date. The `help-center` template
+  uses all three.
+- **Search filters by collection.** The docs search dialog shows a chip for
+  each sidebar group (or top-level folder, or tab), plus the API reference, and
+  narrows results to the one you pick. Each result also shows its group.
+- **`<Video>`.** Embeds a video file in the browser's own player, or a
+  YouTube, Vimeo, Loom or Wistia link as that provider's embed (YouTube via
+  its no-cookie domain). Full column width at 16:9, with an optional caption.
+- **`<LinkList>` and `<LinkItem>`.** Rows of links with a title, optional
+  description and accent-coloured `meta` ("3 articles"), and an icon, with
+  the whole row highlighted on hover. For collection pages and "see also"
+  lists.
+- **Related articles.** A page's frontmatter `related: [/path, …]` lists
+  pages at its end, as a `<LinkList>`. With `layout.related: "collection"`,
+  pages without a list get the other pages in their sidebar folder. The
+  `help-center` template turns it on.
+- **`layout.content: "centered"`** keeps docs pages in a fixed-width column
+  (`--content-width`, 880px) centred between the sidebar and "On this page",
+  with text the same width as tables and callouts. The default, `"fluid"`, is
+  unchanged. The `help-center` template uses `"centered"`.
 - **"On this page" builds itself.** Docs pages list their `##` and `###`
   headings (subheadings indented) unless the frontmatter sets `toc`.
   `toc: false` hides it.
 
+### Changed
+- **The search dialog keeps one height**, with a "Start typing to search"
+  state and a footer of keyboard hints, instead of a thin strip that grew as
+  results arrived.
+
 ### Fixed
+- **One search box on hub pages.** With `layout.search: "header"`, a hub page
+  showed two search boxes, the header's and the hero's. The header one now
+  stays hidden until the hero's box scrolls out of view.
+- **No previous/next links on hub pages.** A help-center home showed "Next"
+  to the first article.
 - **Headings with inline formatting get anchors.** A heading containing
   code, bold or a link (``## The `init` command``) had no `id`, so it couldn't
   be linked to.

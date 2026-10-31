@@ -9,13 +9,13 @@ import { DocsShell } from "@/components/docs/nav";
 import { mdxComponents } from "@/components/docs/mdx";
 import { getHighlighter, shellEnhancer } from "@/lib/shiki";
 import { loadConfig, aiConfig, feedbackConfig } from "@/lib/config";
-import { getDocsTabs, pickActiveTab, getNav, flattenLinks, findNavTrail } from "@/components/docs/sections";
+import { getDocsTabs, pickActiveTab, getNav, flattenLinks, findNavTrail, collectionLinks } from "@/components/docs/sections";
 import { HubHero } from "@/components/docs/hub-hero";
 import { LandingPage } from "@/components/landing/landing";
 import { remarkLandingProse } from "@/lib/landing-prose";
 import { extractToc } from "@/lib/toc";
 import { SiteCredit } from "@/components/site-credit";
-import type { PageNavLink } from "@/components/docs/page";
+import type { Crumb, PageNavLink } from "@/components/docs/page";
 
 // One transformer instance reused across all blocks — it's stateless.
 const shellTransformer = shellEnhancer();
@@ -76,8 +76,10 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
     }
     return notFound();
   }
-  const crumbs = doc.fm.crumbs ?? navCrumbs(doc.slug, doc.fm.title) ?? deriveCrumbs(doc.slug, doc.fm.title);
   const config = loadConfig();
+  const crumbs =
+    doc.fm.crumbs ??
+    withCrumbsRoot(navCrumbs(doc.slug, doc.fm.title) ?? deriveCrumbs(doc.slug, doc.fm.title), config.layout.breadcrumbsRoot);
   const editUrl = config.editUrl
     ? `${config.editUrl.replace(/\/$/, "")}/${doc.sourcePath}`
     : undefined;
@@ -123,6 +125,8 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
       <DocsPage
         hub={hub}
         crumbs={crumbs}
+        crumbStyle={config.layout.breadcrumbs}
+        actionStyle={config.layout.pageActions}
         title={doc.fm.title}
         lede={doc.fm.lede}
         toc={doc.fm.toc ?? extractToc(doc.body)}
@@ -131,8 +135,9 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
         feedbackEnabled={feedbackConfig() != null}
         feedbackEndpoint={feedbackConfig()?.endpoint}
         aiEnabled={aiConfig() != null}
-        prev={prev}
-        next={next}
+        prev={hub ? undefined : prev}
+        next={hub ? undefined : next}
+        related={hub ? [] : relatedLinks(doc.fm.related, pathname, config.layout.related)}
       >
         {content}
       </DocsPage>
@@ -146,6 +151,29 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
       {shell}
     </>
   );
+}
+
+/**
+ * "Related articles": the page's own frontmatter list, labelled from the
+ * sidebar (or the page's title), or with `layout.related:
+ * "collection"` the other pages in its sidebar folder.
+ */
+function relatedLinks(
+  listed: string[] | undefined,
+  pathname: string,
+  mode: "off" | "collection" | undefined,
+): PageNavLink[] {
+  const tabs = getDocsTabs();
+  if (listed?.length) {
+    const labels = new Map(tabs.flatMap((t) => t.sections.flatMap((s) => flattenLinks(s.links))).map((l) => [l.href, l.label]));
+    return listed.map((href) => ({
+      href,
+      label: labels.get(href) ?? getDoc(href.split("/").filter(Boolean))?.fm.title ?? href,
+    }));
+  }
+  if (mode !== "collection") return [];
+  const tab = pickActiveTab(tabs, pathname);
+  return !tab || tab.id === "api-reference" ? [] : collectionLinks(tab.sections, pathname);
 }
 
 /**
@@ -177,6 +205,13 @@ function firstDocHref(): string | undefined {
     }
   }
   return undefined;
+}
+
+/** `layout.breadcrumbsRoot` renames the first crumb (the tab), e.g. to
+ *  "All collections", and points it home. Frontmatter crumbs are left alone. */
+function withCrumbsRoot(crumbs: Crumb[], root: string | undefined): Crumb[] {
+  if (!root || crumbs.length === 0) return crumbs;
+  return [{ label: root, href: "/" }, ...crumbs.slice(1)];
 }
 
 /**

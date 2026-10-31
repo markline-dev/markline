@@ -16,6 +16,8 @@ export type DocFrontmatter = {
   toc?: TocItem[];
   last_updated?: string;
   crumbs?: { label: string; href?: string }[];
+  /** Pages listed under "Related articles" at the end, by path. */
+  related?: string[];
   /** Page layout: "doc" (default, sidebar + TOC), "landing" (full-width
    *  marketing) or "hub" (a full-width hero with search above the sidebar —
    *  a help-center home). */
@@ -53,6 +55,7 @@ function readMdx(filePath: string): { fm: DocFrontmatter; body: string } {
     toc: Array.isArray(data.toc) ? (data.toc as TocItem[]) : data.toc === false ? [] : undefined,
     last_updated: data.last_updated ? String(data.last_updated) : undefined,
     crumbs: Array.isArray(data.crumbs) ? data.crumbs : undefined,
+    related: Array.isArray(data.related) ? data.related.filter((r: unknown) => typeof r === "string") : undefined,
     layout: data.layout === "landing" || data.layout === "hub" ? data.layout : undefined,
     hero:
       data.hero && typeof data.hero === "object"

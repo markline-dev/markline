@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { DocsToc } from "./nav";
 import { DocAiRow } from "./doc-actions";
+import { LinkList, LinkItem } from "./authoring";
 
 export type Crumb = { label: string; href?: string };
 import type { TocItem } from "@/lib/toc";
@@ -8,11 +9,22 @@ import type { TocItem } from "@/lib/toc";
 export type { TocItem };
 export type PageNavLink = { href: string; label: string };
 
+const ChevronSep = (
+  <svg width={12} height={12} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
+    <path d="m9 6 6 6-6 6" />
+  </svg>
+);
+
 export function DocsPage({
   crumbs, title, lede, toc, lastUpdated, editUrl, feedbackEndpoint,
-  feedbackEnabled = false, aiEnabled = false, prev, next, hub = false, children,
+  feedbackEnabled = false, aiEnabled = false, prev, next, related = [], hub = false,
+  crumbStyle = "slash", actionStyle = "inline", children,
 }: {
   crumbs: Crumb[];
+  /** `layout.breadcrumbs` */
+  crumbStyle?: "slash" | "chevron";
+  /** `layout.pageActions` */
+  actionStyle?: "inline" | "menu";
   title: string;
   lede?: React.ReactNode;
   toc: TocItem[];
@@ -25,19 +37,23 @@ export function DocsPage({
   aiEnabled?: boolean;
   prev?: PageNavLink;
   next?: PageNavLink;
+  /** "Related articles" at the end of the page. */
+  related?: PageNavLink[];
   /** Under a HubHero: the hero already shows the title and lede, and there's
    *  no table of contents. */
   hub?: boolean;
   children: React.ReactNode;
 }) {
+  // With the menu-style actions the date sits beside them, not in the footer.
+  const footDate = actionStyle === "menu" ? undefined : lastUpdated;
   return (
     <>
       <main className="docs-main">
         {!hub && crumbs.length > 0 && (
-          <nav className="docs-bc">
+          <nav className={`docs-bc docs-bc--${crumbStyle}`} aria-label="Breadcrumb">
             {crumbs.map((c, i) => (
               <span key={i} className="bc-seg">
-                {i > 0 && <span className="sep">/</span>}
+                {i > 0 && <span className="sep" aria-hidden>{crumbStyle === "chevron" ? ChevronSep : "/"}</span>}
                 {c.href ? (
                   <a href={c.href}>{c.label}</a>
                 ) : (
@@ -52,11 +68,27 @@ export function DocsPage({
           <>
             <h1 className="docs-h1">{title}</h1>
             {lede && <p className="docs-lead">{lede}</p>}
-            <DocAiRow title={title} aiEnabled={aiEnabled} />
+            <DocAiRow
+              title={title}
+              aiEnabled={aiEnabled}
+              variant={actionStyle}
+              lastUpdated={actionStyle === "menu" ? lastUpdated : undefined}
+            />
           </>
         )}
 
         <div className="docs-prose">{children}</div>
+
+        {related.length > 0 && (
+          <section className="doc-related" aria-labelledby="related-articles">
+            <h2 id="related-articles">Related articles</h2>
+            <LinkList>
+              {related.map((r) => (
+                <LinkItem key={r.href} href={r.href} title={r.label} />
+              ))}
+            </LinkList>
+          </section>
+        )}
 
         {(prev || next) && (
           <div className="page-nav">
@@ -79,9 +111,9 @@ export function DocsPage({
           </div>
         )}
 
-        {(lastUpdated || editUrl) && (
+        {(footDate || editUrl) && (
           <div className="doc-foot">
-            <span>{lastUpdated ? `Last updated ${lastUpdated}` : ""}</span>
+            <span>{footDate ? `Last updated ${footDate}` : ""}</span>
             {editUrl && (
               <a href={editUrl} target="_blank" rel="noreferrer">
                 <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>

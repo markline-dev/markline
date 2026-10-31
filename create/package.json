@@ -21,10 +21,12 @@
   },
   "files": [
     "index.mjs",
-    "templates"
+    "scaffold.mjs",
+    "templates",
+    "builtin-templates"
   ],
   "scripts": {
-    "prepublishOnly": "rm -rf templates && cp -r ../templates/init templates"
+    "prepublishOnly": "rm -rf templates builtin-templates && cp -r ../templates/init templates && cp -r ../lib/templates builtin-templates && cp ../bin/scaffold.mjs scaffold.mjs"
   },
   "publishConfig": {
     "access": "public"

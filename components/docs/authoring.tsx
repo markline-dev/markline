@@ -1,5 +1,7 @@
 import { Children, cloneElement, isValidElement } from "react";
 import Link from "next/link";
+import { resolveVideo } from "@/lib/video";
+import { navIcon } from "./nav-icons";
 
 /* ──────────────────────────────────────────────────────────────────────────
  * Authoring components — available in any MDX page without an import.
@@ -87,6 +89,13 @@ const CardArrow = (
   </svg>
 );
 
+/** A Phosphor name ("rocket-launch") becomes the icon; anything else, such as
+ * an emoji or an element, renders as given. */
+function cardIcon(icon: React.ReactNode): React.ReactNode {
+  if (typeof icon !== "string" || !/^[A-Za-z][\w-]*$/.test(icon)) return icon;
+  return navIcon(icon, 18) ?? icon;
+}
+
 export function Card({
   title,
   icon,
@@ -106,7 +115,7 @@ export function Card({
       {kicker && <div className="k">{kicker}</div>}
       <div className="h">
         <span className="ml-card-h-inner">
-          {icon && <span aria-hidden>{icon}</span>}
+          {icon && <span aria-hidden className="ml-card-icon">{cardIcon(icon)}</span>}
           {title}
         </span>
         {href && CardArrow}
@@ -199,3 +208,94 @@ export function ParamField({
 }
 
 export const ResponseField = ParamField;
+
+const PageIcon = (
+  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} aria-hidden>
+    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+    <path d="M14 3v5h5M9 13h6M9 17h6" />
+  </svg>
+);
+
+/**
+ * A list of links, one row each: title, optional description, and an icon
+ * on the right. For collection pages, "see also" lists, and the "Related
+ * articles" list at the end of a page.
+ */
+export function LinkList({ children }: { children: React.ReactNode }) {
+  return <ul className="ml-links">{children}</ul>;
+}
+
+export function LinkItem({
+  href,
+  title,
+  description,
+  meta,
+  icon,
+}: {
+  href: string;
+  title: React.ReactNode;
+  description?: React.ReactNode;
+  /** Short accent-coloured text before the description, e.g. "3 articles". */
+  meta?: React.ReactNode;
+  /** A Phosphor icon name in place of the page icon, or "none". */
+  icon?: string;
+}) {
+  const ic = icon === "none" ? null : icon ? navIcon(icon, 20) ?? PageIcon : PageIcon;
+  return (
+    <li>
+      <Link href={href} className="ml-link">
+        <span className="ml-link-txt">
+          <span className="ml-link-t">{title}</span>
+          {(meta || description) && (
+            <span className="ml-link-d">
+              {meta && <span className="ml-link-m">{meta}</span>}
+              {meta && description && " · "}
+              {description}
+            </span>
+          )}
+        </span>
+        {ic && <span className="ml-link-ic">{ic}</span>}
+      </Link>
+    </li>
+  );
+}
+
+/**
+ * A video: a file (`.mp4`, `.webm`) in the browser's own player, or a
+ * YouTube, Vimeo, Loom or Wistia link as that provider's embed. Full column
+ * width at 16:9; embeds load when scrolled into view.
+ */
+export function Video({
+  src,
+  title,
+  poster,
+  caption,
+}: {
+  src: string;
+  /** Names the embed for screen readers. */
+  title?: string;
+  /** Image shown before a video file plays. */
+  poster?: string;
+  caption?: React.ReactNode;
+}) {
+  const video = resolveVideo(src);
+  return (
+    <figure className="ml-video">
+      <div className="ml-video-frame">
+        {video.kind === "file" ? (
+          <video src={video.src} poster={poster} controls preload="metadata" playsInline title={title} />
+        ) : (
+          <iframe
+            src={video.src}
+            title={title ?? "Video"}
+            loading="lazy"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+            allowFullScreen
+            referrerPolicy="strict-origin-when-cross-origin"
+          />
+        )}
+      </div>
+      {caption && <figcaption>{caption}</figcaption>}
+    </figure>
+  );
+}

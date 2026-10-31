@@ -2,6 +2,14 @@
 
 All notable changes to `@markline/markline` and `@markline/create`.
 
+## Unreleased
+
+### Added
+- **Site language.** `lang` in markline.json sets the pages' `<html lang>`
+  for a site written in one language other than English, without setting up
+  `i18n`. A site with a single locale now uses that locale's id too (it got
+  `en` before).
+
 ## 0.1.7
 
 ### Added

@@ -2,6 +2,13 @@
 
 All notable changes to `@markline/markline` and `@markline/create`.
 
+## Unreleased
+
+### Added
+- **`<Video>`.** Embeds a video file in the browser's own player, or a
+  YouTube, Vimeo, Loom or Wistia link as that provider's embed (YouTube via
+  its no-cookie domain). Full column width at 16:9, with an optional caption.
+
 ## 0.1.6
 
 ### Added

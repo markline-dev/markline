@@ -1,5 +1,6 @@
 import { Children, cloneElement, isValidElement } from "react";
 import Link from "next/link";
+import { resolveVideo } from "@/lib/video";
 
 /* ──────────────────────────────────────────────────────────────────────────
  * Authoring components — available in any MDX page without an import.
@@ -199,3 +200,43 @@ export function ParamField({
 }
 
 export const ResponseField = ParamField;
+
+/**
+ * A video: a file (`.mp4`, `.webm`) in the browser's own player, or a
+ * YouTube, Vimeo, Loom or Wistia link as that provider's embed. Full column
+ * width at 16:9; embeds load when scrolled into view.
+ */
+export function Video({
+  src,
+  title,
+  poster,
+  caption,
+}: {
+  src: string;
+  /** Names the embed for screen readers. */
+  title?: string;
+  /** Image shown before a video file plays. */
+  poster?: string;
+  caption?: React.ReactNode;
+}) {
+  const video = resolveVideo(src);
+  return (
+    <figure className="ml-video">
+      <div className="ml-video-frame">
+        {video.kind === "file" ? (
+          <video src={video.src} poster={poster} controls preload="metadata" playsInline title={title} />
+        ) : (
+          <iframe
+            src={video.src}
+            title={title ?? "Video"}
+            loading="lazy"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+            allowFullScreen
+            referrerPolicy="strict-origin-when-cross-origin"
+          />
+        )}
+      </div>
+      {caption && <figcaption>{caption}</figcaption>}
+    </figure>
+  );
+}

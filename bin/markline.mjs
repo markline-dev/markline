@@ -61,10 +61,22 @@ function syncApp() {
   }
 
   const nm = path.join(WORK_DIR, "node_modules");
-  const deps = path.join(CONTENT_DIR, "node_modules");
-  if (!fs.existsSync(nm) && fs.existsSync(deps)) {
+  const deps = depsDir();
+  if (!fs.existsSync(nm) && deps) {
     fs.symlinkSync(deps, nm, "junction");
   }
+}
+
+/**
+ * Where the app's dependencies live: the consumer's own node_modules when
+ * @markline/markline is installed there, else the framework checkout's, so a
+ * bare content folder runs with `node ../markline/bin/markline.mjs dev`.
+ */
+function depsDir() {
+  for (const dir of [path.join(CONTENT_DIR, "node_modules"), path.join(APP_DIR, "node_modules")]) {
+    if (fs.existsSync(path.join(dir, "next"))) return dir;
+  }
+  return null;
 }
 
 function readPkgVersion() {
@@ -176,24 +188,24 @@ const COMMANDS = {
     console.log(`    markline dev\n`);
   },
 
-  async dev() {
+  async dev(args) {
     requireConfig();
     syncApp();
-    await runNext(["dev"], { env: baseEnv() });
+    await runNext(["dev", ...args], { env: baseEnv() });
   },
 
-  async build() {
+  async build(args) {
     requireConfig();
     syncApp();
     const env = baseEnv();
     await buildSearch(env);
-    await runNext(["build"], { env });
+    await runNext(["build", ...args], { env });
   },
 
-  async start() {
+  async start(args) {
     requireConfig();
     syncApp();
-    await runNext(["start"], { env: baseEnv() });
+    await runNext(["start", ...args], { env: baseEnv() });
   },
 
   async export() {
@@ -229,6 +241,7 @@ const COMMANDS = {
     dev          Start the dev server against ./markline.json
     build        Build a production server bundle (Docker / Vercel / start)
     start        Serve a production build
+                 dev, build and start pass extra flags to Next, e.g. dev -p 3001
     export       Build a static HTML site into ./out (any CDN / Pages / S3)
     version      Print the Markline version
     help         Show this help

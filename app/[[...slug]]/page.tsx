@@ -13,6 +13,7 @@ import { getDocsTabs, pickActiveTab, getNav, flattenLinks, findNavTrail, collect
 import { HubHero } from "@/components/docs/hub-hero";
 import { LandingPage } from "@/components/landing/landing";
 import { remarkLandingProse } from "@/lib/landing-prose";
+import { remarkCodeGroupTitles } from "@/lib/code-group";
 import { extractToc } from "@/lib/toc";
 import { SiteFooter } from "@/components/site-footer";
 import type { Crumb, PageNavLink } from "@/components/docs/page";
@@ -124,7 +125,7 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
       options={{
         mdxOptions: {
           format: "mdx",
-          remarkPlugins: landing ? [remarkGfm, remarkLandingProse] : [remarkGfm],
+          remarkPlugins: landing ? [remarkGfm, remarkCodeGroupTitles, remarkLandingProse] : [remarkGfm, remarkCodeGroupTitles],
           rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]],
         },
         blockJS: false,

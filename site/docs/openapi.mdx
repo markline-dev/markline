@@ -107,6 +107,27 @@ admin/api/keys       Admin
 `@ApiTags` to get clean resource boundaries. Per-resource
 [MDX overlays](#overlays) still key off the full slug (`store-orders.mdx`).</Note>
 
+### Custom labels with `x-displayName`
+
+Title-casing can't know every brand: `tools/WhatsApp` comes out "Whats App",
+`github` comes out "Github". Set `x-displayName` on the entry in the root `tags`
+array — the Redoc convention, so many specs already carry it — and Markline
+shows that label exactly:
+
+```jsonc
+"tags": [
+  { "name": "tools/WhatsApp", "x-displayName": "WhatsApp" },
+  { "name": "integrations", "x-displayName": "Integrations & Apps" }
+]
+```
+
+- The label replaces the derived name everywhere a tag is shown: the sidebar,
+  the resource heading and breadcrumb, the **Endpoints** card, the page
+  `<title>`, search and `llms.txt`.
+- It names one node. `tools/WhatsApp` relabels the leaf and leaves the `Tools`
+  group derived; to relabel a group, give its own path a `tags` entry.
+- **URLs are unchanged** — the slug still comes from `name`.
+
 ## Sidebar order
 
 Within a resource, operations render in the order Markline reads them from the

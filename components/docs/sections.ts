@@ -12,7 +12,7 @@ function apiSections(): DocSection[] {
       links: [{ href: "/api-reference", label: "Introduction" }],
     },
     ...api.tags.map((tag) => ({
-      title: tag.name,
+      title: tag.displayName ?? tag.name,
       links: tag.operations.map<DocLink>((op) => ({
         href: operationHref(op),
         label: op.summary ?? op.operationId,

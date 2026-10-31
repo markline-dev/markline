@@ -9,7 +9,7 @@ import { DocsShell } from "@/components/docs/nav";
 import { mdxComponents } from "@/components/docs/mdx";
 import { getHighlighter, shellEnhancer } from "@/lib/shiki";
 import { loadConfig, aiConfig, feedbackConfig } from "@/lib/config";
-import { getDocsTabs, pickActiveTab, getNav } from "@/components/docs/sections";
+import { getDocsTabs, pickActiveTab, getNav, flattenLinks } from "@/components/docs/sections";
 import { LandingPage } from "@/components/landing/landing";
 import { SiteCredit } from "@/components/site-credit";
 import type { PageNavLink } from "@/components/docs/page";
@@ -138,9 +138,7 @@ function pageNeighbors(pathname: string): { prev?: PageNavLink; next?: PageNavLi
   const tab = pickActiveTab(tabs, pathname);
   if (!tab || tab.id === "api-reference") return {};
   const flat: PageNavLink[] = [];
-  for (const sec of tab.sections) {
-    for (const l of sec.links) flat.push({ href: l.href, label: l.label });
-  }
+  for (const sec of tab.sections) flat.push(...flattenLinks(sec.links));
   const i = flat.findIndex((l) => l.href === pathname);
   if (i < 0) return {};
   return {
@@ -154,7 +152,8 @@ function pageNeighbors(pathname: string): { prev?: PageNavLink; next?: PageNavLi
 function firstDocHref(): string | undefined {
   for (const tab of getDocsTabs()) {
     for (const sec of tab.sections) {
-      if (sec.links.length) return sec.links[0].href;
+      const first = flattenLinks(sec.links)[0];
+      if (first) return first.href;
     }
   }
   return undefined;

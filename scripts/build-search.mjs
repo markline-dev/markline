@@ -219,7 +219,10 @@ function writeLlms(root) {
   for (const tab of walkTabs) {
     for (const g of tab.groups ?? []) {
       const pages = [];
-      for (const p of g.pages ?? []) {
+      // Sidebar items can nest (`pages` inside a page); list them depth first,
+      // in sidebar order. Folders with no `href` contribute only their children.
+      const flatten = (items) => (items ?? []).flatMap((p) => [...(p.href ? [p] : []), ...flatten(p.pages)]);
+      for (const p of flatten(g.pages)) {
         const d = docMap.get(p.href);
         used.add(p.href);
         if (d && d.layout === "landing") continue;

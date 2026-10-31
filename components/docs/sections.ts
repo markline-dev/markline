@@ -1,6 +1,7 @@
 import type { DocSection, DocLink, NavData } from "./nav";
 import { loadOpenApi, operationHref } from "@/lib/openapi";
-import { loadConfig, type NavTab, type MarklineConfig } from "@/lib/config";
+import { loadConfig, type NavLink, type NavTab, type MarklineConfig } from "@/lib/config";
+import { navIcon } from "./nav-icons";
 
 /** Build the API-reference sidebar from the OpenAPI spec's tags. */
 function apiSections(): DocSection[] {
@@ -21,9 +22,36 @@ function apiSections(): DocSection[] {
   ];
 }
 
+function toDocLink(l: NavLink): DocLink {
+  return {
+    href: l.href,
+    label: l.label,
+    badge: l.badge,
+    method: l.method,
+    icon: navIcon(l.icon),
+    children: l.pages?.map(toDocLink),
+    collapsed: l.collapsed,
+  };
+}
+
 function tabToSections(tab: NavTab): DocSection[] {
   if (tab.openapi) return apiSections();
-  return (tab.groups ?? []).map((g) => ({ title: g.group, links: g.pages }));
+  return (tab.groups ?? []).map((g) => ({
+    title: g.group,
+    icon: navIcon(g.icon),
+    links: g.pages.map(toDocLink),
+    collapsible: g.collapsible,
+    collapsed: g.collapsed,
+  }));
+}
+
+/** Every page in sidebar order, depth first — nested pages included, folders
+ *  (items with no `href`) skipped. */
+export function flattenLinks(links: DocLink[]): { href: string; label: string }[] {
+  return links.flatMap((l) => [
+    ...(l.href ? [{ href: l.href, label: l.label }] : []),
+    ...flattenLinks(l.children ?? []),
+  ]);
 }
 
 export type DocsTab = {

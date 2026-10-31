@@ -407,7 +407,19 @@
 .docs-shell .docs-toc .rate .btns > button .ico { width: 15px; height: 15px; }
 
 /* ─────────────────────────── responsive ─────────────────────────── */
+/* layout.content: "centered": a fixed-width column centred between the
+   sidebar and "On this page". Text runs the column's full width so it lines
+   up with callouts, tables and code. */
+html[data-content="centered"] .docs-shell .docs-main {
+  --content-pad: 56px;
+  width: 100%; max-width: calc(var(--content-width, 880px) + 2 * var(--content-pad)); margin-inline: auto;
+}
+html[data-content="centered"] .docs-shell :is(.docs-lead, .docs-prose p, .docs-prose ul, .docs-prose ol, .docs-prose .callout) {
+  max-width: none;
+}
+
 @media (max-width: 1080px) {
+  html[data-content="centered"] .docs-shell .docs-main { --content-pad: 40px; }
   .docs-shell .docs-main { padding: 36px 40px 90px; }
 }
 @media (max-width: 720px) {

@@ -106,6 +106,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       lang="en"
       className={`${geist.variable} ${geistMono.variable} ${instrumentSerif.variable} ${schibsted.variable} ${cooper.variable}`}
       data-header={config.layout.header}
+      data-content={config.layout.content}
       // Heading-font rules only apply when one is configured, so sites that
       // don't set it render exactly as before.
       data-heading-font={config.theme.font?.heading ? "" : undefined}

@@ -25,7 +25,7 @@ import path from "node:path";
  *  `ai.endpoint` could route readers' questions elsewhere. */
 export type TemplateOptions = {
   theme?: Record<string, unknown>;
-  layout?: { header?: "single" | "stacked"; search?: "sidebar" | "header" };
+  layout?: { header?: "single" | "stacked"; search?: "sidebar" | "header"; content?: "fluid" | "centered" };
   topbar?: { width?: "full" | "contained"; homeWidth?: "full" | "contained" };
 };
 

@@ -138,6 +138,14 @@ and fonts.
   and the API reference, and removes the sidebar copy. ⌘K works either way.
 </ParamField>
 
+<ParamField path="layout.content" type='"fluid" | "centered"'>
+  The page column between the sidebar and "On this page". `fluid` (default)
+  stretches to fill the space. `centered` keeps it at a fixed width, centred,
+  with text running the full width so it lines up with tables, code and
+  callouts. Set the width with `--content-width` in `theme.cssVariables`
+  (default `880px`). The `help-center` template uses `centered`.
+</ParamField>
+
 A [template](/templates) can set both. `product-docs` sets them to `stacked`
 and `header`.
 

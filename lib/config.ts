@@ -341,6 +341,10 @@ export type LayoutConfig = {
   header?: "single" | "stacked";
   /** Where the search box lives: in the docs sidebar (default) or the header. */
   search?: "sidebar" | "header";
+  /** The page column between the sidebar and "On this page": "fluid"
+   *  (default) stretches to fill it; "centered" is a fixed width
+   *  (--content-width, 880px) centred in it. */
+  content?: "fluid" | "centered";
 };
 
 export type MarklineConfig = {
@@ -395,7 +399,7 @@ const DEFAULT_CONFIG: MarklineConfig = {
     appearance: "system",
     colors: { primary: "#3C87F0", primaryDark: "#6E86FA" },
   },
-  layout: { header: "single", search: "sidebar" },
+  layout: { header: "single", search: "sidebar", content: "fluid" },
   topbar: { links: [] },
   navigation: {
     tabs: [

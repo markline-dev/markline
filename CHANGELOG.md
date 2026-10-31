@@ -2,6 +2,14 @@
 
 All notable changes to `@markline/markline` and `@markline/create`.
 
+## Unreleased
+
+### Added
+- **`layout.content: "centered"`** keeps docs pages in a fixed-width column
+  (`--content-width`, 880px) centred between the sidebar and "On this page",
+  with text the same width as tables and callouts. The default, `"fluid"`, is
+  unchanged. The `help-center` template uses `"centered"`.
+
 ## 0.1.6
 
 ### Added

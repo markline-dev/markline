@@ -22,6 +22,6 @@
       }
     }
   },
-  "layout": { "header": "single", "search": "header" },
+  "layout": { "header": "single", "search": "header", "content": "centered" },
   "topbar": { "width": "full", "homeWidth": "full" }
 }

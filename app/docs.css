@@ -719,6 +719,48 @@ html[data-ai-open] .docs-shell .aichat { transform: none; }
 .docs-shell .site-credit a:hover, .docs-shell .site-credit a:hover .wordmark { color: var(--ink); }
 
 /* ============================================================
+   Changelog (<content>/changelog/*.mdx): entries newest first, the date in a
+   sticky column on the left, the notes on the right.
+   ============================================================ */
+.docs-shell .cl-main { box-sizing: border-box; width: 100%; max-width: 1000px; margin-inline: auto; }
+.docs-shell .cl-head { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.docs-shell .cl-head .docs-h1 { margin: 0; }
+.docs-shell .cl-rss {
+  display: inline-flex; align-items: center; gap: 8px; padding: 7px 14px; border: 1px solid var(--line-2);
+  border-radius: 999px; font-size: 13.5px; color: var(--ink-2); text-decoration: none; transition: color .15s, border-color .15s;
+}
+.docs-shell .cl-rss:hover { color: var(--ink); border-color: var(--ink-4); }
+.docs-shell .cl-intro { margin-top: 8px; }
+.docs-shell .cl-list { margin-top: 36px; }
+.docs-shell .cl-entry {
+  display: grid; grid-template-columns: 176px minmax(0, 1fr); gap: 40px;
+  padding: 40px 0; border-top: 1px solid var(--line); scroll-margin-top: calc(var(--nav-h) + 16px);
+}
+.docs-shell .cl-entry:first-child { border-top: 0; padding-top: 8px; }
+.docs-shell .cl-side { position: sticky; top: calc(var(--nav-h) + 24px); align-self: start; display: flex; flex-direction: column; align-items: flex-start; gap: 10px; }
+.docs-shell .cl-date {
+  display: inline-block; padding: 4px 10px; border-radius: 7px; background: var(--panel-hi);
+  font-size: 13px; font-weight: 500; color: var(--ink-2); text-decoration: none; white-space: nowrap;
+}
+.docs-shell a.cl-date:hover { color: var(--ink); }
+.docs-shell .cl-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.docs-shell .cl-tags li { padding: 2px 8px; border: 1px solid var(--line); border-radius: 999px; font-size: 11.5px; color: var(--ink-3); }
+.docs-shell .cl-body { margin-top: 0; min-width: 0; }
+.docs-shell .cl-body .cl-summary { margin: 0 0 4px; font-size: 13.5px; color: var(--ink-4); }
+.docs-shell .cl-body > h3:first-child, .docs-shell .cl-body > .cl-summary + h3 { margin-top: 0; }
+.docs-shell .cl-body h3 { scroll-margin-top: calc(var(--nav-h) + 20px); }
+.docs-shell .cl-pager { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 24px; padding-top: 24px; border-top: 1px solid var(--line); font-size: 14px; }
+.docs-shell .cl-pager a { color: var(--ink-2); text-decoration: none; }
+.docs-shell .cl-pager a:hover { color: var(--ink); }
+.docs-shell .cl-pageno { color: var(--ink-4); font-size: 13px; }
+.docs-shell .cl-back { display: inline-block; margin-bottom: 14px; font-size: 13.5px; color: var(--ink-3); text-decoration: none; }
+.docs-shell .cl-back:hover { color: var(--ink); }
+@media (max-width: 720px) {
+  .docs-shell .cl-entry { grid-template-columns: 1fr; gap: 16px; padding: 28px 0; }
+  .docs-shell .cl-side { position: static; flex-direction: row; flex-wrap: wrap; align-items: center; }
+}
+
+/* ============================================================
    Site footer (`footer` in markline.json, <SiteFooter/>): link columns, then
    a bottom row with the logo, copyright, small links, socials and the credit.
    Full width below the docs grid, the API reference or a landing page.

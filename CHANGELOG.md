@@ -5,6 +5,11 @@ All notable changes to `@markline/markline` and `@markline/create`.
 ## Unreleased
 
 ### Added
+- **Changelog pages.** A `changelog/` folder of dated MDX files becomes a
+  changelog at `/changelog`: entries newest first with the date beside
+  them, "On this page" grouped by date, a page per entry
+  (`/changelog/2026/10/26`), paging, search and sitemap entries, and an RSS
+  feed at `/changelog/rss.xml` when `seo.metadataBase` is set.
 - **`npm create @markline -- --template <name>`** starts a project from a
   built-in template or a `./folder`, starter pages included, the same as
   `markline init --template`.

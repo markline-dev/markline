@@ -401,6 +401,10 @@ html:not([data-banner]) .site-banner { display: none; }
   .nav-mobile-panel a.active { color: var(--ink); font-weight: 500; }
   .nav-mobile-panel .btn { justify-content: center; margin-top: 8px; }
 }
+@media (max-width: 480px) {
+  /* No room beside the logo and the header buttons on a phone. */
+  .nav-badge { display: none; }
+}
 
 /* tab links pinned at the top of the mobile sidebar drawer (docs shell) so the
    top-level sections stay reachable on mobile */

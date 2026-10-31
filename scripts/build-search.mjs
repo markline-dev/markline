@@ -12,6 +12,11 @@ import matter from "gray-matter";
 import * as pagefind from "pagefind";
 import { orderedResourceTags } from "./openapi-order.mjs";
 import { searchGroups } from "./search-groups.mjs";
+import { unified } from "unified";
+import remarkParse from "remark-parse";
+import remarkGfm from "remark-gfm";
+import remarkRehype from "remark-rehype";
+import rehypeStringify from "rehype-stringify";
 
 /** Read an env var, falling back to .env.local / .env (plain node script —
  *  Next's automatic env loading doesn't apply here). */
@@ -128,6 +133,107 @@ function apiRecords(root) {
     }
   }
   return records;
+}
+
+/* ── Changelog ──────────────────────────────────────────────────────────────
+   <content>/changelog/*.mdx, one file per release (lib/changelog-core.ts has
+   the same date and path rules for the pages). Entries go into search and the
+   sitemap, and into an RSS feed at /changelog/rss.xml, written as a static
+   file so it survives static export. Feeds need absolute links, so the feed is
+   only written when seo.metadataBase (or MARKLINE_SITE_URL) is set. */
+
+const ENTRY_DATE = /^(\d{4})-(\d{2})-(\d{2})$/;
+
+function changelogEntries(root) {
+  const dir = path.join(root, "changelog");
+  if (!fs.existsSync(dir)) return [];
+  const out = [];
+  for (const name of fs.readdirSync(dir)) {
+    if (!/\.mdx?$/.test(name)) continue;
+    const { data, content } = matter(fs.readFileSync(path.join(dir, name), "utf8"));
+    const fm = data.date instanceof Date ? data.date.toISOString().slice(0, 10) : typeof data.date === "string" ? data.date.trim().slice(0, 10) : "";
+    const date = [fm, name.replace(/\.mdx?$/, "")].find((d) => ENTRY_DATE.test(d) && !Number.isNaN(Date.parse(`${d}T00:00:00Z`)));
+    if (!date) continue; // the pages warn about these
+    out.push({
+      date,
+      url: `/changelog/${date.replace(/-/g, "/")}`,
+      title: typeof data.title === "string" && data.title.trim() ? data.title.trim() : "",
+      tags: Array.isArray(data.tags) ? data.tags.filter((t) => typeof t === "string") : [],
+      body: content,
+    });
+  }
+  return out.sort((a, b) => (a.date < b.date ? 1 : -1));
+}
+
+const longDate = (d) =>
+  new Date(`${d}T00:00:00Z`).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric", timeZone: "UTC" });
+
+function changelogRecords(root) {
+  return changelogEntries(root).map((e) => ({
+    url: e.url,
+    title: e.title || `Changelog: ${longDate(e.date)}`,
+    content: `${longDate(e.date)} ${e.tags.join(" ")} ${toPlainText(e.body)}`,
+    meta: "Changelog",
+  }));
+}
+
+/** An entry's MDX as HTML for a feed reader: components are unwrapped to
+ *  their text, and site-relative links made absolute. */
+async function entryHtml(body, base) {
+  const md = body.replace(/^\s*(import|export)\s.*$/gm, "").replace(/<\/?[A-Z][\w.]*[^>]*>/g, "");
+  const html = String(await unified().use(remarkParse).use(remarkGfm).use(remarkRehype).use(rehypeStringify).process(md));
+  return html.replace(/(href|src)="\//g, `$1="${base}/`);
+}
+
+async function writeChangelogFeed(root) {
+  const entries = changelogEntries(root);
+  const feedFile = path.join(process.cwd(), "public", "changelog", "rss.xml");
+  if (!entries.length) {
+    fs.rmSync(feedFile, { force: true }); // don't leave a stale feed behind
+    return;
+  }
+  const cfg = loadJsonConfig(root);
+  const base = String(cfg.seo?.metadataBase ?? process.env.MARKLINE_SITE_URL ?? "").replace(/\/$/, "");
+  if (!base) {
+    console.warn("[markline] changelog: no RSS feed (set seo.metadataBase so the feed can use absolute links)");
+    fs.rmSync(feedFile, { force: true });
+    return;
+  }
+  const name = cfg.name ?? "Docs";
+  const esc = (s) => String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  const cdata = (s) => `<![CDATA[${s.replace(/]]>/g, "]]]]><![CDATA[>")}]]>`;
+  const rfc822 = (d) => new Date(`${d}T00:00:00Z`).toUTCString();
+  const items = [];
+  for (const e of entries.slice(0, 50)) {
+    items.push(
+      [
+        "    <item>",
+        `      <title>${esc(e.title || longDate(e.date))}</title>`,
+        `      <link>${esc(base + e.url)}</link>`,
+        `      <guid isPermaLink="true">${esc(base + e.url)}</guid>`,
+        `      <pubDate>${rfc822(e.date)}</pubDate>`,
+        ...e.tags.map((t) => `      <category>${esc(t)}</category>`),
+        `      <description>${cdata(await entryHtml(e.body, base))}</description>`,
+        "    </item>",
+      ].join("\n"),
+    );
+  }
+  const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>${esc(`${name} changelog`)}</title>
+    <link>${esc(`${base}/changelog`)}</link>
+    <description>${esc(`What's new in ${name}.`)}</description>
+    <language>en</language>
+    <lastBuildDate>${rfc822(entries[0].date)}</lastBuildDate>
+    <atom:link href="${esc(`${base}/changelog/rss.xml`)}" rel="self" type="application/rss+xml" />
+${items.join("\n")}
+  </channel>
+</rss>
+`;
+  fs.mkdirSync(path.dirname(feedFile), { recursive: true });
+  fs.writeFileSync(feedFile, xml);
+  console.log(`[markline] changelog: ${entries.length} entries, RSS -> public/changelog/rss.xml`);
 }
 
 /* ── llms.txt / llms-full.txt ──────────────────────────────────────────────
@@ -283,6 +389,11 @@ function writeLlms(root) {
   // sitemap is only written when seo.metadataBase is set.
   const xmlEsc = (s) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
   const pages = new Set([...docMap.keys()]);
+  const changelog = changelogEntries(root);
+  if (changelog.length) {
+    pages.add("/changelog");
+    for (const e of changelog) pages.add(e.url);
+  }
   if (apis.length) {
     pages.add("/api-reference");
     for (const a of apis) pages.add(a.url);
@@ -428,12 +539,14 @@ async function main() {
     ...docRecords(root),
     ...prefixes.flatMap((p) => docRecords(root, p)),
     ...apiRecords(root),
+    ...changelogRecords(root),
   ];
 
   // Filter chips in the search dialog: each page's collection or sidebar group.
   const { order, byUrl } = searchGroups(loadJsonConfig(root));
-  const groupOf = (r) => byUrl.get(r.url) ?? (r.meta === "API reference" ? r.meta : undefined);
+  const groupOf = (r) => byUrl.get(r.url) ?? (r.meta === "API reference" || r.meta === "Changelog" ? r.meta : undefined);
   if (records.some((r) => r.meta === "API reference")) order.push("API reference");
+  if (records.some((r) => r.meta === "Changelog") && !order.includes("Changelog")) order.push("Changelog");
 
   const { index } = await pagefind.createIndex();
   for (const r of records) {
@@ -457,6 +570,7 @@ async function main() {
   console.log(`[markline] search index built: ${records.length} records -> public/pagefind`);
 
   writeLlms(root);
+  await writeChangelogFeed(root);
   await writeAiSuggestions(root);
 }
 

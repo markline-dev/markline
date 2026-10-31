@@ -17,7 +17,7 @@ import { MarklineHome } from "@/components/landing/home/markline-home";
 
 /** A heading's visible text, however it's nested (code, bold, links), so
  *  its id matches the one lib/toc.ts gives it in "On this page". */
-function textOf(node: React.ReactNode): string {
+export function textOf(node: React.ReactNode): string {
   if (typeof node === "string" || typeof node === "number") return String(node);
   if (Array.isArray(node)) return node.map(textOf).join("");
   if (node && typeof node === "object" && "props" in node) {

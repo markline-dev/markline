@@ -19,6 +19,9 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **Search filters by collection.** The docs search dialog shows a chip for
   each sidebar group (or top-level folder, or tab), plus the API reference, and
   narrows results to the one you pick. Each result also shows its group.
+- **`<Video>`.** Embeds a video file in the browser's own player, or a
+  YouTube, Vimeo, Loom or Wistia link as that provider's embed (YouTube via
+  its no-cookie domain). Full column width at 16:9, with an optional caption.
 
 ### Changed
 - **The search dialog keeps one height**, with a "Start typing to search"

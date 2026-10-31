@@ -309,6 +309,19 @@
 /* tables */
 :is(.docs-shell, .api-op-main, .ml-landing) .docs-prose table { width: 100%; border-collapse: collapse; }
 
+/* <Video> */
+:is(.docs-shell, .ml-landing, .api-op-main) .ml-video { margin: 24px 0 0; }
+:is(.docs-shell, .ml-landing, .api-op-main) .ml-video-frame {
+  position: relative; aspect-ratio: 16 / 9; border-radius: 12px; overflow: hidden;
+  background: #000; border: 1px solid var(--line);
+}
+:is(.docs-shell, .ml-landing, .api-op-main) .ml-video-frame :is(video, iframe) {
+  position: absolute; inset: 0; width: 100%; height: 100%; border: 0; display: block;
+}
+:is(.docs-shell, .ml-landing, .api-op-main) .ml-video figcaption {
+  margin-top: 10px; font-size: 13.5px; color: var(--ink-3); text-align: center;
+}
+
 /* callout */
 /* MDX authoring components (callouts, steps, tabs, cards) render on landing
    pages and in the MDX overlay of API operation pages (.api-op-main), so their

@@ -5,6 +5,7 @@ import { slugify } from "@/lib/toc";
 import type { MDXComponents } from "mdx/types";
 import { Callout, DocsH2, DocsP } from "./page";
 import { CodeBlock, type CodeSnippet } from "./code-block";
+import { CodeGroup } from "./code-group";
 import { EndpointList } from "./api/endpoint-list";
 import {
   Note, Info, Tip, Check, Warning, Danger,
@@ -168,6 +169,7 @@ export const mdxComponents: MDXComponents = {
   // Rich custom blocks available in any MDX page
   Callout,
   CodeBlock,
+  CodeGroup,
   Paths,
   Path,
   MenuPath,

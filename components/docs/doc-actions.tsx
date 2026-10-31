@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
 import { openAskPanel } from "./ai/ask-dock";
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -8,8 +9,11 @@ import { openAskPanel } from "./ai/ask-dock";
  * - "Ask AI about this page"  → opens the docked Ask-AI panel (gated on AI).
  * - "Copy for LLM"            → copies a Markdown rendering of the page DOM.
  * - "View as Markdown"        → opens the shared View-as-Markdown modal.
- * All three derive their Markdown from the rendered .docs-prose, so they stay
- * bound to the real page content (no fabricated text).
+ * Both Markdown actions use the page's own Markdown, served at <page>.md
+ * (scripts/llms.mjs), once it has loaded; it's fetched when the pointer or
+ * focus first reaches the row. Until then, or where there's no .md file, they
+ * fall back to rendering the .docs-prose DOM, so they stay bound to the real
+ * page content (no fabricated text). The menu also links the .md file.
  *
  * `layout.pageActions: "menu"` shows them as one "Copy for LLM" button with
  * the others in a dropdown, beside the last-updated date.
@@ -78,6 +82,13 @@ function pageToMarkdown(title: string): string {
   return md.trim();
 }
 
+/** The current page's .md URL (scripts/llms.mjs markdownPath). */
+function markdownUrl(pathname: string): string {
+  const base = process.env.NEXT_PUBLIC_MARKLINE_BASE_PATH ?? "";
+  const p = pathname.replace(/\/$/, "");
+  return `${base}${p ? p : "/index"}.md`;
+}
+
 function openMarkdownModal(md: string) {
   window.dispatchEvent(new CustomEvent("ml-mdv-open", { detail: { md } }));
 }
@@ -100,9 +111,27 @@ export function DocAiRow({
   lastUpdated?: string;
 }) {
   const [copied, setCopied] = useState(false);
+  const pathname = usePathname() ?? "/";
+  const mdUrl = markdownUrl(pathname);
+  // The fetched .md text: undefined until asked for, null when there's none.
+  const source = useRef<string | null | undefined>(undefined);
+  useEffect(() => {
+    source.current = undefined;
+  }, [mdUrl]);
+  const prefetch = () => {
+    if (source.current !== undefined) return;
+    source.current = null;
+    fetch(mdUrl)
+      .then((r) => (r.ok && !(r.headers.get("content-type") ?? "").includes("html") ? r.text() : null))
+      .then((t) => {
+        source.current = t;
+      })
+      .catch(() => {});
+  };
+  const markdown = () => source.current || pageToMarkdown(title);
 
   const copyForLlm = () => {
-    const md = pageToMarkdown(title);
+    const md = markdown();
     navigator.clipboard?.writeText(md).then(
       () => {
         setCopied(true);
@@ -114,13 +143,14 @@ export function DocAiRow({
 
   if (variant === "menu") {
     return (
-      <div className="doc-ai doc-ai--menu">
+      <div className="doc-ai doc-ai--menu" onPointerEnter={prefetch} onFocus={prefetch}>
         <span className="date">{lastUpdated}</span>
         <ActionMenu
           copied={copied}
           onCopy={copyForLlm}
           items={[
-            { label: "View as Markdown", icon: MarkdownIcon, run: () => openMarkdownModal(pageToMarkdown(title)) },
+            { label: "View as Markdown", icon: MarkdownIcon, run: () => openMarkdownModal(markdown()) },
+            { label: "Open Markdown file", icon: MarkdownIcon, run: () => window.open(mdUrl, "_blank", "noopener") },
             ...(aiEnabled ? [{ label: "Ask AI about this page", icon: SparkIcon, run: () => openAskPanel(title) }] : []),
           ]}
         />
@@ -129,7 +159,7 @@ export function DocAiRow({
   }
 
   return (
-    <div className="doc-ai">
+    <div className="doc-ai" onPointerEnter={prefetch} onFocus={prefetch}>
       {aiEnabled && (
         <button type="button" className="ask" onClick={() => openAskPanel(title)}>
           {SparkIcon} Ask AI about this page
@@ -138,7 +168,7 @@ export function DocAiRow({
       <button type="button" className={copied ? "copied" : undefined} onClick={copyForLlm}>
         {copied ? CopiedIcon : CopyIcon} {copied ? "Copied" : "Copy for LLM"}
       </button>
-      <button type="button" onClick={() => openMarkdownModal(pageToMarkdown(title))}>
+      <button type="button" onClick={() => openMarkdownModal(markdown())}>
         {MarkdownIcon} View as Markdown
       </button>
     </div>

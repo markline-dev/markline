@@ -12,6 +12,7 @@ import matter from "gray-matter";
 import * as pagefind from "pagefind";
 import { orderedResourceTags } from "./openapi-order.mjs";
 import { searchGroups, searchTrails } from "./search-groups.mjs";
+import { markdownPath, mdxToMarkdown, pageMarkdown, sectionIds, sectionIndex } from "./llms.mjs";
 import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
@@ -255,22 +256,14 @@ function loadJsonConfig(root) {
   }
 }
 
-/** MDX body → portable Markdown: drop import/export lines, collapse blank runs.
- *  (Authored components like <Note> stay — they read fine as context.) */
-function mdxToMarkdown(md) {
-  return md
-    .replace(/^\s*import\s.*$/gm, "")
-    .replace(/^\s*export\s.*$/gm, "")
-    .replace(/\n{3,}/g, "\n\n")
-    .trim();
-}
-
-function docPagesForLlms(root) {
-  const docsDir = path.join(root, "docs");
+/** Docs by URL. `versionId` reads a version's or locale's docs instead. */
+function docPagesForLlms(root, versionId) {
+  const docsDir = versionId ? path.join(root, versionId, "docs") : path.join(root, "docs");
   const map = new Map();
   for (const file of walk(docsDir)) {
     const { data, content } = matter(fs.readFileSync(file, "utf8"));
-    const url = slugToUrl(docsDir, file);
+    const rel = slugToUrl(docsDir, file);
+    const url = versionId ? `/${versionId}${rel === "/" ? "" : rel}` : rel;
     map.set(url, {
       url,
       title: String(data.title ?? url),
@@ -349,6 +342,9 @@ function writeLlms(root) {
   let idx = `# ${name}\n\n`;
   if (desc) idx += `> ${desc}\n\n`;
   idx += `This index lists the documentation. The full text of every page concatenated into one file is available at [llms-full.txt](${abs("/llms-full.txt")}).\n\n`;
+  const sectionDocs = [...docMap.values()];
+  const sectionList = sectionIds(sectionDocs).filter((id) => sectionIndex(cfg, sectionDocs, id));
+  idx += `Add \`.md\` to any page's URL for its Markdown${sectionList.length ? `, and \`/llms.txt\` to a section's URL (such as [/${sectionList[0]}/llms.txt](${abs(`/${sectionList[0]}/llms.txt`)})) for an index of that section` : ""}.\n\n`;
   for (const s of sections) {
     idx += `## ${s.group}\n\n`;
     for (const p of s.pages) idx += `- [${p.title}](${abs(p.url)})${p.lede ? `: ${p.lede}` : ""}\n`;
@@ -414,6 +410,50 @@ function writeLlms(root) {
   );
   const docCount = sections.reduce((n, s) => n + s.pages.length, 0) + leftover.length;
   console.log(`[markline] llms.txt (${docCount} docs, ${apis.length} API resources) + llms-full.txt -> public/`);
+
+  writeMarkdownFiles(root, cfg, { name, abs }, sectionList);
+}
+
+/* ── <page>.md and <section>/llms.txt ──────────────────────────────────────
+   Each page's Markdown at its URL plus `.md`, and an llms.txt per top-level
+   folder, written into public/ so they're plain files on any host. Their
+   paths depend on the content, so the list is kept in a manifest and the
+   previous build's files are removed first. A file the site's own public/
+   already has is never overwritten. */
+
+const MANIFEST = ".markline-generated.json";
+
+function writeMarkdownFiles(root, cfg, opts, sectionList) {
+  const pub = path.join(process.cwd(), "public");
+  const manifestFile = path.join(pub, MANIFEST);
+  let previous = [];
+  try {
+    previous = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
+  } catch {
+    // first build
+  }
+  for (const rel of previous) fs.rmSync(path.join(pub, rel), { force: true });
+
+  const written = [];
+  const write = (rel, text) => {
+    const file = path.join(pub, rel);
+    if (fs.existsSync(file)) return; // the site's own file
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, text);
+    written.push(rel);
+  };
+
+  const docs = [...docPagesForLlms(root).values()];
+  const variants = contentPrefixIds(root).flatMap((id) => [...docPagesForLlms(root, id).values()]);
+  for (const d of [...docs, ...variants]) {
+    if (d.layout === "landing") continue;
+    write(markdownPath(d.url).slice(1), pageMarkdown(d));
+  }
+  for (const id of sectionList) write(`${id}/llms.txt`, sectionIndex(cfg, docs, id, opts));
+
+  fs.writeFileSync(manifestFile, JSON.stringify(written));
+  const pages = written.filter((f) => f.endsWith(".md")).length;
+  console.log(`[markline] ${pages} page .md files + ${written.length - pages} section llms.txt -> public/`);
 }
 
 /* ── ai-suggestions.json ───────────────────────────────────────────────────

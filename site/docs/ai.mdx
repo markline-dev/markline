@@ -15,6 +15,8 @@ toc:
     label: Static + Cloudflare Worker
   - id: cost-abuse
     label: Cost & abuse
+  - id: markdown-for-agents
+    label: Markdown for agents
 ---
 
 Markline ships an optional **Ask AI** assistant: a docked chat panel on the API
@@ -151,3 +153,21 @@ budget. Both the built-in route and the Worker ship with conservative defaults:
 <Warning>Tune the rate limit and pick a cheap model for public sites. The
 Worker's rate limit is per-isolate in-memory; for strict global limits, back it
 with Workers KV or a Durable Object.</Warning>
+
+## Markdown for agents
+
+Separately from Ask AI, and with no `ai` block needed, every build writes
+plain-text versions of your docs for coding agents and other LLM tools:
+
+| URL | What it is |
+| --- | --- |
+| `/llms.txt` | An index of every page, grouped as in the sidebar ([llmstxt.org](https://llmstxt.org)) |
+| `/llms-full.txt` | The text of every page in one file |
+| `/<page>.md` | One page's Markdown, e.g. `/quickstart.md`. The home page is `/index.md` |
+| `/<section>/llms.txt` | An index of the pages under one top-level folder, e.g. `/guides/llms.txt` |
+
+`markline build` and `markline export` write them as files, so they work on
+any static host; `markline dev` serves the same text without a build. Links
+use `seo.metadataBase` when it's set. The page's **Copy for LLM** and **View
+as Markdown** actions use the `.md` text too, and with `layout.pageActions:
+"menu"` the menu links the file.

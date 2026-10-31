@@ -1,5 +1,6 @@
 import type { OpenAPIDoc, OpenAPIOperation } from "./openapi";
-import { sampleFromSchema } from "./openapi";
+import { resolveSchema, sampleFromSchema } from "./openapi";
+import { bodyKind, isBinarySchema } from "./openapi-media";
 import { loadConfig } from "./config";
 
 /** Build a cURL example for an operation. */
@@ -26,17 +27,51 @@ export function curlSample(op: OpenAPIOperation, doc: OpenAPIDoc, root: any): st
     lines[lines.length - 1] += " \\";
     lines.push(`  --header 'Authorization: Bearer <token>'`);
   }
+  const keyHeaders = [
+    ...new Set(
+      op.security
+        .filter((s) => s.scheme.type === "apiKey" && s.scheme.in === "header" && s.scheme.name)
+        .map((s) => s.scheme.name as string),
+    ),
+  ];
+  for (const name of keyHeaders) {
+    lines[lines.length - 1] += " \\";
+    lines.push(`  --header '${name}: <api-key>'`);
+  }
   for (const h of op.parameters.header) {
+    if (keyHeaders.some((k) => k.toLowerCase() === h.name.toLowerCase())) continue;
     lines[lines.length - 1] += " \\";
     lines.push(`  --header '${h.name}: <${h.name.toLowerCase()}>'`);
   }
 
   if (op.requestBody?.schema) {
-    lines[lines.length - 1] += " \\";
-    lines.push(`  --header 'Content-Type: application/json' \\`);
-    const sample = sampleFromSchema(op.requestBody.schema, root);
-    const json = JSON.stringify(sample, null, 2);
-    lines.push(`  --data ${shellQuote(json)}`);
+    const ct = op.requestBody.contentType ?? "application/json";
+    const kind = bodyKind(ct);
+    const schema = resolveSchema(op.requestBody.schema, root);
+    const push = (l: string) => {
+      lines[lines.length - 1] += " \\";
+      lines.push(l);
+    };
+    if (kind === "multipart" || kind === "form") {
+      // curl writes the Content-Type itself (with the multipart boundary).
+      const required = new Set(schema?.required ?? []);
+      for (const [name, prop] of Object.entries(schema?.properties ?? {})) {
+        const file = isBinarySchema(prop);
+        if (!required.has(name) && !file) continue;
+        if (kind === "multipart") {
+          push(`  --form ${shellQuote(file ? `${name}=@path/to/${name}` : `${name}=${formValue(sampleFromSchema(prop, root))}`)}`);
+        } else {
+          push(`  --data-urlencode ${shellQuote(`${name}=${formValue(sampleFromSchema(prop, root))}`)}`);
+        }
+      }
+    } else if (kind === "other" && isBinarySchema(schema)) {
+      push(`  --header 'Content-Type: ${ct}'`);
+      push(`  --data-binary @path/to/file`);
+    } else {
+      push(`  --header 'Content-Type: ${ct}'`);
+      const sample = sampleFromSchema(op.requestBody.schema, root);
+      push(`  --data ${shellQuote(kind === "json" ? JSON.stringify(sample, null, 2) : formValue(sample))}`);
+    }
   }
   return lines.join("\n");
 }
@@ -56,6 +91,10 @@ function samplePrimitive(schema: any, root: any): unknown {
   if (schema.type === "integer" || schema.type === "number") return 1;
   if (schema.type === "boolean") return true;
   return "<value>";
+}
+
+function formValue(v: unknown): string {
+  return v !== null && typeof v === "object" ? JSON.stringify(v) : String(v);
 }
 
 function shellQuote(s: string) {

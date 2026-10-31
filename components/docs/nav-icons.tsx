@@ -1,10 +1,11 @@
 import * as Icons from "@phosphor-icons/react/dist/ssr";
 
 /**
- * Turn a Phosphor icon name from markline.json into a rendered icon.
+ * Turn a Phosphor icon name (from markline.json, or a component's `icon`
+ * prop in MDX) into a rendered icon.
  *
- * Runs on the server only (sections.ts builds the nav there), so the sidebar
- * receives finished <svg> elements and readers never download the icon
+ * Runs on the server only (sections.ts builds the nav there, and MDX renders
+ * there), so pages receive finished <svg> elements and readers never download the icon
  * library. Accepts "book-open", "book_open" or "BookOpen".
  */
 
@@ -20,7 +21,7 @@ function toPascal(name: string): string {
     .join("");
 }
 
-export function navIcon(name: string | undefined): React.ReactNode | undefined {
+export function navIcon(name: string | undefined, size = 16): React.ReactNode | undefined {
   if (!name) return undefined;
   const key = /[-_\s]/.test(name) || name[0] === name[0].toLowerCase() ? toPascal(name) : name;
   const Icon = (Icons as unknown as Record<string, IconComponent | undefined>)[key];
@@ -29,9 +30,9 @@ export function navIcon(name: string | undefined): React.ReactNode | undefined {
     // the page is still usable without it. Warn once per name.
     if (!warned.has(name)) {
       warned.add(name);
-      console.warn(`[markline] unknown sidebar icon "${name}" — see phosphoricons.com for names.`);
+      console.warn(`[markline] unknown icon "${name}" — see phosphoricons.com for names.`);
     }
     return undefined;
   }
-  return <Icon size={16} weight="regular" aria-hidden />;
+  return <Icon size={size} weight="regular" aria-hidden />;
 }

@@ -5,7 +5,7 @@ import { CodeBlock, type CodeSnippet } from "./code-block";
 import { EndpointList } from "./api/endpoint-list";
 import {
   Note, Info, Tip, Check, Warning, Danger,
-  Card, CardGroup, Steps, Step, ParamField, ResponseField,
+  Card, CardGroup, Steps, Step, ParamField, ResponseField, Video, LinkList, LinkItem,
 } from "./authoring";
 import { Tabs, Tab, Accordion, AccordionGroup } from "./authoring-client";
 import {
@@ -148,6 +148,9 @@ export const mdxComponents: MDXComponents = {
   Danger,
   Card,
   CardGroup,
+  Video,
+  LinkList,
+  LinkItem,
   Steps,
   Step,
   Tabs,

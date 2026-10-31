@@ -37,6 +37,10 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **"On this page" builds itself.** Docs pages list their `##` and `###`
   headings (subheadings indented) unless the frontmatter sets `toc`.
   `toc: false` hides it.
+- **Site footer.** `footer` in markline.json adds columns of links, the logo,
+  a copyright line, small links (Privacy, Terms) and social icons across the
+  bottom of every page, with "Built with Markline" in its bottom row. The
+  `help-center` starter includes one.
 
 ### Changed
 - **The search dialog keeps one height**, with a "Start typing to search"

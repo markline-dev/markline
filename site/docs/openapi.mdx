@@ -128,6 +128,15 @@ shows that label exactly:
   group derived; to relabel a group, give its own path a `tags` entry.
 - **URLs are unchanged** — the slug still comes from `name`.
 
+## Large specs
+
+Each resource is one page, so a tag with a hundred operations is a long page.
+Markline keeps what it sends lean: the Try it endpoint switcher's list of every
+operation is sent once per page (not once per operation), command-palette
+snippets are trimmed to two lines, and docs pages carry one link per API
+resource rather than the whole spec. If a resource is still too heavy, split
+its tag into smaller ones in the spec.
+
 ## Sidebar order
 
 Within a resource, operations render in the order Markline reads them from the

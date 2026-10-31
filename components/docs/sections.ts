@@ -1,12 +1,18 @@
 import type { DocSection, DocLink, NavData } from "./nav";
-import { loadOpenApi, operationHref } from "@/lib/openapi";
+import { loadOpenApi } from "@/lib/openapi";
+import { tagSlug } from "@/lib/openapi-tags";
 import { loadConfig, type NavLink, type NavTab, type MarklineConfig } from "@/lib/config";
 import { navIcon } from "./nav-icons";
 import { findNavTrail, flattenLinks, collectionLinks } from "./nav-tree";
 
 export { findNavTrail, flattenLinks, collectionLinks };
 
-/** Build the API-reference sidebar from the OpenAPI spec's tags. */
+/**
+ * The API tab's entry in the docs navigation: one link per resource page. The
+ * reference renders its own sidebar (operations included), so docs pages only
+ * need somewhere to send the reader; listing every operation here put the
+ * whole spec into every docs page's payload.
+ */
 function apiSections(): DocSection[] {
   const api = loadOpenApi();
   return [
@@ -14,14 +20,13 @@ function apiSections(): DocSection[] {
       title: "Overview",
       links: [{ href: "/api-reference", label: "Introduction" }],
     },
-    ...api.tags.map((tag) => ({
-      title: tag.displayName ?? tag.name,
-      links: tag.operations.map<DocLink>((op) => ({
-        href: operationHref(op),
-        label: op.summary ?? op.operationId,
-        method: op.method,
+    {
+      title: "Resources",
+      links: api.tags.map<DocLink>((tag) => ({
+        href: `/api-reference/${tagSlug(tag.name)}`,
+        label: tag.displayName ?? tag.name,
       })),
-    })),
+    },
   ];
 }
 

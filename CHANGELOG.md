@@ -2,6 +2,15 @@
 
 All notable changes to `@markline/markline` and `@markline/create`.
 
+## Unreleased
+
+### Changed
+- **Lighter API reference pages.** The Try it endpoint list is sent once per
+  page instead of once per operation, and palette snippets are trimmed. On
+  ElevenLabs' spec (478 operations) the largest resource page drops from
+  13.2 MB to 4.5 MB. Docs pages list API resources, not every operation, in
+  their navigation data.
+
 ## 0.1.7
 
 ### Added

@@ -441,6 +441,12 @@ textarea.ml-pg-input { height: auto; padding: 8px 10px; line-height: 1.55; resiz
   .api-op-side { position: static; height: auto; border-left: 0; border-top: 1px solid var(--line); padding: 24px 48px 60px; }
 }
 .api-op-extended { margin-bottom: 24px; }
+/* Operation pages have no .docs-shell, so the guides' `.docs-shell .docs-prose a`
+   never reaches the MDX overlay; same link style here. Only class-less anchors
+   (markdown links): component anchors (cards, buttons, path cards) keep their
+   own look. */
+.api-op-extended a:not([class]) { color: var(--accent-ink); border-bottom: 1px solid var(--accent-line); text-decoration: none; }
+.api-op-extended a:not([class]):hover { border-color: var(--accent-ink); }
 
 /* ── search.tsx (.ml-search) ── */
 .ml-search-trigger {

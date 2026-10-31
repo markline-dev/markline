@@ -121,6 +121,9 @@ acme/
 - `template.css` is added before your site's own theme settings, so those can
   still override it. Prefer `template.json` wherever an option exists — CSS
   that targets Markline's internal class names can break between versions.
+- Markdown on `landing` pages renders in `.ml-landing-prose`. Set
+  `--landing-prose-width` (default `720px`) to change the column width, or
+  style the class directly.
 
 To share a template, publish the folder as an npm package with
 `template.json` at its root. Name it `markline-template-<name>`, or put it

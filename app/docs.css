@@ -238,38 +238,52 @@
    apiref's --accent is the solid brand color; give the overlay the docs
    shell's (= --accent-ink) so callout icons and blockquotes match guides. */
 .api-op-main .docs-prose { --accent: var(--accent-ink); }
-:is(.docs-shell, .api-op-main) .docs-prose { margin-top: 14px; }
-:is(.docs-shell, .api-op-main) .docs-prose > h2:first-child,
-:is(.docs-shell, .api-op-main) .docs-prose > :first-child { margin-top: 0; }
-:is(.docs-shell, .api-op-main) .docs-prose h2 {
+:is(.docs-shell, .api-op-main, .ml-landing) .docs-prose { margin-top: 14px; }
+:is(.docs-shell, .api-op-main, .ml-landing) .docs-prose > h2:first-child,
+:is(.docs-shell, .api-op-main, .ml-landing) .docs-prose > :first-child { margin-top: 0; }
+:is(.docs-shell, .api-op-main, .ml-landing) .docs-prose h2 {
   font-size: 25px; font-weight: 700; letter-spacing: -0.02em; margin: 48px 0 0;
   padding-top: 14px; scroll-margin-top: calc(var(--nav-h) + 20px); color: var(--ink);
 }
-:is(.docs-shell, .api-op-main) .docs-prose h3 { font-size: 17.5px; font-weight: 600; margin: 32px 0 0; scroll-margin-top: calc(var(--nav-h) + 20px); color: var(--ink); }
-:is(.docs-shell, .api-op-main) .docs-prose p { font-size: 15.5px; color: var(--ink-2); margin-top: 14px; line-height: 1.7; max-width: 68ch; text-wrap: pretty; }
-.docs-shell .docs-prose a {
+:is(.docs-shell, .api-op-main, .ml-landing) .docs-prose h3 { font-size: 17.5px; font-weight: 600; margin: 32px 0 0; scroll-margin-top: calc(var(--nav-h) + 20px); color: var(--ink); }
+:is(.docs-shell, .api-op-main, .ml-landing) .docs-prose p { font-size: 15.5px; color: var(--ink-2); margin-top: 14px; line-height: 1.7; max-width: 68ch; text-wrap: pretty; }
+:is(.docs-shell, .ml-landing) .docs-prose a {
   color: var(--accent-ink); border-bottom: 1px solid var(--accent-line); text-decoration: none;
 }
-.docs-shell .docs-prose a:hover { border-color: var(--accent-ink); }
-:is(.docs-shell, .api-op-main) .docs-prose ul,
-:is(.docs-shell, .api-op-main) .docs-prose ol { margin: 14px 0 0 2px; padding-left: 20px; color: var(--ink-2); font-size: 15.5px; line-height: 1.7; max-width: 68ch; }
-:is(.docs-shell, .api-op-main) .docs-prose ul { list-style: disc; }
-:is(.docs-shell, .api-op-main) .docs-prose ol { list-style: decimal; }
-:is(.docs-shell, .api-op-main) .docs-prose li { margin-top: 7px; }
-:is(.docs-shell, .api-op-main) .docs-prose li::marker { color: var(--ink-4); }
-:is(.docs-shell, .api-op-main) .docs-prose strong { color: var(--ink); font-weight: 600; }
-:is(.docs-shell, .api-op-main) .docs-prose blockquote {
+:is(.docs-shell, .ml-landing) .docs-prose a:hover { border-color: var(--accent-ink); }
+:is(.docs-shell, .api-op-main, .ml-landing) .docs-prose ul,
+:is(.docs-shell, .api-op-main, .ml-landing) .docs-prose ol { margin: 14px 0 0 2px; padding-left: 20px; color: var(--ink-2); font-size: 15.5px; line-height: 1.7; max-width: 68ch; }
+:is(.docs-shell, .api-op-main, .ml-landing) .docs-prose ul { list-style: disc; }
+:is(.docs-shell, .api-op-main, .ml-landing) .docs-prose ol { list-style: decimal; }
+:is(.docs-shell, .api-op-main, .ml-landing) .docs-prose li { margin-top: 7px; }
+:is(.docs-shell, .api-op-main, .ml-landing) .docs-prose li::marker { color: var(--ink-4); }
+:is(.docs-shell, .api-op-main, .ml-landing) .docs-prose strong { color: var(--ink); font-weight: 600; }
+:is(.docs-shell, .api-op-main, .ml-landing) .docs-prose blockquote {
   margin: 18px 0 0; padding-left: 16px; border-left: 2px solid var(--accent);
   color: var(--ink-2); font-style: italic;
 }
-:is(.docs-shell, .api-op-main) .docs-prose hr { border: 0; border-top: 1px solid var(--line); margin: 44px 0; }
-:is(.docs-shell, .api-op-main) .docs-prose :not(pre) > code {
+:is(.docs-shell, .api-op-main, .ml-landing) .docs-prose hr { border: 0; border-top: 1px solid var(--line); margin: 44px 0; }
+:is(.docs-shell, .api-op-main, .ml-landing) .docs-prose :not(pre) > code {
   font-family: var(--mono); font-size: 0.86em; background: var(--panel-hi);
   border: 1px solid var(--line); border-radius: 5px; padding: 1.5px 5px; color: var(--accent-ink);
 }
 
+/* Markdown on landing pages: remarkLandingProse wraps each run of plain
+   blocks between landing sections in .ml-landing-prose. A centred column at
+   docs reading width by default; templates restyle it via this class or
+   --landing-prose-width. */
+.ml-landing .ml-landing-prose {
+  max-width: var(--landing-prose-width, 720px);
+  margin: 56px auto; padding: 0 24px; box-sizing: content-box;
+}
+.ml-landing .ml-landing-prose h1 {
+  font-size: 34px; font-weight: 700; letter-spacing: -0.025em; line-height: 1.15;
+  margin: 0; color: var(--ink); text-wrap: balance;
+}
+.ml-landing .ml-landing-prose > h1 + p { font-size: 17px; color: var(--ink-3); }
+
 /* tables */
-:is(.docs-shell, .api-op-main) .docs-prose table { width: 100%; border-collapse: collapse; }
+:is(.docs-shell, .api-op-main, .ml-landing) .docs-prose table { width: 100%; border-collapse: collapse; }
 
 /* callout */
 /* MDX authoring components (callouts, steps, tabs, cards) render on landing

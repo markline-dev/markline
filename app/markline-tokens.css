@@ -44,7 +44,7 @@
   --grid: rgb(var(--c-ink) / 0.028);
   --accent: rgb(var(--c-brand-solid)); --accent-ink: rgb(var(--c-brand));
   --accent-dim: rgb(var(--c-brand) / 0.14); --accent-line: rgb(var(--c-brand) / 0.42);
-  --on-accent: rgb(var(--c-on-brand)); --logo: rgb(var(--c-brand)); --ok: #30a46c; --warn: #f6d908;
+  --on-accent: rgb(var(--c-on-brand-solid, var(--c-on-brand))); --logo: rgb(var(--c-brand)); --ok: #30a46c; --warn: #f6d908;
   --shadow: 0 24px 70px -30px rgba(0,0,0,0.8);
   --code-bg: #0d0d11; --code-line: rgba(255,255,255,0.08); --code-ink: #c7c7d1;
   --code-k: #c792ea; --code-s: #9fd69c; --code-f: #82aaff; --code-c: #6b6b78;
@@ -60,7 +60,7 @@
   --grid: rgb(var(--c-ink) / 0.04);
   --accent: rgb(var(--c-brand-solid)); --accent-ink: rgb(var(--c-brand));
   --accent-dim: rgb(var(--c-brand) / 0.09); --accent-line: rgb(var(--c-brand) / 0.38);
-  --on-accent: rgb(var(--c-on-brand)); --logo: rgb(var(--c-brand)); --ok: #18794e; --warn: #b78108;
+  --on-accent: rgb(var(--c-on-brand-solid, var(--c-on-brand))); --logo: rgb(var(--c-brand)); --ok: #18794e; --warn: #b78108;
   --shadow: 0 24px 60px -32px rgba(30,24,60,0.26);
 }
 /* explicit dark restate so a later :root cannot win the cascade */
@@ -72,7 +72,7 @@
   --grid: rgb(var(--c-ink) / 0.028);
   --accent: rgb(var(--c-brand-solid)); --accent-ink: rgb(var(--c-brand));
   --accent-dim: rgb(var(--c-brand) / 0.14); --accent-line: rgb(var(--c-brand) / 0.42);
-  --on-accent: rgb(var(--c-on-brand)); --logo: rgb(var(--c-brand)); --ok: #30a46c; --warn: #f6d908;
+  --on-accent: rgb(var(--c-on-brand-solid, var(--c-on-brand))); --logo: rgb(var(--c-brand)); --ok: #30a46c; --warn: #f6d908;
   --shadow: 0 24px 70px -30px rgba(0,0,0,0.8);
   --code-bg: #0d0d11; --code-line: rgba(255,255,255,0.08); --code-ink: #c7c7d1;
 }
@@ -180,6 +180,21 @@ body {
 .brand .brand-logo--dark { display: none; }
 [data-theme="dark"] .brand .brand-logo--light { display: none; }
 [data-theme="dark"] .brand .brand-logo--dark { display: block; }
+.brand .brand-icon { height: 28px; width: auto; max-width: 40px; margin-right: 9px; display: block; object-fit: contain; }
+.brand .brand-icon.brand-logo--dark { display: none; }
+[data-theme="dark"] .brand .brand-icon.brand-logo--light { display: none; }
+[data-theme="dark"] .brand .brand-icon.brand-logo--dark { display: block; }
+/* logo.iconTile: the mark on a tile in the text colour, inverted on the dark
+   tile of light mode. --brand-tile-bg, --brand-tile-size, --brand-tile-radius
+   and --brand-tile-filter (e.g. "none" for a mark that's already light)
+   restyle it, per mode in theme.cssVariables. */
+.brand .brand-tile {
+  flex: none; display: grid; place-items: center; margin-right: 10px;
+  width: var(--brand-tile-size, 30px); height: var(--brand-tile-size, 30px);
+  border-radius: var(--brand-tile-radius, 9px); background: var(--brand-tile-bg, var(--ink));
+}
+.brand .brand-tile .brand-icon { height: 64%; max-width: 64%; margin: 0; filter: var(--brand-tile-filter, invert(1)); }
+[data-theme="dark"] .brand .brand-tile .brand-icon { filter: var(--brand-tile-filter, none); }
 .brand .brand-text { font-weight: 600; font-size: 17px; letter-spacing: -0.022em; color: var(--ink); }
 
 /* buttons — solid, driven by the config brand color (--c-brand). The glossy
@@ -326,7 +341,7 @@ html:not([data-banner]) .site-banner { display: none; }
 }
 .site-banner .x:hover { opacity: 1; background: color-mix(in srgb, currentColor 10%, transparent); }
 .site-banner .x svg { width: 15px; height: 15px; }
-.site-banner--brand { background: var(--banner-bg, var(--accent)); color: var(--banner-fg, rgb(var(--c-on-brand))); border-bottom-color: transparent; }
+.site-banner--brand { background: var(--banner-bg, var(--accent)); color: var(--banner-fg, var(--on-accent)); border-bottom-color: transparent; }
 .site-banner--brand .lnk { color: inherit; }
 /* version / language switcher (versions or i18n.locales) */
 .nav-variant { position: relative; flex: none; }

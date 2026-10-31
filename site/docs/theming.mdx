@@ -10,6 +10,8 @@ toc:
     label: Logo & favicon
   - id: accent-color
     label: Accent color
+  - id: icons
+    label: Icons
   - id: full-palette
     label: Full palette
   - id: fonts
@@ -48,7 +50,15 @@ migrating from a `docs.json` config work unchanged.
 The logo can be an **icon + wordmark** (the common docs pattern), light/dark
 **images**, or just **text**.
 
-<ParamField path="theme.logo.icon" type="string">Small mark shown next to the name (e.g. `/logo-mark.svg`).</ParamField>
+<ParamField path="theme.logo.icon" type="string | object">
+  Small mark shown next to the name (e.g. `/logo-mark.svg`), or
+  `{ light, dark }` for a version per theme.
+</ParamField>
+<ParamField path="theme.logo.iconTile" type="boolean">
+  For a single dark mark: puts it on a rounded tile in the text colour, dark
+  in light mode (with the mark inverted to white) and light in dark mode, so
+  it shows in both themes.
+</ParamField>
 <ParamField path="theme.logo.text" type="string">Wordmark text shown beside the icon (defaults to `name`).</ParamField>
 <ParamField path="theme.logo.light / theme.logo.dark" type="string">Full logo images, swapped by color scheme. Used when no `icon` is set.</ParamField>
 <ParamField path="theme.favicon" type="string">Favicon path, e.g. `/favicon.svg`.</ParamField>
@@ -69,12 +79,22 @@ The logo can be an **icon + wordmark** (the common docs pattern), light/dark
 "theme": { "colors": { "primary": "#4f46e5", "primaryDark": "#818cf8" } }
 ```
 
-<Warning>
-  Using a **light** accent (e.g. lime or yellow)? White text on it is invisible.
-  Set the on-accent text color with the `--c-on-brand` variable (see below) — it
-  controls text/icons on brand-colored surfaces (buttons, badges, numbered
-  cards).
-</Warning>
+Text on these colours (the primary button, the brand banner) is white, or
+near-black when the colour is too light for white to read: below the 3:1
+contrast WCAG asks of buttons. A pale green or yellow `primaryDark` gets dark
+button text in dark mode without any setting. To choose it yourself:
+
+<ParamField path="theme.colors.primaryText / primaryTextDark" type="string">
+  Text colour (hex) on `primary` and, in dark mode, on `primaryDark`.
+</ParamField>
+
+## Icons
+
+<ParamField path="theme.iconWeight" type='"thin" | "light" | "regular" | "bold" | "fill" | "duotone"'>
+  The [Phosphor](https://phosphoricons.com) weight for every icon (sidebar,
+  cards, link lists). Default `regular`. One icon can override it as
+  `rocket-launch:duotone`.
+</ParamField>
 
 ## Full palette
 
@@ -94,6 +114,19 @@ The tokens you'll reach for most:
 | `--c-paper`, `--c-paper-2` | Page and raised surface backgrounds |
 | `--c-ink`, `--c-ink-soft`, `--c-ink-2`, `--c-ink-3` | Text shades |
 | `--c-slate-0` … `--c-slate-8` | Neutral scale (borders, muted text) |
+
+Component variables take any CSS value (a colour, a length, a shadow),
+not triples:
+
+| Variable | What it sets |
+| --- | --- |
+| `--card-bg`, `--card-radius` | Every `<Card>`'s fill and corner radius |
+| `--card-shadow`, `--card-shadow-hover` | Its shadow, at rest and on hover |
+| `--card-icon-bg`, `--card-icon-color` | The tile style's icon square, and card icon colour |
+| `--brand-tile-bg`, `--brand-tile-size`, `--brand-tile-radius` | The logo tile (`logo.iconTile`) |
+| `--brand-tile-filter` | The filter on the mark inside it: `invert(1)` in light mode by default, `none` for a mark that already contrasts |
+| `--banner-bg`, `--banner-fg`, `--nav-bg` | The banner and header ([Configuration](/configuration#topbar)) |
+| `--hub-hero-bg`, `--hub-bg` | Hub page backgrounds ([Configuration](/configuration#page-layouts)) |
 
 ```jsonc
 "theme": {

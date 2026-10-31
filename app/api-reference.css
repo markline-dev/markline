@@ -25,7 +25,7 @@
   --grid: rgb(var(--c-ink) / 0.028);
   --accent: rgb(var(--c-brand-solid)); --accent-ink: rgb(var(--c-brand));
   --accent-dim: rgb(var(--c-brand) / 0.14); --accent-line: rgb(var(--c-brand) / 0.42);
-  --on-accent: rgb(var(--c-on-brand)); --logo: rgb(var(--c-brand)); --ok: #30a46c; --warn: #f6d908;
+  --on-accent: rgb(var(--c-on-brand-solid, var(--c-on-brand))); --logo: rgb(var(--c-brand)); --ok: #30a46c; --warn: #f6d908;
   --shadow: 0 24px 70px -30px rgba(0,0,0,0.8);
   --chat-w: 410px;
 

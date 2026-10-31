@@ -7,6 +7,7 @@ import dynamic from "next/dynamic";
 import { Wordmark } from "./landing/home/wordmark";
 import { variantOf, variantPath, type Variants } from "@/lib/variant-path";
 import { BANNER_KEY } from "@/lib/banner";
+import { BrandIcon, type LogoIcon } from "./brand-icon";
 
 /**
  * Shared site header — the design's `.nav`, rendered ONCE in app/layout.tsx for
@@ -53,7 +54,7 @@ function NavHref({ link, className, onClick, children }: {
   );
 }
 
-type Logo = { light?: string; dark?: string; text?: string };
+type Logo = { light?: string; dark?: string; text?: string; icon?: LogoIcon; iconTile?: boolean };
 
 export function SiteNav({
   brand,
@@ -192,7 +193,13 @@ export function SiteNav({
       {banner && <SiteBanner banner={banner} />}
       <div className={`nav-in nav-in--${layout}`}>
         <Link className="brand" href="/" aria-label={`${brand?.name ?? "Markline"} home`}>
-          {hasImg ? (
+          {/* A mark beside the name, else full logo images, else a wordmark. */}
+          {logo?.icon ? (
+            <>
+              <BrandIcon icon={logo.icon} tile={logo.iconTile} />
+              <span className="brand-text">{logo.text ?? brand?.name}</span>
+            </>
+          ) : hasImg ? (
             <>
               <img className="brand-logo brand-logo--light" src={logo!.light ?? logo!.dark} alt={brand?.name ?? ""} />
               <img className="brand-logo brand-logo--dark" src={logo!.dark ?? logo!.light} alt={brand?.name ?? ""} />

@@ -149,6 +149,16 @@ to nest underneath it, as deep as you need:
   `BookOpen`. Icons are rendered at build time, so they add nothing to the
   page's JavaScript. An unknown name prints a warning and the item shows
   without an icon.
+
+  Icons use Phosphor's `regular` weight. `theme.iconWeight` changes it for the
+  whole site (`thin`, `light`, `regular`, `bold`, `fill` or `duotone`), and
+  one icon can pick its own after a colon: `rocket-launch:duotone`.
+
+  Or your own icon: a path in `public/` or a URL, like `/icons/agents.svg`.
+  An SVG takes the text colour, like the built-in icons, so draw it in one
+  colour; add `?color` (`/icons/slack.svg?color`) to keep its own colours
+  instead. A PNG, JPG or WebP keeps its colours anyway. Cards and link lists
+  accept the same values.
 </ParamField>
 
 <ParamField path="pages" type="array">

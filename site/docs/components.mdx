@@ -40,6 +40,20 @@ icons do. An emoji works too.
 <Card title="Quickstart" icon="rocket-launch" href="/quickstart">…</Card>
 ```
 
+`variant="tile"` puts the icon in a tinted square above the title, for a
+help-center home. Set it on a `<CardGroup>` to style every card in the grid:
+
+<CardGroup cols={2} variant="tile">
+  <Card title="Get started" icon="rocket-launch" href="/quickstart">Set up a project and publish your first page.</Card>
+  <Card title="Components" icon="squares-four" href="/components">Everything you can use in a page.</Card>
+</CardGroup>
+
+```mdx
+<CardGroup cols={3} variant="tile">
+  <Card title="Get started" icon="rocket-launch" href="/quickstart">…</Card>
+</CardGroup>
+```
+
 ## Video
 
 ```mdx

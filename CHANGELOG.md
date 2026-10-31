@@ -55,6 +55,21 @@ All notable changes to `@markline/markline` and `@markline/create`.
   desktop for a home made of cards.
 - **`layout.surface: "panel"`** sets docs pages on a raised, rounded panel
   beside the sidebar.
+- **Tile cards.** `<Card variant="tile">`, or `<CardGroup variant="tile">` for
+  a whole grid, puts the icon in a tinted square above the title.
+- **Your own icons.** Anywhere an `icon` name works (sidebar, cards, link
+  lists), a path or URL works too. SVGs take the theme's text colour; other
+  images keep theirs.
+- **Logo mark options.** `theme.logo.icon` can be `{ light, dark }`, and
+  `theme.logo.iconTile` sets a single dark mark on a tile that works in both
+  themes.
+- **Icon weights.** `theme.iconWeight` picks Phosphor's thin, light, regular,
+  bold, fill or duotone for every icon; one icon can choose its own as
+  `rocket-launch:duotone`.
+- **More to customise.** `theme.colors.primaryText` / `primaryTextDark` set
+  button text yourself; `--card-bg`, `--card-radius`, `--card-shadow`,
+  `--card-icon-bg` and friends restyle cards; `--brand-tile-*` restyle the
+  logo tile; an icon path ending in `?color` keeps the SVG's own colours.
 - **Site footer.** `footer` in markline.json adds columns of links, the logo,
   a copyright line, small links (Privacy, Terms) and social icons across the
   bottom of every page, with "Built with Markline" in its bottom row. The
@@ -75,6 +90,14 @@ All notable changes to `@markline/markline` and `@markline/create`.
   left edge of the button, and the chevron stays highlighted while it's open.
 
 ### Fixed
+- **`theme.logo.icon` shows again,** before the site name, as documented.
+- **Linked cards lost a stray underline.** The prose link style drew an
+  accent line along the bottom of any `<Card href>` in a page, and turned the
+  whole border accent on hover.
+- **Readable text on light brand colours.** Primary buttons and other
+  brand-coloured surfaces used white text even on a pale primary colour.
+  They now switch to near-black when white falls below 3:1 contrast, for
+  `primary` and `primaryDark` separately.
 - **`topbar.badge` shows again.** The label beside the logo ("Docs") was
   documented but no longer rendered.
 - **The version and language switcher is back.** Sites with `versions` or

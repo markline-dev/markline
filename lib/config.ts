@@ -13,13 +13,33 @@ import { checkTemplateVersions, deepMerge, loadTemplateChain, templateCss, templ
 
 export type ThemeConfig = {
   /**
-   * Logo: a small `icon` (shown next to the name) and/or a `text` wordmark, or
-   * full `light`/`dark` images. Image paths are served from /public.
+   * Logo: a small `icon` (shown next to the name; a path, or `{ light, dark }`)
+   * and/or a `text` wordmark, or full `light`/`dark` images. Image paths are
+   * served from /public. `iconTile` puts a single dark mark on a tile in the
+   * text colour, inverted in light mode, so it shows in both themes.
    */
-  logo?: { light?: string; dark?: string; text?: string; icon?: string };
+  logo?: {
+    light?: string;
+    dark?: string;
+    text?: string;
+    icon?: string | { light?: string; dark?: string };
+    iconTile?: boolean;
+  };
   /** Brand accent as hex; `primaryDark` is used on dark surfaces. */
-  colors?: { primary?: string; primaryDark?: string };
+  colors?: {
+    primary?: string;
+    primaryDark?: string;
+    /** Text on `primary` (buttons, the brand banner). Default: white, or
+     *  near-black when `primary` is too light for white. */
+    primaryText?: string;
+    /** Text on `primaryDark`, in dark mode. Same default rule. */
+    primaryTextDark?: string;
+  };
   appearance?: "light" | "dark" | "system";
+  /** Phosphor icon weight for every icon: "thin", "light", "regular"
+   *  (default), "bold", "fill" or "duotone". One icon can choose its own as
+   *  "rocket-launch:duotone". */
+  iconWeight?: "thin" | "light" | "regular" | "bold" | "fill" | "duotone";
   /** Favicon path (served from /public). */
   favicon?: string;
   /** Font family overrides (the font must be system-available or self-loaded). */

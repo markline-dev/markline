@@ -335,10 +335,13 @@
 }
 :is(.docs-shell, .api-op-main, .ml-landing) .docs-prose h3 { font-size: 17.5px; font-weight: 600; margin: 32px 0 0; scroll-margin-top: calc(var(--nav-h) + 20px); color: var(--ink); }
 :is(.docs-shell, .api-op-main, .ml-landing) .docs-prose p { font-size: 15.5px; color: var(--ink-2); margin-top: 14px; line-height: 1.7; max-width: 68ch; text-wrap: pretty; }
-:is(.docs-shell, .ml-landing) .docs-prose a {
+/* Plain links only: components that render links (cards, link lists) carry a
+   class and style their own, and an underline drawn as border-bottom would
+   otherwise land on a card's edge. */
+:is(.docs-shell, .ml-landing) .docs-prose a:not([class]) {
   color: var(--accent-ink); border-bottom: 1px solid var(--accent-line); text-decoration: none;
 }
-:is(.docs-shell, .ml-landing) .docs-prose a:hover { border-color: var(--accent-ink); }
+:is(.docs-shell, .ml-landing) .docs-prose a:not([class]):hover { border-color: var(--accent-ink); }
 :is(.docs-shell, .api-op-main, .ml-landing) .docs-prose ul,
 :is(.docs-shell, .api-op-main, .ml-landing) .docs-prose ol { margin: 14px 0 0 2px; padding-left: 20px; color: var(--ink-2); font-size: 15.5px; line-height: 1.7; max-width: 68ch; }
 :is(.docs-shell, .api-op-main, .ml-landing) .docs-prose ul { list-style: disc; }
@@ -456,13 +459,18 @@
 :is(.docs-shell, .ml-landing, .api-op-main) .tabs-body { margin-top: 6px; }
 :is(.docs-shell, .ml-landing, .api-op-main) .tabs-body > :first-child { margin-top: 0; }
 
-/* next cards */
+/* next cards. --card-bg, --card-radius, --card-shadow, --card-shadow-hover,
+   --card-icon-bg and --card-icon-color (theme.cssVariables) restyle every
+   card; the tile style supplies its own defaults for them. */
 :is(.docs-shell, .ml-landing, .api-op-main) .next-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 22px; }
 :is(.docs-shell, .ml-landing, .api-op-main) .next-card {
-  border: 1px solid var(--line); border-radius: 11px; padding: 16px 17px;
-  transition: border-color .18s, transform .18s; display: block; text-decoration: none;
+  border: 1px solid var(--line); border-radius: var(--card-radius, 11px); padding: 16px 17px;
+  background: var(--card-bg, transparent); box-shadow: var(--card-shadow, none);
+  transition: border-color .18s, transform .18s, box-shadow .18s; display: block; text-decoration: none;
 }
-:is(.docs-shell, .ml-landing, .api-op-main) .next-card:hover { border-color: var(--line-2); transform: translateY(-2px); }
+:is(.docs-shell, .ml-landing, .api-op-main) .next-card:hover {
+  border-color: var(--line-2); transform: translateY(-2px); box-shadow: var(--card-shadow-hover, var(--card-shadow, none));
+}
 :is(.docs-shell, .ml-landing, .api-op-main) .next-card .k { font-family: var(--mono); font-size: 10.5px; letter-spacing: .1em; text-transform: uppercase; color: var(--ink-4); }
 :is(.docs-shell, .ml-landing, .api-op-main) .next-card .h {
   font-size: 15px; font-weight: 600; margin-top: 8px; color: var(--ink);
@@ -473,6 +481,24 @@
 :is(.docs-shell, .ml-landing, .api-op-main) .next-card .ml-card-body { font-size: 13px; color: var(--ink-3); margin-top: 5px; line-height: 1.5; }
 :is(.docs-shell, .ml-landing, .api-op-main) .next-card .ml-card-body p { font-size: inherit; color: inherit; line-height: inherit; margin: 0; }
 :is(.docs-shell, .ml-landing, .api-op-main) .next-card .ml-card-body p + p { margin-top: 8px; }
+/* <Card variant="tile"> / <CardGroup variant="tile">: the icon in a tinted
+   square above the title, no arrow. */
+:is(.docs-shell, .ml-landing, .api-op-main) :is(.next-card--tile, .cardgroup--tile .next-card) {
+  /* Lifted off the page: white-ish in light mode, a shade up in dark. */
+  padding: 22px 22px 24px; border-radius: var(--card-radius, 14px);
+  background: var(--card-bg, color-mix(in srgb, var(--bg), #fff 75%));
+  box-shadow: var(--card-shadow, 0 1px 2px rgb(0 0 0 / .04));
+}
+[data-theme="dark"] :is(.docs-shell, .ml-landing, .api-op-main) :is(.next-card--tile, .cardgroup--tile .next-card) { background: var(--card-bg, color-mix(in srgb, var(--bg), #fff 3.5%)); }
+:is(.docs-shell, .ml-landing, .api-op-main) :is(.next-card--tile, .cardgroup--tile .next-card):hover { box-shadow: var(--card-shadow-hover, 0 10px 28px -14px rgb(0 0 0 / .22)); }
+:is(.docs-shell, .ml-landing, .api-op-main) :is(.next-card--tile, .cardgroup--tile .next-card) .h { margin-top: 0; }
+:is(.docs-shell, .ml-landing, .api-op-main) :is(.next-card--tile, .cardgroup--tile .next-card) .h > .ico { display: none; }
+:is(.docs-shell, .ml-landing, .api-op-main) :is(.next-card--tile, .cardgroup--tile .next-card) .ml-card-h-inner { flex-direction: column; align-items: flex-start; gap: 18px; }
+:is(.docs-shell, .ml-landing, .api-op-main) :is(.next-card--tile, .cardgroup--tile .next-card) .ml-card-icon {
+  width: 36px; height: 36px; place-items: center; display: grid; border-radius: 9px;
+  background: var(--card-icon-bg, color-mix(in srgb, var(--accent-ink) 14%, transparent));
+}
+:is(.docs-shell, .ml-landing, .api-op-main) :is(.next-card--tile, .cardgroup--tile .next-card) .ml-card-body { margin-top: 8px; font-size: 13.5px; }
 
 /* page footer nav: a small "‹ Previous" button, and the next page as a card */
 .docs-shell .page-nav { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 56px; }
@@ -632,7 +658,7 @@ html[data-ai-open] .docs-shell .aichat { transform: none; }
 .docs-shell .ac-sg { text-align: left; font-size: 13px; color: var(--ink-2); border: 1px solid var(--line); border-radius: 9px; padding: 9px 11px; background: transparent; cursor: pointer; }
 .docs-shell .ac-sg:hover { border-color: var(--line-2); background: var(--panel-hi); color: var(--ink); }
 
-.docs-shell .ac-msg.user { align-self: flex-end; max-width: 86%; background: var(--accent); color: rgb(var(--c-on-brand)); font-size: 13.5px; line-height: 1.5; padding: 9px 13px; border-radius: 13px 13px 4px 13px; white-space: pre-wrap; }
+.docs-shell .ac-msg.user { align-self: flex-end; max-width: 86%; background: var(--accent); color: var(--on-accent); font-size: 13.5px; line-height: 1.5; padding: 9px 13px; border-radius: 13px 13px 4px 13px; white-space: pre-wrap; }
 .docs-shell .ac-msg.ai { align-self: stretch; font-size: 13.5px; line-height: 1.62; color: var(--ink-2); }
 .docs-shell .ac-msg.ai .ac-out strong { color: var(--ink); font-weight: 600; }
 .docs-shell .ac-msg.ai .ac-out code { font-family: var(--mono); font-size: .86em; background: var(--panel-hi); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; color: var(--accent-ink); }
@@ -661,7 +687,7 @@ html[data-ai-open] .docs-shell .aichat { transform: none; }
 .docs-shell .ac-foot { border-top: 1px solid var(--line); padding: 12px 14px 14px; flex: none; background: var(--panel); }
 .docs-shell .ac-keyrow { display: flex; gap: 7px; margin-bottom: 10px; }
 .docs-shell .ac-keyin { flex: 1; min-width: 0; background: var(--panel-2); border: 1px solid var(--accent-line); border-radius: 9px; padding: 8px 11px; color: var(--ink); font-family: var(--mono); font-size: 12px; outline: 0; }
-.docs-shell .ac-keybtn { flex: none; background: var(--accent); color: rgb(var(--c-on-brand)); border: 0; border-radius: 9px; padding: 0 14px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
+.docs-shell .ac-keybtn { flex: none; background: var(--accent); color: var(--on-accent); border: 0; border-radius: 9px; padding: 0 14px; font-size: 12.5px; font-weight: 600; cursor: pointer; }
 .docs-shell .ac-inwrap { display: flex; flex-direction: column; gap: 8px; border: 1px solid var(--line-2); border-radius: 11px; padding: 10px 10px 8px; background: var(--panel-2); }
 .docs-shell .ac-inwrap:focus-within { border-color: var(--accent-line); }
 .docs-shell .ac-in { width: 100%; min-height: 46px; max-height: 168px; resize: none; overflow-y: auto; background: transparent; border: 0; outline: 0; font-family: inherit; font-size: 13.5px; line-height: 1.5; color: var(--ink); }
@@ -676,7 +702,7 @@ html[data-ai-open] .docs-shell .aichat { transform: none; }
 .docs-shell .ac-chip-x { position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; display: grid; place-items: center; border: 0; border-radius: 50%; background: rgba(0,0,0,.6); color: #fff; cursor: pointer; padding: 0; }
 .docs-shell .ac-msg-imgs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
 .docs-shell .ac-msg-imgs img { max-width: 160px; max-height: 160px; border-radius: 8px; display: block; }
-.docs-shell .ac-send { margin-left: auto; width: 30px; height: 30px; flex: none; display: grid; place-items: center; border-radius: 8px; border: 0; background: var(--accent); color: rgb(var(--c-on-brand)); cursor: pointer; }
+.docs-shell .ac-send { margin-left: auto; width: 30px; height: 30px; flex: none; display: grid; place-items: center; border-radius: 8px; border: 0; background: var(--accent); color: var(--on-accent); cursor: pointer; }
 .docs-shell .ac-send:hover { background: color-mix(in srgb, var(--accent) 86%, #fff); }
 .docs-shell .ac-send:disabled { opacity: .4; }
 .docs-shell .ac-send .ico { width: 15px; height: 15px; }
@@ -738,7 +764,7 @@ html[data-ai-open] .docs-shell .aichat { transform: none; }
 .ml-notfound .nf-h { font-family: var(--display); font-weight: 600; font-size: clamp(24px, 4vw, 34px); letter-spacing: -0.02em; color: var(--ink); margin: 0; }
 .ml-notfound .nf-sub { font-size: 14px; color: var(--ink-3); margin: 0; max-width: 420px; }
 .ml-notfound .nf-cta { margin-top: 12px; }
-.ml-notfound .nf-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: var(--btn-radius, 9px); background: var(--accent); color: rgb(var(--c-on-brand)); font-size: 13.5px; font-weight: 500; }
+.ml-notfound .nf-btn { display: inline-flex; align-items: center; gap: 8px; padding: 10px 16px; border-radius: var(--btn-radius, 9px); background: var(--accent); color: var(--on-accent); font-size: 13.5px; font-weight: 500; }
 .ml-notfound .nf-btn:hover { background: color-mix(in srgb, var(--accent) 88%, #fff); }
 .ml-notfound .nf-btn svg { width: 16px; height: 16px; }
 

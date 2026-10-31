@@ -341,6 +341,11 @@ export type LayoutConfig = {
   header?: "single" | "stacked";
   /** Where the search box lives: in the docs sidebar (default) or the header. */
   search?: "sidebar" | "header";
+  /** "Related articles" at the end of a page. A page's own frontmatter
+   *  `related` list always shows; "collection" also fills it, on pages
+   *  without one, with the other pages in the same sidebar folder. Default
+   *  "off". */
+  relatedArticles?: "off" | "collection";
 };
 
 export type MarklineConfig = {
@@ -395,7 +400,7 @@ const DEFAULT_CONFIG: MarklineConfig = {
     appearance: "system",
     colors: { primary: "#3C87F0", primaryDark: "#6E86FA" },
   },
-  layout: { header: "single", search: "sidebar" },
+  layout: { header: "single", search: "sidebar", relatedArticles: "off" },
   topbar: { links: [] },
   navigation: {
     tabs: [

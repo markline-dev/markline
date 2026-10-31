@@ -365,6 +365,18 @@
 .docs-shell .page-nav .t { font-size: 15px; font-weight: 600; margin-top: 5px; color: var(--ink); }
 .docs-shell .page-nav .next-a { text-align: right; }
 
+/* Related articles (frontmatter `related`, layout.relatedArticles) */
+.docs-shell .doc-related { margin-top: 56px; }
+.docs-shell .doc-related h2 { font-size: 24px; font-weight: 600; letter-spacing: -0.01em; color: var(--ink); margin: 0 0 12px; }
+.docs-shell .doc-related ul { list-style: none; margin: 0; padding: 0; }
+.docs-shell .doc-related li { border-bottom: 1px solid var(--line); }
+.docs-shell .doc-related a {
+  display: flex; align-items: center; justify-content: space-between; gap: 16px;
+  padding: 14px 0; color: var(--ink); text-decoration: none; font-size: 15.5px; transition: color .15s;
+}
+.docs-shell .doc-related a svg { flex: none; color: var(--ink-3); transition: color .15s; }
+.docs-shell .doc-related a:hover, .docs-shell .doc-related a:hover svg { color: var(--accent-ink); }
+
 /* edit / last-updated row */
 .docs-shell .doc-foot {
   display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 28px;

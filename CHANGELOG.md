@@ -2,6 +2,14 @@
 
 All notable changes to `@markline/markline` and `@markline/create`.
 
+## Unreleased
+
+### Added
+- **Related articles.** A page's frontmatter `related: [/path, …]` lists
+  pages at its end, as a "Related articles" list. With
+  `layout.relatedArticles: "collection"`, pages without a list get the other
+  pages in their sidebar folder. The `help-center` template turns it on.
+
 ## 0.1.6
 
 ### Added

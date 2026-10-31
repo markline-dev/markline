@@ -6,9 +6,16 @@ export type Crumb = { label: string; href?: string };
 export type TocItem = { id: string; label: string };
 export type PageNavLink = { href: string; label: string };
 
+const ArticleIcon = (
+  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} aria-hidden>
+    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+    <path d="M14 3v5h5M9 13h6M9 17h6" />
+  </svg>
+);
+
 export function DocsPage({
   crumbs, title, lede, toc, lastUpdated, editUrl, feedbackEndpoint,
-  feedbackEnabled = false, aiEnabled = false, prev, next, hub = false, children,
+  feedbackEnabled = false, aiEnabled = false, prev, next, related = [], hub = false, children,
 }: {
   crumbs: Crumb[];
   title: string;
@@ -23,6 +30,8 @@ export function DocsPage({
   aiEnabled?: boolean;
   prev?: PageNavLink;
   next?: PageNavLink;
+  /** "Related articles" at the end of the page. */
+  related?: PageNavLink[];
   /** Under a HubHero: the hero already shows the title and lede, and there's
    *  no table of contents. */
   hub?: boolean;
@@ -55,6 +64,22 @@ export function DocsPage({
         )}
 
         <div className="docs-prose">{children}</div>
+
+        {related.length > 0 && (
+          <section className="doc-related" aria-labelledby="related-articles">
+            <h2 id="related-articles">Related articles</h2>
+            <ul>
+              {related.map((r) => (
+                <li key={r.href}>
+                  <Link href={r.href}>
+                    <span>{r.label}</span>
+                    {ArticleIcon}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
 
         {(prev || next) && (
           <div className="page-nav">

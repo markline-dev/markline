@@ -221,7 +221,7 @@ body {
    only applies when configured. */
 html[data-heading-font] :is(
   .docs-shell .docs-h1, :is(.docs-shell, .api-op-main, .ml-landing) .docs-prose :is(h2, h3), .ml-landing-prose h1,
-  .hub-hero h1, .ml-l-hero h1, .api-title,
+  .hub-hero h1, .ml-l-hero h1, .api-title, .docs-shell .doc-related h2,
   .ml-apiref .api-resource h1, .ml-apiref .api-sec h2
 ) { font-family: var(--heading-font); }
 

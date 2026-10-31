@@ -9,7 +9,7 @@ import { DocsShell } from "@/components/docs/nav";
 import { mdxComponents } from "@/components/docs/mdx";
 import { getHighlighter, shellEnhancer } from "@/lib/shiki";
 import { loadConfig, aiConfig, feedbackConfig } from "@/lib/config";
-import { getDocsTabs, pickActiveTab, getNav, flattenLinks, findNavTrail } from "@/components/docs/sections";
+import { getDocsTabs, pickActiveTab, getNav, flattenLinks, findNavTrail, collectionLinks } from "@/components/docs/sections";
 import { HubHero } from "@/components/docs/hub-hero";
 import { LandingPage } from "@/components/landing/landing";
 import { remarkLandingProse } from "@/lib/landing-prose";
@@ -132,6 +132,7 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
         aiEnabled={aiConfig() != null}
         prev={prev}
         next={next}
+        related={hub ? [] : relatedLinks(doc.fm.related, pathname, config.layout.relatedArticles)}
       >
         {content}
       </DocsPage>
@@ -145,6 +146,29 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
       {shell}
     </>
   );
+}
+
+/**
+ * "Related articles": the page's own frontmatter list, labelled from the
+ * sidebar (or the page's title), or with `layout.relatedArticles:
+ * "collection"` the other pages in its sidebar folder.
+ */
+function relatedLinks(
+  listed: string[] | undefined,
+  pathname: string,
+  mode: "off" | "collection" | undefined,
+): PageNavLink[] {
+  const tabs = getDocsTabs();
+  if (listed?.length) {
+    const labels = new Map(tabs.flatMap((t) => t.sections.flatMap((s) => flattenLinks(s.links))).map((l) => [l.href, l.label]));
+    return listed.map((href) => ({
+      href,
+      label: labels.get(href) ?? getDoc(href.split("/").filter(Boolean))?.fm.title ?? href,
+    }));
+  }
+  if (mode !== "collection") return [];
+  const tab = pickActiveTab(tabs, pathname);
+  return !tab || tab.id === "api-reference" ? [] : collectionLinks(tab.sections, pathname);
 }
 
 /**

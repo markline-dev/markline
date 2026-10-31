@@ -45,6 +45,7 @@ Built-in templates:
 | `classic` | Markline's default. Other templates can build on it. |
 | `paper` | Light and warm, with terracotta accents and a centered top bar. |
 | `product-docs` | A stacked header with search in the top bar and the tabs on a row of their own. |
+| `help-center` | A help center: a hub home page with a search hero, serif headings, and a starter sidebar of collections. |
 
 ## How settings combine
 
@@ -89,6 +90,7 @@ acme/
 ├── template.json     # the defaults
 ├── template.css      # optional: styling the options can't express
 └── starter/          # optional: copied by `markline init --template`
+    ├── markline.json # optional: replaces the default starter's config
     └── docs/index.mdx
 ```
 
@@ -112,6 +114,10 @@ acme/
   `"./base"`.
 - `markline` accepts an exact version, `>=x.y.z` or `^x.y.z`. Outside that
   range, Markline warns but still builds.
+- A starter can bring its own `markline.json`, with its own navigation. Its
+  colours are dropped in favour of the template's, as with the default
+  starter. If it has no API tab and no `api/` folder of its own, the default
+  starter's sample spec is left out, so no unlinked API reference gets built.
 - `template.css` is added before your site's own theme settings, so those can
   still override it. Prefer `template.json` wherever an option exists — CSS
   that targets Markline's internal class names can break between versions.

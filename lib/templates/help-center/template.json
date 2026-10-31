@@ -1,0 +1,27 @@
+{
+  "name": "help-center",
+  "extends": "classic",
+  "markline": ">=0.1.0",
+  "theme": {
+    "appearance": "light",
+    "colors": { "primary": "#C2410C", "primaryDark": "#FB923C" },
+    "buttonRadius": "8px",
+    "font": { "heading": "var(--font-instrument-serif), Georgia, serif" },
+    "cssVariables": {
+      "light": {
+        "--c-paper": "250 249 247",
+        "--c-paper-2": "255 255 255",
+        "--c-ink": "23 23 23",
+        "--c-slate-1": "252 251 249",
+        "--c-slate-2": "243 241 237",
+        "--c-slate-3": "228 226 221",
+        "--c-slate-4": "212 209 203",
+        "--c-slate-5": "163 160 153",
+        "--c-slate-6": "115 112 106",
+        "--c-slate-7": "68 66 62"
+      }
+    }
+  },
+  "layout": { "header": "single", "search": "header" },
+  "topbar": { "width": "full", "homeWidth": "full" }
+}

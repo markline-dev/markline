@@ -216,6 +216,15 @@ body {
 .nav-links a.active { color: var(--ink); }
 .nav-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
 
+/* theme.font.heading: page titles and section headings across docs, the hub
+   hero, landing heroes and the API reference. Keyed off an attribute so it
+   only applies when configured. */
+html[data-heading-font] :is(
+  .docs-shell .docs-h1, :is(.docs-shell, .api-op-main) .docs-prose :is(h2, h3),
+  .hub-hero h1, .ml-l-hero h1, .api-title,
+  .ml-apiref .api-resource h1, .ml-apiref .api-sec h2
+) { font-family: var(--heading-font); }
+
 /* Header search box (layout.search: "header"). Styled as a field; it opens
    the page's search dialog. */
 .nav-search {

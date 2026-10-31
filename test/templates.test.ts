@@ -138,3 +138,16 @@ test("escapeStyleText stops CSS from closing its <style> element", () => {
   // A "<" inside a CSS string becomes an escape that still means "<".
   assert.equal(escapeStyleText('a::before{content:"<"}'), 'a::before{content:"\\3c "}');
 });
+
+test("every built-in template loads cleanly and sets only allowed keys", () => {
+  const builtin = path.join(import.meta.dirname, "..", "lib", "templates");
+  const names = fs.readdirSync(builtin).filter((n) => fs.existsSync(path.join(builtin, n, "template.json")));
+  assert.ok(names.includes("classic") && names.includes("help-center"));
+  for (const name of names) {
+    const warnings: string[] = [];
+    const chain = loadTemplateChain(name, builtin, builtin);
+    templateOptions(chain, (m) => warnings.push(m));
+    assert.deepEqual(warnings, [], `${name} sets keys templates can't change`);
+    assert.equal(chain[chain.length - 1].manifest.name, name, `${name}/template.json "name" should match its folder`);
+  }
+});

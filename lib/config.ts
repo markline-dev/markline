@@ -23,7 +23,13 @@ export type ThemeConfig = {
   /** Favicon path (served from /public). */
   favicon?: string;
   /** Font family overrides (the font must be system-available or self-loaded). */
-  font?: { sans?: string; mono?: string };
+  font?: {
+    sans?: string;
+    mono?: string;
+    /** Font for page titles and section headings (docs, hub hero, API
+     *  reference). Unset, headings use the body font. */
+    heading?: string;
+  };
   /** Corner radius of buttons (the topbar CTA + primary buttons). Any CSS length,
    *  e.g. "8px", "0.5rem", or "999px" for a full pill. Defaults to a pill. */
   buttonRadius?: string;

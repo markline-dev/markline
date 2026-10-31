@@ -2,11 +2,11 @@
 title: Theming
 lede: Brand your docs entirely from markline.json — logo, favicon, fonts, colors, and the full palette. No code to fork.
 toc:
-  - id: config-file
+  - id: the-config-file
     label: The config file
   - id: default-theme
     label: Default theme
-  - id: logo-and-favicon
+  - id: logo-favicon
     label: Logo & favicon
   - id: accent-color
     label: Accent color
@@ -16,7 +16,7 @@ toc:
     label: Fonts
   - id: label-pill
     label: Label pill
-  - id: example
+  - id: worked-example
     label: Worked example
 ---
 
@@ -121,6 +121,17 @@ The tokens you'll reach for most:
 
 ```jsonc
 "theme": { "font": { "sans": "Inter", "mono": "JetBrains Mono" } }
+```
+
+<ParamField path="theme.font.heading" type="string">
+  A separate font for page titles and section headings: docs pages, the hub
+  hero, landing heroes and the API reference. Unset, headings use the body
+  font. Instrument Serif ships with Markline, so a serif heading needs no extra
+  loading:
+</ParamField>
+
+```jsonc
+"theme": { "font": { "heading": "var(--font-instrument-serif), Georgia, serif" } }
 ```
 
 ## Label pill

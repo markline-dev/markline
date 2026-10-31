@@ -14,8 +14,12 @@ export type DocFrontmatter = {
   toc?: TocItem[];
   last_updated?: string;
   crumbs?: { label: string; href?: string }[];
-  /** Page layout: "doc" (default, sidebar+TOC) or "landing" (full-width marketing). */
-  layout?: "doc" | "landing";
+  /** Page layout: "doc" (default, sidebar + TOC), "landing" (full-width
+   *  marketing) or "hub" (a full-width hero with search above the sidebar —
+   *  a help-center home). */
+  layout?: "doc" | "landing" | "hub";
+  /** Hub layout only: an illustration beside the hero, and the search box text. */
+  hero?: { image?: string; placeholder?: string };
   /** Author-curated starter questions for the Ask AI panel on this page (max 3). */
   aiSuggestions?: string[];
 };
@@ -46,7 +50,14 @@ function readMdx(filePath: string): { fm: DocFrontmatter; body: string } {
     toc: Array.isArray(data.toc) ? data.toc as TocItem[] : undefined,
     last_updated: data.last_updated ? String(data.last_updated) : undefined,
     crumbs: Array.isArray(data.crumbs) ? data.crumbs : undefined,
-    layout: data.layout === "landing" ? "landing" : undefined,
+    layout: data.layout === "landing" || data.layout === "hub" ? data.layout : undefined,
+    hero:
+      data.hero && typeof data.hero === "object"
+        ? {
+            image: typeof data.hero.image === "string" ? data.hero.image : undefined,
+            placeholder: typeof data.hero.placeholder === "string" ? data.hero.placeholder : undefined,
+          }
+        : undefined,
     aiSuggestions: Array.isArray(data.aiSuggestions)
       ? data.aiSuggestions.filter((s: unknown) => typeof s === "string" && s.trim()).map((s: string) => s.trim()).slice(0, 3)
       : undefined,

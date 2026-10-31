@@ -1,0 +1,85 @@
+{
+  "name": "Help Center",
+  "theme": {
+    "logo": {
+      "text": "Help Center"
+    }
+  },
+  "topbar": {
+    "links": [],
+    "cta": {
+      "label": "Contact support",
+      "href": "mailto:support@example.com"
+    }
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "id": "help",
+        "label": "Articles",
+        "href": "/",
+        "match": [
+          "__default__"
+        ],
+        "groups": [
+          {
+            "group": "",
+            "pages": [
+              {
+                "href": "/",
+                "label": "Home",
+                "icon": "house"
+              },
+              {
+                "label": "Getting started",
+                "icon": "rocket-launch",
+                "pages": [
+                  {
+                    "href": "/quickstart",
+                    "label": "Set up your workspace"
+                  },
+                  {
+                    "href": "/account/invite-teammates",
+                    "label": "Invite teammates"
+                  }
+                ]
+              },
+              {
+                "label": "Account & security",
+                "icon": "user-circle",
+                "pages": [
+                  {
+                    "href": "/account/reset-password",
+                    "label": "Reset your password"
+                  },
+                  {
+                    "href": "/account/two-factor",
+                    "label": "Turn on two-factor login"
+                  }
+                ]
+              },
+              {
+                "label": "Billing",
+                "icon": "credit-card",
+                "pages": [
+                  {
+                    "href": "/billing/plans",
+                    "label": "Plans and pricing"
+                  },
+                  {
+                    "href": "/billing/invoices",
+                    "label": "Download invoices"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "seo": {
+    "title": "Help Center",
+    "description": "Answers and guides for using the product."
+  }
+}

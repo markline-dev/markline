@@ -961,7 +961,7 @@ function genCode(lang: LangId, spec: PlaygroundSpec, pg: Ctx, bodyObj: Record<st
         writeFields.forEach(([k, v]) => lines.push(`  ${flag} <span class="key">${escHtml(k)}</span>=${curlVal(v)}`));
         for (const f of spec.bodyFiles ?? []) {
           const file = pg.files[f.name];
-          if (file || f.required) lines.push(`  -F <span class="key">${escHtml(f.name)}</span>=<span class="s">@${escHtml(file?.name ?? `path/to/${f.name}`)}</span>`);
+          lines.push(`  -F <span class="key">${escHtml(f.name)}</span>=<span class="s">@${escHtml(file?.name ?? `path/to/${f.name}`)}</span>`);
         }
       } else if (pg.body.trim()) {
         lines.push(`  -H <span class="s">"Content-Type: ${escHtml(spec.bodyContentType ?? "application/json")}"</span>`);

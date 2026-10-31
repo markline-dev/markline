@@ -2,7 +2,7 @@ import type { OpenAPIDoc, OpenAPIOperation, JSONSchema } from "./openapi";
 import { resolveSchema, sampleFromSchema, operationHref } from "./openapi";
 import { responseSampleJson } from "./openapi-samples";
 import { loadConfig } from "./config";
-import { bodyKind, describeMediaType, isBinarySchema, isJsonMediaType } from "./openapi-media";
+import { bodyKind, describeMediaType, isBinarySchema, isJsonMediaType, nonNullSchema } from "./openapi-media";
 import { camelId, fernSdkName, pascalId, snakeId } from "./openapi-codegen";
 import type { PlaygroundSpec } from "@/components/docs/api/playground";
 
@@ -62,7 +62,9 @@ function bodyForPlayground(op: OpenAPIOperation, root: unknown): Pick<Playground
       files.push({ name, required: required.has(name), description: prop.description });
       continue;
     }
-    const v = required.has(name) ? sampleFromSchema(prop, root) : "";
+    const r = nonNullSchema(prop);
+    const example = Array.isArray(r?.examples) && r.examples.length ? r.examples[0] : r?.example;
+    const v = required.has(name) ? (example ?? sampleFromSchema(r, root)) : "";
     fields[name] = v !== null && typeof v === "object" ? JSON.stringify(v) : v;
   }
   return { bodySample: JSON.stringify(fields, null, 2), bodyContentType: rb.contentType, bodyFiles: files };

@@ -63,6 +63,52 @@ export function SiteNav({
   const pathname = usePathname();
   // The homepage ("/") uses its own width knob; every other route uses `width`.
   const layout = pathname === "/" ? homeWidth : width;
+  const [menuOpen, setMenuOpen] = useState(false);
+  // Mirror body.docnav-open: the drawer is also closed from outside this
+  // component (scrim, sidebar links), so the burger reads its state back
+  // instead of tracking it locally.
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const expanded = menuOpen || drawerOpen;
+
+  useEffect(() => {
+    const body = document.body;
+    const sync = () => setDrawerOpen(body.classList.contains("docnav-open"));
+    sync();
+    const mo = new MutationObserver(sync);
+    mo.observe(body, { attributes: true, attributeFilter: ["class"] });
+    return () => mo.disconnect();
+  }, []);
+
+  // Esc closes whichever menu is open.
+  useEffect(() => {
+    if (!expanded) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setMenuOpen(false);
+      document.body.classList.remove("docnav-open");
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [expanded]);
+
+  // Close the mobile menu / page drawer whenever the route changes.
+  useEffect(() => {
+    setMenuOpen(false);
+    document.body.classList.remove("docnav-open");
+  }, [pathname]);
+
+  // Mobile menu button. Pages that ship a sidebar drawer (docs shell, API
+  // reference) use the shared body.docnav-open contract; pages without one
+  // (home, 404) fall back to the SiteNav's own dropdown panel with the links.
+  const onBurger = () => {
+    if (document.querySelector(".docs-side, .api-side")) {
+      setMenuOpen(false);
+      document.body.classList.toggle("docnav-open");
+      return;
+    }
+    document.body.classList.remove("docnav-open");
+    setMenuOpen((v) => !v);
+  };
 
   const isActive = (href: string) => {
     const path = href.split(/[#?]/)[0] || "/";
@@ -74,6 +120,9 @@ export function SiteNav({
   const hasImg = !!(logo?.light || logo?.dark);
   const links = [...(tabs ?? []), ...(navLinks ?? [])];
   const activeTab = pickActiveTab(tabs ?? [], pathname);
+  // Tabs follow their `match` rules; extra nav links compare hrefs. Shared by
+  // the header links and the mobile panel so both mark the same link.
+  const isCurrent = (l: SiteNavLink) => ((tabs ?? []).includes(l) ? l === activeTab : isActive(l.href));
   const stacked = header === "stacked";
 
   const linksNav = (
@@ -82,7 +131,7 @@ export function SiteNav({
         <Link
           key={l.href + l.label}
           href={l.href}
-          className={((tabs ?? []).includes(l) ? l === activeTab : isActive(l.href)) ? "active" : undefined}
+          className={isCurrent(l) ? "active" : undefined}
         >
           {l.label}
         </Link>
@@ -127,11 +176,47 @@ export function SiteNav({
               {cta.label}
             </Link>
           )}
+          <button
+            className="nav-burger"
+            type="button"
+            onClick={onBurger}
+            aria-label={expanded ? "Close menu" : "Open menu"}
+            aria-expanded={expanded}
+          >
+            {expanded ? (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                <path d="M6 6l12 12M18 6L6 18" />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+                <path d="M4 7h16M4 12h16M4 17h16" />
+              </svg>
+            )}
+          </button>
         </div>
       </div>
       {stacked && (
         <div className="nav-tabs">
           <div className={`nav-in nav-in--${layout} nav-tabs-in`}>{linksNav}</div>
+        </div>
+      )}
+      {menuOpen && (
+        <div className="nav-mobile-panel">
+          {links.map((l) => (
+            <Link
+              key={l.href + l.label}
+              href={l.href}
+              className={isCurrent(l) ? "active" : undefined}
+              onClick={() => setMenuOpen(false)}
+            >
+              {l.label}
+            </Link>
+          ))}
+          {cta && (
+            <Link className="btn btn-primary btn-sm" href={cta.href} onClick={() => setMenuOpen(false)}>
+              {cta.label}
+            </Link>
+          )}
         </div>
       )}
     </header>

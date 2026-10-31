@@ -4,6 +4,17 @@ All notable changes to `@markline/markline` and `@markline/create`.
 
 ## Unreleased
 
+### Added
+- **Mobile navigation.** Below 880px the topbar shows a menu button. On docs
+  and API reference pages it opens the sidebar as a slide-in drawer (with the
+  top-level tabs pinned at the top); on pages without a sidebar it opens a
+  dropdown with the nav links. Esc, the scrim, or following a link closes it.
+
+### Changed
+- **The docs sidebar collapses at 880px instead of 720px**, matching the API
+  reference. Between 721px and 880px it is now reached from the menu button
+  rather than shown alongside the page.
+
 ### Fixed
 - **`llms.txt` and the sitemap only list API resources that have a page.**
   A tag declared at the root but used by no operation, or used only as an

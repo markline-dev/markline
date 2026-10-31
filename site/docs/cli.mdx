@@ -18,6 +18,9 @@ toc:
 | `markline start` | Serve a production build. |
 | `markline export` | Build a static HTML site into `./out`. |
 
+`dev`, `build` and `start` pass any extra flags on to Next, so
+`markline dev -p 3001` serves on port 3001.
+
 ## How it works
 
 The Markline package ships the rendering app; the CLI launches it pointed at the
@@ -44,3 +47,14 @@ upgrade it like any dependency.
     A Node server with full features.
   </Tab>
 </Tabs>
+
+## Running from a Markline checkout
+
+To try unreleased changes, or to keep docs next to a clone of the framework,
+run the CLI from the checkout instead of installing the package. The docs
+folder then needs no `node_modules` of its own: the CLI uses the checkout's.
+
+```bash
+cd my-docs
+node ../markline/bin/markline.mjs dev
+```

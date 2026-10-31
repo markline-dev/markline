@@ -67,6 +67,30 @@ toc:
 
 On phones the links, dropdown items and second button move into the menu.
 
+To restyle the banner or the header, set these in `theme.cssVariables`, per
+light and dark mode:
+
+| Variable | What it sets | Default |
+| --- | --- | --- |
+| `--banner-bg` | The banner's background: a colour, a gradient or an image | Light grey, or the primary colour with `tone: "brand"` |
+| `--banner-fg` | The banner's text, link and close button | The body text colour |
+| `--nav-bg` | The header's background | The page colour, slightly see-through |
+
+```jsonc
+"theme": {
+  "cssVariables": {
+    "light": {
+      "--banner-bg": "linear-gradient(135deg, #08090a 0%, #131313 67%, #00a6d4 74%, #890976 85%, #ff5500 95%)",
+      "--banner-fg": "#fff"
+    },
+    "dark": {
+      "--banner-bg": "linear-gradient(135deg, #08090a 0%, #131313 67%, #00a6d4 74%, #890976 85%, #ff5500 95%)",
+      "--banner-fg": "#fff"
+    }
+  }
+}
+```
+
 ## Navigation
 
 Navigation is a list of tabs, each with grouped pages. A tab can instead set

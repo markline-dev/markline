@@ -200,7 +200,8 @@ body {
 .btn .ico { width: 15px; height: 15px; }
 
 /* the shared sticky nav (60px) */
-.nav { position: sticky; top: 0; z-index: 60; background: color-mix(in srgb, var(--bg) 78%, transparent); backdrop-filter: blur(14px) saturate(1.2); border-bottom: 1px solid var(--line); }
+/* --nav-bg (theme.cssVariables) replaces the translucent page colour. */
+.nav { position: sticky; top: 0; z-index: 60; background: var(--nav-bg, color-mix(in srgb, var(--bg) 78%, transparent)); backdrop-filter: blur(14px) saturate(1.2); border-bottom: 1px solid var(--line); }
 /* The nav sits at the top level (in layout), outside the .ml-apiref/.ml-home
    border-box scopes — so re-assert it here, or .nav-in--full's width:100% +
    padding-inline overflows the viewport and pushes the CTA off-screen. */
@@ -302,23 +303,24 @@ html[data-banner][data-header="stacked"] { --nav-h: 145px; }
 .nav-menu-pop .t { font-size: 13.5px; color: var(--ink); white-space: nowrap; }
 .nav-menu-pop .d { font-size: 12.5px; color: var(--ink-3); }
 
-/* topbar.banner */
+/* topbar.banner. --banner-bg takes any CSS background (a colour, a gradient,
+   an image) and --banner-fg the text colour, both from theme.cssVariables. */
 .site-banner {
   position: relative; display: flex; align-items: center; justify-content: center; height: 40px;
-  padding: 0 48px; font-size: 13.5px; background: var(--panel-hi); color: var(--ink-2);
+  padding: 0 48px; font-size: 13.5px; background: var(--banner-bg, var(--panel-hi)); color: var(--banner-fg, var(--ink-2));
   border-bottom: 1px solid var(--line);
 }
 html:not([data-banner]) .site-banner { display: none; }
 .site-banner p { display: flex; align-items: baseline; gap: 10px; min-width: 0; margin: 0; }
 .site-banner .txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.site-banner .lnk { flex: none; font-weight: 600; color: var(--ink); text-decoration: underline; text-underline-offset: 3px; }
+.site-banner .lnk { flex: none; font-weight: 600; color: var(--banner-fg, var(--ink)); text-decoration: underline; text-underline-offset: 3px; }
 .site-banner .x {
   position: absolute; right: 10px; top: 50%; transform: translateY(-50%); display: grid; place-items: center;
   width: 28px; height: 28px; border: 0; border-radius: 6px; background: transparent; color: inherit; cursor: pointer; opacity: .75;
 }
 .site-banner .x:hover { opacity: 1; background: color-mix(in srgb, currentColor 10%, transparent); }
 .site-banner .x svg { width: 15px; height: 15px; }
-.site-banner--brand { background: var(--accent); color: rgb(var(--c-on-brand)); border-bottom-color: transparent; }
+.site-banner--brand { background: var(--banner-bg, var(--accent)); color: var(--banner-fg, rgb(var(--c-on-brand))); border-bottom-color: transparent; }
 .site-banner--brand .lnk { color: inherit; }
 
 /* nav wrap (constrains content width, matches the design) */

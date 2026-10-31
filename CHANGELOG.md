@@ -43,6 +43,8 @@ All notable changes to `@markline/markline` and `@markline/create`.
   CTA. On phones they move into the menu.
 - **Announcement banner.** `topbar.banner` puts a strip with text and a link
   above the header. It can end on a date (`until`) and readers can close it.
+  `--banner-bg` (any colour or gradient) and `--banner-fg` in
+  `theme.cssVariables` restyle it; `--nav-bg` sets the header's background.
 
 ### Changed
 - **The search dialog keeps one height**, with a "Start typing to search"

@@ -2,62 +2,20 @@
 
 All notable changes to `@markline/markline` and `@markline/create`.
 
-## Unreleased
+## 0.1.7
 
 ### Added
-- **`theme.font.url`** loads web fonts from config: a Google Fonts, Bunny or
-  Fontshare URL, or a stylesheet in `public/`, linked from every page with a
-  preconnect to the font host.
-- **`<Audio>` and `<AudioGroup>`.** A player for voice samples and calls,
-  with seek, 15-second skips, speed and mute, and side-by-side groups for
-  comparisons. Only one plays at a time.
-- **Image captions, zoom and theme variants.** An image's title shows as a
-  caption; images shrunk to fit open full size on click (`#nozoom` to turn it
-  off); `#light` / `#dark` on a URL, or `<Image dark>`, show a screenshot only
-  in that theme.
-- **Menu paths.** `<MenuPath>Teach > Playbooks</MenuPath>`, and any bold text
-  with ` → ` or ` › ` in it, render as bold steps with chevrons between them.
-- **Breaking changelog entries.** `breaking: true` adds a "Breaking" label,
-  and marks the entry in the RSS feed.
-- **Search results show where a page lives** ("Agents › Persona"), so pages
-  that share a title like "Overview" can be told apart.
 - **Changelog pages.** A `changelog/` folder of dated MDX files becomes a
   changelog at `/changelog`: entries newest first with the date beside
   them, "On this page" grouped by date, a page per entry
   (`/changelog/2026/10/26`), paging, search and sitemap entries, and an RSS
   feed at `/changelog/rss.xml` when `seo.metadataBase` is set.
-- **`npm create @markline -- --template <name>`** starts a project from a
-  built-in template or a `./folder`, starter pages included, the same as
-  `markline init --template`.
-- **Card icons by name.** `<Card icon="rocket-launch">` renders a Phosphor
-  icon, like sidebar icons. Emoji and elements still work.
-- **Breadcrumb and page-action styles.** `layout.breadcrumbs: "chevron"`
-  shows breadcrumbs in the body font with `›`, and `layout.breadcrumbsRoot`
-  renames the first one (e.g. "All collections"). `layout.pageActions: "menu"`
-  turns Copy for LLM, View as Markdown and Ask AI into one button with a
-  dropdown, beside the page's last-updated date. The `help-center` template
-  uses all three.
-- **Search filters by collection.** The docs search dialog shows a chip for
-  each sidebar group (or top-level folder, or tab), plus the API reference, and
-  narrows results to the one you pick. Each result also shows its group.
-- **`<Video>`.** Embeds a video file in the browser's own player, or a
-  YouTube, Vimeo, Loom or Wistia link as that provider's embed (YouTube via
-  its no-cookie domain). Full column width at 16:9, with an optional caption.
-- **`<LinkList>` and `<LinkItem>`.** Rows of links with a title, optional
-  description and accent-coloured `meta` ("3 articles"), and an icon, with
-  the whole row highlighted on hover. For collection pages and "see also"
-  lists.
-- **Related articles.** A page's frontmatter `related: [/path, …]` lists
-  pages at its end, as a `<LinkList>`. With `layout.related: "collection"`,
-  pages without a list get the other pages in their sidebar folder. The
-  `help-center` template turns it on.
-- **`layout.content: "centered"`** keeps docs pages in a fixed-width column
-  (`--content-width`, 880px) centred between the sidebar and "On this page",
-  with text the same width as tables and callouts. The default, `"fluid"`, is
-  unchanged. The `help-center` template uses `"centered"`.
-- **"On this page" builds itself.** Docs pages list their `##` and `###`
-  headings (subheadings indented) unless the frontmatter sets `toc`.
-  `toc: false` hides it.
+- **Breaking changelog entries.** `breaking: true` adds a "Breaking" label,
+  and marks the entry in the RSS feed.
+- **Site footer.** `footer` in markline.json adds columns of links, the logo,
+  a copyright line, small links (Privacy, Terms) and social icons across the
+  bottom of every page, with "Built with Markline" in its bottom row. The
+  `help-center` starter includes one.
 - **More in the header.** `topbar.links` now show on the right of the header
   (they were ignored apart from the GitHub link), and an entry with `items`
   is a dropdown. `topbar.secondaryCta` adds an outlined button before the
@@ -74,27 +32,69 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **Centred hub heroes and full-width hub pages.** `hero.align: center`
   centres the title, lede and search; `sidebar: false` drops the sidebar on
   desktop for a home made of cards.
+- **`layout.content: "centered"`** keeps docs pages in a fixed-width column
+  (`--content-width`, 880px) centred between the sidebar and "On this page",
+  with text the same width as tables and callouts. The default, `"fluid"`, is
+  unchanged. The `help-center` template uses `"centered"`.
 - **`layout.surface: "panel"`** sets docs pages on a raised, rounded panel
   beside the sidebar.
+- **Breadcrumb and page-action styles.** `layout.breadcrumbs: "chevron"`
+  shows breadcrumbs in the body font with `›`, and `layout.breadcrumbsRoot`
+  renames the first one (e.g. "All collections"). `layout.pageActions: "menu"`
+  turns Copy for LLM, View as Markdown and Ask AI into one button with a
+  dropdown, beside the page's last-updated date. The `help-center` template
+  uses all three.
+- **"On this page" builds itself.** Docs pages list their `##` and `###`
+  headings (subheadings indented) unless the frontmatter sets `toc`.
+  `toc: false` hides it.
+- **Related articles.** A page's frontmatter `related: [/path, …]` lists
+  those pages at its end, by title, as a `<LinkList>`. With
+  `layout.related: "collection"`, pages without a list get the other pages
+  in their sidebar folder. The `help-center` template turns it on.
+- **`<LinkList>` and `<LinkItem>`.** Rows of links with a title, optional
+  description and accent-coloured `meta` ("3 articles"), and an icon, with
+  the whole row highlighted on hover. For collection pages and "see also"
+  lists.
 - **Tile cards.** `<Card variant="tile">`, or `<CardGroup variant="tile">` for
   a whole grid, puts the icon in a tinted square above the title.
+- **Card icons by name.** `<Card icon="rocket-launch">` renders a Phosphor
+  icon, like sidebar icons. Emoji and elements still work.
 - **Your own icons.** Anywhere an `icon` name works (sidebar, cards, link
   lists), a path or URL works too. SVGs take the theme's text colour; other
   images keep theirs.
-- **Logo mark options.** `theme.logo.icon` can be `{ light, dark }`, and
-  `theme.logo.iconTile` sets a single dark mark on a tile that works in both
-  themes.
 - **Icon weights.** `theme.iconWeight` picks Phosphor's thin, light, regular,
   bold, fill or duotone for every icon; one icon can choose its own as
   `rocket-launch:duotone`.
+- **Image captions, zoom and theme variants.** An image's title shows as a
+  caption; images shrunk to fit open full size on click (`#nozoom` to turn it
+  off); `#light` / `#dark` on a URL, or `<Image dark>`, show a screenshot only
+  in that theme.
+- **Menu paths.** `<MenuPath>Teach > Playbooks</MenuPath>`, and any bold text
+  with ` → ` or ` › ` in it, render as bold steps with chevrons between them.
+- **`<Video>`.** Embeds a video file in the browser's own player, or a
+  YouTube, Vimeo, Loom or Wistia link as that provider's embed (YouTube via
+  its no-cookie domain). Full column width at 16:9, with an optional caption.
+- **`<Audio>` and `<AudioGroup>`.** A player for voice samples and calls,
+  with seek, 15-second skips, speed and mute, and side-by-side groups for
+  comparisons. Only one plays at a time.
+- **Logo mark options.** `theme.logo.icon` can be `{ light, dark }`, and
+  `theme.logo.iconTile` sets a single dark mark on a tile that works in both
+  themes.
+- **`theme.font.url`** loads web fonts from config: a Google Fonts, Bunny or
+  Fontshare URL, or a stylesheet in `public/`, linked from every page with a
+  preconnect to the font host.
 - **More to customise.** `theme.colors.primaryText` / `primaryTextDark` set
   button text yourself; `--card-bg`, `--card-radius`, `--card-shadow`,
   `--card-icon-bg` and friends restyle cards; `--brand-tile-*` restyle the
   logo tile; an icon path ending in `?color` keeps the SVG's own colours.
-- **Site footer.** `footer` in markline.json adds columns of links, the logo,
-  a copyright line, small links (Privacy, Terms) and social icons across the
-  bottom of every page, with "Built with Markline" in its bottom row. The
-  `help-center` starter includes one.
+- **Search filters by collection.** The docs search dialog shows a chip for
+  each sidebar group (or top-level folder, or tab), plus the API reference, and
+  narrows results to the one you pick. Each result also shows its group.
+- **Search results show where a page lives** ("Agents › Persona"), so pages
+  that share a title like "Overview" can be told apart.
+- **`npm create @markline -- --template <name>`** starts a project from a
+  built-in template or a `./folder`, starter pages included, the same as
+  `markline init --template`.
 
 ### Changed
 - **The search dialog keeps one height**, with a "Start typing to search"
@@ -107,14 +107,8 @@ All notable changes to `@markline/markline` and `@markline/create`.
   the footer row with the copyright and a heart.
 - **View as Markdown** opens as a file named after the page, on a light
   panel that follows the theme, with "Copy markdown" at the bottom.
-- **The page-actions menu** (`layout.pageActions: "menu"`) opens under the
-  left edge of the button, and the chevron stays highlighted while it's open.
 
 ### Fixed
-- **Related articles use page titles.** Pages listed in frontmatter
-  `related` were labelled with their sidebar label, so several showed as just
-  "Overview". They now show each page's title, falling back to the sidebar
-  label.
 - **Images in pages fit the column.** A markdown image showed at its
   natural size, so a large screenshot ran past the text and under "On this
   page". Images now shrink to the column width, with a hairline frame and
@@ -137,8 +131,6 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **Translated and older-version pages follow their own sidebar.** Header
   tabs, breadcrumbs, previous/next and related articles on `/es/…` or `/v1/…`
   pages used the default navigation.
-- **Centred docs pages fit on phones.** With `layout.content: "centered"`,
-  the page column was 40px wider than the screen.
 - **One search box on hub pages.** With `layout.search: "header"`, a hub page
   showed two search boxes, the header's and the hero's. The header one now
   stays hidden until the hero's box scrolls out of view.

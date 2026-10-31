@@ -9,7 +9,7 @@ import { DocsShell } from "@/components/docs/nav";
 import { mdxComponents } from "@/components/docs/mdx";
 import { getHighlighter, shellEnhancer } from "@/lib/shiki";
 import { loadConfig, aiConfig, feedbackConfig } from "@/lib/config";
-import { getDocsTabs, pickActiveTab, getNav, flattenLinks, findNavTrail, collectionLinks } from "@/components/docs/sections";
+import { getDocsTabs, pickActiveTab, getNav, flattenLinks, findNavTrail, collectionLinks, type DocsTab } from "@/components/docs/sections";
 import { HubHero } from "@/components/docs/hub-hero";
 import { LandingPage } from "@/components/landing/landing";
 import { remarkLandingProse } from "@/lib/landing-prose";
@@ -76,9 +76,15 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
     return notFound();
   }
   const config = loadConfig();
+  // A translated or older-version page follows its own sidebar.
+  const tabs = getDocsTabs(doc.variant);
   const crumbs =
     doc.fm.crumbs ??
-    withCrumbsRoot(navCrumbs(doc.slug, doc.fm.title) ?? deriveCrumbs(doc.slug, doc.fm.title), config.layout.breadcrumbsRoot);
+    withCrumbsRoot(
+      navCrumbs(tabs, doc.slug, doc.fm.title) ?? deriveCrumbs(doc.slug, doc.fm.title),
+      config.layout.breadcrumbsRoot,
+      doc.variant ? `/${doc.variant}` : "/",
+    );
   const editUrl = config.editUrl
     ? `${config.editUrl.replace(/\/$/, "")}/${doc.sourcePath}`
     : undefined;
@@ -86,7 +92,7 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
   // Previous/Next derived from the real flattened sidebar order of the active
   // (documentation) tab — no fabricated links.
   const pathname = doc.slug.length ? `/${doc.slug.join("/")}` : "/";
-  const { prev, next } = pageNeighbors(pathname);
+  const { prev, next } = pageNeighbors(tabs, pathname);
 
   const landing = doc.fm.layout === "landing";
   const content = (
@@ -136,7 +142,7 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
         aiEnabled={aiConfig() != null}
         prev={hub ? undefined : prev}
         next={hub ? undefined : next}
-        related={hub ? [] : relatedLinks(doc.fm.related, pathname, config.layout.related)}
+        related={hub ? [] : relatedLinks(tabs, doc.fm.related, pathname, config.layout.related)}
       >
         {content}
       </DocsPage>
@@ -157,11 +163,11 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
  * "collection"` the other pages in its sidebar folder.
  */
 function relatedLinks(
+  tabs: DocsTab[],
   listed: string[] | undefined,
   pathname: string,
   mode: "off" | "collection" | undefined,
 ): PageNavLink[] {
-  const tabs = getDocsTabs();
   if (listed?.length) {
     const labels = new Map(tabs.flatMap((t) => t.sections.flatMap((s) => flattenLinks(s.links))).map((l) => [l.href, l.label]));
     return listed.map((href) => ({
@@ -179,8 +185,7 @@ function relatedLinks(
  * tab's sidebar sections into document order. Only internal doc links (not the
  * OpenAPI tab) participate, so prev/next stay within the docs nav.
  */
-function pageNeighbors(pathname: string): { prev?: PageNavLink; next?: PageNavLink } {
-  const tabs = getDocsTabs();
+function pageNeighbors(tabs: DocsTab[], pathname: string): { prev?: PageNavLink; next?: PageNavLink } {
   const tab = pickActiveTab(tabs, pathname);
   if (!tab || tab.id === "api-reference") return {};
   const flat: PageNavLink[] = [];
@@ -207,9 +212,9 @@ function firstDocHref(): string | undefined {
 
 /** `layout.breadcrumbsRoot` renames the first crumb (the tab), e.g. to
  *  "All collections", and points it home. Frontmatter crumbs are left alone. */
-function withCrumbsRoot(crumbs: Crumb[], root: string | undefined): Crumb[] {
+function withCrumbsRoot(crumbs: Crumb[], root: string | undefined, home: string): Crumb[] {
   if (!root || crumbs.length === 0) return crumbs;
-  return [{ label: root, href: "/" }, ...crumbs.slice(1)];
+  return [{ label: root, href: home }, ...crumbs.slice(1)];
 }
 
 /**
@@ -218,9 +223,9 @@ function withCrumbsRoot(crumbs: Crumb[], root: string | undefined): Crumb[] {
  * can't (/account/reset-password sits under "Account & security", not under a
  * folder named "account"). Undefined when the page isn't in the sidebar.
  */
-function navCrumbs(slug: string[], title: string) {
+function navCrumbs(tabs: DocsTab[], slug: string[], title: string) {
   const pathname = slug.length ? `/${slug.join("/")}` : "/";
-  const tab = pickActiveTab(getDocsTabs(), pathname);
+  const tab = pickActiveTab(tabs, pathname);
   if (!tab || tab.id === "api-reference") return undefined;
   const trail = findNavTrail(tab.sections, pathname);
   if (!trail) return undefined;

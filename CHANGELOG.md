@@ -53,6 +53,14 @@ All notable changes to `@markline/markline` and `@markline/create`.
   left edge of the button, and the chevron stays highlighted while it's open.
 
 ### Fixed
+- **The version and language switcher is back.** Sites with `versions` or
+  `i18n.locales` had no way to switch in the header since the site was
+  unified, though the docs described one. Picking a version or language opens
+  the same page there, or its home page if the page doesn't exist in it. The
+  page's `lang` follows the locale.
+- **Translated and older-version pages follow their own sidebar.** Header
+  tabs, breadcrumbs, previous/next and related articles on `/es/…` or `/v1/…`
+  pages used the default navigation.
 - **Centred docs pages fit on phones.** With `layout.content: "centered"`,
   the page column was 40px wider than the screen.
 - **One search box on hub pages.** With `layout.search: "header"`, a hub page

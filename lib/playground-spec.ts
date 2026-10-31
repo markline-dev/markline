@@ -2,6 +2,8 @@ import type { OpenAPIDoc, OpenAPIOperation, JSONSchema } from "./openapi";
 import { resolveSchema, sampleFromSchema, operationHref } from "./openapi";
 import { responseSampleJson } from "./openapi-samples";
 import { loadConfig } from "./config";
+import { bodyKind, describeMediaType, isBinarySchema, isJsonMediaType } from "./openapi-media";
+import { camelId, fernSdkName, pascalId, snakeId } from "./openapi-codegen";
 import type { PlaygroundSpec } from "@/components/docs/api/playground";
 
 /**
@@ -33,6 +35,49 @@ export function sampleParam(schema?: JSONSchema): string {
   if (schema.type === "integer" || schema.type === "number") return "1";
   if (schema.type === "boolean") return "true";
   return "";
+}
+
+/**
+ * The request body as the playground edits it. JSON bodies are the full sample;
+ * multipart/urlencoded bodies are a flat object of their text fields (optional
+ * ones blank, and blanks are not sent), with file fields listed separately.
+ */
+function bodyForPlayground(op: OpenAPIOperation, root: unknown): Pick<PlaygroundSpec, "bodySample" | "bodyContentType" | "bodyFiles"> {
+  const rb = op.requestBody;
+  if (!rb?.schema) return {};
+  const kind = bodyKind(rb.contentType);
+  if (kind === "json") {
+    return {
+      bodySample: JSON.stringify(sampleFromSchema(rb.schema, root), null, 2),
+      bodyContentType: rb.contentType && !/^application\/json\b/i.test(rb.contentType) ? rb.contentType : undefined,
+    };
+  }
+  const schema = resolveSchema(rb.schema, root);
+  if (kind === "other") return { bodySample: "", bodyContentType: rb.contentType };
+  const required = new Set(schema?.required ?? []);
+  const fields: Record<string, unknown> = {};
+  const files: NonNullable<PlaygroundSpec["bodyFiles"]> = [];
+  for (const [name, prop] of Object.entries(schema?.properties ?? {})) {
+    if (isBinarySchema(prop)) {
+      files.push({ name, required: required.has(name), description: prop.description });
+      continue;
+    }
+    const v = required.has(name) ? sampleFromSchema(prop, root) : "";
+    fields[name] = v !== null && typeof v === "object" ? JSON.stringify(v) : v;
+  }
+  return { bodySample: JSON.stringify(fields, null, 2), bodyContentType: rb.contentType, bodyFiles: files };
+}
+
+/** Fern-named SDK call prefixes for the explorer's code pane, when the spec has them. */
+function sdkCalls(op: OpenAPIOperation, root: unknown): PlaygroundSpec["sdk"] {
+  if (loadConfig().api.sdkNaming === "off") return undefined;
+  const fern = fernSdkName(op, root);
+  if (!fern) return undefined;
+  return {
+    node: ["client", ...fern.groups.map((g) => camelId(g)), camelId(fern.method, "call")].join("."),
+    python: ["client", ...fern.groups.map((g) => snakeId(g)), snakeId(fern.method, "call")].join("."),
+    go: ["client", ...fern.groups.map((g) => pascalId(g)), pascalId(fern.method, "Call")].join("."),
+  };
 }
 
 export function buildPlaygroundSpec(op: OpenAPIOperation, doc: OpenAPIDoc, root: unknown, base = "/api-reference"): PlaygroundSpec {
@@ -71,16 +116,17 @@ export function buildPlaygroundSpec(op: OpenAPIOperation, doc: OpenAPIDoc, root:
     // operation under-declares its security (common in generated specs).
     bearer: schemeBearer || op.security.some((s) => s.scheme.type === "http" && s.scheme.scheme === "bearer"),
     apiKeyHeaders: apiKeyHeaderNames.map((name) => ({ name })),
-    bodySample: op.requestBody?.schema
-      ? JSON.stringify(sampleFromSchema(op.requestBody.schema, root), null, 2)
-      : undefined,
+    ...bodyForPlayground(op, root),
+    sdk: sdkCalls(op, root),
     responses: op.responses.map((r) => ({
       status: r.status,
       body: r.example
         ? JSON.stringify(r.example, null, 2)
         : r.schema
           ? responseSampleJson(resolveSchema(r.schema, root), root)
-          : "",
+          : r.contentType && !isJsonMediaType(r.contentType)
+            ? describeMediaType(r.contentType)
+            : "",
     })),
     endpoints: doc.tags.flatMap((t) =>
       t.operations.map((o) => ({ method: o.method, label: o.summary ?? o.operationId, href: operationHref(o, base) })),

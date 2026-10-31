@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { loadConfig } from "@/lib/config";
 import { loadOpenApi } from "@/lib/openapi";
+import { base64ToBytes, bytesToBase64, isTextualMediaType } from "@/lib/openapi-media";
 
 // Server-side proxy for the API playground — used when a request can't be sent
 // directly from the browser (CORS). Only present on a Node/Docker/Vercel
@@ -36,14 +37,16 @@ function allowedOrigins(): string[] {
 }
 
 export async function POST(req: Request) {
-  let payload: { url?: string; method?: string; headers?: Record<string, string>; body?: string };
+  // `bodyBase64` carries a binary request body (an encoded multipart form with
+  // files); `body` a text one.
+  let payload: { url?: string; method?: string; headers?: Record<string, string>; body?: string; bodyBase64?: string };
   try {
     payload = await req.json();
   } catch {
     return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
   }
 
-  const { url, method = "GET", headers = {}, body } = payload;
+  const { url, method = "GET", headers = {}, body, bodyBase64 } = payload;
   if (!url) return NextResponse.json({ error: "Missing url" }, { status: 400 });
 
   let target: URL;
@@ -66,18 +69,29 @@ export async function POST(req: Request) {
 
   const start = Date.now();
   try {
+    const sendBody = ["GET", "HEAD"].includes(method.toUpperCase())
+      ? undefined
+      : typeof bodyBase64 === "string"
+        ? base64ToBytes(bodyBase64)
+        : body;
     const upstream = await fetch(target.toString(), {
       method,
       headers,
-      body: ["GET", "HEAD"].includes(method.toUpperCase()) ? undefined : body,
+      body: sendBody,
       redirect: "manual",
     });
-    const text = await upstream.text();
+    // Text bodies go back as-is; audio, archives and other bytes as base64 so
+    // they survive the JSON envelope intact.
+    const contentType = upstream.headers.get("content-type") ?? "";
+    const payloadBody = isTextualMediaType(contentType)
+      ? { body: await upstream.text() }
+      : { bodyBase64: bytesToBase64(new Uint8Array(await upstream.arrayBuffer())) };
     return NextResponse.json({
       status: upstream.status,
       statusText: upstream.statusText,
       durationMs: Date.now() - start,
-      body: text,
+      contentType,
+      ...payloadBody,
     });
   } catch (e) {
     return NextResponse.json(

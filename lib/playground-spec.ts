@@ -1,6 +1,7 @@
 import type { OpenAPIDoc, OpenAPIOperation, JSONSchema } from "./openapi";
 import { resolveSchema, sampleFromSchema, operationHref } from "./openapi";
 import { responseSampleJson } from "./openapi-samples";
+import { typeLabel } from "./openapi-schema";
 import { loadConfig } from "./config";
 import type { PlaygroundSpec } from "@/components/docs/api/playground";
 
@@ -12,16 +13,9 @@ import type { PlaygroundSpec } from "@/components/docs/api/playground";
  * type, so the result crosses the server→client boundary unchanged.
  */
 
-/** Local copy of schema-table's describeType (kept here so this stays a pure lib). */
+/** Type chip for a parameter input. */
 function describeType(schema?: JSONSchema): string | undefined {
-  if (!schema) return undefined;
-  if (schema.enum) return "enum";
-  if (schema.type === "array") return `array<${describeType(schema.items) ?? "any"}>`;
-  if (Array.isArray(schema.type)) return schema.type.join(" | ");
-  if (schema.type === "integer") return "integer";
-  if (typeof schema.type === "string") return schema.type;
-  if (schema.oneOf || schema.anyOf) return "oneOf";
-  return "object";
+  return schema ? typeLabel(schema) : undefined;
 }
 
 /** Best-effort placeholder value for a parameter input. */

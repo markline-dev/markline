@@ -437,6 +437,11 @@ entries.
 <ParamField path="api.baseUrl" type="string">Base URL the playground sends requests to (overrides the spec's servers).</ParamField>
 <ParamField path="api.playground.mode" type='"full" | "inline" | "explorer" | "off"'>The "Try it" experience. Default `"full"`.</ParamField>
 <ParamField path="api.playground.proxy" type='"auto" | "always" | "never"'>How the playground reaches your API. `never` is required for static export.</ParamField>
+<ParamField path="api.tags" type="object">Per-tag `label`, `description`, `hidden` and `mergeInto`, keyed by the spec's tag name. See [Rename, hide and merge tags](/openapi#rename-hide-and-merge-tags).</ParamField>
+<ParamField path="api.tagOrder" type="string[]">Tags that open the API sidebar, in order.</ParamField>
+<ParamField path="api.hideExtensions" type="string[]">Extensions that hide an operation or field. Default `["x-hidden", "x-internal"]`.</ParamField>
+<ParamField path="api.showDeprecated" type="boolean">`false` leaves deprecated operations out. Default `true`.</ParamField>
+<ParamField path="api.auth" type="object">Auth the spec doesn't declare, e.g. `{ "header": "xi-api-key" }` or `{ "type": "bearer" }`. Used by Try it and the samples.</ParamField>
 
 See [API reference](/openapi) for the full guide — generating the reference, the live explorer, and per-resource/per-operation MDX overlays.
 

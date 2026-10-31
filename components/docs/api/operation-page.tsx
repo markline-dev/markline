@@ -66,7 +66,10 @@ export function ApiOperationPage({
           </nav>
         )}
 
-        <h1 className="api-title">{op.summary ?? op.operationId}</h1>
+        <h1 className="api-title">
+          {op.summary ?? op.operationId}
+          {op.deprecated && <span className="ml-param-deprecated api-title-dep">Deprecated</span>}
+        </h1>
         {op.description && (
           <div className="api-desc" dangerouslySetInnerHTML={{ __html: mdToHtml(op.description) }} />
         )}

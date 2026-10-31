@@ -240,6 +240,17 @@
   color: #E14F4F;
 }
 .ml-param-fmt { font-family: var(--mono); font-size: 11px; color: var(--ink-4); }
+.ml-param-deprecated {
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: color-mix(in srgb, var(--c-orange, #e8913a) 12%, transparent);
+  color: var(--c-orange, #e8913a);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+.api-title-dep { vertical-align: middle; margin-left: 12px; font-size: 12px; }
 .ml-param-desc { font-size: 13px; color: var(--ink-3); line-height: 1.55; margin: 8px 0 0; }
 .ml-param-enum { margin-top: 8px; display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
 .ml-param-enum .lbl { font-family: var(--mono); font-size: 11px; color: var(--ink-4); }

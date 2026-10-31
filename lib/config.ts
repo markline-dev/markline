@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { contentRoot } from "./paths";
+import type { TagOverride } from "./openapi-tag-config";
 import { checkTemplateVersions, deepMerge, loadTemplateChain, templateCss, templateOptions } from "./templates";
 
 /**
@@ -182,6 +183,29 @@ export type ApiConfig = {
    * extension (which override the generated ones).
    */
   codeSamples?: ("curl" | "node" | "python" | "go")[];
+  /**
+   * Per-tag overrides, keyed by the tag's name in the spec: `label` (sidebar
+   * name, URL unchanged), `description`, `hidden` (the operations file under
+   * their next tag, or drop out), and `mergeInto` (file the operations under
+   * another tag; a name the spec doesn't declare renames the page and URL).
+   */
+  tags?: Record<string, TagOverride>;
+  /** Tags shown first, in this order; the rest keep spec order. */
+  tagOrder?: string[];
+  /**
+   * Operation extensions that hide an operation when truthy. Replaces the
+   * default `["x-hidden", "x-internal"]`; e.g. add `"x-fern-ignore"`.
+   */
+  hideExtensions?: string[];
+  /** `false` leaves deprecated operations out. Default true (shown, badged). */
+  showDeprecated?: boolean;
+  /**
+   * Auth for a spec that doesn't declare it (or declares it wrongly). Replaces
+   * the spec's security schemes, so Try it and the samples send it:
+   * `{ "header": "xi-api-key" }` for an API-key header, `{ "type": "bearer" }`
+   * for `Authorization: Bearer`.
+   */
+  auth?: { type?: "apiKey" | "bearer"; header?: string; description?: string };
   playground?: {
     /**
      * Which "Try it" surfaces to render:

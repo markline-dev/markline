@@ -70,6 +70,15 @@ resource. Each page has:
 - A **resource summary** + an Endpoints card listing the tag's operations.
 - A **"The object" section** — attributes derived from the schema, with types,
   required/optional flags, enums, and a sample JSON.
+- **Nullable fields read as their type.** `anyOf: [X, {type: "null"}]` (the
+  OpenAPI 3.1 / FastAPI / Pydantic spelling), `type: [X, "null"]` and
+  `nullable: true` all show as X with a `nullable` label, and an object or
+  array-of-objects field lists its own fields under **Show child attributes**.
+  A real union shows its member types (`string | integer`), and a union of
+  objects lists each one's fields.
+- **Deprecated** operations and fields (`deprecated: true`) carry a
+  *Deprecated* badge; a deprecated operation's path and sidebar entry are struck
+  through.
 - One **section per endpoint** — method + path, parameters (path / query / body)
   from the schema, and a dark code rail with **cURL, Node, Python and Go**
   samples generated from the operation, plus the example response.
@@ -127,6 +136,64 @@ shows that label exactly:
 - It names one node. `tools/WhatsApp` relabels the leaf and leaves the `Tools`
   group derived; to relabel a group, give its own path a `tags` entry.
 - **URLs are unchanged** — the slug still comes from `name`.
+
+## Rename, hide and merge tags
+
+When the spec isn't yours to edit (a vendor's, or one generated from code),
+fix its tags in `markline.json` instead. `api.tags` is keyed by the tag's name
+in the spec:
+
+```json title="markline.json"
+{
+  "api": {
+    "tags": {
+      "smb": { "label": "Small business" },
+      "access:all": { "hidden": true },
+      "Dubbing": { "mergeInto": "dubbing" },
+      "Conversational AI": { "mergeInto": "Agents Platform" },
+      "pvc-voices": { "mergeInto": "Voices/Professional cloning" }
+    },
+    "tagOrder": ["text-to-speech", "speech-to-text"]
+  }
+}
+```
+
+<ParamField path="label" type="string">
+  Sidebar and heading name. Wins over `x-displayName`. The URL keeps the tag's
+  own slug.
+</ParamField>
+<ParamField path="description" type="string">Replaces the tag's description.</ParamField>
+<ParamField path="hidden" type="boolean">
+  Drops the tag. An operation then files under its next tag; one with no other
+  tag leaves the reference.
+</ParamField>
+<ParamField path="mergeInto" type="string">
+  Files this tag's operations under another tag. Naming a tag the spec doesn't
+  have renames the page (and its URL); a slashed name nests it under a group.
+</ParamField>
+
+`api.tagOrder` lists the tags that open the sidebar, in order; the rest follow
+in spec order. Untagged operations file under `Default`, which these keys can
+rename or hide too.
+
+<Note>Two tags whose URLs would collide (`dubbing` and `Dubbing` both become
+`/api-reference/dubbing`) are merged into one page, the first in spec order,
+and the build prints a warning naming them. Use `label` or `mergeInto` to make
+the choice yourself.</Note>
+
+## Hide operations
+
+Operations carrying `x-hidden` or `x-internal` (truthy) are left out of the
+reference, search, `llms.txt` and the sitemap. Fields carrying them are left
+out of the attribute lists. To follow a vendor's own flag, list the extensions
+yourself; the list replaces the default:
+
+```json title="markline.json"
+{ "api": { "hideExtensions": ["x-fern-ignore", "x-skip-spec", "x-internal"] } }
+```
+
+Deprecated operations are shown with a badge. Set `"api": { "showDeprecated": false }`
+to leave them out.
 
 ## Sidebar order
 
@@ -295,6 +362,15 @@ response with status + latency. It's the same engine on every surface.
   `inline` — inline inputs + the request console, no modal.
   `explorer` — read-only docs + console + the API Explorer modal.
   `off` — a static cURL panel, no interactivity.
+</ParamField>
+
+<ParamField path="api.auth" type='{ type?: "apiKey" | "bearer"; header?: string; description?: string }'>
+  For a spec that doesn't declare its auth (no `securitySchemes`), or declares
+  it wrongly. Replaces the spec's security on every operation, except ones
+  marked public with `security: []`, so Try it and the samples send it.
+  `{ "header": "xi-api-key" }` sends an API-key header; `{ "type": "bearer" }`
+  sends `Authorization: Bearer`. A header parameter with the same name is
+  folded into it rather than shown twice.
 </ParamField>
 
 <ParamField path="api.playground.proxy" type='"auto" | "always" | "never"'>

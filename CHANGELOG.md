@@ -30,6 +30,10 @@ All notable changes to `@markline/markline` and `@markline/create`.
   pages at its end, as a `<LinkList>`. With `layout.related: "collection"`,
   pages without a list get the other pages in their sidebar folder. The
   `help-center` template turns it on.
+- **`layout.content: "centered"`** keeps docs pages in a fixed-width column
+  (`--content-width`, 880px) centred between the sidebar and "On this page",
+  with text the same width as tables and callouts. The default, `"fluid"`, is
+  unchanged. The `help-center` template uses `"centered"`.
 
 ### Changed
 - **The search dialog keeps one height**, with a "Start typing to search"

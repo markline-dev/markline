@@ -28,6 +28,7 @@ export type TemplateOptions = {
   layout?: {
     header?: "single" | "stacked";
     search?: "sidebar" | "header";
+    content?: "fluid" | "centered";
     breadcrumbs?: "slash" | "chevron";
     breadcrumbsRoot?: string;
     pageActions?: "inline" | "menu";

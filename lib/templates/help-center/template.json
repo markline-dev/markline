@@ -25,6 +25,7 @@
   "layout": {
     "header": "single",
     "search": "header",
+    "content": "centered",
     "breadcrumbs": "chevron",
     "breadcrumbsRoot": "All collections",
     "pageActions": "menu",

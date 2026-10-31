@@ -37,3 +37,29 @@ export function searchGroups(cfg) {
   }
   return { order, byUrl };
 }
+
+/**
+ * Where each page sits, shown beside its search result so that pages sharing
+ * a title ("Overview") can be told apart: its sidebar group heading, then
+ * each folder above it ("Agents › Persona"). A page with neither shows its
+ * tab when the site has more than one.
+ *
+ * @returns {Map<string, string>} page URL → "Group › Folder".
+ */
+export function searchTrails(cfg) {
+  const tabs = (cfg.navigation?.tabs ?? []).filter((t) => !t.openapi);
+  const out = new Map();
+  const walk = (items, trail, tab) => {
+    for (const item of items ?? []) {
+      if (item.href && !out.has(item.href)) {
+        const parts = trail.length ? trail : tabs.length > 1 && tab ? [tab] : [];
+        if (parts.length) out.set(item.href, parts.join(" › "));
+      }
+      if (item.pages?.length) walk(item.pages, [...trail, item.label].filter(Boolean), tab);
+    }
+  };
+  for (const tab of tabs) {
+    for (const g of tab.groups ?? []) walk(g.pages, g.group ? [g.group] : [], tab.label);
+  }
+  return out;
+}

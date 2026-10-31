@@ -13,6 +13,8 @@ export type ChangelogEntry = {
   date: string;
   title?: string;
   tags: string[];
+  /** Frontmatter `breaking: true`: the release needs readers to change something. */
+  breaking: boolean;
   body: string;
 };
 
@@ -43,6 +45,7 @@ export function listChangelog(): ChangelogEntry[] {
       date,
       title: typeof data.title === "string" && data.title.trim() ? data.title.trim() : undefined,
       tags: Array.isArray(data.tags) ? data.tags.filter((t: unknown) => typeof t === "string") : [],
+      breaking: data.breaking === true,
       body: content,
     });
   }

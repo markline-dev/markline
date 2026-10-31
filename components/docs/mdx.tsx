@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Image, ProseImage } from "./prose-image";
 import { slugify } from "@/lib/toc";
 import type { MDXComponents } from "mdx/types";
 import { Callout, DocsH2, DocsP } from "./page";
@@ -27,6 +28,35 @@ export function textOf(node: React.ReactNode): string {
 }
 
 /* ── Rich MDX-only components ── */
+
+/** Separators between steps of a menu path: "Teach > Playbooks", "Teach → Playbooks". */
+const MENU_SEP = /\s+(?:>|›|→)\s+/;
+
+/**
+ * A route through the product's menus: `<MenuPath>Teach > Playbooks</MenuPath>`.
+ * Each step is bold, with a chevron between them that screen readers read as
+ * "then". Bold text with " → " or " › " in it (`**Teach → Playbooks**`)
+ * renders the same way.
+ */
+export function MenuPath({ children }: { children: React.ReactNode }) {
+  const steps = textOf(children).split(MENU_SEP).map((s) => s.trim()).filter(Boolean);
+  return (
+    <span className="ml-menupath">
+      {steps.map((step, i) => (
+        <span key={i} className="ml-menupath-step">
+          {i > 0 && (
+            <span className="sep" role="img" aria-label="then">
+              <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden>
+                <path d="m6 4 4 4-4 4" />
+              </svg>
+            </span>
+          )}
+          <strong>{step}</strong>
+        </span>
+      ))}
+    </span>
+  );
+}
 
 export function Paths({ children }: { children: React.ReactNode }) {
   return <div className="ml-paths-grid">{children}</div>;
@@ -90,7 +120,10 @@ export const mdxComponents: MDXComponents = {
   ol: ({ children }) => <ol>{children}</ol>,
   li: ({ children }) => <li>{children}</li>,
   a: ({ href, children }) => <Link href={href ?? "#"}>{children}</Link>,
-  strong: ({ children }) => <strong>{children}</strong>,
+  // Bold text that reads like a menu route ("Teach → Playbooks") is one.
+  strong: ({ children }) =>
+    typeof children === "string" && /\s(?:›|→)\s/.test(children) ? <MenuPath>{children}</MenuPath> : <strong>{children}</strong>,
+  img: ({ src, alt, title }: any) => <ProseImage src={typeof src === "string" ? src : undefined} alt={alt} title={title} />,
   hr: () => <hr />,
   blockquote: ({ children }) => <blockquote>{children}</blockquote>,
   // Inline code (single backticks) vs fenced code blocks.
@@ -136,6 +169,8 @@ export const mdxComponents: MDXComponents = {
   CodeBlock,
   Paths,
   Path,
+  MenuPath,
+  Image,
   ApiRefs,
   MigrationCallout,
   EndpointList,

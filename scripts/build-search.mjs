@@ -11,7 +11,7 @@ import path from "node:path";
 import matter from "gray-matter";
 import * as pagefind from "pagefind";
 import { orderedResourceTags } from "./openapi-order.mjs";
-import { searchGroups } from "./search-groups.mjs";
+import { searchGroups, searchTrails } from "./search-groups.mjs";
 import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
@@ -159,6 +159,7 @@ function changelogEntries(root) {
       url: `/changelog/${date.replace(/-/g, "/")}`,
       title: typeof data.title === "string" && data.title.trim() ? data.title.trim() : "",
       tags: Array.isArray(data.tags) ? data.tags.filter((t) => typeof t === "string") : [],
+      breaking: data.breaking === true,
       body: content,
     });
   }
@@ -172,7 +173,7 @@ function changelogRecords(root) {
   return changelogEntries(root).map((e) => ({
     url: e.url,
     title: e.title || `Changelog: ${longDate(e.date)}`,
-    content: `${longDate(e.date)} ${e.tags.join(" ")} ${toPlainText(e.body)}`,
+    content: `${longDate(e.date)} ${e.breaking ? "Breaking change " : ""}${e.tags.join(" ")} ${toPlainText(e.body)}`,
     meta: "Changelog",
   }));
 }
@@ -208,11 +209,11 @@ async function writeChangelogFeed(root) {
     items.push(
       [
         "    <item>",
-        `      <title>${esc(e.title || longDate(e.date))}</title>`,
+        `      <title>${esc(`${e.breaking ? "Breaking: " : ""}${e.title || longDate(e.date)}`)}</title>`,
         `      <link>${esc(base + e.url)}</link>`,
         `      <guid isPermaLink="true">${esc(base + e.url)}</guid>`,
         `      <pubDate>${rfc822(e.date)}</pubDate>`,
-        ...e.tags.map((t) => `      <category>${esc(t)}</category>`),
+        ...[...(e.breaking ? ["Breaking"] : []), ...e.tags].map((t) => `      <category>${esc(t)}</category>`),
         `      <description>${cdata(await entryHtml(e.body, base))}</description>`,
         "    </item>",
       ].join("\n"),
@@ -544,6 +545,8 @@ async function main() {
 
   // Filter chips in the search dialog: each page's collection or sidebar group.
   const { order, byUrl } = searchGroups(loadJsonConfig(root));
+  // Shown beside each result: where the page sits ("Agents › Persona").
+  const trails = searchTrails(loadJsonConfig(root));
   const groupOf = (r) => byUrl.get(r.url) ?? (r.meta === "API reference" || r.meta === "Changelog" ? r.meta : undefined);
   if (records.some((r) => r.meta === "API reference")) order.push("API reference");
   if (records.some((r) => r.meta === "Changelog") && !order.includes("Changelog")) order.push("Changelog");
@@ -555,7 +558,7 @@ async function main() {
       url: r.url,
       content: `${r.title}. ${r.content}`,
       language: "en",
-      meta: { title: r.title, ...((r.meta ?? group) ? { section: r.meta ?? group } : {}) },
+      meta: { title: r.title, ...((r.meta ?? trails.get(r.url) ?? group) ? { section: r.meta ?? trails.get(r.url) ?? group } : {}) },
       ...(group ? { filters: { group: [group] } } : {}),
     });
   }

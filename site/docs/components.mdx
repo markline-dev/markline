@@ -6,6 +6,10 @@ toc:
     label: Callouts
   - id: cards
     label: Cards
+  - id: images
+    label: Images
+  - id: menu-paths
+    label: Menu paths
   - id: video
     label: Video
   - id: link-lists
@@ -53,6 +57,43 @@ help-center home. Set it on a `<CardGroup>` to style every card in the grid:
   <Card title="Get started" icon="rocket-launch" href="/quickstart">…</Card>
 </CardGroup>
 ```
+
+## Images
+
+Markdown images shrink to fit the text column, with a thin frame. Click one
+that was shrunk to see it full size.
+
+```mdx
+![The Test panel](/shots/test.png "The Test panel, open beside a draft")
+```
+
+The title in quotes shows as a caption. For screenshots that should follow
+the reader's theme, add both and mark them with `#light` and `#dark`; each
+shows only in its theme:
+
+```mdx
+![Inbox](/shots/inbox.png#light)
+![Inbox](/shots/inbox-dark.png#dark)
+```
+
+`#nozoom` turns off click-to-zoom for one image. `<Image>` does all of it
+in one tag:
+
+```mdx
+<Image src="/shots/inbox.png" dark="/shots/inbox-dark.png" alt="Inbox" caption="The Inbox" zoom={false} />
+```
+
+## Menu paths
+
+A route through your product's menus, with each step bold and a chevron
+between them (read aloud as "then"):
+
+```mdx
+Go to <MenuPath>Settings > API keys > New key</MenuPath>.
+```
+
+Bold text with ` → ` or ` › ` in it becomes one automatically, so
+`**Teach → Playbooks**` renders as <MenuPath>Teach > Playbooks</MenuPath>.
 
 ## Video
 

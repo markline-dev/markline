@@ -6,6 +6,8 @@ toc:
     label: Callouts
   - id: cards
     label: Cards
+  - id: link-lists
+    label: Link lists
   - id: steps
     label: Steps
   - id: tabs-accordions
@@ -28,6 +30,28 @@ toc:
   <Card title="Quickstart" href="/quickstart">Link cards group neatly.</Card>
   <Card title="CLI" href="/cli">Use them for navigation.</Card>
 </CardGroup>
+
+## Link lists
+
+Rows of links with a title, an optional description and an icon. Use them
+for collection pages and "see also" lists. The "Related articles" list at the
+end of a page uses the same component.
+
+<LinkList>
+  <LinkItem href="/quickstart" title="Quickstart" description="Create a docs site in under a minute." />
+  <LinkItem href="/templates" title="Templates" meta="4 built in" description="Start from a ready-made look." icon="palette" />
+</LinkList>
+
+```mdx
+<LinkList>
+  <LinkItem href="/quickstart" title="Quickstart" description="Create a docs site in under a minute." />
+  <LinkItem href="/templates" title="Templates" meta="4 built in" description="Start from a ready-made look." icon="palette" />
+</LinkList>
+```
+
+`meta` shows in the accent colour before the description. `icon` takes a
+[Phosphor](https://phosphoricons.com) name in place of the page icon, or
+`"none"`.
 
 ## Steps
 

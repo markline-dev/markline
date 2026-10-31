@@ -345,7 +345,7 @@ export type LayoutConfig = {
    *  `related` list always shows; "collection" also fills it, on pages
    *  without one, with the other pages in the same sidebar folder. Default
    *  "off". */
-  relatedArticles?: "off" | "collection";
+  related?: "off" | "collection";
 };
 
 export type MarklineConfig = {
@@ -400,7 +400,7 @@ const DEFAULT_CONFIG: MarklineConfig = {
     appearance: "system",
     colors: { primary: "#3C87F0", primaryDark: "#6E86FA" },
   },
-  layout: { header: "single", search: "sidebar", relatedArticles: "off" },
+  layout: { header: "single", search: "sidebar", related: "off" },
   topbar: { links: [] },
   navigation: {
     tabs: [

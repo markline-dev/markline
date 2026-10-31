@@ -35,7 +35,7 @@ export function flattenLinks(links: DocLink[]): { href: string; label: string }[
 
 /**
  * The other pages in the same sidebar folder as `pathname` (its "collection"),
- * in sidebar order, for `layout.relatedArticles: "collection"`. A page that
+ * in sidebar order, for `layout.related: "collection"`. A page that
  * sits directly in a named group gets that group's pages instead; one at the
  * top of an unnamed group (a lone "Home") gets none.
  */

@@ -1,5 +1,6 @@
 import { Children, cloneElement, isValidElement } from "react";
 import Link from "next/link";
+import { navIcon } from "./nav-icons";
 
 /* ──────────────────────────────────────────────────────────────────────────
  * Authoring components — available in any MDX page without an import.
@@ -199,3 +200,54 @@ export function ParamField({
 }
 
 export const ResponseField = ParamField;
+
+const PageIcon = (
+  <svg width={20} height={20} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} aria-hidden>
+    <path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z" />
+    <path d="M14 3v5h5M9 13h6M9 17h6" />
+  </svg>
+);
+
+/**
+ * A list of links, one row each: title, optional description, and an icon
+ * on the right. For collection pages, "see also" lists, and the "Related
+ * articles" list at the end of a page.
+ */
+export function LinkList({ children }: { children: React.ReactNode }) {
+  return <ul className="ml-links">{children}</ul>;
+}
+
+export function LinkItem({
+  href,
+  title,
+  description,
+  meta,
+  icon,
+}: {
+  href: string;
+  title: React.ReactNode;
+  description?: React.ReactNode;
+  /** Short accent-coloured text before the description, e.g. "3 articles". */
+  meta?: React.ReactNode;
+  /** A Phosphor icon name in place of the page icon, or "none". */
+  icon?: string;
+}) {
+  const ic = icon === "none" ? null : icon ? navIcon(icon) ?? PageIcon : PageIcon;
+  return (
+    <li>
+      <Link href={href} className="ml-link">
+        <span className="ml-link-txt">
+          <span className="ml-link-t">{title}</span>
+          {(meta || description) && (
+            <span className="ml-link-d">
+              {meta && <span className="ml-link-m">{meta}</span>}
+              {meta && description && " · "}
+              {description}
+            </span>
+          )}
+        </span>
+        {ic && <span className="ml-link-ic">{ic}</span>}
+      </Link>
+    </li>
+  );
+}

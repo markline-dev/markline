@@ -5,10 +5,14 @@ All notable changes to `@markline/markline` and `@markline/create`.
 ## Unreleased
 
 ### Added
+- **`<LinkList>` and `<LinkItem>`.** Rows of links with a title, optional
+  description and accent-coloured `meta` ("3 articles"), and an icon, with
+  the whole row highlighted on hover. For collection pages and "see also"
+  lists.
 - **Related articles.** A page's frontmatter `related: [/path, …]` lists
-  pages at its end, as a "Related articles" list. With
-  `layout.relatedArticles: "collection"`, pages without a list get the other
-  pages in their sidebar folder. The `help-center` template turns it on.
+  pages at its end, as a `<LinkList>`. With `layout.related: "collection"`,
+  pages without a list get the other pages in their sidebar folder. The
+  `help-center` template turns it on.
 
 ## 0.1.6
 

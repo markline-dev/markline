@@ -132,7 +132,7 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
         aiEnabled={aiConfig() != null}
         prev={prev}
         next={next}
-        related={hub ? [] : relatedLinks(doc.fm.related, pathname, config.layout.relatedArticles)}
+        related={hub ? [] : relatedLinks(doc.fm.related, pathname, config.layout.related)}
       >
         {content}
       </DocsPage>
@@ -150,7 +150,7 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
 
 /**
  * "Related articles": the page's own frontmatter list, labelled from the
- * sidebar (or the page's title), or with `layout.relatedArticles:
+ * sidebar (or the page's title), or with `layout.related:
  * "collection"` the other pages in its sidebar folder.
  */
 function relatedLinks(

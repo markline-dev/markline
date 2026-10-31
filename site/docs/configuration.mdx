@@ -138,12 +138,13 @@ and fonts.
   and the API reference, and removes the sidebar copy. ⌘K works either way.
 </ParamField>
 
-<ParamField path="layout.relatedArticles" type='"off" | "collection"'>
+<ParamField path="layout.related" type='"off" | "collection"'>
   A "Related articles" list at the end of a page. A page can always list its
   own in frontmatter (`related: [/billing/plans, /billing/invoices]`); labels
   come from the sidebar. With `collection`, pages that don't list any get the
   other pages in the same sidebar folder, up to five. Default `off`. The
-  `help-center` template turns it on.
+  `help-center` template turns it on. The list is a
+  [`<LinkList>`](/components#link-lists), which you can also use in any page.
 </ParamField>
 
 A [template](/templates) can set both. `product-docs` sets them to `stacked`

@@ -23,5 +23,5 @@ test("hoistEndpoints sends the endpoint list once; withEndpoints restores it", (
   assert.deepEqual(out.endpoints, endpoints);
   assert.deepEqual(out.sections.map((s) => s.playground), [{ method: "get" }, { method: "post" }, undefined]);
   assert.deepEqual(withEndpoints(out.sections[1].playground!, out.endpoints), { method: "post", endpoints });
-  assert.equal(sections[0].playground.endpoints, endpoints, "input is not mutated");
+  assert.equal(sections[0].playground!.endpoints, endpoints, "input is not mutated");
 });

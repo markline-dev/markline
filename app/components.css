@@ -650,6 +650,10 @@ textarea.ml-pg-input { height: auto; padding: 8px 10px; line-height: 1.55; resiz
 /* ── authoring.tsx ── */
 .ml-card-h-inner { display: inline-flex; align-items: center; gap: 8px; }
 .ml-card-icon { display: inline-flex; color: var(--accent-ink); }
+/* Custom icons (navIcon): an SVG mask in the text colour, or an image. */
+.ml-icon { display: inline-block; flex: none; vertical-align: middle; }
+.ml-icon--mask { background: currentColor; -webkit-mask: center / contain no-repeat; mask: center / contain no-repeat; }
+.ml-icon--img { object-fit: contain; }
 .ml-field { padding: 12px 0; border-bottom: 1px solid var(--line); }
 .ml-field:first-child { border-top: 1px solid var(--line); margin-top: 16px; }
 .ml-field-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }

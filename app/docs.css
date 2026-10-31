@@ -335,10 +335,13 @@
 }
 :is(.docs-shell, .api-op-main, .ml-landing) .docs-prose h3 { font-size: 17.5px; font-weight: 600; margin: 32px 0 0; scroll-margin-top: calc(var(--nav-h) + 20px); color: var(--ink); }
 :is(.docs-shell, .api-op-main, .ml-landing) .docs-prose p { font-size: 15.5px; color: var(--ink-2); margin-top: 14px; line-height: 1.7; max-width: 68ch; text-wrap: pretty; }
-:is(.docs-shell, .ml-landing) .docs-prose a {
+/* Plain links only: components that render links (cards, link lists) carry a
+   class and style their own, and an underline drawn as border-bottom would
+   otherwise land on a card's edge. */
+:is(.docs-shell, .ml-landing) .docs-prose a:not([class]) {
   color: var(--accent-ink); border-bottom: 1px solid var(--accent-line); text-decoration: none;
 }
-:is(.docs-shell, .ml-landing) .docs-prose a:hover { border-color: var(--accent-ink); }
+:is(.docs-shell, .ml-landing) .docs-prose a:not([class]):hover { border-color: var(--accent-ink); }
 :is(.docs-shell, .api-op-main, .ml-landing) .docs-prose ul,
 :is(.docs-shell, .api-op-main, .ml-landing) .docs-prose ol { margin: 14px 0 0 2px; padding-left: 20px; color: var(--ink-2); font-size: 15.5px; line-height: 1.7; max-width: 68ch; }
 :is(.docs-shell, .api-op-main, .ml-landing) .docs-prose ul { list-style: disc; }
@@ -475,7 +478,13 @@
 :is(.docs-shell, .ml-landing, .api-op-main) .next-card .ml-card-body p + p { margin-top: 8px; }
 /* <Card variant="tile"> / <CardGroup variant="tile">: the icon in a tinted
    square above the title, no arrow. */
-:is(.docs-shell, .ml-landing, .api-op-main) :is(.next-card--tile, .cardgroup--tile .next-card) { padding: 22px 22px 24px; border-radius: 14px; }
+:is(.docs-shell, .ml-landing, .api-op-main) :is(.next-card--tile, .cardgroup--tile .next-card) {
+  /* Lifted off the page: white-ish in light mode, a shade up in dark. */
+  padding: 22px 22px 24px; border-radius: 14px; background: var(--card-bg, color-mix(in srgb, var(--bg), #fff 75%));
+  box-shadow: 0 1px 2px rgb(0 0 0 / .04);
+}
+[data-theme="dark"] :is(.docs-shell, .ml-landing, .api-op-main) :is(.next-card--tile, .cardgroup--tile .next-card) { background: var(--card-bg, color-mix(in srgb, var(--bg), #fff 3.5%)); }
+:is(.docs-shell, .ml-landing, .api-op-main) :is(.next-card--tile, .cardgroup--tile .next-card):hover { box-shadow: 0 10px 28px -14px rgb(0 0 0 / .22); }
 :is(.docs-shell, .ml-landing, .api-op-main) :is(.next-card--tile, .cardgroup--tile .next-card) .h { margin-top: 0; }
 :is(.docs-shell, .ml-landing, .api-op-main) :is(.next-card--tile, .cardgroup--tile .next-card) .h > .ico { display: none; }
 :is(.docs-shell, .ml-landing, .api-op-main) :is(.next-card--tile, .cardgroup--tile .next-card) .ml-card-h-inner { flex-direction: column; align-items: flex-start; gap: 18px; }

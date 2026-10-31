@@ -48,7 +48,15 @@ migrating from a `docs.json` config work unchanged.
 The logo can be an **icon + wordmark** (the common docs pattern), light/dark
 **images**, or just **text**.
 
-<ParamField path="theme.logo.icon" type="string">Small mark shown next to the name (e.g. `/logo-mark.svg`).</ParamField>
+<ParamField path="theme.logo.icon" type="string | object">
+  Small mark shown next to the name (e.g. `/logo-mark.svg`), or
+  `{ light, dark }` for a version per theme.
+</ParamField>
+<ParamField path="theme.logo.iconTile" type="boolean">
+  For a single dark mark: puts it on a rounded tile in the text colour, dark
+  in light mode (with the mark inverted to white) and light in dark mode, so
+  it shows in both themes.
+</ParamField>
 <ParamField path="theme.logo.text" type="string">Wordmark text shown beside the icon (defaults to `name`).</ParamField>
 <ParamField path="theme.logo.light / theme.logo.dark" type="string">Full logo images, swapped by color scheme. Used when no `icon` is set.</ParamField>
 <ParamField path="theme.favicon" type="string">Favicon path, e.g. `/favicon.svg`.</ParamField>

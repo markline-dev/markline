@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { MarklineConfig, TopbarLink } from "@/lib/config";
 import { navIcon } from "./docs/nav-icons";
+import { BrandIcon } from "./brand-icon";
 
 /**
  * The site footer from markline.json's `footer`: columns of links, then a
@@ -79,7 +80,10 @@ export function SiteFooter({ config }: { config: MarklineConfig }) {
                     <img className="brand-logo brand-logo--dark" src={logo!.dark ?? logo!.light} alt="" />
                   </>
                 ) : (
-                  <span className="brand-text">{logo?.text ?? config.name}</span>
+                  <>
+                    <BrandIcon icon={logo?.icon} tile={logo?.iconTile} />
+                    <span className="brand-text">{logo?.text ?? config.name}</span>
+                  </>
                 )}
               </Link>
             )}

@@ -180,6 +180,15 @@ body {
 .brand .brand-logo--dark { display: none; }
 [data-theme="dark"] .brand .brand-logo--light { display: none; }
 [data-theme="dark"] .brand .brand-logo--dark { display: block; }
+.brand .brand-icon { height: 28px; width: auto; max-width: 40px; margin-right: 9px; display: block; object-fit: contain; }
+.brand .brand-icon.brand-logo--dark { display: none; }
+[data-theme="dark"] .brand .brand-icon.brand-logo--light { display: none; }
+[data-theme="dark"] .brand .brand-icon.brand-logo--dark { display: block; }
+/* logo.iconTile: the mark on a tile in the text colour, inverted on the dark
+   tile of light mode. */
+.brand .brand-tile { flex: none; display: grid; place-items: center; width: 30px; height: 30px; margin-right: 10px; border-radius: 9px; background: var(--ink); }
+.brand .brand-tile .brand-icon { height: 19px; max-width: 19px; margin: 0; filter: invert(1); }
+[data-theme="dark"] .brand .brand-tile .brand-icon { filter: none; }
 .brand .brand-text { font-weight: 600; font-size: 17px; letter-spacing: -0.022em; color: var(--ink); }
 
 /* buttons — solid, driven by the config brand color (--c-brand). The glossy

@@ -13,10 +13,18 @@ import { checkTemplateVersions, deepMerge, loadTemplateChain, templateCss, templ
 
 export type ThemeConfig = {
   /**
-   * Logo: a small `icon` (shown next to the name) and/or a `text` wordmark, or
-   * full `light`/`dark` images. Image paths are served from /public.
+   * Logo: a small `icon` (shown next to the name; a path, or `{ light, dark }`)
+   * and/or a `text` wordmark, or full `light`/`dark` images. Image paths are
+   * served from /public. `iconTile` puts a single dark mark on a tile in the
+   * text colour, inverted in light mode, so it shows in both themes.
    */
-  logo?: { light?: string; dark?: string; text?: string; icon?: string };
+  logo?: {
+    light?: string;
+    dark?: string;
+    text?: string;
+    icon?: string | { light?: string; dark?: string };
+    iconTile?: boolean;
+  };
   /** Brand accent as hex; `primaryDark` is used on dark surfaces. */
   colors?: { primary?: string; primaryDark?: string };
   appearance?: "light" | "dark" | "system";

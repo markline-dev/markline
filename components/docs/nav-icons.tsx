@@ -1,4 +1,5 @@
 import * as Icons from "@phosphor-icons/react/dist/ssr";
+import { isIconPath } from "@/lib/icon-path";
 
 /**
  * Turn a Phosphor icon name (from markline.json, or a component's `icon`
@@ -21,8 +22,25 @@ function toPascal(name: string): string {
     .join("");
 }
 
+export { isIconPath };
+
+/**
+ * Your own icon, from /public or a URL. An SVG is drawn as a mask in the
+ * current text colour, so it follows the theme like the built-in icons; any
+ * other image keeps its own colours.
+ */
+function customIcon(src: string, size: number): React.ReactNode {
+  const box = { width: size, height: size };
+  if (/\.svg([?#].*)?$/i.test(src)) {
+    const url = `url("${encodeURI(src).replace(/"/g, "%22")}")`;
+    return <span className="ml-icon ml-icon--mask" style={{ ...box, WebkitMaskImage: url, maskImage: url }} aria-hidden />;
+  }
+  return <img className="ml-icon ml-icon--img" src={src} alt="" width={size} height={size} style={box} aria-hidden />;
+}
+
 export function navIcon(name: string | undefined, size = 16): React.ReactNode | undefined {
   if (!name) return undefined;
+  if (isIconPath(name)) return customIcon(name, size);
   const key = /[-_\s]/.test(name) || name[0] === name[0].toLowerCase() ? toPascal(name) : name;
   const Icon = (Icons as unknown as Record<string, IconComponent | undefined>)[key];
   if (typeof Icon !== "object" && typeof Icon !== "function") {

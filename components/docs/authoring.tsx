@@ -1,7 +1,7 @@
 import { Children, cloneElement, isValidElement } from "react";
 import Link from "next/link";
 import { resolveVideo } from "@/lib/video";
-import { navIcon } from "./nav-icons";
+import { isIconPath, navIcon } from "./nav-icons";
 
 /* ──────────────────────────────────────────────────────────────────────────
  * Authoring components — available in any MDX page without an import.
@@ -89,10 +89,11 @@ const CardArrow = (
   </svg>
 );
 
-/** A Phosphor name ("rocket-launch") becomes the icon; anything else, such as
- * an emoji or an element, renders as given. */
+/** A Phosphor name ("rocket-launch") or an image path ("/icons/agents.svg")
+ * becomes the icon; anything else, such as an emoji or an element, renders as
+ * given. */
 function cardIcon(icon: React.ReactNode): React.ReactNode {
-  if (typeof icon !== "string" || !/^[A-Za-z][\w-]*$/.test(icon)) return icon;
+  if (typeof icon !== "string" || !(/^[A-Za-z][\w-]*$/.test(icon) || isIconPath(icon))) return icon;
   return navIcon(icon, 18) ?? icon;
 }
 

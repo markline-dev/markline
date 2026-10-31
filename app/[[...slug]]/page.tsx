@@ -12,6 +12,7 @@ import { loadConfig, aiConfig, feedbackConfig } from "@/lib/config";
 import { getDocsTabs, pickActiveTab, getNav, flattenLinks, findNavTrail } from "@/components/docs/sections";
 import { HubHero } from "@/components/docs/hub-hero";
 import { LandingPage } from "@/components/landing/landing";
+import { remarkLandingProse } from "@/lib/landing-prose";
 import { SiteCredit } from "@/components/site-credit";
 import type { PageNavLink } from "@/components/docs/page";
 
@@ -85,6 +86,7 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
   const pathname = doc.slug.length ? `/${doc.slug.join("/")}` : "/";
   const { prev, next } = pageNeighbors(pathname);
 
+  const landing = doc.fm.layout === "landing";
   const content = (
     <MDXRemote
       source={doc.body}
@@ -92,7 +94,7 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
       options={{
         mdxOptions: {
           format: "mdx",
-          remarkPlugins: [remarkGfm],
+          remarkPlugins: landing ? [remarkGfm, remarkLandingProse] : [remarkGfm],
           rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]],
         },
         blockJS: false,
@@ -100,7 +102,7 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
     />
   );
 
-  if (doc.fm.layout === "landing") {
+  if (landing) {
     return <LandingPage>{content}</LandingPage>;
   }
 

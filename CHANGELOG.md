@@ -16,6 +16,11 @@ All notable changes to `@markline/markline` and `@markline/create`.
   rather than shown alongside the page.
 
 ### Fixed
+- **Markdown on landing pages is laid out.** Headings, paragraphs and lists
+  on a `layout: landing` page sat flush against the left edge with browser
+  default links. Runs of markdown between landing sections now render in a
+  centred column at docs reading width, with the docs text styles. Templates
+  can change it through `.ml-landing-prose` or `--landing-prose-width`.
 - **`llms.txt` and the sitemap only list API resources that have a page.**
   A tag declared at the root but used by no operation, or used only as an
   operation's second tag, was listed with a dead link, and untagged

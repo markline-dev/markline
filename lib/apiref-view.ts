@@ -2,6 +2,7 @@ import type { JSONSchema, OpenAPIDoc, OpenAPIEvent, OpenAPIOperation, OpenAPITag
 import { eventAnchor, resolveSchema } from "./openapi";
 import { allResponses, codeSamples, colorizeJson, successResponse, type CodeRail } from "./openapi-codegen";
 import { buildPlaygroundSpec } from "./playground-spec";
+import { mdToHtml } from "./md-desc";
 import type { PlaygroundSpec } from "@/components/docs/api/playground";
 import { loadConfig, playgroundMode } from "./config";
 import { tagSlug, parseOpenApiTag, buildTagTree, segmentDisplayName, type TagTreeNode } from "./openapi-tags";
@@ -38,6 +39,7 @@ export type EndpointView = {
   verb: string;
   path: string;
   baseUrl: string;
+  /** Operation description, rendered from markdown to sanitized HTML. */
   lead?: string;
   groups: ParamGroup[];
   /** Write/path endpoints get the interactive explorer; reads get code cards. */
@@ -95,6 +97,7 @@ export type ResourceView = {
   slug: string;
   /** Parent group display names for the header breadcrumb, e.g. ["Tools"]. */
   crumbs: string[];
+  /** Tag description, rendered from markdown to sanitized HTML. */
   lead?: string;
   /** Endpoint-list card rows. */
   endpoints: { title: string; verb: string; path: string; id: string }[];
@@ -300,7 +303,7 @@ function buildEndpoint(
     verb: VERB[op.method] ?? op.method.toUpperCase(),
     path: op.path,
     baseUrl,
-    lead: op.description,
+    lead: mdToHtml(op.description),
     groups,
     explorer,
     code,
@@ -399,7 +402,7 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
     name: activeParsed ? activeParsed.displayName : "API",
     slug: tagSlug(activeTag?.name ?? ""),
     crumbs: activeParsed?.parentDisplayNames ?? [],
-    lead: activeTag?.description,
+    lead: mdToHtml(activeTag?.description),
     endpoints: (activeTag?.operations ?? []).map((op) => ({
       title: op.summary ?? op.operationId,
       verb: VERB[op.method] ?? op.method.toUpperCase(),

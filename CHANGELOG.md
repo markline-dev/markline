@@ -2,6 +2,15 @@
 
 All notable changes to `@markline/markline` and `@markline/create`.
 
+## Unreleased
+
+### Fixed
+- **MDX on API operation pages is styled.** Callouts (`<Note>`, `<Warning>`,
+  `<Tip>`), steps, tabs, cards and prose (paragraphs, lists, inline code) in
+  `api/operations/<operationId>.mdx` rendered unstyled, because their rules
+  were scoped to `.docs-shell` (and `.ml-landing`) and operation pages have
+  neither. They now match guides.
+
 ## 0.1.5
 
 ### Fixed

@@ -2,6 +2,22 @@
 
 All notable changes to `@markline/markline` and `@markline/create`.
 
+## Unreleased
+
+### Added
+- **`npm create @markline -- --template <name>`** starts a project from a
+  built-in template or a `./folder`, starter pages included, the same as
+  `markline init --template`.
+- **Card icons by name.** `<Card icon="rocket-launch">` renders a Phosphor
+  icon, like sidebar icons. Emoji and elements still work.
+
+### Fixed
+- **One search box on hub pages.** With `layout.search: "header"`, a hub page
+  showed two search boxes, the header's and the hero's. The header one now
+  stays hidden until the hero's box scrolls out of view.
+- **No previous/next links on hub pages.** A help-center home showed "Next"
+  to the first article.
+
 ## 0.1.6
 
 ### Added

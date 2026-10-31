@@ -130,8 +130,8 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
         feedbackEnabled={feedbackConfig() != null}
         feedbackEndpoint={feedbackConfig()?.endpoint}
         aiEnabled={aiConfig() != null}
-        prev={prev}
-        next={next}
+        prev={hub ? undefined : prev}
+        next={hub ? undefined : next}
       >
         {content}
       </DocsPage>

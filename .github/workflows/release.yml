@@ -1,0 +1,86 @@
+name: Release
+
+# Publishes @markline/markline and @markline/create to npm when a version tag
+# is pushed (e.g. `v0.2.0`), using npm trusted publishing: npm verifies this
+# workflow through GitHub's OIDC token, so no npm token is stored anywhere,
+# and each release gets a provenance attestation linking it to this commit.
+#
+# One-time setup on npmjs.com, for EACH of the two packages:
+#   Settings → Trusted publishing → GitHub Actions
+#     Organization: markline-dev   Repository: markline
+#     Workflow filename: release.yml   Environment: npm
+#     Allowed actions: tick "npm publish" (new publishers default to
+#     stage-only, which would leave every release waiting for manual approval)
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: read
+  id-token: write # required for npm trusted publishing (OIDC)
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest # trusted publishing doesn't support self-hosted runners
+    # A GitHub environment, so publishing can be gated by required reviewers in
+    # the repo's Settings → Environments. Must match the npm configuration.
+    environment: npm
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          registry-url: https://registry.npmjs.org
+
+      # Trusted publishing needs npm 11.5.1 or later.
+      - run: npm install -g npm@11
+
+      - name: Tag matches both package versions
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          for pkg in package.json create/package.json; do
+            version=$(node -p "require('./$pkg').version")
+            if [ "$version" != "$tag" ]; then
+              echo "::error file=$pkg::version $version doesn't match tag $GITHUB_REF_NAME"
+              exit 1
+            fi
+          done
+
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Test
+        run: npm test
+      - name: Build (static export of the site)
+        run: npm run build
+        env:
+          MARKLINE_CONTENT: site
+          MARKLINE_EXPORT: "1"
+
+      # Each publish is skipped if that version is already on npm, so a re-run
+      # after a partial failure finishes the job instead of erroring.
+      - name: Publish @markline/markline
+        run: |
+          v=$(node -p "require('./package.json').version")
+          if npm view "@markline/markline@$v" version >/dev/null 2>&1; then
+            echo "@markline/markline@$v is already published, skipping"
+          else
+            npm publish
+          fi
+
+      - name: Publish @markline/create
+        working-directory: create
+        run: |
+          v=$(node -p "require('./package.json').version")
+          if npm view "@markline/create@$v" version >/dev/null 2>&1; then
+            echo "@markline/create@$v is already published, skipping"
+          else
+            npm publish
+          fi

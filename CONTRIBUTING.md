@@ -57,6 +57,25 @@ teaches Node to resolve those. To run a single file, pass the same flag:
 node --import ./test/setup.mjs --test test/openapi-normalize.test.ts
 ```
 
+## Releasing
+
+Releases publish from GitHub Actions with npm trusted publishing
+(`.github/workflows/release.yml`), so no npm token is stored anywhere.
+
+1. Open a `release/x.y.z` PR that bumps `version` in `package.json` and
+   `create/package.json` (plus the lockfile), moves the changelog's
+   `Unreleased` entries under `## x.y.z`, and updates the starter's
+   `@markline/markline` range if the minor version changes.
+2. Merge it, then tag the merge commit and push the tag:
+
+   ```bash
+   git tag vx.y.z && git push origin vx.y.z
+   ```
+
+The workflow checks the tag matches both package versions, runs the same
+checks as CI, and publishes both packages with provenance. Re-running it skips
+anything already published.
+
 ## Testing the CLI from a real install
 
 The CLI behaves differently when installed from a tarball (npm hoists deps),

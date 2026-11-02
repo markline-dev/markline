@@ -1,4 +1,5 @@
 import type { OpenAPIDoc, OpenAPIOperation } from "@/lib/openapi";
+import type { NavTreeNode, NavParent } from "@/lib/apiref-view";
 import { resolveSchema } from "@/lib/openapi";
 import { curlSample, responseSampleJson } from "@/lib/openapi-samples";
 import { loadConfig, playgroundMode } from "@/lib/config";
@@ -8,6 +9,7 @@ import { EndpointPath } from "./endpoint-path";
 import { SchemaTable, ParamRow } from "./schema-table";
 import { mdToHtml } from "@/lib/md-desc";
 import { RequestPanel, ResponsePanel } from "./code-panel";
+import { OpNavScrim } from "./op-nav-scrim";
 import {
   PlaygroundProvider, RequestConsole, ParamInput, AuthInput, BodyEditor,
 } from "./playground";
@@ -21,6 +23,7 @@ export function ApiOperationPage({
   crumbs,
   extendedContent,
   base = "/api-reference",
+  nav,
 }: {
   op: OpenAPIOperation;
   doc: OpenAPIDoc;
@@ -30,6 +33,9 @@ export function ApiOperationPage({
   extendedContent?: React.ReactNode;
   /** Route base for the explorer's endpoint switcher ("/api-reference[/<id>]"). */
   base?: string;
+  /** Sidebar nav tree (same shape as the per-tag page). When present, the page
+   *  renders the left API sidebar so deep links keep the lateral menu. */
+  nav?: NavTreeNode[];
 }) {
   const reqSchema = op.requestBody?.schema ? resolveSchema(op.requestBody.schema, root) : undefined;
   const cfg = loadConfig();
@@ -48,7 +54,20 @@ export function ApiOperationPage({
         : "",
   }));
 
+  const sideNav = nav && nav.length > 0 && (
+    <aside className="ml-apiref api-op-navcol">
+      <OpNavScrim />
+      <div className="api-side">
+        {nav.map((n) => (
+          <OpNavNode key={n.slug} node={n} base={base} currentOpId={op.operationId} />
+        ))}
+      </div>
+    </aside>
+  );
+
   const page = (
+   <div className={sideNav ? "api-op-cols" : undefined}>
+    {sideNav}
     <div className="api-op-shell">
       <main className="api-op-main">
         {crumbs.length > 0 && (
@@ -198,9 +217,73 @@ export function ApiOperationPage({
         {responseTabs.some((t) => t.body.trim() !== "") && <ResponsePanel tabs={responseTabs} />}
       </aside>
     </div>
+   </div>
   );
 
   return playgroundSpec ? <PlaygroundProvider spec={playgroundSpec}>{page}</PlaygroundProvider> : page;
+}
+
+/* ── static sidebar nav (server-rendered; links instead of in-page jumps) ── */
+
+function OpNavNode({ node, base, currentOpId }: { node: NavTreeNode; base: string; currentOpId: string }) {
+  if (node.kind === "group") return <OpNavParent node={node} base={base} currentOpId={currentOpId} />;
+
+  if (!node.active) {
+    return (
+      <div className="api-grp dim">
+        <a className="gt" href={`${base}/${node.slug}`} style={{ textDecoration: "none" }}>
+          {node.name}
+          <Chev d="m9 6 6 6-6 6" />
+        </a>
+      </div>
+    );
+  }
+  return (
+    <div className="api-grp">
+      <a className="gt" href={`${base}/${node.slug}`} style={{ fontWeight: 600, textDecoration: "none" }}>
+        {node.name}
+        <Chev d="m6 9 6 6 6-6" />
+      </a>
+      <div className="api-sub-nav">
+        {node.ops.filter((o) => o.opId && !o.evt).map((o) => (
+          <a key={o.opId} href={`${base}/${o.opId}`} className={o.opId === currentOpId ? "on" : undefined}>
+            {o.verb && <span className={`verb ${o.verb.toLowerCase()}`}>{o.verb}</span>}
+            <span className="nm">{o.name}</span>
+          </a>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function OpNavParent({ node, base, currentOpId }: { node: NavParent; base: string; currentOpId: string }) {
+  const header = node.tag ? (
+    <a className="gt" href={`${base}/${node.slug}`} style={{ textDecoration: "none" }}>
+      {node.name}
+      <Chev d={node.expanded ? "m6 9 6 6 6-6" : "m9 6 6 6-6 6"} />
+    </a>
+  ) : (
+    <div className="gt">
+      {node.name}
+      <Chev d={node.expanded ? "m6 9 6 6 6-6" : "m9 6 6 6-6 6"} />
+    </div>
+  );
+  return (
+    <div className={`api-grp api-parent${node.expanded ? " open" : ""}${node.active ? " on" : ""}`}>
+      {header}
+      {node.expanded && node.children.map((c) => (
+        <OpNavNode key={c.slug} node={c} base={base} currentOpId={currentOpId} />
+      ))}
+    </div>
+  );
+}
+
+function Chev({ d }: { d: string }) {
+  return (
+    <svg className="chev" width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+      <path d={d} />
+    </svg>
+  );
 }
 
 function Section({ id, title, children }: { id: string; title: string; children: React.ReactNode }) {

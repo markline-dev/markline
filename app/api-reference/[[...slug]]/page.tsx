@@ -199,6 +199,7 @@ export default async function ApiReferencePage({ params }: { params: Promise<{ s
 
   const overlay = loadOperationMdx(op.operationId, variantId);
   const extendedContent = overlay ? renderMdx(overlay) : undefined;
+  const opView = buildApiRefView(doc, root, parsedTag.slug, variantId);
 
   return (
     <ApiOperationPage
@@ -208,6 +209,7 @@ export default async function ApiReferencePage({ params }: { params: Promise<{ s
       crumbs={crumbs}
       extendedContent={extendedContent}
       base={base}
+      nav={opView.nav}
     />
   );
 }

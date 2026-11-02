@@ -420,6 +420,16 @@ textarea.ml-pg-input { height: auto; padding: 8px 10px; line-height: 1.55; resiz
    Replicates the former Tailwind padding utilities verbatim. The two parts are
    plain block siblings (no grid wrapper existed before), so they keep stacking
    exactly as they did under Tailwind. */
+/* Per-operation page with the left API sidebar (deep links keep the menu).
+   Column widths and the 880px drawer breakpoint mirror .ml-apiref .api. */
+.api-op-cols { display: grid; grid-template-columns: 280px minmax(0, 1fr); align-items: start; }
+.api-op-cols > .api-op-navcol { align-self: stretch; min-height: 0; border-right: 1px solid var(--line); }
+@media (max-width: 1080px) { .api-op-cols { grid-template-columns: 240px minmax(0, 1fr); } }
+@media (max-width: 880px) {
+  .api-op-cols { grid-template-columns: 1fr; }
+  .api-op-cols > .api-op-navcol { border-right: 0; }
+}
+
 .api-op-shell {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 460px;

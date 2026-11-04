@@ -7,37 +7,57 @@ import { getDoc, listDocs } from "@/lib/docs";
 import { DocsPage } from "@/components/docs/page";
 import { DocsShell } from "@/components/docs/nav";
 import { mdxComponents } from "@/components/docs/mdx";
-import { getHighlighter, shellEnhancer } from "@/lib/shiki";
+import { prettyCodeOptions } from "@/components/docs/mdx-options";
 import { loadConfig, aiConfig, feedbackConfig } from "@/lib/config";
-import { getDocsTabs, pickActiveTab, getNav, flattenLinks, findNavTrail } from "@/components/docs/sections";
+import { getDocsTabs, pickActiveTab, getNav, flattenLinks, findNavTrail, collectionLinks, type DocsTab } from "@/components/docs/sections";
 import { HubHero } from "@/components/docs/hub-hero";
 import { LandingPage } from "@/components/landing/landing";
 import { remarkLandingProse } from "@/lib/landing-prose";
-import { SiteCredit } from "@/components/site-credit";
-import type { PageNavLink } from "@/components/docs/page";
+import { extractToc } from "@/lib/toc";
+import { SiteFooter } from "@/components/site-footer";
+import type { Crumb, PageNavLink } from "@/components/docs/page";
+import { ChangelogEntryView, ChangelogView } from "@/components/docs/changelog";
+import { getChangelogEntry, listChangelog } from "@/lib/changelog";
+import {
+  CHANGELOG_PATH, PER_PAGE, dateFromSlug, entryPath, formatDate, pageCount, pageFromSlug, pagePath,
+} from "@/lib/changelog-core";
 
-// One transformer instance reused across all blocks — it's stateless.
-const shellTransformer = shellEnhancer();
-
-const prettyCodeOptions = {
-  theme: "markline-dark",
-  keepBackground: false,
-  defaultLang: "plaintext",
-  bypassInlineCode: true,
-  getHighlighter,
-  // Apply the same shell flag / HTTP method re-coloring used by <CodeBlock> and
-  // the API code panels. The transformer's tokens() hook decides per-token
-  // whether to repaint, so applying it to all langs is safe (it only matches
-  // CLI-flag / HTTP-method shapes).
-  transformers: [shellTransformer],
-} as const;
 
 export function generateStaticParams(): { slug?: string[] }[] {
-  return listDocs().map((d) => ({ slug: d.slug.length ? d.slug : undefined }));
+  const docs = listDocs().map((d) => ({ slug: d.slug.length ? d.slug : undefined }));
+  const entries = listChangelog();
+  if (!entries.length) return docs;
+  const pages = Array.from({ length: pageCount(entries.length) }, (_, i) => pagePath(i + 1));
+  const changelog = [...pages, ...entries.map((e) => entryPath(e.date))]
+    .map((p) => ({ slug: p.split("/").filter(Boolean) }))
+    // docs/changelog.mdx, if there is one, is shown as the changelog's intro
+    .filter((p) => !docs.some((d) => d.slug?.join("/") === p.slug.join("/")));
+  return [...docs, ...changelog];
+}
+
+/** Metadata for /changelog pages, or undefined when the slug isn't one. */
+function changelogMetadata(slug: string[]): Metadata | undefined {
+  if (!listChangelog().length) return undefined;
+  const config = loadConfig();
+  const rss = (config.seo.metadataBase ?? process.env.MARKLINE_SITE_URL) ? { types: { "application/rss+xml": `${process.env.NEXT_PUBLIC_MARKLINE_BASE_PATH ?? ""}${CHANGELOG_PATH}/rss.xml` } } : {};
+  const date = dateFromSlug(slug);
+  const entry = date ? getChangelogEntry(date) : undefined;
+  if (entry) {
+    const title = entry.title ? `${entry.title} (${formatDate(entry.date)})` : `Changelog: ${formatDate(entry.date)}`;
+    return { title, alternates: { canonical: entryPath(entry.date), ...rss }, openGraph: { title, url: entryPath(entry.date) } };
+  }
+  const page = pageFromSlug(slug);
+  if (!page) return undefined;
+  const intro = getDoc(["changelog"]);
+  const title = intro?.fm.title ?? "Changelog";
+  const description = intro?.fm.lede ?? `What's new in ${config.name}.`;
+  return { title, description, alternates: { canonical: pagePath(page), ...rss } };
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug?: string[] }> }): Promise<Metadata> {
   const { slug } = await params;
+  const cl = changelogMetadata(slug ?? []);
+  if (cl) return cl;
   const doc = getDoc(slug);
   if (!doc) return {};
   // Description precedence: frontmatter `description`, then the page `lede`, then
@@ -63,6 +83,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug?: st
 
 export default async function DocsCatchAll({ params }: { params: Promise<{ slug?: string[] }> }) {
   const { slug } = await params;
+  const changelog = slug?.[0] === CHANGELOG_PATH.slice(1) ? renderChangelog(slug) : undefined;
+  if (changelog) return changelog;
   const doc = getDoc(slug);
   if (!doc) {
     // A docs-only site with no root page: send "/" to the first nav entry so the
@@ -75,8 +97,16 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
     }
     return notFound();
   }
-  const crumbs = doc.fm.crumbs ?? navCrumbs(doc.slug, doc.fm.title) ?? deriveCrumbs(doc.slug, doc.fm.title);
   const config = loadConfig();
+  // A translated or older-version page follows its own sidebar.
+  const tabs = getDocsTabs(doc.variant);
+  const crumbs =
+    doc.fm.crumbs ??
+    withCrumbsRoot(
+      navCrumbs(tabs, doc.slug, doc.fm.title) ?? deriveCrumbs(doc.slug, doc.fm.title),
+      config.layout.breadcrumbsRoot,
+      doc.variant ? `/${doc.variant}` : "/",
+    );
   const editUrl = config.editUrl
     ? `${config.editUrl.replace(/\/$/, "")}/${doc.sourcePath}`
     : undefined;
@@ -84,7 +114,7 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
   // Previous/Next derived from the real flattened sidebar order of the active
   // (documentation) tab — no fabricated links.
   const pathname = doc.slug.length ? `/${doc.slug.join("/")}` : "/";
-  const { prev, next } = pageNeighbors(pathname);
+  const { prev, next } = pageNeighbors(tabs, pathname);
 
   const landing = doc.fm.layout === "landing";
   const content = (
@@ -103,7 +133,12 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
   );
 
   if (landing) {
-    return <LandingPage>{content}</LandingPage>;
+    return (
+      <LandingPage>
+        {content}
+        <SiteFooter config={config} />
+      </LandingPage>
+    );
   }
 
   const hub = doc.fm.layout === "hub";
@@ -118,33 +153,124 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
       aiSuggestions={doc.fm.aiSuggestions}
       searchInSidebar={config.layout.search !== "header"}
       variant={hub ? "hub" : undefined}
+      sidebar={doc.fm.sidebar !== false}
+      footer={<SiteFooter config={config} />}
     >
       <DocsPage
         hub={hub}
         crumbs={crumbs}
+        crumbStyle={config.layout.breadcrumbs}
+        actionStyle={config.layout.pageActions}
         title={doc.fm.title}
         lede={doc.fm.lede}
-        toc={doc.fm.toc ?? []}
+        toc={doc.fm.toc ?? extractToc(doc.body)}
         lastUpdated={doc.fm.last_updated}
         editUrl={editUrl}
         feedbackEnabled={feedbackConfig() != null}
         feedbackEndpoint={feedbackConfig()?.endpoint}
         aiEnabled={aiConfig() != null}
-        prev={prev}
-        next={next}
+        prev={hub ? undefined : prev}
+        next={hub ? undefined : next}
+        related={hub ? [] : relatedLinks(tabs, doc.fm.related, pathname, config.layout.related)}
+        credit={!config.footer}
       >
         {content}
       </DocsPage>
-      <SiteCredit name={config.name} year={new Date().getFullYear()} />
     </DocsShell>
   );
   if (!hub) return shell;
   return (
     <>
-      <HubHero title={doc.fm.title} lede={doc.fm.lede} image={doc.fm.hero?.image} placeholder={doc.fm.hero?.placeholder} />
+      <HubHero
+        title={doc.fm.title}
+        lede={doc.fm.lede}
+        image={doc.fm.hero?.image}
+        imageStyle={doc.fm.hero?.imageStyle}
+        background={doc.fm.hero?.background}
+        text={doc.fm.hero?.text}
+        align={doc.fm.hero?.align}
+        placeholder={doc.fm.hero?.placeholder}
+      />
       {shell}
     </>
   );
+}
+
+/**
+ * /changelog (paged) and /changelog/YYYY/MM/DD, when the content has a
+ * changelog/ folder. Anything else under /changelog is an ordinary docs page.
+ */
+function renderChangelog(slug: string[]) {
+  const entries = listChangelog();
+  if (!entries.length) return undefined;
+  const config = loadConfig();
+  const shell = (children: React.ReactNode) => (
+    <DocsShell
+      nav={getNav(config)}
+      ai={aiConfig()}
+      searchInSidebar={config.layout.search !== "header"}
+      sidebar={false}
+      footer={<SiteFooter config={config} />}
+    >
+      {children}
+    </DocsShell>
+  );
+  const credit = !config.footer;
+
+  const date = dateFromSlug(slug);
+  if (date) {
+    const i = entries.findIndex((e) => e.date === date);
+    if (i < 0) return notFound();
+    return shell(<ChangelogEntryView entry={entries[i]} newer={entries[i - 1]} older={entries[i + 1]} credit={credit} />);
+  }
+
+  const page = pageFromSlug(slug);
+  if (!page) return undefined;
+  const pages = pageCount(entries.length);
+  if (page > pages) return notFound();
+  // docs/changelog.mdx, if it exists, supplies the title, lede and an intro.
+  const intro = getDoc(["changelog"]);
+  return shell(
+    <ChangelogView
+      title={intro?.fm.title ?? "Changelog"}
+      lede={intro?.fm.lede}
+      intro={
+        intro?.body.trim() && page === 1 ? (
+          <MDXRemote source={intro.body} components={mdxComponents} options={{ mdxOptions: { format: "mdx", remarkPlugins: [remarkGfm], rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]] }, blockJS: false }} />
+        ) : undefined
+      }
+      entries={entries.slice((page - 1) * PER_PAGE, page * PER_PAGE)}
+      page={page}
+      pages={pages}
+      rss={!!(config.seo.metadataBase ?? process.env.MARKLINE_SITE_URL)}
+      credit={credit}
+    />,
+  );
+}
+
+/**
+ * "Related articles": the page's own frontmatter list, labelled with each
+ * page's title (or its sidebar label), or with `layout.related:
+ * "collection"` the other pages in its sidebar folder.
+ */
+function relatedLinks(
+  tabs: DocsTab[],
+  listed: string[] | undefined,
+  pathname: string,
+  mode: "off" | "collection" | undefined,
+): PageNavLink[] {
+  if (listed?.length) {
+    const labels = new Map(tabs.flatMap((t) => t.sections.flatMap((s) => flattenLinks(s.links))).map((l) => [l.href, l.label]));
+    // The page's own title first: a sidebar label is written for its folder
+    // ("Overview"), and reads as ambiguous once it's listed elsewhere.
+    return listed.map((href) => ({
+      href,
+      label: getDoc(href.split("/").filter(Boolean))?.fm.title ?? labels.get(href) ?? href,
+    }));
+  }
+  if (mode !== "collection") return [];
+  const tab = pickActiveTab(tabs, pathname);
+  return !tab || tab.id === "api-reference" ? [] : collectionLinks(tab.sections, pathname);
 }
 
 /**
@@ -152,8 +278,7 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
  * tab's sidebar sections into document order. Only internal doc links (not the
  * OpenAPI tab) participate, so prev/next stay within the docs nav.
  */
-function pageNeighbors(pathname: string): { prev?: PageNavLink; next?: PageNavLink } {
-  const tabs = getDocsTabs();
+function pageNeighbors(tabs: DocsTab[], pathname: string): { prev?: PageNavLink; next?: PageNavLink } {
   const tab = pickActiveTab(tabs, pathname);
   if (!tab || tab.id === "api-reference") return {};
   const flat: PageNavLink[] = [];
@@ -178,15 +303,22 @@ function firstDocHref(): string | undefined {
   return undefined;
 }
 
+/** `layout.breadcrumbsRoot` renames the first crumb (the tab), e.g. to
+ *  "All collections", and points it home. Frontmatter crumbs are left alone. */
+function withCrumbsRoot(crumbs: Crumb[], root: string | undefined, home: string): Crumb[] {
+  if (!root || crumbs.length === 0) return crumbs;
+  return [{ label: root, href: home }, ...crumbs.slice(1)];
+}
+
 /**
  * Breadcrumbs from the page's place in the sidebar: tab › group › each item it
  * sits under › the page. Follows nesting exactly, where guessing from the URL
  * can't (/account/reset-password sits under "Account & security", not under a
  * folder named "account"). Undefined when the page isn't in the sidebar.
  */
-function navCrumbs(slug: string[], title: string) {
+function navCrumbs(tabs: DocsTab[], slug: string[], title: string) {
   const pathname = slug.length ? `/${slug.join("/")}` : "/";
-  const tab = pickActiveTab(getDocsTabs(), pathname);
+  const tab = pickActiveTab(tabs, pathname);
   if (!tab || tab.id === "api-reference") return undefined;
   const trail = findNavTrail(tab.sections, pathname);
   if (!trail) return undefined;

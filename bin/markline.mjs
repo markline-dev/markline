@@ -8,6 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
+import { isLocalTemplate, scaffold } from "./scaffold.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const APP_DIR = path.resolve(__dirname, ".."); // the Next app (this package root)
@@ -105,16 +106,6 @@ function requireConfig() {
   }
 }
 
-function copyDir(src, dest) {
-  fs.mkdirSync(dest, { recursive: true });
-  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
-    const s = path.join(src, entry.name);
-    const d = path.join(dest, entry.name);
-    if (entry.isDirectory()) copyDir(s, d);
-    else fs.copyFileSync(s, d);
-  }
-}
-
 async function buildSearch(env) {
   await run(process.execPath, [SEARCH_SCRIPT], { env, cwd: WORK_DIR });
 }
@@ -127,7 +118,7 @@ async function buildSearch(env) {
  */
 function resolveTemplateForInit(spec) {
   let dir;
-  if (spec.startsWith("./") || spec.startsWith("../") || path.isAbsolute(spec)) {
+  if (isLocalTemplate(spec)) {
     dir = path.resolve(CONTENT_DIR, spec);
   } else if (spec.startsWith("@") || spec.startsWith("markline-template-")) {
     try {
@@ -177,36 +168,7 @@ const COMMANDS = {
       console.error(`  A markline.json/docs.json already exists in ${target} — refusing to overwrite.`);
       process.exit(1);
     }
-    copyDir(TEMPLATE_DIR, target);
-    if (tplDir) {
-      // The template's starter files replace the matching default ones.
-      const starter = path.join(tplDir, "starter");
-      if (fs.existsSync(starter)) {
-        copyDir(starter, target);
-        // A starter with its own navigation and no API tab (a help center,
-        // say) doesn't want the default starter's sample spec: Markline builds
-        // an API reference whenever api/openapi.json exists, and nothing would
-        // link to it.
-        const own = path.join(starter, "markline.json");
-        if (fs.existsSync(own) && !fs.existsSync(path.join(starter, "api"))) {
-          const tabs = JSON.parse(fs.readFileSync(own, "utf8")).navigation?.tabs ?? [];
-          if (!tabs.some((t) => t.openapi)) fs.rmSync(path.join(target, "api"), { recursive: true, force: true });
-        }
-      }
-      // Record the template. A local path is rewritten relative to the new
-      // markline.json, since that's what it resolves against at build time.
-      const cfgPath = path.join(target, "markline.json");
-      const cfg = JSON.parse(fs.readFileSync(cfgPath, "utf8"));
-      const local = spec.startsWith("./") || spec.startsWith("../") || path.isAbsolute(spec);
-      const relDir = path.relative(target, tplDir).split(path.sep).join("/");
-      const value = local ? (relDir.startsWith("../") ? relDir : `./${relDir}`) : spec;
-      // The default starter ships its own colours and appearance; with a
-      // template those would override it (user config wins), so the new
-      // project would never look like the template. Keep only the logo.
-      if (cfg.theme) cfg.theme = cfg.theme.logo ? { logo: cfg.theme.logo } : undefined;
-      const { name, ...restCfg } = cfg;
-      fs.writeFileSync(cfgPath, JSON.stringify({ name, template: value, ...restCfg }, null, 2) + "\n");
-    }
+    scaffold(target, { initDir: TEMPLATE_DIR, spec, tplDir });
     const rel = path.relative(CONTENT_DIR, target) || ".";
     console.log(`\n  Created a Markline docs project in ${rel}${spec ? ` using the "${spec}" template` : ""}\n`);
     console.log(`  Next steps:`);

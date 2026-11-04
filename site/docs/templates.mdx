@@ -31,10 +31,11 @@ Add `template` to `markline.json`:
 Or start a new project from one:
 
 ```bash
-markline init my-docs --template paper
+npm create @markline@latest my-docs -- --template paper
 ```
 
-`init --template` also copies the template's starter pages, if it has any, and
+In an existing folder with Markline installed, `markline init my-docs --template paper`
+does the same. Either way, it also copies the template's starter pages, if it has any, and
 leaves the colours out of the generated `markline.json` so the template's
 show through.
 
@@ -89,7 +90,7 @@ A template is a folder:
 acme/
 ├── template.json     # the defaults
 ├── template.css      # optional: styling the options can't express
-└── starter/          # optional: copied by `markline init --template`
+└── starter/          # optional: copied when a project is created from the template
     ├── markline.json # optional: replaces the default starter's config
     └── docs/index.mdx
 ```

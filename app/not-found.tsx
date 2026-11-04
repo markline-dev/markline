@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { loadConfig } from "@/lib/config";
 import { SiteCredit } from "@/components/site-credit";
+import { SiteFooter } from "@/components/site-footer";
 
 /**
  * Global 404. Rendered inside the root layout (so the shared <SiteNav/> is
  * present). Wrapped in `.docs-shell` so the design-token aliases resolve, and
- * carries the same "built with Markline" credit footer as every other page.
+ * carries the same "Built with Markline" credit as every other page.
  */
 export default function NotFound() {
   const config = loadConfig();
@@ -26,7 +27,7 @@ export default function NotFound() {
           </Link>
         </div>
       </main>
-      <SiteCredit name={config.name} year={new Date().getFullYear()} />
+      {config.footer ? <SiteFooter config={config} /> : <SiteCredit />}
     </div>
   );
 }

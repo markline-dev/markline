@@ -1,10 +1,13 @@
 import * as Icons from "@phosphor-icons/react/dist/ssr";
+import { isIconPath, keepsColor } from "@/lib/icon-path";
+import { loadConfig } from "@/lib/config";
 
 /**
- * Turn a Phosphor icon name from markline.json into a rendered icon.
+ * Turn a Phosphor icon name (from markline.json, or a component's `icon`
+ * prop in MDX) into a rendered icon.
  *
- * Runs on the server only (sections.ts builds the nav there), so the sidebar
- * receives finished <svg> elements and readers never download the icon
+ * Runs on the server only (sections.ts builds the nav there, and MDX renders
+ * there), so pages receive finished <svg> elements and readers never download the icon
  * library. Accepts "book-open", "book_open" or "BookOpen".
  */
 
@@ -20,8 +23,45 @@ function toPascal(name: string): string {
     .join("");
 }
 
-export function navIcon(name: string | undefined): React.ReactNode | undefined {
-  if (!name) return undefined;
+export { isIconPath };
+
+/**
+ * Your own icon, from /public or a URL. An SVG is drawn as a mask in the
+ * current text colour, so it follows the theme like the built-in icons, unless
+ * it ends in `?color` ("/icons/slack.svg?color"), which keeps its own colours
+ * like any other image.
+ */
+function customIcon(src: string, size: number): React.ReactNode {
+  const box = { width: size, height: size };
+  if (keepsColor(src)) {
+    return <img className="ml-icon ml-icon--img" src={src.replace(/[?&]color(?=$|#)/, "")} alt="" width={size} height={size} style={box} aria-hidden />;
+  }
+  if (/\.svg([?#].*)?$/i.test(src)) {
+    const url = `url("${encodeURI(src).replace(/"/g, "%22")}")`;
+    return <span className="ml-icon ml-icon--mask" style={{ ...box, WebkitMaskImage: url, maskImage: url }} aria-hidden />;
+  }
+  return <img className="ml-icon ml-icon--img" src={src} alt="" width={size} height={size} style={box} aria-hidden />;
+}
+
+/** Phosphor's weights. `theme.iconWeight` sets one for the whole site; a
+ *  name can pick its own: "rocket-launch:duotone". */
+const WEIGHTS = new Set(["thin", "light", "regular", "bold", "fill", "duotone"]);
+
+function iconWeight(w: string | undefined, label: string): string | undefined {
+  if (!w) return undefined;
+  if (WEIGHTS.has(w)) return w;
+  if (!warned.has(`weight:${w}`)) {
+    warned.add(`weight:${w}`);
+    console.warn(`[markline] unknown icon weight "${w}" (${label}) — use thin, light, regular, bold, fill or duotone.`);
+  }
+  return undefined;
+}
+
+export function navIcon(icon: string | undefined, size = 16): React.ReactNode | undefined {
+  if (!icon) return undefined;
+  if (isIconPath(icon)) return customIcon(icon, size);
+  const [name, own] = icon.split(":");
+  const weight = iconWeight(own, icon) ?? iconWeight(loadConfig().theme.iconWeight, "theme.iconWeight") ?? "regular";
   const key = /[-_\s]/.test(name) || name[0] === name[0].toLowerCase() ? toPascal(name) : name;
   const Icon = (Icons as unknown as Record<string, IconComponent | undefined>)[key];
   if (typeof Icon !== "object" && typeof Icon !== "function") {
@@ -29,9 +69,9 @@ export function navIcon(name: string | undefined): React.ReactNode | undefined {
     // the page is still usable without it. Warn once per name.
     if (!warned.has(name)) {
       warned.add(name);
-      console.warn(`[markline] unknown sidebar icon "${name}" — see phosphoricons.com for names.`);
+      console.warn(`[markline] unknown icon "${name}" — see phosphoricons.com for names.`);
     }
     return undefined;
   }
-  return <Icon size={16} weight="regular" aria-hidden />;
+  return <Icon size={size} weight={weight} aria-hidden />;
 }

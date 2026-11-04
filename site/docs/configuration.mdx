@@ -10,6 +10,8 @@ toc:
     label: Navigation
   - id: layout
     label: Layout
+  - id: footer
+    label: Footer
   - id: api-playground
     label: API & playground
   - id: integrations
@@ -27,11 +29,69 @@ toc:
 
 ## Topbar
 
-<ParamField path="topbar.links" type="array">Right-aligned header links, e.g. a GitHub link.</ParamField>
+<ParamField path="topbar.links" type="array">
+  Links on the right of the header, like "Contact sales" or "Blog". A GitHub
+  link shows as the GitHub badge instead. An entry with `items` instead of
+  `href` is a dropdown; each item can have a `description`.
+</ParamField>
 <ParamField path="topbar.cta" type="object">`{ label, href }` for the primary "Get started" button.</ParamField>
+<ParamField path="topbar.secondaryCta" type="object">`{ label, href }` for an outlined button before the primary one, e.g. "Book a demo".</ParamField>
+<ParamField path="topbar.banner" type="object">
+  A strip across the top of every page for announcements. `text`, an
+  optional `link` (`{ label, href }`), and `until` (`YYYY-MM-DD`): the last day
+  it shows, after which it hides itself, even on a site built before then.
+  Readers can close it unless `dismissible` is `false`; a closed banner stays
+  closed until its `text` (or `id`) changes. `tone: "brand"` uses your primary
+  colour.
+</ParamField>
 <ParamField path="topbar.badge" type="string">A small label pill next to the logo (e.g. `docs · v1`).</ParamField>
 <ParamField path="topbar.width" type='"full" | "contained"'>Topbar layout on docs + the API reference. `"full"` (default) spans edge-to-edge; `"contained"` centers it to the content max-width.</ParamField>
 <ParamField path="topbar.homeWidth" type='"full" | "contained"'>The homepage topbar, independent of `width`. Defaults to `"contained"` so the marketing nav aligns with the hero.</ParamField>
+
+```jsonc
+"topbar": {
+  "links": [
+    { "label": "Resources", "items": [
+      { "label": "Blog", "href": "https://acme.com/blog", "description": "Product news" },
+      { "label": "Community", "href": "https://acme.com/community" }
+    ] },
+    { "label": "Contact sales", "href": "https://acme.com/contact" }
+  ],
+  "secondaryCta": { "label": "Book a demo", "href": "https://acme.com/demo" },
+  "cta": { "label": "Sign up", "href": "https://app.acme.com/signup" },
+  "banner": {
+    "text": "Acme 3.0 is out.",
+    "link": { "label": "See what's new", "href": "/changelog" },
+    "until": "2026-12-31"
+  }
+}
+```
+
+On phones the links, dropdown items and second button move into the menu.
+
+To restyle the banner or the header, set these in `theme.cssVariables`, per
+light and dark mode:
+
+| Variable | What it sets | Default |
+| --- | --- | --- |
+| `--banner-bg` | The banner's background: a colour, a gradient or an image | Light grey, or the primary colour with `tone: "brand"` |
+| `--banner-fg` | The banner's text, link and close button | The body text colour |
+| `--nav-bg` | The header's background | The page colour, slightly see-through |
+
+```jsonc
+"theme": {
+  "cssVariables": {
+    "light": {
+      "--banner-bg": "linear-gradient(135deg, #08090a 0%, #131313 67%, #00a6d4 74%, #890976 85%, #ff5500 95%)",
+      "--banner-fg": "#fff"
+    },
+    "dark": {
+      "--banner-bg": "linear-gradient(135deg, #08090a 0%, #131313 67%, #00a6d4 74%, #890976 85%, #ff5500 95%)",
+      "--banner-fg": "#fff"
+    }
+  }
+}
+```
 
 ## Navigation
 
@@ -89,6 +149,16 @@ to nest underneath it, as deep as you need:
   `BookOpen`. Icons are rendered at build time, so they add nothing to the
   page's JavaScript. An unknown name prints a warning and the item shows
   without an icon.
+
+  Icons use Phosphor's `regular` weight. `theme.iconWeight` changes it for the
+  whole site (`thin`, `light`, `regular`, `bold`, `fill` or `duotone`), and
+  one icon can pick its own after a colon: `rocket-launch:duotone`.
+
+  Or your own icon: a path in `public/` or a URL, like `/icons/agents.svg`.
+  An SVG takes the text colour, like the built-in icons, so draw it in one
+  colour; add `?color` (`/icons/slack.svg?color`) to keep its own colours
+  instead. A PNG, JPG or WebP keeps its colours anyway. Cards and link lists
+  accept the same values.
 </ParamField>
 
 <ParamField path="pages" type="array">
@@ -138,8 +208,51 @@ and fonts.
   and the API reference, and removes the sidebar copy. ⌘K works either way.
 </ParamField>
 
-A [template](/templates) can set both. `product-docs` sets them to `stacked`
-and `header`.
+<ParamField path="layout.content" type='"fluid" | "centered"'>
+  The page column between the sidebar and "On this page". `fluid` (default)
+  stretches to fill the space. `centered` keeps it at a fixed width, centred,
+  with text running the full width so it lines up with tables, code and
+  callouts. Set the width with `--content-width` in `theme.cssVariables`
+  (default `880px`). The `help-center` template uses `centered`.
+</ParamField>
+
+<ParamField path="layout.surface" type='"flat" | "panel"'>
+  `flat` (default) puts docs pages straight on the page background. `panel`
+  sets the page and "On this page" on a raised, rounded panel beside the
+  sidebar. Its colour is `--surface-bg` in `theme.cssVariables`. Phones stay
+  flat.
+</ParamField>
+
+<ParamField path="layout.breadcrumbs" type='"slash" | "chevron"'>
+  `slash` (default) shows breadcrumbs in the monospace font with `/`
+  between them. `chevron` uses the body font with `›`.
+</ParamField>
+
+<ParamField path="layout.breadcrumbsRoot" type="string">
+  Renames the first breadcrumb, which is the page's tab, and links it to the
+  home page. For example `"All collections"`. Breadcrumbs set in a page's
+  frontmatter are left as they are.
+</ParamField>
+
+<ParamField path="layout.pageActions" type='"inline" | "menu"'>
+  `inline` (default) shows Copy for LLM, View as Markdown and Ask AI as links
+  under the page's lede. `menu` shows one Copy for LLM button with the others
+  in a dropdown, and moves the page's `last_updated` date beside it.
+</ParamField>
+
+<ParamField path="layout.related" type='"off" | "collection"'>
+  A "Related articles" list at the end of a page. A page can always list its
+  own in frontmatter (`related: [/billing/plans, /billing/invoices]`), shown
+  with each page's title. With `collection`, pages that don't list any get the
+  other pages in the same sidebar folder, up to five. Default `off`. The
+  `help-center` template turns it on. The list is a
+  [`<LinkList>`](/components#link-lists), which you can also use in any page.
+</ParamField>
+
+A [template](/templates) can set any of these. `product-docs` sets `header`
+and `search` to `stacked` and `header`; `help-center` uses `centered` content,
+`chevron` breadcrumbs starting at "All collections", `menu` page actions and
+`collection` related articles.
 
 ### Page layouts
 
@@ -168,7 +281,156 @@ paragraphs, lists, callouts, cards) sits in a centred column at docs reading
 width, with the same text styles as a docs page.
 
 The hub hero shows the page's `title` and `lede`, and its search box opens the
-same search as ⌘K. `hero.image` is optional and hidden on narrow screens.
+same search as ⌘K. The rest of `hero` is optional:
+
+| Field | What it does |
+| --- | --- |
+| `image` | An illustration beside the title. Hidden on phones. |
+| `imageStyle` | `contained` (default) shows the whole image in a box beside the text. `bleed` fills the hero's right side from top to bottom, cropped to fit. |
+| `background` | The hero's background: an image path or URL (cover-fitted), or any CSS background such as a colour or gradient. |
+| `text` | `light` for white text on a dark background. The search box keeps its own fill. |
+| `align` | `center` centres the title, lede and search, for a hero with a background and no image beside it. |
+
+```yaml
+hero:
+  image: /hero.png
+  imageStyle: bleed
+  background: "linear-gradient(135deg, #0b0d12, #3a1a08)"
+  text: light
+```
+
+A page can also set `sidebar: false` to drop the sidebar on desktop, so a
+help-center home made of cards uses the full width. Phones still get the
+sidebar from the menu button.
+
+```yaml
+layout: hub
+sidebar: false
+hero:
+  background: /images/hero-bg.jpg
+  text: light
+  align: center
+```
+
+For every hub page at once, set `--hub-hero-bg` in `theme.cssVariables`, per
+light and dark mode; a page's `hero.background` overrides it. `--hub-bg` sets
+a background for the content area beside the sidebar, such as a dotted grid:
+
+```jsonc
+"cssVariables": {
+  "light": { "--hub-bg": "radial-gradient(circle, rgb(0 0 0 / .13) 1px, transparent 1.5px) 0 0 / 18px 18px" },
+  "dark": { "--hub-bg": "radial-gradient(circle, rgb(255 255 255 / .1) 1px, transparent 1.5px) 0 0 / 18px 18px" }
+}
+```
+
+With `layout.search: "header"`, the header search box stays hidden until the
+hero's box scrolls out of view. Hub pages have no previous/next links.
+
+### On this page
+
+The "On this page" list beside a docs page is built from its `##` and `###`
+headings. To choose the entries yourself, list them in frontmatter; to hide
+it, set `toc: false`:
+
+```yaml
+toc:
+  - id: install
+    label: Install
+  - id: configure
+    label: Configure
+```
+
+## Footer
+
+A footer across the bottom of every page: columns of links, then a row with
+your logo, copyright, small links and social icons. Without one, pages end
+with a single "Built with Markline" line; with one, that credit moves into the
+footer's bottom row.
+
+```jsonc
+"footer": {
+  "columns": [
+    { "title": "Product", "links": [{ "label": "Pricing", "href": "/pricing" }] },
+    { "title": "Company", "links": [{ "label": "Contact sales", "href": "https://acme.com/contact" }] }
+  ],
+  "socials": { "github": "https://github.com/acme", "x": "https://x.com/acme" },
+  "links": [{ "label": "Privacy", "href": "https://acme.com/privacy" }],
+  "copyright": "© 2026 Acme Inc."
+}
+```
+
+<ParamField path="footer.columns" type="array">
+  `{ title, links: [{ label, href }] }` for each column. Links that start with
+  `https:` (or `mailto:`) open in a new tab.
+</ParamField>
+<ParamField path="footer.logo" type="boolean">
+  Show the site logo from `theme.logo` (or the site name) in the bottom row.
+  Default `true`.
+</ParamField>
+<ParamField path="footer.socials" type="object">
+  Profile URLs by network: `github`, `x`, `discord`, `linkedin`, `youtube`,
+  `slack`, `bluesky`, `mastodon`, `instagram`, `facebook`, `reddit`, `twitch`,
+  `tiktok`, `threads` or `telegram`. Each shows as an icon.
+</ParamField>
+<ParamField path="footer.links" type="array">
+  Small `{ label, href }` links in the bottom row, such as Privacy and Terms.
+</ParamField>
+<ParamField path="footer.copyright" type="string">Text in the bottom row, e.g. `© 2026 Acme Inc.`</ParamField>
+
+The footer shows on docs, hub, landing and API reference pages and the 404
+page. Set its maximum width with `--footer-width` in `theme.cssVariables`
+(default `1120px`).
+
+### Changelog
+
+Add a `changelog/` folder next to `docs/`, with one file per release, and
+Markline lists them at `/changelog`, newest first: the date in a column on
+the left, the notes on the right, and "On this page" grouped by date.
+
+```
+content/
+├── docs/
+└── changelog/
+    ├── 2026-10-26.mdx
+    └── 2026-10-19.mdx
+```
+
+```mdx
+---
+date: 2026-10-26            # optional when the file is named YYYY-MM-DD.mdx
+title: Faster replies and scoped API keys
+tags: [Agents, API]
+breaking: true              # optional: adds a "Breaking" label
+---
+
+### Scoped API keys
+
+**API** keys can be limited to a set of scopes. See [Authentication](/developers).
+
+### All changes
+
+- Fixed duplicate pages when a sitemap listed a URL twice.
+```
+
+- **Pages.** `/changelog` shows ten entries per page (`/changelog/page/2`
+  and on). Each entry also has its own page, at `/changelog/2026/10/26`;
+  its date links there.
+- **Intro.** A `docs/changelog.mdx`, if you have one, gives the page its
+  title and lede, and its body shows above the entries.
+- **RSS.** With `seo.metadataBase` set, the build writes a feed of the
+  latest 50 entries to `/changelog/rss.xml`, and the page shows "Subscribe
+  via RSS". Feeds need absolute links, so without a site URL there's no feed.
+- **Breaking changes.** `breaking: true` puts a red "Breaking" label beside
+  the date, prefixes the feed item's title with "Breaking:", and adds a
+  "Breaking" category to it.
+- **Search and sitemap.** Entries are searchable, under their own
+  "Changelog" filter, and listed in `sitemap.xml`.
+- **Navigation.** Link to it like any page, e.g. a tab with
+  `"href": "/changelog"`. The changelog pages have no sidebar.
+
+Headings inside an entry get ids prefixed with its date
+(`#2026-10-26-scoped-api-keys`), so the same heading can repeat across
+entries.
 
 ## API & playground
 

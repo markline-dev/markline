@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from "react";
 
-export type TocItem = { id: string; label: string };
+import type { TocItem } from "@/lib/toc";
+
+export type { TocItem };
 
 /**
  * Scroll-spy TOC. Uses IntersectionObserver to detect the topmost in-view
@@ -62,7 +64,11 @@ export function TocList({ items }: { items: TocItem[] }) {
         const active = i.id === activeId;
         return (
           <li key={i.id}>
-            <a href={`#${i.id}`} className={active ? "active" : undefined} onClick={() => setActiveId(i.id)}>
+            <a
+              href={`#${i.id}`}
+              className={[active && "active", i.depth === 3 && "sub"].filter(Boolean).join(" ") || undefined}
+              onClick={() => setActiveId(i.id)}
+            >
               {i.label}
             </a>
           </li>

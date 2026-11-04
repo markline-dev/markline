@@ -2,6 +2,9 @@ import type { DocSection, DocLink, NavData } from "./nav";
 import { loadOpenApi, operationHref } from "@/lib/openapi";
 import { loadConfig, type NavLink, type NavTab, type MarklineConfig } from "@/lib/config";
 import { navIcon } from "./nav-icons";
+import { findNavTrail, flattenLinks, collectionLinks } from "./nav-tree";
+
+export { findNavTrail, flattenLinks, collectionLinks };
 
 /** Build the API-reference sidebar from the OpenAPI spec's tags. */
 function apiSections(): DocSection[] {
@@ -45,37 +48,6 @@ function tabToSections(tab: NavTab): DocSection[] {
   }));
 }
 
-/** Where a page sits in the sidebar: its group and the chain of items from
- *  the top of that group down to the page itself. */
-export function findNavTrail(
-  sections: DocSection[],
-  pathname: string,
-): { section: DocSection; chain: DocLink[] } | undefined {
-  const walk = (links: DocLink[], chain: DocLink[]): DocLink[] | undefined => {
-    for (const l of links) {
-      const here = [...chain, l];
-      if (l.href === pathname) return here;
-      const found = walk(l.children ?? [], here);
-      if (found) return found;
-    }
-    return undefined;
-  };
-  for (const section of sections) {
-    const chain = walk(section.links, []);
-    if (chain) return { section, chain };
-  }
-  return undefined;
-}
-
-/** Every page in sidebar order, depth first — nested pages included, folders
- *  (items with no `href`) skipped. */
-export function flattenLinks(links: DocLink[]): { href: string; label: string }[] {
-  return links.flatMap((l) => [
-    ...(l.href ? [{ href: l.href, label: l.label }] : []),
-    ...flattenLinks(l.children ?? []),
-  ]);
-}
-
 export type DocsTab = {
   id: string;
   label: string;
@@ -95,8 +67,12 @@ function buildTabs(navTabs: NavTab[]): DocsTab[] {
   }));
 }
 
-export function getDocsTabs(): DocsTab[] {
-  return buildTabs(loadConfig().navigation.tabs);
+/** The docs tabs of a version or locale (its own `navigation`), or the default's. */
+export function getDocsTabs(variant?: string): DocsTab[] {
+  const config = loadConfig();
+  const entries = config.versions?.length ? config.versions : (config.i18n?.locales ?? []);
+  const v = variant ? entries.find((e) => e.id === variant) : undefined;
+  return buildTabs((v?.navigation ?? config.navigation).tabs);
 }
 
 export const NO_VARIANT = "__default__";
@@ -108,7 +84,19 @@ export const NO_VARIANT = "__default__";
  * uses the top-level `navigation`; others use their own `navigation` (with
  * already-prefixed hrefs), falling back to the default.
  */
+/** Header links the phone drawer repeats: navLinks, then topbar.links (menus
+ *  flattened, GitHub left to its badge), then the secondary button. */
+function headerLinks(config: MarklineConfig): { label: string; href: string }[] {
+  const t = config.topbar;
+  const links = (t.links ?? []).flatMap((l) => ("items" in l ? l.items : /github\.com/.test(l.href) ? [] : [l]));
+  return [...(t.navLinks ?? []), ...links, ...(t.secondaryCta ? [t.secondaryCta] : [])].map((l) => ({ label: l.label, href: l.href }));
+}
+
 export function getNav(config: MarklineConfig = loadConfig()): NavData {
+  return { ...buildNav(config), headerLinks: headerLinks(config) };
+}
+
+function buildNav(config: MarklineConfig): NavData {
   const buildVariantTabs = (v: { navigation?: { tabs: NavTab[] } }) =>
     buildTabs((v.navigation ?? config.navigation).tabs);
 

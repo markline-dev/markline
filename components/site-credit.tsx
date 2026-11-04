@@ -1,33 +1,24 @@
-import Link from "next/link";
-
 /**
- * "Built with Markline" credit footer — rendered at the foot of every page
+ * "Built with Markline": one centred, muted line at the foot of every page
  * (docs, API reference, 404). The homepage has its own full <footer> and uses
- * the matching `.footer-bottom .credit-built` treatment instead of this.
+ * the `.footer-bottom .credit-built` treatment instead of this.
  *
  * Presentational only (no hooks), so it renders inside both server trees (the
- * docs shell) and client trees (the API reference). It must sit INSIDE a
+ * docs page) and client trees (the API reference). It must sit INSIDE a
  * surface container (.docs-shell / .ml-apiref) so the alias design tokens
- * (--line, --mono, --ink-4, …) resolve for the active surface + theme.
+ * (--line, --ink-4, …) resolve for the active surface + theme.
  */
-export function SiteCredit({ name, year }: { name: string; year: number }) {
+export function SiteCredit() {
   return (
     <footer className="site-credit">
-      <span>
-        © {year} <Link href="/">{name}</Link>
-      </span>
-      <span className="credit-built">
-        <Heart />
-        built with{" "}
-        <a href="https://markline.dev" target="_blank" rel="noopener noreferrer">
-          Markline
-        </a>
-      </span>
+      <a href="https://markline.dev" target="_blank" rel="noopener noreferrer">
+        Built with <span className="wordmark">Markline</span>
+      </a>
     </footer>
   );
 }
 
-/** Heart glyph used in the credit (matches the design handoff). */
+/** Heart glyph used in the homepage credit. */
 export function Heart() {
   return (
     <svg className="heart" viewBox="0 0 16 16" fill="currentColor" aria-hidden="true">

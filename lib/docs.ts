@@ -4,7 +4,9 @@ import matter from "gray-matter";
 import { contentRoot } from "./paths";
 import { loadConfig, contentPrefixIds } from "./config";
 
-export type TocItem = { id: string; label: string };
+import type { TocItem } from "./toc";
+
+export type { TocItem };
 
 export type DocFrontmatter = {
   title: string;
@@ -14,12 +16,30 @@ export type DocFrontmatter = {
   toc?: TocItem[];
   last_updated?: string;
   crumbs?: { label: string; href?: string }[];
+  /** Pages listed under "Related articles" at the end, by path. */
+  related?: string[];
   /** Page layout: "doc" (default, sidebar + TOC), "landing" (full-width
    *  marketing) or "hub" (a full-width hero with search above the sidebar —
    *  a help-center home). */
   layout?: "doc" | "landing" | "hub";
-  /** Hub layout only: an illustration beside the hero, and the search box text. */
-  hero?: { image?: string; placeholder?: string };
+  /** Hub layout only: the hero's image, background and search box text. */
+  hero?: {
+    image?: string;
+    /** "contained" (default): a boxed illustration. "bleed": fills the
+     *  hero's right side, top to bottom, cropped to fit. */
+    imageStyle?: "contained" | "bleed";
+    /** An image path or URL (cover-fitted), or any CSS background. */
+    background?: string;
+    /** "light" for light text on a dark background. */
+    text?: "dark" | "light";
+    /** "center" centres the title, lede and search; for a hero without an
+     *  image beside it. */
+    align?: "left" | "center";
+    placeholder?: string;
+  };
+  /** `false` hides the sidebar on desktop, so the page uses the full width
+   *  (it stays in the phone menu). For a help-center home made of cards. */
+  sidebar?: boolean;
   /** Author-curated starter questions for the Ask AI panel on this page (max 3). */
   aiSuggestions?: string[];
 };
@@ -47,17 +67,24 @@ function readMdx(filePath: string): { fm: DocFrontmatter; body: string } {
     title: String(data.title ?? ""),
     lede: data.lede ? String(data.lede) : undefined,
     description: data.description ? String(data.description) : undefined,
-    toc: Array.isArray(data.toc) ? data.toc as TocItem[] : undefined,
+    // A list replaces the automatic "On this page"; `toc: false` hides it.
+    toc: Array.isArray(data.toc) ? (data.toc as TocItem[]) : data.toc === false ? [] : undefined,
     last_updated: data.last_updated ? String(data.last_updated) : undefined,
     crumbs: Array.isArray(data.crumbs) ? data.crumbs : undefined,
+    related: Array.isArray(data.related) ? data.related.filter((r: unknown) => typeof r === "string") : undefined,
     layout: data.layout === "landing" || data.layout === "hub" ? data.layout : undefined,
     hero:
       data.hero && typeof data.hero === "object"
         ? {
             image: typeof data.hero.image === "string" ? data.hero.image : undefined,
+            imageStyle: data.hero.imageStyle === "bleed" ? "bleed" : undefined,
+            background: typeof data.hero.background === "string" ? data.hero.background : undefined,
+            text: data.hero.text === "light" ? "light" : undefined,
+            align: data.hero.align === "center" ? "center" : undefined,
             placeholder: typeof data.hero.placeholder === "string" ? data.hero.placeholder : undefined,
           }
         : undefined,
+    sidebar: data.sidebar === false ? false : undefined,
     aiSuggestions: Array.isArray(data.aiSuggestions)
       ? data.aiSuggestions.filter((s: unknown) => typeof s === "string" && s.trim()).map((s: string) => s.trim()).slice(0, 3)
       : undefined,

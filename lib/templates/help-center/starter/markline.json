@@ -78,6 +78,47 @@
       }
     ]
   },
+  "footer": {
+    "columns": [
+      {
+        "title": "Product",
+        "links": [
+          {
+            "label": "Pricing",
+            "href": "https://example.com/pricing"
+          },
+          {
+            "label": "Status",
+            "href": "https://status.example.com"
+          }
+        ]
+      },
+      {
+        "title": "Support",
+        "links": [
+          {
+            "label": "Contact support",
+            "href": "mailto:support@example.com"
+          },
+          {
+            "label": "Community",
+            "href": "https://example.com/community"
+          }
+        ]
+      }
+    ],
+    "links": [
+      {
+        "label": "Privacy",
+        "href": "https://example.com/privacy"
+      },
+      {
+        "label": "Terms",
+        "href": "https://example.com/terms"
+      }
+    ],
+    "copyright": "\u00a9 2026 Example Inc."
+  },
   "seo": {
     "title": "Help Center",
     "description": "Answers and guides for using the product."

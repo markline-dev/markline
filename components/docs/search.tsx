@@ -11,21 +11,37 @@ type PagefindResult = {
 
 type Pagefind = {
   init?: () => Promise<void>;
-  search: (q: string) => Promise<{ results: { data: () => Promise<PagefindResult> }[] }>;
+  search: (
+    q: string,
+    opts?: { filters?: Record<string, string> },
+  ) => Promise<{ results: { data: () => Promise<PagefindResult> }[] }>;
 };
+
+const BASE = process.env.NEXT_PUBLIC_MARKLINE_BASE_PATH || "";
 
 // The Pagefind bundle is generated into /public/pagefind at build time and
 // served as a static asset — it must not be resolved by the bundler. Respect a
 // configured base path so it resolves under sub-path deployments.
 async function loadPagefind(): Promise<Pagefind | null> {
   try {
-    const base = process.env.NEXT_PUBLIC_MARKLINE_BASE_PATH || "";
     // Runtime-only module, served from <base>/pagefind after build.
-    const pf: Pagefind = await import(/* webpackIgnore: true */ `${base}/pagefind/pagefind.js`);
+    const pf: Pagefind = await import(/* webpackIgnore: true */ `${BASE}/pagefind/pagefind.js`);
     await pf.init?.();
     return pf;
   } catch {
     return null;
+  }
+}
+
+/** The filter chips: each page's collection or sidebar group, in sidebar
+ *  order, written next to the index by scripts/build-search.mjs. */
+async function loadGroups(): Promise<string[]> {
+  try {
+    const res = await fetch(`${BASE}/pagefind/groups.json`);
+    const groups: unknown = res.ok ? await res.json() : [];
+    return Array.isArray(groups) ? groups.filter((g): g is string => typeof g === "string") : [];
+  } catch {
+    return [];
   }
 }
 
@@ -36,6 +52,8 @@ export function DocsSearch({ triggerless = false }: { triggerless?: boolean } = 
   const [results, setResults] = useState<PagefindResult[]>([]);
   const [active, setActive] = useState(0);
   const [ready, setReady] = useState<boolean | null>(null);
+  const [groups, setGroups] = useState<string[]>([]);
+  const [group, setGroup] = useState<string | null>(null);
   const pagefindRef = useRef<Pagefind | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -63,9 +81,10 @@ export function DocsSearch({ triggerless = false }: { triggerless?: boolean } = 
   useEffect(() => {
     if (!open || pagefindRef.current) return;
     let cancelled = false;
-    loadPagefind().then((pf) => {
+    Promise.all([loadPagefind(), loadGroups()]).then(([pf, gs]) => {
       if (cancelled) return;
       pagefindRef.current = pf;
+      setGroups(gs);
       setReady(pf !== null);
     });
     return () => {
@@ -79,6 +98,7 @@ export function DocsSearch({ triggerless = false }: { triggerless?: boolean } = 
       setQuery("");
       setResults([]);
       setActive(0);
+      setGroup(null);
     }
   }, [open]);
 
@@ -89,14 +109,20 @@ export function DocsSearch({ triggerless = false }: { triggerless?: boolean } = 
       setResults([]);
       return;
     }
+    // A slow earlier search mustn't overwrite a newer one's results.
+    let stale = false;
     const t = setTimeout(async () => {
-      const search = await pf.search(query);
+      const search = await pf.search(query, group ? { filters: { group } } : undefined);
       const data = await Promise.all(search.results.slice(0, 8).map((r) => r.data()));
+      if (stale) return;
       setResults(data);
       setActive(0);
     }, 120);
-    return () => clearTimeout(t);
-  }, [query]);
+    return () => {
+      stale = true;
+      clearTimeout(t);
+    };
+  }, [query, group, ready]);
 
   const go = useCallback(
     (url: string) => {
@@ -158,14 +184,38 @@ export function DocsSearch({ triggerless = false }: { triggerless?: boolean } = 
               <kbd className="ml-search-kbd">esc</kbd>
             </div>
 
+            {groups.length > 1 && (
+              <div className="ml-search-groups" role="group" aria-label="Filter by collection">
+                {[null, ...groups].map((g) => (
+                  <button
+                    key={g ?? "__all"}
+                    type="button"
+                    aria-pressed={group === g}
+                    className={group === g ? "on" : undefined}
+                    onClick={() => {
+                      setGroup(g);
+                      inputRef.current?.focus();
+                    }}
+                  >
+                    {g ?? "All"}
+                  </button>
+                ))}
+              </div>
+            )}
+
             <div className="ml-search-results">
+              {ready !== false && !query.trim() && (
+                <p className="ml-search-msg ml-search-empty">Start typing to search{group ? ` ${group}` : ""}.</p>
+              )}
               {ready === false && (
                 <p className="ml-search-msg">
                   Search index not found. Run <code>npm run search</code> (or a full build).
                 </p>
               )}
               {ready !== false && query.trim() && results.length === 0 && (
-                <p className="ml-search-msg">No results for “{query}”.</p>
+                <p className="ml-search-msg ml-search-empty">
+                  No results for “{query}”{group ? ` in ${group}` : ""}.
+                </p>
               )}
               {results.map((r, i) => (
                 <button
@@ -184,6 +234,12 @@ export function DocsSearch({ triggerless = false }: { triggerless?: boolean } = 
                   )}
                 </button>
               ))}
+            </div>
+
+            <div className="ml-search-foot" aria-hidden>
+              <span><kbd>↑</kbd><kbd>↓</kbd> navigate</span>
+              <span><kbd>↵</kbd> select</span>
+              <span><kbd>esc</kbd> close</span>
             </div>
           </div>
         </div>

@@ -13,17 +13,40 @@ import { checkTemplateVersions, deepMerge, loadTemplateChain, templateCss, templ
 
 export type ThemeConfig = {
   /**
-   * Logo: a small `icon` (shown next to the name) and/or a `text` wordmark, or
-   * full `light`/`dark` images. Image paths are served from /public.
+   * Logo: a small `icon` (shown next to the name; a path, or `{ light, dark }`)
+   * and/or a `text` wordmark, or full `light`/`dark` images. Image paths are
+   * served from /public. `iconTile` puts a single dark mark on a tile in the
+   * text colour, inverted in light mode, so it shows in both themes.
    */
-  logo?: { light?: string; dark?: string; text?: string; icon?: string };
+  logo?: {
+    light?: string;
+    dark?: string;
+    text?: string;
+    icon?: string | { light?: string; dark?: string };
+    iconTile?: boolean;
+  };
   /** Brand accent as hex; `primaryDark` is used on dark surfaces. */
-  colors?: { primary?: string; primaryDark?: string };
+  colors?: {
+    primary?: string;
+    primaryDark?: string;
+    /** Text on `primary` (buttons, the brand banner). Default: white, or
+     *  near-black when `primary` is too light for white. */
+    primaryText?: string;
+    /** Text on `primaryDark`, in dark mode. Same default rule. */
+    primaryTextDark?: string;
+  };
   appearance?: "light" | "dark" | "system";
+  /** Phosphor icon weight for every icon: "thin", "light", "regular"
+   *  (default), "bold", "fill" or "duotone". One icon can choose its own as
+   *  "rocket-launch:duotone". */
+  iconWeight?: "thin" | "light" | "regular" | "bold" | "fill" | "duotone";
   /** Favicon path (served from /public). */
   favicon?: string;
-  /** Font family overrides (the font must be system-available or self-loaded). */
+  /** Font family overrides. The font must be installed, or loaded by `url`. */
   font?: {
+    /** Stylesheet(s) that load the fonts, linked from every page: a Google
+     *  Fonts / Bunny / Fontshare URL, or a CSS file in /public. */
+    url?: string | string[];
     sans?: string;
     mono?: string;
     /** Font for page titles and section headings (docs, hub hero, API
@@ -82,6 +105,39 @@ export type NavTab = {
 };
 
 export type TopbarLink = { label: string; href: string };
+/** A header dropdown: a label that opens a list of links. */
+export type TopbarMenu = { label: string; items: (TopbarLink & { description?: string })[] };
+export type TopbarItem = TopbarLink | TopbarMenu;
+
+/** A strip above the header for announcements and promotions. */
+export type BannerConfig = {
+  text: string;
+  /** A link after the text, e.g. `{ "label": "Subscribe", "href": "/pricing" }`. */
+  link?: TopbarLink;
+  /** Last day to show it (`YYYY-MM-DD`); it hides itself after that. */
+  until?: string;
+  /** Let readers close it (default true). Remembered per banner `id`. */
+  dismissible?: boolean;
+  /** Changing it shows the banner again to readers who closed an earlier one.
+   *  Defaults to a hash of the text. */
+  id?: string;
+  /** "neutral" (default) or "brand" (the primary colour). */
+  tone?: "neutral" | "brand";
+};
+
+/** A site footer below every page. Omit it for just "Built with Markline". */
+export type FooterConfig = {
+  /** Columns of links, each under a heading. */
+  columns?: { title: string; links: TopbarLink[] }[];
+  /** Show the site logo (`theme.logo`, or the site name). Default true. */
+  logo?: boolean;
+  /** Social profiles by network: github, x, discord, linkedin, youtube, … */
+  socials?: Record<string, string>;
+  /** Small links in the bottom row, e.g. Privacy and Terms. */
+  links?: TopbarLink[];
+  /** Text in the bottom row, e.g. "© 2026 Acme Inc." */
+  copyright?: string;
+};
 
 /**
  * A documentation version. The first version in the list is the default and is
@@ -341,6 +397,27 @@ export type LayoutConfig = {
   header?: "single" | "stacked";
   /** Where the search box lives: in the docs sidebar (default) or the header. */
   search?: "sidebar" | "header";
+  /** The page column between the sidebar and "On this page": "fluid"
+   *  (default) stretches to fill it; "centered" is a fixed width
+   *  (--content-width, 880px) centred in it. */
+  content?: "fluid" | "centered";
+  /** Breadcrumb style: "slash" (monospace, `/`, default) or "chevron" (body
+   *  font, `›`). */
+  breadcrumbs?: "slash" | "chevron";
+  /** Replaces the first breadcrumb's label (the tab), e.g. "All collections". */
+  breadcrumbsRoot?: string;
+  /** Page actions under the lede: "inline" links (default), or "menu": one
+   *  "Copy for LLM" button with the rest in a dropdown, beside the
+   *  last-updated date. */
+  pageActions?: "inline" | "menu";
+  /** "Related articles" at the end of a page. A page's own frontmatter
+   *  `related` list always shows; "collection" also fills it, on pages
+   *  without one, with the other pages in the same sidebar folder. Default
+   *  "off". */
+  related?: "off" | "collection";
+  /** "flat" (default): the page sits on the background. "panel": the page
+   *  and "On this page" sit on a raised, rounded panel beside the sidebar. */
+  surface?: "flat" | "panel";
 };
 
 export type MarklineConfig = {
@@ -355,10 +432,15 @@ export type MarklineConfig = {
   template?: string;
   theme: ThemeConfig;
   topbar: {
-    links: TopbarLink[];
+    /** Links on the right of the header; a GitHub link shows as the badge.
+     *  An entry with `items` is a dropdown. */
+    links: TopbarItem[];
     /** Extra header nav links shown next to the doc tabs (e.g. marketing anchors). */
     navLinks?: TopbarLink[];
     cta?: TopbarLink;
+    /** A second, outlined button before `cta`. */
+    secondaryCta?: TopbarLink;
+    banner?: BannerConfig;
     badge?: string;
     /** Topbar layout on docs + API reference: "full" (edge-to-edge, default) or
      *  "contained" (centered max-width, aligned to page content). */
@@ -369,6 +451,7 @@ export type MarklineConfig = {
     homeWidth?: "full" | "contained";
   };
   navigation: { tabs: NavTab[] };
+  footer?: FooterConfig;
   seo: SeoConfig;
   api: ApiConfig;
   /** Base URL for "Edit this page" links; the page's content-relative path is appended. */
@@ -395,7 +478,7 @@ const DEFAULT_CONFIG: MarklineConfig = {
     appearance: "system",
     colors: { primary: "#3C87F0", primaryDark: "#6E86FA" },
   },
-  layout: { header: "single", search: "sidebar" },
+  layout: { header: "single", search: "sidebar", content: "fluid", breadcrumbs: "slash", pageActions: "inline", related: "off" },
   topbar: { links: [] },
   navigation: {
     tabs: [
@@ -419,6 +502,8 @@ function mergeConfig(base: MarklineConfig, user: Partial<MarklineConfig>): Markl
       links: user.topbar?.links ?? base.topbar.links,
       navLinks: user.topbar?.navLinks ?? base.topbar.navLinks,
       cta: user.topbar?.cta ?? base.topbar.cta,
+      secondaryCta: user.topbar?.secondaryCta ?? base.topbar.secondaryCta,
+      banner: user.topbar?.banner ?? base.topbar.banner,
       badge: user.topbar?.badge ?? base.topbar.badge,
       width: user.topbar?.width ?? base.topbar.width ?? "full",
       homeWidth: user.topbar?.homeWidth ?? base.topbar.homeWidth ?? "full",
@@ -426,6 +511,7 @@ function mergeConfig(base: MarklineConfig, user: Partial<MarklineConfig>): Markl
     navigation: {
       tabs: user.navigation?.tabs ?? base.navigation.tabs,
     },
+    footer: user.footer ?? base.footer,
     seo: { ...base.seo, ...user.seo },
     api: {
       ...base.api,

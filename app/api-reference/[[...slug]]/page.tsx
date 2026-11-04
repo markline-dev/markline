@@ -13,6 +13,7 @@ import { mdToText } from "@/lib/md-desc";
 import { mdxComponents } from "@/components/docs/mdx";
 import { getHighlighter, shellEnhancer } from "@/lib/shiki";
 import { contentRoot } from "@/lib/paths";
+import { SiteFooter } from "@/components/site-footer";
 import { aiConfig, loadConfig, nonDefaultVersionIds, feedbackConfig } from "@/lib/config";
 
 const shellTransformer = shellEnhancer();
@@ -178,9 +179,8 @@ export default async function ApiReferencePage({ params }: { params: Promise<{ s
         ai={aiConfig()}
         feedbackEnabled={feedbackConfig() != null}
         feedbackEndpoint={feedbackConfig()?.endpoint}
-        siteName={loadConfig().name}
-        year={new Date().getFullYear()}
         searchInSidebar={loadConfig().layout.search !== "header"}
+        footer={loadConfig().footer ? <SiteFooter config={loadConfig()} /> : undefined}
       />
     );
   }

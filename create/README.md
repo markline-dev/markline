@@ -10,6 +10,16 @@ npm install
 npm run dev
 ```
 
+To start from a [template](https://markline.dev/templates), pass `--template`
+after `--`:
+
+```bash
+npm create @markline@latest my-docs -- --template help-center
+```
+
+Built-in templates are `classic`, `paper`, `product-docs` and `help-center`;
+a `./path` to a template folder works too.
+
 ## What it creates
 
 A ready-to-edit docs project that depends on
@@ -17,7 +27,7 @@ A ready-to-edit docs project that depends on
 
 ```text
 my-docs/
-├── docs.json                      # navigation, theme, branding, API settings
+├── markline.json                  # navigation, theme, branding, API settings
 ├── docs/                          # your pages (*.mdx)
 │   ├── index.mdx
 │   └── quickstart.mdx

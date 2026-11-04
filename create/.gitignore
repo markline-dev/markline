@@ -1,3 +1,5 @@
-# Copied from ../templates/init at publish time (prepublishOnly).
+# Copied from the framework at publish time (prepublishOnly).
 /templates
+/builtin-templates
+/scaffold.mjs
 /node_modules

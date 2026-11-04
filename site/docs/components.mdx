@@ -6,6 +6,16 @@ toc:
     label: Callouts
   - id: cards
     label: Cards
+  - id: images
+    label: Images
+  - id: menu-paths
+    label: Menu paths
+  - id: video
+    label: Video
+  - id: audio
+    label: Audio
+  - id: link-lists
+    label: Link lists
   - id: steps
     label: Steps
   - id: tabs-accordions
@@ -25,9 +35,132 @@ toc:
 ## Cards
 
 <CardGroup cols={2}>
-  <Card title="Quickstart" href="/quickstart">Link cards group neatly.</Card>
-  <Card title="CLI" href="/cli">Use them for navigation.</Card>
+  <Card title="Quickstart" icon="rocket-launch" href="/quickstart">Link cards group neatly.</Card>
+  <Card title="CLI" icon="terminal-window" href="/cli">Use them for navigation.</Card>
 </CardGroup>
+
+`icon` takes a [Phosphor](https://phosphoricons.com) icon name, like sidebar
+icons do. An emoji works too.
+
+```mdx
+<Card title="Quickstart" icon="rocket-launch" href="/quickstart">…</Card>
+```
+
+`variant="tile"` puts the icon in a tinted square above the title, for a
+help-center home. Set it on a `<CardGroup>` to style every card in the grid:
+
+<CardGroup cols={2} variant="tile">
+  <Card title="Get started" icon="rocket-launch" href="/quickstart">Set up a project and publish your first page.</Card>
+  <Card title="Components" icon="squares-four" href="/components">Everything you can use in a page.</Card>
+</CardGroup>
+
+```mdx
+<CardGroup cols={3} variant="tile">
+  <Card title="Get started" icon="rocket-launch" href="/quickstart">…</Card>
+</CardGroup>
+```
+
+## Images
+
+Markdown images shrink to fit the text column, with a thin frame. Click one
+that was shrunk to see it full size.
+
+```mdx
+![The Test panel](/shots/test.png "The Test panel, open beside a draft")
+```
+
+The title in quotes shows as a caption. For screenshots that should follow
+the reader's theme, add both and mark them with `#light` and `#dark`; each
+shows only in its theme:
+
+```mdx
+![Inbox](/shots/inbox.png#light)
+![Inbox](/shots/inbox-dark.png#dark)
+```
+
+`#nozoom` turns off click-to-zoom for one image. `<Image>` does all of it
+in one tag:
+
+```mdx
+<Image src="/shots/inbox.png" dark="/shots/inbox-dark.png" alt="Inbox" caption="The Inbox" zoom={false} />
+```
+
+## Menu paths
+
+A route through your product's menus, with each step bold and a chevron
+between them (read aloud as "then"):
+
+```mdx
+Go to <MenuPath>Settings > API keys > New key</MenuPath>.
+```
+
+Bold text with ` → ` or ` › ` in it becomes one automatically, so
+`**Teach → Playbooks**` renders as <MenuPath>Teach > Playbooks</MenuPath>.
+
+## Video
+
+```mdx
+<Video src="https://www.youtube.com/watch?v=…" title="Introduction" />
+<Video src="/videos/setup.mp4" poster="/videos/setup.jpg" caption="Setting up a workspace" />
+```
+
+`src` can be a video file (`.mp4`, `.webm`), played in the browser's own
+player, or a YouTube, Vimeo, Loom or Wistia link, which is turned into that
+provider's embed. YouTube links use its no-cookie domain, and a `?t=` start
+time carries over. Videos fill the column at 16:9, and embeds load when they
+scroll into view.
+
+| Prop | |
+| --- | --- |
+| `src` | A file path or URL, or a video page link |
+| `title` | Names the video for screen readers |
+| `poster` | Image shown before a video file plays |
+| `caption` | Text under the video |
+
+## Audio
+
+A player for voice samples and recorded calls: play and pause, a seek bar
+with the elapsed and total time, 15-second skips, playback speed and mute.
+
+```mdx
+<Audio src="/samples/greeting.mp3" title="Front desk voice" caption="A sample greeting" />
+```
+
+`<AudioGroup>` sets players side by side, for a before and after:
+
+```mdx
+<AudioGroup>
+  <Audio src="/samples/noisy.mp3" title="Original audio" />
+  <Audio src="/samples/clean.mp3" title="Isolated audio" />
+</AudioGroup>
+```
+
+`src` is a file in `public/` or a URL, in any format the browser plays (MP3,
+M4A, WAV, Ogg). Starting one player pauses any other on the page. On phones
+a group stacks. `--audio-accent` in `theme.cssVariables` colours the play
+button and progress (default: the text colour).
+
+## Link lists
+
+Rows of links with a title, an optional description and an icon. Use them
+for collection pages and "see also" lists. The "Related articles" list at the
+end of a page uses the same component.
+
+<LinkList>
+  <LinkItem href="/quickstart" title="Quickstart" description="Create a docs site in under a minute." />
+  <LinkItem href="/templates" title="Templates" meta="4 built in" description="Start from a ready-made look." icon="palette" />
+</LinkList>
+
+```mdx
+<LinkList>
+  <LinkItem href="/quickstart" title="Quickstart" description="Create a docs site in under a minute." />
+  <LinkItem href="/templates" title="Templates" meta="4 built in" description="Start from a ready-made look." icon="palette" />
+</LinkList>
+```
+
+`meta` shows in the accent colour before the description. `icon` takes a
+[Phosphor](https://phosphoricons.com) name in place of the page icon, or
+`"none"`.
 
 ## Steps
 

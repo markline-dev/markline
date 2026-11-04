@@ -1,29 +1,70 @@
 "use client";
 
+import { useEffect, useRef } from "react";
+import { heroBackground } from "@/lib/hero-background";
+
 /**
  * The hub layout's hero (frontmatter `layout: hub`): the page's title and lede
  * with a large search box, full width above the sidebar and content — a
  * help-center home. The box opens the docs search dialog the shell below
  * already mounts, so it searches the same index as ⌘K.
+ *
+ * While the box is on screen, a header search (`layout.search: "header"`)
+ * would be a second box doing the same thing, so it's hidden until the hero
+ * search scrolls away (html[data-hub-search="visible"]).
  */
 export function HubHero({
   title,
   lede,
   image,
+  imageStyle = "contained",
+  background,
+  text = "dark",
+  align = "left",
   placeholder = "Search for articles…",
 }: {
   title: string;
   lede?: string;
   image?: string;
+  /** "bleed" fills the hero's right side, cropped; "contained" boxes it. */
+  imageStyle?: "contained" | "bleed";
+  /** Frontmatter `hero.background`: an image or any CSS background. Without
+   *  it the site-wide `--hub-hero-bg` (theme.cssVariables) applies. */
+  background?: string;
+  /** "light" text for a dark background. */
+  text?: "dark" | "light";
+  /** "center": title, lede and search centred. */
+  align?: "left" | "center";
   placeholder?: string;
 }) {
+  const searchRef = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    const el = searchRef.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const io = new IntersectionObserver(([entry]) => {
+      root.dataset.hubSearch = entry.isIntersecting ? "visible" : "hidden";
+    });
+    io.observe(el);
+    return () => {
+      io.disconnect();
+      delete root.dataset.hubSearch;
+    };
+  }, []);
+
+  const bg = heroBackground(background);
+  const cls = ["hub-hero", image && `hub-hero--image hub-hero--${imageStyle}`, text === "light" && "hub-hero--light", align === "center" && "hub-hero--center"];
   return (
-    <section className={`hub-hero${image ? " hub-hero--image" : ""}`}>
+    <section
+      className={cls.filter(Boolean).join(" ")}
+      style={bg ? ({ "--hub-hero-bg": bg } as React.CSSProperties) : undefined}
+    >
       <div className="hub-hero-in">
         <div className="hub-hero-txt">
           <h1>{title}</h1>
           {lede && <p>{lede}</p>}
           <button
+            ref={searchRef}
             type="button"
             className="hub-search"
             onClick={() => window.dispatchEvent(new CustomEvent("ml-docs-search-open"))}

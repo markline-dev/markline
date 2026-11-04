@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { TocList } from "./toc";
+import { TocList, type TocItem } from "./toc";
 import { DocsRate } from "./feedback";
 import { DocsSearch } from "./search";
 import { SidebarAskButton, SidebarSearchTrigger } from "./doc-actions";
@@ -38,6 +38,9 @@ export type NavData = {
   locales: VariantMeta[];
   defaultId: string;
   tabsByVariant: Record<string, TopTabWithSections[]>;
+  /** The header's extra links (topbar.navLinks, topbar.links, secondaryCta),
+   *  repeated at the foot of the phone drawer, where the header hides them. */
+  headerLinks?: { label: string; href: string }[];
 };
 
 /** Active variant id for a pathname (first path segment if it's a non-default version/locale). */
@@ -246,6 +249,8 @@ export function DocsShell({
   aiSuggestions,
   searchInSidebar = true,
   variant,
+  sidebar = true,
+  footer,
   children,
 }: {
   nav: NavData;
@@ -253,15 +258,21 @@ export function DocsShell({
   searchInSidebar?: boolean;
   /** "hub": no table of contents column, for a page under a HubHero. */
   variant?: "hub";
+  /** False: no sidebar on desktop (frontmatter `sidebar: false`); it stays
+   *  as the phone drawer. */
+  sidebar?: boolean;
   ai?: AiPublicConfig | null;
   /** Page-specific Ask AI starter questions (frontmatter `aiSuggestions`). */
   aiSuggestions?: string[];
+  /** The site footer (`footer` in markline.json), across the full width. */
+  footer?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
-    <div className={`docs-shell grid${variant === "hub" ? " docs-shell--hub" : ""}`}>
+    <div className={`docs-shell grid${variant === "hub" ? " docs-shell--hub" : ""}${sidebar ? "" : " docs-shell--nosidebar"}`}>
       <DocsSidebar nav={nav} ai={ai} aiSuggestions={aiSuggestions} searchInSidebar={searchInSidebar} />
       {children}
+      {footer}
       {/* ⌘K / sidebar-trigger search palette (modal only — the inline trigger
           lives in the sidebar). */}
       <DocsSearch triggerless />
@@ -334,6 +345,17 @@ export function DocsSidebar({
           </div>
         )}
         <SidebarSections sections={sections} pathname={pathname} onNavigate={closeDrawer} />
+        {nav.headerLinks && nav.headerLinks.length > 0 && (
+          <nav className="drawer-links" aria-label="More">
+            {nav.headerLinks.map((l) =>
+              /^[a-z][a-z0-9+.-]*:/i.test(l.href) ? (
+                <a key={l.href + l.label} href={l.href} target="_blank" rel="noopener noreferrer">{l.label}</a>
+              ) : (
+                <Link key={l.href + l.label} href={l.href} onClick={closeDrawer}>{l.label}</Link>
+              ),
+            )}
+          </nav>
+        )}
       </aside>
       {/* Page-level AI affordances (the doc-ai row + View-as-Markdown modal) live
           in the docs shell so they're available on every docs page. */}
@@ -364,7 +386,7 @@ export function DocsToc({
   helpful = true,
   feedbackEndpoint,
 }: {
-  items: { id: string; label: string }[];
+  items: TocItem[];
   helpful?: boolean;
   feedbackEndpoint?: string;
 }) {

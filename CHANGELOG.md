@@ -2,6 +2,15 @@
 
 All notable changes to `@markline/markline` and `@markline/create`.
 
+## Unreleased
+
+### Fixed
+- **API samples.** Generated SDK result variables take the last path segment
+  of the OpenAPI tag, singularize and camelCase it, and append `Result` when
+  the name collides with a reserved word in JS, Python or Go (`types` →
+  `typeResult`). Tags with a trailing slash keep their last segment instead of
+  degrading to `result`.
+
 ## 0.1.7
 
 ### Added

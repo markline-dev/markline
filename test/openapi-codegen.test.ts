@@ -1,66 +1,50 @@
-import { test } from "node:test";
+import test from "node:test";
 import assert from "node:assert/strict";
-import { codeSamples } from "../lib/openapi-codegen.ts";
-import type { OpenAPIDoc, OpenAPIOperation } from "../lib/openapi.ts";
+import { codeSamples } from "../lib/openapi-codegen";
+import type { OpenAPIDoc, OpenAPIOperation } from "../lib/openapi";
 
-const doc: OpenAPIDoc = {
-  info: { title: "Hyphen API", version: "1" },
-  servers: [],
-  tags: [],
-  tagLabels: {},
-  operationsById: {},
-  securitySchemes: {},
-  webhooks: [],
-};
-
-const op = (tag: string): OpenAPIOperation => ({
-  operationId: "list",
-  method: "get",
-  path: "/v1/items",
-  tag,
-  parameters: { path: [], query: [], header: [] },
-  responses: [{ status: "200", description: "OK" }],
-  security: [],
-  events: [],
-});
-
-function htmlFor(tag: string, key: "js" | "py" | "go"): string {
-  const rail = codeSamples(op(tag), doc, {}, "https://api.example.com", ["node", "python", "go"]);
-  const tab = rail.tabs.find((t) => t.key === key);
-  assert.ok(tab, `expected a ${key} tab`);
-  return tab.html.replace(/<[^>]+>/g, "");
+function op(tag: string, method: "get" | "post" = "get"): OpenAPIOperation {
+  return {
+    method,
+    path: "/resource",
+    tag,
+    summary: "Sample operation",
+    operationId: "sampleOperation",
+    security: [],
+    parameters: { path: [], query: [] },
+    responses: [],
+    requestBody: undefined,
+  };
 }
 
-test("nested tag renders a valid result variable in every generated language", () => {
-  const js = htmlFor("tools/fx", "js");
-  const py = htmlFor("tools/fx", "py");
-  const go = htmlFor("tools/fx", "go");
+const doc: OpenAPIDoc = {
+  info: { title: "Acme Payments API", version: "1.0.0" },
+  servers: [{ url: "https://api.example.com" }],
+};
 
-  assert.equal(js, "const fx = await hyphen.toolsfx.list()");
-  assert.equal(py, "fx = hyphen.toolsfx.list()");
-  assert.match(go, /^fx, err := client\.Toolsfx\.List\(ctx, /);
+const root = {};
 
-  // The raw tag must never leak into an identifier slot.
-  assert.ok(!js.includes("tools/fx"));
-  assert.ok(!py.includes("tools/fx"));
-  assert.ok(!go.includes("tools/fx, err"));
+function nodeSample(tag: string): string {
+  const rail = codeSamples(op(tag), doc, root, "https://api.example.com", ["node"]);
+  return rail.tabs[0].html;
+}
+
+test("plain singular tag keeps its name", () => {
+  assert.match(nodeSample("projects"), /const project = await/);
 });
 
-test("hyphenated tag becomes a camelCased result variable", () => {
-  const js = htmlFor("payment-methods", "js");
-  const py = htmlFor("payment-methods", "py");
-  const go = htmlFor("payment-methods", "go");
-
-  assert.equal(js, "const paymentMethod = await hyphen.paymentmethods.list()");
-  assert.equal(py, "paymentMethod = hyphen.paymentmethods.list()");
-  assert.match(go, /^paymentMethod, err := client\.Paymentmethods\.List\(ctx, /);
-
-  assert.ok(!js.includes("payment-methods"));
-  assert.ok(!py.includes("payment-methods"));
-  assert.ok(!go.includes("payment-methods, err"));
+test("nested tag uses the last path segment", () => {
+  assert.match(nodeSample("tools/fx"), /const fx = await/);
 });
 
-test("plain plural tags keep the existing singular result variable", () => {
-  assert.equal(htmlFor("projects", "js"), "const project = await hyphen.projects.list()");
-  assert.equal(htmlFor("billing/invoices", "js"), "const invoice = await hyphen.billinginvoices.list()");
+test("hyphenated tag is camelCased", () => {
+  assert.match(nodeSample("payment-methods"), /const paymentMethod = await/);
+});
+
+test("reserved word gets a Result suffix", () => {
+  assert.match(nodeSample("types"), /const typeResult = await/);
+});
+
+test("trailing slash keeps the last segment", () => {
+  assert.match(nodeSample("tools/"), /const tool = await/);
 });

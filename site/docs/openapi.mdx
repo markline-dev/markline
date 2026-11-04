@@ -221,7 +221,7 @@ assembled from four derived tokens:
 | **client** | first word of `info.title`, lowercased, alphanumerics only (else `client`) | `"Acme Payments API"` → `acme` |
 | **resource** | the operation's **tag**, lowercased and stripped | tag `Payment Methods` → `paymentmethods` |
 | **method** | HTTP verb + path shape | `POST`→`create`, `PUT`/`PATCH`→`update`, `DELETE`→`del`, `GET` with `{id}`→`retrieve`, `GET` without→`list` |
-| **result** | singularized tag | `projects` → `project` |
+| **result** | last path segment of the tag, singularized and camelCased (reserved words get a `Result` suffix) | `projects` → `project`, `tools/fx` → `fx`, `payment-methods` → `paymentMethod`, `types` → `typeResult` |
 
 So the two levers on the generated rails are **`info.title`** (the client name)
 and **your tag names** (the resource accessors). To match a real SDK exactly —

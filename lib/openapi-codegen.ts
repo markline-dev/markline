@@ -107,16 +107,38 @@ function singular(tag: string): string {
   return tag.replace(/ies$/, "y").replace(/s$/, "");
 }
 
+/** Keywords that would make a generated sample invalid in JS, Python or Go.
+ *  Kept small on purpose: the words most likely to surface as a singularized API tag. */
+const RESERVED_WORDS = new Set([
+  // Go
+  "break", "case", "chan", "const", "continue", "default", "defer", "else",
+  "fallthrough", "for", "func", "go", "goto", "if", "import", "interface",
+  "map", "package", "range", "return", "select", "struct", "switch", "type", "var",
+  // Python
+  "and", "as", "assert", "async", "await", "class", "def", "del", "elif",
+  "except", "finally", "false", "from", "global", "in", "is", "lambda", "none",
+  "nonlocal", "not", "or", "pass", "raise", "true", "try", "while", "with", "yield",
+  // JS/TS
+  "abstract", "boolean", "byte", "catch", "char", "class", "const", "debugger",
+  "delete", "do", "double", "enum", "export", "extends", "final", "finally",
+  "float", "function", "implements", "instanceof", "int", "interface", "let",
+  "long", "native", "new", "null", "package", "private", "protected", "public",
+  "return", "short", "static", "super", "synchronized", "this", "throw",
+  "throws", "transient", "typeof", "var", "void", "volatile", "with", "yield",
+]);
+
 /** Valid result-variable name for a tag ("tools/fx" → "fx", "payment-methods" → "paymentMethod").
  *  Tags may contain "/", "-" or spaces, none of which can appear in an identifier
- *  in the generated JS, Python or Go samples. */
+ *  in the generated JS, Python or Go samples. Words reserved in any of those
+ *  languages get a "Result" suffix ("types" → "typeResult"). */
 function resultVar(tag: string): string {
-  const last = tag.split("/").pop() ?? tag;
+  const last = tag.split("/").filter(Boolean).pop() ?? "";
   const pascalized = singular(last).replace(/(^|[^a-zA-Z0-9]+)([a-zA-Z0-9])/g, (_, __, c: string) => c.toUpperCase());
   const alnum = pascalized.replace(/[^a-zA-Z0-9]/g, "");
   if (!alnum) return "result";
   const camel = alnum[0].toLowerCase() + alnum.slice(1);
-  return /^[0-9]/.test(camel) ? `r${camel}` : camel;
+  const base = /^[0-9]/.test(camel) ? `r${camel}` : camel;
+  return RESERVED_WORDS.has(base) ? `${base}Result` : base;
 }
 
 /** SDK method name from HTTP method + path cardinality. */
@@ -284,7 +306,7 @@ export function successResponse(
  * Every documented response with a renderable body — success first, then errors —
  * for the code card's status-code switcher. Each carries a tone (2xx → green,
  * anything else → red) and a colorized sample. Responses without a schema/example
- * are dropped; if none qualify, returns an empty list.
+ * are dropped; if none qualifies, returns an empty list.
  */
 export function allResponses(
   op: OpenAPIOperation,

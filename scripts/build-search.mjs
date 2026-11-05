@@ -13,6 +13,7 @@ import * as pagefind from "pagefind";
 import { orderedResourceTags } from "./openapi-order.mjs";
 import { searchGroups, searchTrails } from "./search-groups.mjs";
 import { markdownPath, mdxToMarkdown, pageMarkdown, sectionIds, sectionIndex } from "./llms.mjs";
+import { removeGeneratedFiles, writeManifest } from "./generated-files.mjs";
 import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
@@ -421,18 +422,9 @@ function writeLlms(root) {
    previous build's files are removed first. A file the site's own public/
    already has is never overwritten. */
 
-const MANIFEST = ".markline-generated.json";
-
 function writeMarkdownFiles(root, cfg, opts, sectionList) {
   const pub = path.join(process.cwd(), "public");
-  const manifestFile = path.join(pub, MANIFEST);
-  let previous = [];
-  try {
-    previous = JSON.parse(fs.readFileSync(manifestFile, "utf8"));
-  } catch {
-    // first build
-  }
-  for (const rel of previous) fs.rmSync(path.join(pub, rel), { force: true });
+  removeGeneratedFiles(pub);
 
   const written = [];
   const write = (rel, text) => {
@@ -451,7 +443,7 @@ function writeMarkdownFiles(root, cfg, opts, sectionList) {
   }
   for (const id of sectionList) write(`${id}/llms.txt`, sectionIndex(cfg, docs, id, opts));
 
-  fs.writeFileSync(manifestFile, JSON.stringify(written));
+  writeManifest(pub, written);
   const pages = written.filter((f) => f.endsWith(".md")).length;
   console.log(`[markline] ${pages} page .md files + ${written.length - pages} section llms.txt -> public/`);
 }

@@ -1,5 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 type Doc = { url: string; title: string; lede?: string; body: string; layout?: string };
 type Llms = {
@@ -91,4 +94,21 @@ test("import lines in code blocks are kept", async () => {
   const { pageMarkdown } = await load();
   const md = pageMarkdown({ title: "T", body: 'import A from "a";\n\n```python\nimport requests\nexport_x = 1\n```\n' });
   assert.equal(md, "# T\n\n```python\nimport requests\nexport_x = 1\n```\n");
+});
+
+test("removing generated files keeps the site's own", async (t) => {
+  const modulePath = "../scripts/generated-files.mjs";
+  const { removeGeneratedFiles, writeManifest } = (await import(modulePath)) as unknown as {
+    removeGeneratedFiles: (pub: string) => void;
+    writeManifest: (pub: string, files: string[]) => void;
+  };
+  const pub = fs.mkdtempSync(path.join(os.tmpdir(), "markline-public-"));
+  t.after(() => fs.rmSync(pub, { recursive: true, force: true }));
+  removeGeneratedFiles(pub); // no manifest yet: nothing to do
+  fs.mkdirSync(path.join(pub, "guides"));
+  for (const f of ["guides/a.md", "guides/llms.txt", "own.md"]) fs.writeFileSync(path.join(pub, f), "x");
+  writeManifest(pub, ["guides/a.md", "guides/llms.txt", "already-gone.md"]);
+  removeGeneratedFiles(pub);
+  assert.deepEqual(fs.readdirSync(pub).sort(), ["guides", "own.md"]);
+  assert.deepEqual(fs.readdirSync(path.join(pub, "guides")), []);
 });

@@ -11,8 +11,9 @@ All notable changes to `@markline/markline` and `@markline/create`.
   uses the checkout's dependencies, so a docs folder needs no install.
 - **Try it proxy needs a configured API.** A site with no `api.baseUrl` and no
   absolute URL in the spec's `servers` must set `api.baseUrl` for the proxy to
-  work. Responses over 25 MB return an error, and headers about the connection
-  or the reader's session on the docs site, such as `Cookie`, aren't forwarded.
+  work. Responses over 25 MB, requests over 35 MB and calls over 120 seconds
+  return an error, and headers about the connection or the reader's session on
+  the docs site, such as `Cookie`, aren't forwarded.
 
 ## 0.1.7
 

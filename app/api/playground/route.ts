@@ -1,31 +1,49 @@
 import { NextResponse } from "next/server";
-import { loadConfig } from "@/lib/config";
+import { loadConfig, nonDefaultVersionIds } from "@/lib/config";
 import { loadOpenApi } from "@/lib/openapi";
-import { forwardableHeaders, MAX_PROXY_RESPONSE_BYTES, originsOf, readCapped } from "@/lib/playground-proxy";
+import {
+  forwardableHeaders,
+  MAX_PROXY_REQUEST_BYTES,
+  MAX_PROXY_RESPONSE_BYTES,
+  originsOf,
+  readCapped,
+  UPSTREAM_TIMEOUT_MS,
+} from "@/lib/playground-proxy";
 
 // Server-side proxy for the API playground — used when a request can't be sent
 // directly from the browser (CORS). Only present on a Node/Docker/Vercel
 // deployment; static export omits API routes, and the client falls back to a
 // direct fetch.
 //
-// It only forwards to the origins of api.baseUrl and the OpenAPI spec's absolute
-// servers, and with neither set it forwards nothing.
+// It only forwards to the origins of api.baseUrl and the absolute servers of the
+// OpenAPI specs (every version's), and with none of those it forwards nothing.
 
 export const dynamic = "force-dynamic";
 
+const megabytes = (bytes: number) => bytes / (1024 * 1024);
+
 function allowedOrigins(): string[] {
   try {
-    return originsOf([loadConfig().api.baseUrl, ...loadOpenApi().servers.map((s) => s.url)]);
+    const config = loadConfig();
+    const specs = [undefined, ...nonDefaultVersionIds(config)].map((id) => loadOpenApi(id));
+    return originsOf([config.api.baseUrl, ...specs.flatMap((spec) => spec.servers.map((s) => s.url))]);
   } catch {
     return []; // can't tell what's allowed, so nothing is
   }
 }
 
 export async function POST(req: Request) {
+  const raw = await readCapped(req, MAX_PROXY_REQUEST_BYTES);
+  if (raw === null) {
+    return NextResponse.json({ error: `The request is larger than the ${megabytes(MAX_PROXY_REQUEST_BYTES)} MB the proxy accepts.` }, { status: 413 });
+  }
   let payload: { url?: string; method?: string; headers?: Record<string, string>; body?: string };
   try {
-    payload = await req.json();
+    payload = JSON.parse(raw);
   } catch {
+    return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
+  }
+  if (typeof payload !== "object" || payload === null || Array.isArray(payload)) {
     return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
   }
 
@@ -64,14 +82,17 @@ export async function POST(req: Request) {
       headers: forwardableHeaders(headers),
       body: ["GET", "HEAD"].includes(method.toUpperCase()) ? undefined : body,
       redirect: "manual",
-      signal: request.signal,
+      // Over the cap, out of time, or the reader has gone.
+      signal: AbortSignal.any([request.signal, AbortSignal.timeout(UPSTREAM_TIMEOUT_MS), req.signal]),
+      // Never Next's data cache: these are one reader's calls, and caching one would
+      // buffer the whole response first, whatever the cap below says.
       cache: "no-store",
     });
     const text = await readCapped(upstream);
     if (text === null) {
       request.abort();
       return NextResponse.json(
-        { error: `The response is larger than the ${MAX_PROXY_RESPONSE_BYTES / (1024 * 1024)} MB the proxy returns.` },
+        { error: `The response is larger than the ${megabytes(MAX_PROXY_RESPONSE_BYTES)} MB the proxy returns.` },
         { status: 413 },
       );
     }
@@ -82,6 +103,9 @@ export async function POST(req: Request) {
       body: text,
     });
   } catch (e) {
+    if (e instanceof Error && e.name === "TimeoutError") {
+      return NextResponse.json({ error: `The API didn't finish responding within ${UPSTREAM_TIMEOUT_MS / 1000} s.` }, { status: 504 });
+    }
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Upstream request failed" },
       { status: 502 },

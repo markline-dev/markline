@@ -309,7 +309,8 @@ deployment and is dropped in static export. On a static host, set
 
 The proxy forwards only to the origin of `api.baseUrl` or an absolute URL in the
 spec's `servers`, so set `api.baseUrl` if your servers are relative or templated.
-Responses over 25 MB return an error.
+Responses over 25 MB, requests over 35 MB and calls that take longer than 120
+seconds return an error.
 
 ## Events & webhooks
 

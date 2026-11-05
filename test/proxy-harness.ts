@@ -25,18 +25,27 @@ export async function startStub(handler: RequestListener) {
 }
 
 /** Points the app at a temp content folder, then loads the route. */
-export async function loadRoute(content: { config: object; spec?: string }) {
+export async function loadRoute(content: { config: object; spec?: string; versionSpecs?: Record<string, string> }) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), "markline-proxy-"));
   fs.writeFileSync(path.join(dir, "markline.json"), JSON.stringify(content.config));
   if (content.spec !== undefined) {
     fs.mkdirSync(path.join(dir, "api"));
     fs.writeFileSync(path.join(dir, "api", "openapi.json"), content.spec);
   }
+  for (const [id, spec] of Object.entries(content.versionSpecs ?? {})) {
+    fs.mkdirSync(path.join(dir, id, "api"), { recursive: true });
+    fs.writeFileSync(path.join(dir, id, "api", "openapi.json"), spec);
+  }
   process.env.MARKLINE_CONTENT = dir;
   const { POST } = await import("../app/api/playground/route");
   return {
-    send: async (payload: object) => {
-      const res = await POST(new Request("http://docs.test/api/playground", { method: "POST", body: JSON.stringify(payload) }));
+    send: async (payload: object, signal?: AbortSignal) => {
+      const res = await POST(new Request("http://docs.test/api/playground", { method: "POST", body: JSON.stringify(payload), signal }));
+      return { status: res.status, data: (await res.json()) as Record<string, unknown> };
+    },
+    /** Sends a request as given, for its size handling. */
+    sendRaw: async (init: RequestInit) => {
+      const res = await POST(new Request("http://docs.test/api/playground", { method: "POST", ...init }));
       return { status: res.status, data: (await res.json()) as Record<string, unknown> };
     },
     cleanup: () => fs.rmSync(dir, { recursive: true, force: true }),

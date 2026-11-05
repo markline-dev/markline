@@ -1,6 +1,6 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
-import { forwardableHeaders, MAX_PROXY_RESPONSE_BYTES, originsOf, readCapped } from "../lib/playground-proxy";
+import { forwardableHeaders, MAX_PROXY_REQUEST_BYTES, MAX_PROXY_RESPONSE_BYTES, originsOf, readCapped, UPSTREAM_TIMEOUT_MS } from "../lib/playground-proxy";
 import { loadRoute, startStub } from "./proxy-harness";
 
 const MB = 1024 * 1024;
@@ -12,6 +12,17 @@ const api = await startStub((req, res) => {
   seen = req.headers;
   res.on("close", () => closed.set(url, !res.writableFinished));
   if (url === "/ok") return res.end("hello");
+  if (url === "/hang") return; // headers never come
+  if (url === "/stall") {
+    res.writeHead(200);
+    return res.write("partial"); // the body never finishes
+  }
+  if (url === "/echo-size") {
+    let size = 0;
+    req.on("data", (c: Buffer) => (size += c.length));
+    req.on("end", () => res.end(String(size)));
+    return;
+  }
   if (url === "/redirect") {
     res.writeHead(302, { location: `http://127.0.0.1:${other.port}/secret` });
     return res.end();
@@ -49,6 +60,20 @@ after(() => {
   api.stop();
   other.stop();
   route.cleanup();
+});
+
+test("the upstream call never uses Next's data cache", async (t) => {
+  const realFetch = globalThis.fetch;
+  t.after(() => {
+    globalThis.fetch = realFetch;
+  });
+  let cache: RequestCache | undefined;
+  globalThis.fetch = (input, init) => {
+    cache = init?.cache;
+    return realFetch(input, init);
+  };
+  await route.send({ url: at("/ok") });
+  assert.equal(cache, "no-store");
 });
 
 test("an allowed origin is forwarded", async () => {
@@ -159,6 +184,81 @@ test("over the cap still drops the upstream when the body has been cloned", { ti
   assert.equal(status, 413);
   await new Promise((r) => setTimeout(r, 100));
   assert.equal(closed.get("/drip"), true);
+});
+
+test("an upstream that takes too long is a 504 and is dropped", { timeout: 30_000 }, async (t) => {
+  const real = AbortSignal.timeout;
+  t.after(() => {
+    AbortSignal.timeout = real;
+  });
+  const asked: number[] = [];
+  AbortSignal.timeout = (ms) => {
+    asked.push(ms);
+    return real.call(AbortSignal, 100);
+  };
+  for (const path of ["/hang", "/stall"]) {
+    const { status, data } = await route.send({ url: at(path) });
+    assert.equal(status, 504, path);
+    assert.match(String(data.error), /120 s/);
+    await new Promise((r) => setTimeout(r, 100));
+    assert.equal(closed.get(path), true, `${path} was dropped`);
+  }
+  assert.deepEqual(asked, [UPSTREAM_TIMEOUT_MS, UPSTREAM_TIMEOUT_MS]);
+  assert.equal(UPSTREAM_TIMEOUT_MS, 120_000);
+});
+
+test("the upstream is dropped when the client leaves", { timeout: 30_000 }, async () => {
+  closed.delete("/stall");
+  const client = new AbortController();
+  const sent = route.send({ url: at("/stall") }, client.signal);
+  while (!api.hits.includes("/stall")) await new Promise((r) => setImmediate(r));
+  await new Promise((r) => setTimeout(r, 50));
+  client.abort();
+  await sent;
+  await new Promise((r) => setTimeout(r, 100));
+  assert.equal(closed.get("/stall"), true);
+});
+
+const streamOf = (total: number, chunk = 4 * 1024 * 1024) => {
+  let sent = 0;
+  return new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (sent >= total) return controller.close();
+      sent += chunk;
+      controller.enqueue(new Uint8Array(chunk));
+    },
+  });
+};
+const overCap = MAX_PROXY_REQUEST_BYTES + 8 * 1024 * 1024;
+
+test("a request over the cap is a 413, however it's labelled", { timeout: 30_000 }, async () => {
+  const before = api.hits.length;
+  const cases: [string, RequestInit][] = [
+    ["declared too big", { headers: { "content-length": String(overCap) }, body: "{}" }],
+    ["no Content-Length", { body: streamOf(overCap), duplex: "half" } as RequestInit],
+    ["Content-Length too small", { headers: { "content-length": "10" }, body: streamOf(overCap), duplex: "half" } as RequestInit],
+  ];
+  for (const [name, init] of cases) {
+    const { status, data } = await route.sendRaw(init);
+    assert.equal(status, 413, name);
+    assert.match(String(data.error), /35 MB/, name);
+  }
+  assert.equal(api.hits.length, before, "nothing was forwarded");
+});
+
+test("a request with 25 MB of base64 in it fits", { timeout: 30_000 }, async () => {
+  const base64 = "a".repeat(Math.ceil((25 * 1024 * 1024 * 4) / 3));
+  const payload = JSON.stringify({ url: at("/echo-size"), method: "POST", body: base64 });
+  assert.ok(payload.length < MAX_PROXY_REQUEST_BYTES);
+  const { status, data } = await route.sendRaw({ body: payload });
+  assert.equal(status, 200);
+  assert.equal(data.body, String(base64.length));
+});
+
+test("a request that isn't a JSON object is a 400", async () => {
+  for (const body of ["nope", "null", "[]", "1"]) {
+    assert.equal((await route.sendRaw({ body })).status, 400, body);
+  }
 });
 
 test("origins are normalised, and only http(s) ones count", () => {

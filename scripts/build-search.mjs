@@ -439,6 +439,8 @@ function writeMarkdownFiles(root, cfg, opts, sectionList) {
   const variants = contentPrefixIds(root).flatMap((id) => [...docPagesForLlms(root, id).values()]);
   for (const d of [...docs, ...variants]) {
     if (d.layout === "landing") continue;
+    // With entries, /changelog is them; its .mdx is only the intro.
+    if (d.url === "/changelog" && changelogEntries(root).length) continue;
     write(markdownPath(d.url).slice(1), pageMarkdown(d));
   }
   for (const id of sectionList) write(`${id}/llms.txt`, sectionIndex(cfg, docs, id, opts));

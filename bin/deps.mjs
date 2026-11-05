@@ -2,24 +2,37 @@
 // there. Dependency-free, so it's unit-tested without staging an app.
 
 import fs from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 
 /**
- * Where the app's dependencies live: the consumer's own node_modules when
- * @markline/markline is installed there, else the framework checkout's, so a
- * bare content folder runs with `node ../markline/bin/markline.mjs dev`.
+ * Next's package.json, by module resolution from the framework: when
+ * @markline/markline is installed as a dependency, npm hoists `next` to the
+ * consumer's top-level node_modules, not under our package. Resolving from
+ * appDir walks up to wherever it actually lives.
  */
-export function depsDir(contentDir, appDir) {
-  for (const dir of [path.join(contentDir, "node_modules"), path.join(appDir, "node_modules")]) {
-    if (fs.existsSync(path.join(dir, "next"))) return dir;
+export function nextPackageJson(appDir) {
+  return createRequire(path.join(appDir, "package.json")).resolve("next/package.json");
+}
+
+/**
+ * Where the app's dependencies live: the node_modules that holds the Next the
+ * CLI runs, so the two are always the same install. That's the project's own
+ * when @markline/markline is installed there, and the framework checkout's when
+ * the CLI runs from one, whatever the docs folder has installed itself.
+ */
+export function depsDir(appDir) {
+  try {
+    return path.dirname(path.dirname(nextPackageJson(appDir)));
+  } catch {
+    return null;
   }
-  return null;
 }
 
 /**
  * Point the link at `deps`, replacing one left by an earlier run: its target
- * may be gone (a removed checkout) or no longer the right one (the project has
- * since installed its own). With no `deps` an old link is just removed, so
+ * may be gone (a removed checkout) or no longer the right one (the package has
+ * since been installed). With no `deps` an old link is just removed, so
  * Node resolves upward from the staged app. A real folder is left alone.
  */
 export function linkDeps(link, deps) {

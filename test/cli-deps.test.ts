@@ -5,7 +5,8 @@ import os from "node:os";
 import path from "node:path";
 
 type Deps = {
-  depsDir: (contentDir: string, appDir: string) => string | null;
+  depsDir: (appDir: string) => string | null;
+  nextPackageJson: (appDir: string) => string;
   linkDeps: (link: string, deps: string | null) => void;
 };
 
@@ -27,18 +28,36 @@ function nodeModules(dir: string): string {
   return nm;
 }
 
-test("the project's own next wins, else the checkout's, else none", async (t) => {
-  const { depsDir } = await load();
-  const root = tmp(t);
-  const content = path.join(root, "site");
-  const app = path.join(root, "markline");
-  fs.mkdirSync(path.join(content, "node_modules"), { recursive: true });
-  fs.mkdirSync(app);
-  assert.equal(depsDir(content, app), null);
-  const appDeps = nodeModules(app);
-  assert.equal(depsDir(content, app), appDeps); // node_modules without next doesn't count
-  const own = nodeModules(content);
-  assert.equal(depsDir(content, app), own);
+/** A framework installed under `project`, with nothing to resolve yet. */
+function installedApp(root: string, project: string): string {
+  const app = path.join(root, project, "node_modules", "@markline", "markline");
+  fs.mkdirSync(app, { recursive: true });
+  fs.writeFileSync(path.join(app, "package.json"), "{}");
+  return app;
+}
+
+function installNext(nm: string): string {
+  fs.mkdirSync(path.join(nm, "next"), { recursive: true });
+  fs.writeFileSync(path.join(nm, "next", "package.json"), "{}");
+  return nm;
+}
+
+// Separate projects: Node caches a resolved path for the life of the process.
+test("the deps are the node_modules holding the next the app resolves", async (t) => {
+  const { depsDir, nextPackageJson } = await load();
+  const root = fs.realpathSync(tmp(t));
+
+  assert.equal(depsDir(installedApp(root, "none")), null);
+
+  const hoistedApp = installedApp(root, "hoisted");
+  const hoisted = installNext(path.join(root, "hoisted", "node_modules"));
+  assert.equal(depsDir(hoistedApp), hoisted);
+  assert.equal(nextPackageJson(hoistedApp), path.join(hoisted, "next", "package.json"));
+
+  const nestedApp = installedApp(root, "nested"); // a version clash keeps next under us
+  installNext(path.join(root, "nested", "node_modules"));
+  const nested = installNext(path.join(nestedApp, "node_modules"));
+  assert.equal(depsDir(nestedApp), nested);
 });
 
 test("a link whose target is gone is replaced, not an EEXIST crash", async (t) => {

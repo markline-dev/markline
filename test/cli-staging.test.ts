@@ -208,14 +208,15 @@ test("a configured output folder survives between runs, and its build's own link
   assert.equal(fs.existsSync(path.join(work, ".next-x")), false);
 });
 
-test("a configured output folder from the project's .env is kept too", (t) => {
+test("an output folder can't be set from an env file", (t) => {
   const { app, site, work, run } = setup(t);
   installNextEnv(app);
   fs.writeFileSync(path.join(site, ".env.local"), "MARKLINE_DIST=.next-y\n");
   fs.mkdirSync(path.join(work, ".next-y"), { recursive: true });
-  fs.writeFileSync(path.join(work, ".next-y", "BUILD_ID"), "id");
-  assert.equal(run().status, 0);
-  assert.ok(fs.existsSync(path.join(work, ".next-y", "BUILD_ID")));
+  const r = run();
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stderr, /MARKLINE_DIST/);
+  assert.equal(fs.existsSync(path.join(work, ".next-y")), false, "it's a leftover");
 });
 
 test("export reads a configured output folder", (t) => {
@@ -241,21 +242,97 @@ test("export fails rather than leaving an empty out/", (t) => {
   assert.equal(fs.existsSync(path.join(site, "out")), false);
 });
 
-test("the project's env files reach Next, and the shell's values win", (t) => {
+/** Has the fake next record the environment it was started with. */
+function recordEnv(app: string, out: string) {
+  installNextEnv(app);
+  fs.writeFileSync(path.join(app, "node_modules", "next", "dist", "bin", "next"), `require("node:fs").writeFileSync(${JSON.stringify(out)}, JSON.stringify(process.env));`);
+}
+
+test("site settings in env files reach Next, and the shell's values win", (t) => {
   const { app, site, run, root } = setup(t);
   const out = path.join(root, "seen.json");
-  fs.writeFileSync(
-    path.join(app, "node_modules", "next", "dist", "bin", "next"),
-    `require("node:fs").writeFileSync(${JSON.stringify(out)}, JSON.stringify({ a: process.env.PROJECT_A, b: process.env.PROJECT_B, c: process.env.PROJECT_C }));`,
-  );
-  installNextEnv(app);
-  fs.writeFileSync(path.join(site, ".env.local"), "PROJECT_A=from-local\nPROJECT_B=from-local\n");
-  fs.writeFileSync(path.join(site, ".env"), "PROJECT_A=from-env\nPROJECT_C=from-env\n");
-  const r = run("start", { PROJECT_B: "from-shell" });
+  recordEnv(app, out);
+  fs.writeFileSync(path.join(site, ".env.local"), "MARKLINE_AI_KEY=from-local\nMARKLINE_SITE_URL=https://local.test\nNEXT_PUBLIC_THING=from-local\n");
+  fs.writeFileSync(path.join(site, ".env"), "MARKLINE_AI_KEY=from-env\nMARKLINE_BASE_PATH=/from-env\n");
+  const r = run("start", { MARKLINE_SITE_URL: "https://shell.test" });
   assert.equal(r.status, 0, r.stderr);
-  assert.deepEqual(JSON.parse(fs.readFileSync(out, "utf8")), { a: "from-local", b: "from-shell", c: "from-env" });
+  const seen = JSON.parse(fs.readFileSync(out, "utf8"));
+  assert.equal(seen.MARKLINE_AI_KEY, "from-local");
+  assert.equal(seen.MARKLINE_SITE_URL, "https://shell.test");
+  assert.equal(seen.MARKLINE_BASE_PATH, "/from-env");
+  assert.equal(seen.NEXT_PUBLIC_THING, "from-local");
+  assert.equal(seen.__NEXT_PROCESSED_ENV, "true", "Next doesn't load them again, unfiltered");
 });
 
+test("env files can't change how Markline or Node runs", (t) => {
+  const { app, site, run, root } = setup(t);
+  const out = path.join(root, "seen.json");
+  recordEnv(app, out);
+  const dangerous = {
+    NODE_OPTIONS: "--require ./evil.cjs",
+    NODE_PATH: "/evil",
+    NODE_ENV: "development",
+    PATH: "/evil",
+    MARKLINE_DIST: "node_modules",
+    MARKLINE_CONTENT: "/evil",
+    MARKLINE_CONFIG: "/evil",
+    MARKLINE_EXPORT: "1",
+    __NEXT_PRIVATE_ORIGIN: "http://evil.test",
+    __NEXT_PROCESSED_ENV: "",
+    DYLD_INSERT_LIBRARIES: "/evil",
+    LD_PRELOAD: "/evil",
+  };
+  const text = Object.entries(dangerous).map(([k, v]) => `${k}=${v}`).join("\n");
+  fs.writeFileSync(path.join(site, ".env"), text);
+  const before = { ...process.env };
+  const r = run();
+  assert.equal(r.status, 0, r.stderr);
+  const seen = JSON.parse(fs.readFileSync(out, "utf8"));
+  for (const name of Object.keys(dangerous)) {
+    if (name === "__NEXT_PROCESSED_ENV") continue;
+    if (name === "MARKLINE_CONTENT" || name === "MARKLINE_CONFIG") assert.notEqual(seen[name], "/evil", name);
+    else assert.equal(seen[name], before[name], name);
+  }
+  assert.doesNotMatch(r.stderr, /--require|\/evil/, "values aren't printed");
+  assert.match(r.stderr, /NODE_OPTIONS/, "the names are");
+});
+
+test("env files left in the staging folder still work, and the project's win", (t) => {
+  const { app, site, work, run, root } = setup(t);
+  const out = path.join(root, "seen.json");
+  recordEnv(app, out);
+  fs.mkdirSync(work);
+  fs.writeFileSync(path.join(work, ".env.local"), "MARKLINE_AI_KEY=old-secret\nMARKLINE_SITE_URL=https://old.test\nNODE_OPTIONS=--require ./evil.cjs\n");
+  fs.writeFileSync(path.join(site, ".env"), "MARKLINE_SITE_URL=https://project.test\n");
+  const r = run();
+  assert.equal(r.status, 0, r.stderr);
+  const seen = JSON.parse(fs.readFileSync(out, "utf8"));
+  assert.equal(seen.MARKLINE_AI_KEY, "old-secret");
+  assert.equal(seen.MARKLINE_SITE_URL, "https://project.test");
+  assert.equal(seen.NODE_OPTIONS, process.env.NODE_OPTIONS);
+  assert.equal(r.stderr.match(/beside markline\.json/g)?.length, 1, "says so once");
+  assert.doesNotMatch(r.stderr, /old-secret/);
+});
+
+test("no warning about env files when there's nothing to move", (t) => {
+  const { app, site, run, root } = setup(t);
+  recordEnv(app, path.join(root, "seen.json"));
+  fs.writeFileSync(path.join(site, ".env"), "MARKLINE_SITE_URL=https://project.test\nDATABASE_URL=unrelated\n");
+  const r = run();
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(r.stderr, "");
+});
+
+test("init keeps an existing .gitignore", async (t) => {
+  const modulePath = "../bin/scaffold.mjs";
+  const { scaffold } = (await import(modulePath)) as unknown as { scaffold: (target: string, o: { initDir: string }) => void };
+  const target = fs.mkdtempSync(path.join(os.tmpdir(), "markline-new-"));
+  t.after(() => fs.rmSync(target, { recursive: true, force: true }));
+  fs.writeFileSync(path.join(target, ".gitignore"), "mine\n");
+  scaffold(target, { initDir: path.join(import.meta.dirname, "..", "templates", "init") });
+  assert.equal(fs.readFileSync(path.join(target, ".gitignore"), "utf8"), "mine\n");
+  assert.equal(fs.existsSync(path.join(target, "_gitignore")), false);
+});
 
 test("a new project gets a .gitignore that covers the staging folder", async (t) => {
   const modulePath = "../bin/scaffold.mjs";

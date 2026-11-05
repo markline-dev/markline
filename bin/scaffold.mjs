@@ -24,9 +24,12 @@ export function isLocalTemplate(spec) {
  * markline.json. `spec` is what the user typed; `tplDir` is where it resolved.
  */
 export function scaffold(target, { initDir, spec, tplDir }) {
+  // npm won't publish a file named .gitignore, so it ships under this name. One
+  // that's already there is the project's own.
+  const hadGitignore = fs.existsSync(path.join(target, ".gitignore"));
   copyDir(initDir, target);
-  // npm won't publish a file named .gitignore, so it ships under this name.
-  fs.renameSync(path.join(target, "_gitignore"), path.join(target, ".gitignore"));
+  if (hadGitignore) fs.rmSync(path.join(target, "_gitignore"));
+  else fs.renameSync(path.join(target, "_gitignore"), path.join(target, ".gitignore"));
   if (!tplDir) return;
 
   // The template's starter files replace the matching default ones.

@@ -10,6 +10,7 @@ import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import { prepareWorkDir } from "./staging-folder.mjs";
 import { depsDir, linkDeps, nextPackageJson } from "./deps.mjs";
+import { loadSiteEnv } from "./site-env.mjs";
 import { isLocalTemplate, scaffold } from "./scaffold.mjs";
 import { stagePublic } from "./stage-public.mjs";
 
@@ -64,20 +65,6 @@ function readPkgVersion() {
   } catch {
     return "0.0.0";
   }
-}
-
-/**
- * Next reads .env files from where it runs, which is the staging folder, so load
- * the project's own here. Values already in the environment win, as they do in Next.
- */
-function loadProjectEnv(dev) {
-  let loadEnvConfig;
-  try {
-    ({ loadEnvConfig } = createRequire(path.join(APP_DIR, "package.json"))("@next/env"));
-  } catch {
-    return; // comes with Next, so an install without it has bigger problems
-  }
-  loadEnvConfig(CONTENT_DIR, dev, { info() {}, error: console.error }, true);
 }
 
 function baseEnv(extra = {}) {
@@ -269,7 +256,7 @@ async function main() {
     process.exit(1);
   }
   try {
-    if (["dev", "build", "start", "export"].includes(cmd)) loadProjectEnv(cmd === "dev");
+    if (["dev", "build", "start", "export"].includes(cmd)) loadSiteEnv(APP_DIR, CONTENT_DIR, WORK_DIR, cmd === "dev");
     await handler(args);
   } catch (err) {
     console.error(`\n  ${err instanceof Error ? err.message : err}\n`);

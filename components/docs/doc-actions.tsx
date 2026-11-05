@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
+import { pageToMarkdown as renderPage } from "@/lib/page-markdown";
 import { openAskPanel } from "./ai/ask-dock";
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -42,49 +43,13 @@ const MarkdownIcon = (
   </svg>
 );
 
-/** Render the current docs page (title + lede + prose) to Markdown from the DOM. */
+/** The current docs page (title + lede + prose) as Markdown, from the DOM. */
 function pageToMarkdown(title: string): string {
-  const clean = (s?: string | null) => (s || "").replace(/\s+/g, " ").trim();
-  let md = `# ${clean(title)}\n\n`;
-  const lead = document.querySelector(".docs-shell .docs-lead");
-  if (lead) md += clean(lead.textContent) + "\n\n";
-
-  const prose = document.querySelector(".docs-shell .docs-prose");
-  if (!prose) return md.trim();
-
-  // Walk top-level prose nodes and emit a faithful-enough Markdown view.
-  prose.childNodes.forEach((node) => {
-    if (node.nodeType !== Node.ELEMENT_NODE) return;
-    const el = node as HTMLElement;
-    const tag = el.tagName.toLowerCase();
-    if (el.matches(".ml-codegroup")) {
-      const shown = el.querySelector('[role="tabpanel"]:not([hidden]) pre');
-      if (shown) md += "```\n" + (shown.textContent || "").replace(/^ $/gm, "").trim() + "\n```\n\n";
-      return;
-    }
-    const text = clean(el.textContent);
-    if (!text && tag !== "hr") return;
-    switch (tag) {
-      case "h2": md += `## ${text}\n\n`; break;
-      case "h3": md += `### ${text}\n\n`; break;
-      case "p": md += `${text}\n\n`; break;
-      case "ul":
-      case "ol": {
-        el.querySelectorAll(":scope > li").forEach((li) => {
-          md += `- ${clean(li.textContent)}\n`;
-        });
-        md += "\n";
-        break;
-      }
-      case "pre": md += "```\n" + (el.textContent || "").trim() + "\n```\n\n"; break;
-      case "hr": md += "---\n\n"; break;
-      default: {
-        // Code panels, callouts, steps, cards — flatten to text.
-        if (text) md += `${text}\n\n`;
-      }
-    }
-  });
-  return md.trim();
+  return renderPage(
+    title,
+    document.querySelector(".docs-shell .docs-lead"),
+    document.querySelector(".docs-shell .docs-prose"),
+  );
 }
 
 /** The current page's .md URL (scripts/llms.mjs markdownPath). */

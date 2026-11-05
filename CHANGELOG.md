@@ -15,6 +15,12 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **Steps in "On this page".** `<Steps toc>`, or `toc: steps` in frontmatter,
   lists step titles in the table of contents.
 
+### Changed
+- **CLI flags and checkout runs.** `markline dev`, `build` and `start` pass
+  extra flags on to Next, so `markline dev -p 3001` sets the port. Run from
+  a Markline checkout (`node ../markline/bin/markline.mjs dev`), the CLI
+  uses the checkout's dependencies, so a docs folder needs no install.
+
 ### Fixed
 - `llms-full.txt` no longer drops `import`/`export` lines inside code blocks
   (such as Python's `import requests`).

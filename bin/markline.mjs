@@ -8,6 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
+import { depsDir, linkDeps, nextPackageJson } from "./deps.mjs";
 import { isLocalTemplate, scaffold } from "./scaffold.mjs";
 import { stagePublic } from "./stage-public.mjs";
 
@@ -32,14 +33,8 @@ const APP_FILES = [
   "tsconfig.json", "next-env.d.ts", "package.json",
 ];
 
-// Resolve Next's CLI entry via Node module resolution rather than a fixed
-// node_modules/.bin path: when @markline/markline is installed as a dependency,
-// npm hoists `next` to the consumer's top-level node_modules, not under our
-// package. Resolving from APP_DIR walks up to wherever `next` actually lives.
 function resolveNextBin() {
-  const req = createRequire(path.join(APP_DIR, "package.json"));
-  const nextPkg = req.resolve("next/package.json");
-  return path.join(path.dirname(nextPkg), "dist", "bin", "next");
+  return path.join(path.dirname(nextPackageJson(APP_DIR)), "dist", "bin", "next");
 }
 
 /**
@@ -59,11 +54,7 @@ function syncApp() {
   const pub = path.join(CONTENT_DIR, "public");
   if (fs.existsSync(pub)) stagePublic(pub, WORK_DIR);
 
-  const nm = path.join(WORK_DIR, "node_modules");
-  const deps = path.join(CONTENT_DIR, "node_modules");
-  if (!fs.existsSync(nm) && fs.existsSync(deps)) {
-    fs.symlinkSync(deps, nm, "junction");
-  }
+  linkDeps(path.join(WORK_DIR, "node_modules"), depsDir(APP_DIR));
 }
 
 function readPkgVersion() {
@@ -94,6 +85,17 @@ function run(cmd, args, { env = baseEnv(), cwd = APP_DIR } = {}) {
 /** Run the Next CLI via `node <next-bin>` from the staged WORK_DIR. */
 function runNext(args, opts = {}) {
   return run(process.execPath, [resolveNextBin(), ...args], { cwd: WORK_DIR, ...opts });
+}
+
+/**
+ * Next runs from the staged app, so `markline dev ./docs` would look for
+ * .markline/docs. The content is always the current directory; say so rather
+ * than let Next fail on a path the user never wrote.
+ */
+function refusePositional(cmd, args) {
+  if (!args[0] || args[0].startsWith("-")) return;
+  console.error(`\n  markline ${cmd} doesn't take "${args[0]}". Run it from your docs folder.\n`);
+  process.exit(1);
 }
 
 function requireConfig() {
@@ -175,27 +177,31 @@ const COMMANDS = {
     console.log(`    markline dev\n`);
   },
 
-  async dev() {
+  async dev(args) {
+    refusePositional("dev", args);
     requireConfig();
     syncApp();
-    await runNext(["dev"], { env: baseEnv() });
+    await runNext(["dev", ...args], { env: baseEnv() });
   },
 
-  async build() {
+  async build(args) {
+    refusePositional("build", args);
     requireConfig();
     syncApp();
     const env = baseEnv();
     await buildSearch(env);
-    await runNext(["build"], { env });
+    await runNext(["build", ...args], { env });
   },
 
-  async start() {
+  async start(args) {
+    refusePositional("start", args);
     requireConfig();
     syncApp();
-    await runNext(["start"], { env: baseEnv() });
+    await runNext(["start", ...args], { env: baseEnv() });
   },
 
-  async export() {
+  async export(args) {
+    if (args.length) console.error(`  markline export takes no flags; ignoring: ${args.join(" ")}`);
     requireConfig();
     syncApp();
     const env = baseEnv({ MARKLINE_EXPORT: "1" });
@@ -228,6 +234,7 @@ const COMMANDS = {
     dev          Start the dev server against ./markline.json
     build        Build a production server bundle (Docker / Vercel / start)
     start        Serve a production build
+                 dev, build and start pass extra flags to Next, e.g. dev -p 3001
     export       Build a static HTML site into ./out (any CDN / Pages / S3)
     version      Print the Markline version
     help         Show this help

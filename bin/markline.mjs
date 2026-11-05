@@ -8,10 +8,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
+import { prepareWorkDir } from "./staging-folder.mjs";
 import { depsDir, linkDeps, nextPackageJson } from "./deps.mjs";
 import { isLocalTemplate, scaffold } from "./scaffold.mjs";
 import { stagePublic } from "./stage-public.mjs";
-import { prepareWorkDir } from "./staging-folder.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const APP_DIR = path.resolve(__dirname, ".."); // the Next app (this package root)

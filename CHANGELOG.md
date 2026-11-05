@@ -11,6 +11,10 @@ All notable changes to `@markline/markline` and `@markline/create`.
   uses the checkout's dependencies, so a docs folder needs no install.
 - **Only built pages are served.** `markline start` serves the pages from the
   last build, so a page added to the content folder needs a rebuild.
+- **`/x/index` URLs.** A folder's index page is only at `/x`. A nav link to
+  `/x/index` is treated as `/x`, and a nav link to a missing page warns at build.
+- **Linked pages in static exports.** A symlinked page or folder under `docs/`
+  is now included in a static export, as it already was on a Node server.
 
 ### Fixed
 - **Unknown URLs aren't cached.** The Node server no longer stores a copy of

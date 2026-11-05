@@ -35,7 +35,8 @@ export function generateStaticParams(): { slug?: string[] }[] {
   if (process.env.MARKLINE_EXPORT !== "1" && !docs.some((d) => !d.slug)) docs.push({ slug: undefined });
   const entries = listChangelog();
   if (!entries.length) return docs;
-  const pages = Array.from({ length: pageCount(entries.length) }, (_, i) => pagePath(i + 1));
+  // /changelog/page/1 is the same listing as /changelog, and may be bookmarked.
+  const pages = [...Array.from({ length: pageCount(entries.length) }, (_, i) => pagePath(i + 1)), `${CHANGELOG_PATH}/page/1`];
   const changelog = [...pages, ...entries.map((e) => entryPath(e.date))]
     .map((p) => ({ slug: p.split("/").filter(Boolean) }))
     // docs/changelog.mdx, if there is one, is shown as the changelog's intro

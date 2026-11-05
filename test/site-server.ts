@@ -32,6 +32,24 @@ const freePort = () =>
     });
   });
 
+/** The CLI and the Next it started, which is its own process group. */
+function stopGroup(server: ChildProcess, signal: NodeJS.Signals = "SIGTERM") {
+  try {
+    if (server.pid) process.kill(-server.pid, signal);
+  } catch {
+    // already gone
+  }
+}
+
+// Interrupting the test run shouldn't leave servers behind.
+const running = new Set<ChildProcess>();
+for (const signal of ["SIGINT", "SIGTERM"] as const) {
+  process.once(signal, () => {
+    for (const server of running) stopGroup(server, "SIGKILL");
+    process.exit(1);
+  });
+}
+
 export function createSite() {
   // Inside the repo: Next's standalone tracing can't span the OS temp folder and
   // the node_modules it links to.
@@ -47,8 +65,6 @@ export function createSite() {
   write(path.join(dir, "docs", "guides", "a.mdx"), page("Guide", "{/* a comment */}\n\nguide text"));
   write(path.join(dir, "docs", "changelog.mdx"), page("Changelog", "intro only"));
   write(path.join(dir, "changelog", "2026-11-05.mdx"), page("One", "entry"));
-  write(path.join(dir, "private.mdx"), page("Private", "CANARY"));
-  write(path.join(root, "outside.mdx"), page("Outside", "CANARY"));
 
   let server: ChildProcess | undefined;
   return {
@@ -66,6 +82,7 @@ export function createSite() {
         detached: true,
         env: cliEnv({ PORT: String(port) }),
       });
+      running.add(server);
       const base = `http://127.0.0.1:${port}`;
       const deadline = Date.now() + 120_000;
       while (Date.now() < deadline) {
@@ -78,16 +95,19 @@ export function createSite() {
       }
       throw new Error(`markline ${command} didn't start`);
     },
+    export() {
+      const r = spawnSync(process.execPath, [CLI, "export"], { cwd: dir, encoding: "utf8", env: cliEnv() });
+      if (r.status !== 0) throw new Error(`markline export failed (${r.status}, ${r.signal}):\n${r.stdout}\n${r.stderr}`);
+    },
     async destroy() {
       if (server?.pid) {
-        const exited = once(server, "exit");
-        try {
-          process.kill(-server.pid); // the CLI and the Next it started
-          await exited;
-          process.kill(-server.pid, "SIGKILL"); // any worker still writing
-        } catch {
-          // already gone
+        stopGroup(server);
+        // It may have exited already, or a worker may hold on past it.
+        if (server.exitCode === null && server.signalCode === null) {
+          await Promise.race([once(server, "exit"), new Promise((r) => setTimeout(r, 10_000))]);
         }
+        stopGroup(server, "SIGKILL"); // any worker still writing
+        running.delete(server);
       }
       for (let tries = 0; ; tries++) {
         try {

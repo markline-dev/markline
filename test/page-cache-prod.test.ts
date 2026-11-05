@@ -16,6 +16,7 @@ const skip = online ? false : "offline: the build needs to reach Google Fonts";
 
 const site = createSite();
 const noRoot = createSite();
+const exported = createSite();
 let base = "";
 let noRootBase = "";
 
@@ -37,10 +38,10 @@ before(async () => {
   noRootBase = await noRoot.serve("start", "/guides/a");
 });
 
-after(() => Promise.all([site.destroy(), noRoot.destroy()]));
+after(() => Promise.all([site.destroy(), noRoot.destroy(), exported.destroy()]));
 
 test("pages from the build stay cached", { skip }, async () => {
-  for (const url of ["/", "/guides/a", "/changelog", "/changelog/page/2", "/changelog/2026/10/15"]) {
+  for (const url of ["/", "/guides/a", "/changelog", "/changelog/page/1", "/changelog/page/2", "/changelog/2026/10/15"]) {
     const res = await fetch(base + url);
     assert.equal(res.status, 200, url);
     assert.match(res.headers.get("cache-control") ?? "", /s-maxage/, url);
@@ -76,3 +77,13 @@ test("with no root page, / redirects to the first nav entry", { skip }, async ()
   assert.equal(res.status, 307);
   assert.equal(res.headers.get("location"), "/guides/a");
 });
+
+test("a static export with no root page keeps a public/index.html", { skip }, () => {
+  fs.writeFileSync(path.join(exported.dir, "markline.json"), config("/guides/a"));
+  fs.rmSync(path.join(exported.dir, "docs", "index.mdx"));
+  fs.mkdirSync(path.join(exported.dir, "public"));
+  fs.writeFileSync(path.join(exported.dir, "public", "index.html"), "the site's own");
+  exported.export();
+  assert.equal(fs.readFileSync(path.join(exported.dir, "out", "index.html"), "utf8"), "the site's own");
+});
+

@@ -11,7 +11,8 @@
  * hidden has no body, and a response keeps its status and description without
  * one. A query or header parameter with a hidden schema goes; a path parameter
  * stays, without the schema, because the URL needs it. Object examples lose the
- * hidden keys. Examples written as strings and `x-codeSamples` aren't rewritten.
+ * declared hidden keys. Undeclared keys, examples written as strings and
+ * `x-codeSamples` aren't rewritten.
  */
 const METHODS = ["get", "post", "put", "patch", "delete", "options", "head"];
 const COMPONENT_SECTIONS = ["schemas", "responses", "parameters", "requestBodies", "headers", "callbacks", "pathItems"];

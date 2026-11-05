@@ -210,9 +210,10 @@ a response keeps its status and description without a sample. A query or header
 parameter with a hidden schema goes, and a path parameter stays without its
 schema, since the URL needs it.
 
-<Note>Object examples lose the hidden keys. Examples written as strings (such as
-serialized JSON or XML) and hand-written `x-codeSamples` aren't rewritten, so
-check those yourself.</Note>
+<Note>Object examples lose the keys that are declared and hidden. A key the schema
+doesn't declare stays, since nothing marks it hidden. Examples written as strings
+(such as serialized JSON or XML) and hand-written `x-codeSamples` aren't
+rewritten either, so check those yourself.</Note>
 
 Deprecated operations are shown with a badge. Set `"api": { "showDeprecated": false }`
 to leave them out.

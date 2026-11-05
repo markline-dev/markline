@@ -191,6 +191,12 @@ test("search leaves out hidden operations, path items and hidden tags' names", a
   assert.ok(!JSON.stringify(records).includes("access:all"));
 });
 
+test("the build script survives the same odd specs as normalize", async () => {
+  const { resourcePlan } = await mirror();
+  const odd = { tags: [null, "stray"], paths: { "/null": null, "/a": { get: op("a") } } };
+  assert.deepEqual(resourcePlan(odd).tags, normalize(odd).tags.map((t) => t.name));
+});
+
 test("a build warns about every version's spec, not just the default", async () => {
   const { specWarnings } = await mirror();
   const dup = { paths: { "/a": { get: op("a", { tags: ["dup"] }) }, "/b": { get: op("b", { tags: ["Dup"] }) } } };

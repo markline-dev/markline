@@ -49,8 +49,13 @@ function isHiddenItem(item, api) {
   return (api?.hideExtensions ?? DEFAULT_HIDE_EXTENSIONS).some((ext) => !!item?.[ext]);
 }
 
+/** A spec's tag list can hold anything; only named entries mean a tag. */
+function specTagList(spec) {
+  return (Array.isArray(spec.tags) ? spec.tags : []).filter((t) => typeof t?.name === "string");
+}
+
 function knownTags(spec) {
-  const known = new Set((spec.tags ?? []).map((t) => t.name));
+  const known = new Set(specTagList(spec).map((t) => t.name));
   for (const item of Object.values(spec.paths ?? {})) {
     for (const method of METHODS) {
       const op = item?.[method];
@@ -148,7 +153,7 @@ export function resourcePlan(spec, api) {
   }
 
   const usedSet = new Set(used);
-  const declared = (spec.tags ?? []).map((t) => resolveTag(t.name, api)).filter((n) => n && usedSet.has(n));
+  const declared = specTagList(spec).map((t) => resolveTag(t.name, api)).filter((n) => n && usedSet.has(n));
   const pinned = (api?.tagOrder ?? []).map((n) => resolveTag(n, api)).filter((n) => n && usedSet.has(n));
   const declaredSet = new Set(declared);
   const rest = used.filter((n) => !declaredSet.has(n)).sort((a, b) => a.localeCompare(b));
@@ -208,7 +213,7 @@ function segmentDisplayName(seg) {
  */
 export function resourcePages(spec, api) {
   const plan = resourcePlan(spec, api);
-  const specTags = new Map((spec.tags ?? []).map((t) => [t.name, t]));
+  const specTags = new Map(specTagList(spec).map((t) => [t.name, t]));
   const names = [...new Set([...specTags.keys(), ...plan.alias.keys(), ...Object.keys(api?.tags ?? {})])];
   const pageOf = (n) => {
     const r = resolveTag(n, api);

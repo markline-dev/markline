@@ -221,6 +221,11 @@ test("object examples lose hidden keys, at every level", () => {
   assert.deepEqual(sampleFromSchema(ref("WithExample"), pruned), { vis: "v", nested: { kept: 1 }, list: [{ kept: 2 }] });
 });
 
+test("an undeclared example key stays, as the docs say: nothing marks it hidden", () => {
+  const s = { components: { schemas: { S: { type: "object", example: { a: 1, extra: 2 }, properties: { a: { type: "integer" } } } } } };
+  assert.deepEqual(pruneSpec(s, EXTS).components.schemas.S.example, { a: 1, extra: 2 });
+});
+
 test("examples written as strings aren't rewritten, as the docs say", () => {
   const s = { components: { schemas: { S: { type: "string", example: "secret text" } } } };
   assert.equal(pruneSpec(s, EXTS).components.schemas.S.example, "secret text");
@@ -242,4 +247,53 @@ test("schemas left with only deleted ones go too, whatever order they're declare
   );
   assert.deepEqual(Object.keys(pruned.components.schemas), ["Uses"]);
   assert.deepEqual(Object.keys(pruned.components.schemas.Uses.properties), ["keep"]);
+});
+
+test("odd specs neither crash nor loop", () => {
+  const odd = {
+    tags: [null, "stray"],
+    paths: {
+      "/null": null,
+      "/dangling": { $ref: "#/components/pathItems/Missing" },
+      "/ok": {
+        get: op("ok", {
+          parameters: [null, { $ref: "#/components/parameters/Missing" }],
+          requestBody: json(ref("Missing")),
+          responses: { "200": null, "201": { description: "ok", ...json(ref("LoopA")) } },
+          callbacks: { none: null },
+        }),
+        post: null,
+      },
+    },
+    webhooks: { nothing: null },
+    components: {
+      parameters: null,
+      schemas: {
+        Nope: null,
+        // A chain of `$ref`s that only ever points at itself.
+        LoopA: ref("LoopB"),
+        LoopB: ref("LoopC"),
+        LoopC: ref("LoopA"),
+        Self: ref("Self"),
+        // Hidden through a cycle: must settle, not spin.
+        Hides: { anyOf: [ref("HidesToo"), ref("Flagged")] },
+        HidesToo: { anyOf: [ref("Hides"), ref("Flagged")] },
+        Flagged: { type: "object", "x-internal": true },
+        // An example over a recursive schema is bounded.
+        Tree: { type: "object", example: { kid: { kid: { secret: 1 } } }, properties: { kid: ref("Tree"), secret: { type: "string", "x-internal": true } } },
+      },
+    },
+  };
+  const pruned = pruneSpec(odd as any, EXTS);
+  assert.equal(pruned.paths["/null"], null);
+  assert.ok(pruned.components.schemas.LoopA, "a chain with nothing flagged in it stays");
+  assert.ok(!("Flagged" in pruned.components.schemas));
+  assert.deepEqual(pruned.components.schemas.Tree.example, { kid: { kid: {} } });
+  for (const input of [null, undefined, "text", 1, [], {}, { paths: null, components: null, webhooks: null }]) {
+    assert.doesNotThrow(() => pruneSpec(input as any, EXTS));
+  }
+  const doc = normalize(odd, { hideExtensions: EXTS });
+  assert.deepEqual(Object.keys(doc.operationsById), ["ok"]);
+  assert.deepEqual(doc.tags.map((t) => t.name), ["Default"]);
+  assert.deepEqual(resolveSchema(ref("LoopA"), pruned), { type: "object", description: "(recursive)" });
 });

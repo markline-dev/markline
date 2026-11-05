@@ -245,7 +245,7 @@ function closeName(known: string, target: string): boolean {
 
 /** Every tag the spec declares or an operation carries ("Default" for untagged). */
 export function knownTags(raw: { tags?: { name: string }[]; paths?: Record<string, any> }): Set<string> {
-  const known = new Set<string>((raw.tags ?? []).map((t) => t.name));
+  const known = new Set<string>((Array.isArray(raw.tags) ? raw.tags : []).map((t) => t?.name).filter((n) => typeof n === "string"));
   for (const item of Object.values(raw.paths ?? {})) {
     for (const method of ["get", "post", "put", "patch", "delete", "options", "head"]) {
       const op = item?.[method];

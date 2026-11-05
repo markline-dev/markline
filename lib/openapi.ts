@@ -243,6 +243,8 @@ export function loadOpenApiRoot(variantId?: string): any {
 
 export function normalize(input: any, opts: NormalizeOptions = {}): OpenAPIDoc {
   const raw = pruneSpec(input, opts.hideExtensions ?? DEFAULT_HIDE_EXTENSIONS);
+  // A spec's tag list can hold anything; only named entries mean a tag.
+  const specTags: any[] = (Array.isArray(raw.tags) ? raw.tags : []).filter((t: any) => typeof t?.name === "string");
   const components = raw.components ?? {};
   const authScheme = opts.auth ? configuredScheme(opts.auth) : undefined;
   const securitySchemes: Record<string, SecurityScheme> = authScheme
@@ -253,7 +255,7 @@ export function normalize(input: any, opts: NormalizeOptions = {}): OpenAPIDoc {
 
   // Events declared on a spec tag, folded onto the tag it resolves to.
   const tagEvents: Record<string, OpenAPIEvent[]> = Object.create(null);
-  for (const t of raw.tags ?? []) {
+  for (const t of specTags) {
     const name = resolveTag(t.name, opts);
     if (name) tagEvents[name] = [...(tagEvents[name] ?? []), ...parseXEvents(t["x-events"])];
   }
@@ -263,7 +265,7 @@ export function normalize(input: any, opts: NormalizeOptions = {}): OpenAPIDoc {
 
   for (const [pathStr, pathItem] of Object.entries<any>(raw.paths ?? {})) {
     for (const method of METHODS) {
-      const op = pathItem[method];
+      const op = pathItem?.[method];
       if (!op) continue;
       if (isHiddenOperation(op, hideExtensions, opts.showDeprecated ?? true)) continue;
       const tag = primaryTag(op.tags, opts);
@@ -273,7 +275,8 @@ export function normalize(input: any, opts: NormalizeOptions = {}): OpenAPIDoc {
 
       const params: OpenAPIOperation["parameters"] = { path: [], query: [], header: [] };
       for (const p of [...(pathItem.parameters ?? []), ...(op.parameters ?? [])]) {
-        const resolved = resolveRef(p, raw) as OpenAPIParameter;
+        const resolved = resolveRef(p, raw) as OpenAPIParameter | undefined;
+        if (!resolved) continue;
         if (resolved.in === "path") params.path.push(resolved);
         else if (resolved.in === "query") params.query.push(resolved);
         else if (resolved.in === "header") params.header.push(resolved);
@@ -289,10 +292,10 @@ export function normalize(input: any, opts: NormalizeOptions = {}): OpenAPIDoc {
 
       const responses: OpenAPIResponse[] = [];
       for (const [status, resp] of Object.entries<any>(op.responses ?? {})) {
-        const json = resp.content?.["application/json"];
+        const json = resp?.content?.["application/json"];
         responses.push({
           status,
-          description: resp.description,
+          description: resp?.description,
           schema: json?.schema,
           example: json?.example ?? json?.examples?.default?.value,
         });
@@ -347,7 +350,7 @@ export function normalize(input: any, opts: NormalizeOptions = {}): OpenAPIDoc {
 
   // Order the pages and fold tags whose slugs collide ("dubbing" / "Dubbing")
   // into one, so neither page silently loses its operations.
-  const plan = planTags([...tagsMap.keys()], (raw.tags ?? []).map((t: any) => t.name as string), opts);
+  const plan = planTags([...tagsMap.keys()], specTags.map((t) => t.name as string), opts);
   for (const c of plan.collisions) warnings.push(collisionWarning(c));
   warnings.push(...tagConfigWarnings(knownTags(input), plan, opts));
   for (const [from, into] of plan.alias) {
@@ -359,7 +362,7 @@ export function normalize(input: any, opts: NormalizeOptions = {}): OpenAPIDoc {
 
   const specLabel = (t: any) => (typeof t["x-displayName"] === "string" ? t["x-displayName"].trim() : "");
   const described = describeTags(
-    (raw.tags ?? []).map((t: any) => ({ name: t.name, displayName: specLabel(t), description: t.description })),
+    specTags.map((t) => ({ name: t.name, displayName: specLabel(t), description: t.description })),
     plan,
     opts,
   );
@@ -381,7 +384,7 @@ export function normalize(input: any, opts: NormalizeOptions = {}): OpenAPIDoc {
   // Labels for every tag path: spec `x-displayName`s (incl. nav-only group
   // tags) and config labels on group paths ("Workspace"), then each page's own.
   const labelEntries: { name: string; displayName?: string }[] = [
-    ...(raw.tags ?? []).map((t: any) => ({ name: t.name as string, displayName: specLabel(t) || undefined })),
+    ...specTags.map((t) => ({ name: t.name as string, displayName: specLabel(t) || undefined })),
     ...Object.entries(opts.tags ?? {}).map(([name, o]) => ({ name, displayName: o?.mergeInto ? undefined : o?.label?.trim() })),
     ...tags.map((t) => ({ name: t.name, displayName: t.displayName })),
   ];

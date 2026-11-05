@@ -10,9 +10,10 @@ import path from "node:path";
 const REPO = path.join(import.meta.dirname, "..");
 const CLI = path.join(REPO, "bin", "markline.mjs");
 
-/** The env without the test runner's own marker, which Next's workers inherit. */
+/** The env without the test runner's own marker, which Next's workers inherit,
+ *  or an output folder set for the repo's own builds. */
 function cliEnv(extra: Record<string, string> = {}) {
-  const { NODE_TEST_CONTEXT: _, ...env } = process.env;
+  const { NODE_TEST_CONTEXT: _, MARKLINE_DIST: __, ...env } = process.env;
   return { ...env, ...extra };
 }
 
@@ -83,11 +84,20 @@ export function createSite() {
         try {
           process.kill(-server.pid); // the CLI and the Next it started
           await exited;
+          process.kill(-server.pid, "SIGKILL"); // any worker still writing
         } catch {
           // already gone
         }
       }
-      fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+      for (let tries = 0; ; tries++) {
+        try {
+          fs.rmSync(root, { recursive: true, force: true });
+          return;
+        } catch (err) {
+          if (tries === 50) throw err;
+          await new Promise((r) => setTimeout(r, 200));
+        }
+      }
     },
   };
 }

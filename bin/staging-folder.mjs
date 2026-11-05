@@ -28,13 +28,39 @@ function removeLinks(root, dir = root) {
   return removed;
 }
 
-/** Make `workDir` a real folder, with no links in it. */
-export function prepareWorkDir(workDir) {
-  if (fs.lstatSync(workDir, { throwIfNoEntry: false })?.isSymbolicLink()) {
+/**
+ * Clear out what the CLI and Next didn't put there, since Next would read it as
+ * part of the app: config, .env files, instrumentation. `staged` is replaced by
+ * the caller anyway. What stays is the last build's output, and the deps link.
+ */
+function removeLeftovers(workDir, staged) {
+  let removed = 0;
+  for (const entry of fs.readdirSync(workDir, { withFileTypes: true })) {
+    const { name } = entry;
+    const stays =
+      staged.includes(name) ||
+      (name === "node_modules" && entry.isSymbolicLink()) ||
+      ((name === ".next" || name === "public") && entry.isDirectory()) ||
+      (name === ".markline-generated.json" && entry.isFile());
+    if (stays) continue;
+    fs.rmSync(path.join(workDir, name), { recursive: true, force: true });
+    removed++;
+  }
+  return removed;
+}
+
+/** Make `workDir` a real folder, holding only what `staged` and a build put there,
+ *  with no links in it. Only ever removes a link itself, not what it points at. */
+export function prepareWorkDir(workDir, staged) {
+  const stat = fs.lstatSync(workDir, { throwIfNoEntry: false });
+  const name = path.basename(workDir);
+  if (stat?.isSymbolicLink()) {
     fs.unlinkSync(workDir);
-    console.warn(`[markline] ${path.basename(workDir)}/ was a link; replacing it with a folder.`);
+    console.warn(`[markline] ${name}/ was a link; replacing it with a folder.`);
+  } else if (stat && !stat.isDirectory()) {
+    throw new Error(`${name} is a file, and the CLI needs that name for a folder. Remove it and try again.`);
   }
   fs.mkdirSync(workDir, { recursive: true });
-  const removed = removeLinks(workDir);
-  if (removed) console.warn(`[markline] removed ${removed} link${removed === 1 ? "" : "s"} from ${path.basename(workDir)}/.`);
+  const removed = removeLeftovers(workDir, staged) + removeLinks(workDir);
+  if (removed) console.warn(`[markline] removed ${removed} leftover ${removed === 1 ? "entry" : "entries"} from ${name}/.`);
 }

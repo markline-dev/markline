@@ -119,11 +119,55 @@ test("a normal staging folder keeps its build, cache and deps across runs", (t) 
   }
 });
 
-test("the walk doesn't go into a real node_modules", (t) => {
-  const { work, outside, run } = setup(t);
-  const real = path.join(work, "node_modules", ".bin");
-  fs.mkdirSync(real, { recursive: true });
-  fs.symlinkSync(outside, path.join(real, "tool"));
+test("a real node_modules is replaced by the link", (t) => {
+  const { app, work, run } = setup(t);
+  fs.mkdirSync(path.join(work, "node_modules", "pkg"), { recursive: true });
+  fs.writeFileSync(path.join(work, "node_modules", "pkg", "index.js"), "old");
+  const r = run();
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(fs.realpathSync(path.join(work, "node_modules")), path.join(app, "node_modules"));
+});
+
+test("anything else left in the staging folder is removed", (t) => {
+  const { work, run } = setup(t);
+  fs.mkdirSync(path.join(work, ".next"), { recursive: true });
+  fs.writeFileSync(path.join(work, ".next", "BUILD_ID"), "id");
+  fs.mkdirSync(path.join(work, "public"));
+  fs.writeFileSync(path.join(work, "public", "built.txt"), "built");
+  const leftovers = [".env", ".env.local", "next.config.js", "postcss.config.js", "instrumentation.ts", "middleware.ts", "extra.txt"];
+  for (const name of leftovers) fs.writeFileSync(path.join(work, name), "x");
+  fs.mkdirSync(path.join(work, "pages"));
+  const r = run();
+  assert.equal(r.status, 0, r.stderr);
+  for (const name of [...leftovers, "pages"]) {
+    assert.equal(fs.lstatSync(path.join(work, name), { throwIfNoEntry: false }), undefined, name);
+  }
+  assert.equal(fs.readFileSync(path.join(work, ".next", "BUILD_ID"), "utf8"), "id");
+  assert.equal(fs.readFileSync(path.join(work, "public", "built.txt"), "utf8"), "built");
+  assert.match(r.stderr, /removed 8 /);
+});
+
+test("a file where the staging folder should be is refused clearly", (t) => {
+  const { work, run } = setup(t);
+  fs.writeFileSync(work, "x");
+  const r = run();
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /\.markline is a file/);
+  assert.doesNotMatch(r.stderr, /EEXIST/);
+  assert.equal(fs.readFileSync(work, "utf8"), "x", "it isn't ours to delete");
+});
+
+test("a file named public is refused clearly, and leaves nothing behind", (t) => {
+  const { site, work, run } = setup(t);
+  fs.writeFileSync(path.join(site, "public"), "x");
+  const r = run();
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /public is a file/);
+  assert.doesNotMatch(r.stderr, /ENOTDIR/);
+
+  // One staged by an older version doesn't get in the way once it's gone.
+  fs.rmSync(path.join(site, "public"));
+  fs.writeFileSync(path.join(work, "public"), "x");
   assert.equal(run().status, 0);
-  assert.ok(fs.lstatSync(path.join(real, "tool")).isSymbolicLink());
+  assert.equal(fs.lstatSync(path.join(work, "public"), { throwIfNoEntry: false }), undefined);
 });

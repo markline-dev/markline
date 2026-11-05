@@ -43,7 +43,7 @@ function resolveNextBin() {
  * them) and point its node_modules at the consumer's installed dependencies.
  */
 function syncApp() {
-  prepareWorkDir(WORK_DIR);
+  prepareWorkDir(WORK_DIR, APP_FILES);
   for (const name of APP_FILES) {
     const src = path.join(APP_DIR, name);
     if (!fs.existsSync(src)) continue;

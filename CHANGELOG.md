@@ -11,9 +11,14 @@ All notable changes to `@markline/markline` and `@markline/create`.
   uses the checkout's dependencies, so a docs folder needs no install.
 
 ### Fixed
-- **Don't follow links in the staging folder.** `.markline/` is always a real
-  folder with no links in it, and `public/` is staged as real files, on every
-  Node version. Dead and looping links in `public/` are skipped with a warning.
+- **Don't follow links in the staging folder.** The CLI replaces `.markline/` if
+  it's a link and removes any links in it, apart from links inside a build's own
+  output, and only ever the link itself. `public/` is staged as real files on every
+  Node version: dead and looping links are skipped with a warning, and a folder
+  reached through more than 8 links isn't copied again.
+- **`.markline/` holds only what Markline put there.** Other files in it, including
+  a real `node_modules`, are removed on each run, apart from the last build's
+  output. `MARKLINE_DIST` must be a folder inside the app folder.
 
 ## 0.1.7
 

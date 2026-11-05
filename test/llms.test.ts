@@ -126,6 +126,15 @@ test("MDX comments aren't published, other expressions are left alone", async ()
   assert.match(md, /\{\/\* in code \*\/\}/);
 });
 
+test("an expression with code beside its comments stays, and many comments are quick", async () => {
+  const { pageMarkdown } = await load();
+  assert.match(pageMarkdown({ title: "T", body: "Count: {/* a */ 1 + 1 /* b */}\n" }), /Count: \{\/\* a \*\/ 1 \+ 1 \/\* b \*\/\}/);
+  assert.equal(pageMarkdown({ title: "T", body: "A{// note\n}B\n" }), "# T\n\nAB\n");
+  const started = Date.now();
+  pageMarkdown({ title: "T", body: `{${Array(40).fill("/* c */").join(" ")} x}\n` });
+  assert.ok(Date.now() - started < 1000);
+});
+
 type Generated = {
   removeGeneratedFiles: (appDir: string) => void;
   writeManifest: (appDir: string, files: string[]) => void;
@@ -202,3 +211,39 @@ test("a bad manifest never throws or deletes anything else", async (t) => {
     assert.ok(fs.existsSync(dir), JSON.stringify(manifest));
   }
 });
+
+test("a linked public/ can't move the boundary", async (t) => {
+  const { removeGeneratedFiles, root, app, pub } = await generated(t);
+  const outside = path.join(root, "outside");
+  fs.mkdirSync(outside);
+  fs.writeFileSync(path.join(outside, "victim.md"), "x");
+  fs.rmSync(pub, { recursive: true });
+  fs.symlinkSync(outside, pub);
+  const hash = crypto.createHash("sha256").update("x").digest("hex");
+  fs.writeFileSync(path.join(app, ".markline-generated.json"), JSON.stringify([{ file: "victim.md", hash }]));
+  removeGeneratedFiles(app);
+  assert.ok(fs.existsSync(path.join(outside, "victim.md")));
+});
+
+test("the manifest replaces what's at its path, and removal never throws", async (t) => {
+  const { removeGeneratedFiles, writeManifest, root, app } = await generated(t);
+  const manifest = path.join(app, ".markline-generated.json");
+  const target = path.join(root, "target");
+  fs.writeFileSync(target, "keep");
+  fs.symlinkSync(target, manifest);
+  writeManifest(app, []);
+  assert.equal(fs.readFileSync(target, "utf8"), "keep");
+  assert.equal(fs.lstatSync(manifest).isSymbolicLink(), false);
+
+  fs.rmSync(manifest);
+  fs.mkdirSync(manifest);
+  assert.doesNotThrow(() => writeManifest(app, []));
+  fs.writeFileSync(manifest, "[]");
+  fs.chmodSync(app, 0o555);
+  try {
+    assert.doesNotThrow(() => removeGeneratedFiles(app));
+  } finally {
+    fs.chmodSync(app, 0o755);
+  }
+});
+

@@ -13,9 +13,6 @@ import { unified } from "unified";
 
 const parser = unified().use(remarkParse).use(remarkMdx);
 
-/** An MDX expression that holds nothing but comments, so renders nothing. */
-const isComment = (value) => /^\s*(?:\/\*[\s\S]*?\*\/\s*|\/\/[^\n]*\s*)*$/.test(value);
-
 /** MDX body → portable Markdown: drop the import/export blocks and comments,
  *  as the page itself does, and collapse blank runs. It's parsed, since neither
  *  can be told from prose or code line by line. (Authored components like <Note>
@@ -25,7 +22,8 @@ export function mdxToMarkdown(md) {
   const cuts = [];
   const visit = (node) => {
     const expression = node.type === "mdxFlowExpression" || node.type === "mdxTextExpression";
-    if (node.type === "mdxjsEsm" || (expression && isComment(node.value))) cuts.push(node.position);
+    // An expression with an empty program holds nothing but comments.
+    if (node.type === "mdxjsEsm" || (expression && node.data?.estree?.body.length === 0)) cuts.push(node.position);
     (node.children ?? []).forEach(visit);
   };
   try {

@@ -19,38 +19,49 @@ const inside = (dir, file) => {
   return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
 };
 
+/** The real folder for public/: it must be a folder itself, so a link can't
+ *  move the boundary that removal stays inside. */
+function realPublic(appDir) {
+  const pub = path.join(fs.realpathSync(appDir), "public");
+  return fs.lstatSync(pub).isDirectory() ? pub : null;
+}
+
 function removeEntry(pub, entry) {
   const { file, hash } = entry ?? {};
   if (typeof file !== "string" || !(file.endsWith(".md") || path.basename(file) === "llms.txt")) return;
   const abs = path.resolve(pub, file);
-  if (abs === pub || !inside(pub, abs)) return;
-  if (!inside(fs.realpathSync(pub), fs.realpathSync(path.dirname(abs)))) return;
+  if (abs === pub || !inside(pub, abs) || !inside(pub, fs.realpathSync(path.dirname(abs)))) return;
   if (hashOf(fs.readFileSync(abs)) === hash) fs.rmSync(abs, { force: true });
 }
 
-/** Delete the files the last build generated in `appDir`/public. Never throws. */
+/**
+ * Delete the files the last build generated in `appDir`/public. Never throws:
+ * at worst, as in a read-only folder, the files stay.
+ */
 export function removeGeneratedFiles(appDir) {
-  const manifest = path.join(appDir, MANIFEST);
-  let entries;
   try {
-    entries = JSON.parse(fs.readFileSync(manifest, "utf8"));
-  } catch {
-    return; // nothing generated yet
-  }
-  const pub = path.join(appDir, "public");
-  for (const entry of Array.isArray(entries) ? entries : []) {
-    try {
-      removeEntry(pub, entry);
-    } catch {
-      // already gone, or not a file
+    const manifest = path.join(appDir, MANIFEST);
+    const entries = JSON.parse(fs.readFileSync(manifest, "utf8"));
+    const pub = realPublic(appDir);
+    for (const entry of pub && Array.isArray(entries) ? entries : []) {
+      try {
+        removeEntry(pub, entry);
+      } catch {
+        // already gone, or not a file
+      }
     }
+    fs.rmSync(manifest, { recursive: true, force: true });
+  } catch {
+    // no manifest yet, or nothing we can change here
   }
-  fs.rmSync(manifest, { force: true });
 }
 
-/** Record `files`, paths relative to public/ that the build just wrote. */
+/** Record `files`, paths relative to public/ that the build just wrote. Whatever
+ *  is at the manifest's path is replaced, not written through. */
 export function writeManifest(appDir, files) {
   const pub = path.join(appDir, "public");
   const entries = files.map((file) => ({ file, hash: hashOf(fs.readFileSync(path.join(pub, file))) }));
-  fs.writeFileSync(path.join(appDir, MANIFEST), JSON.stringify(entries));
+  const manifest = path.join(appDir, MANIFEST);
+  fs.rmSync(manifest, { recursive: true, force: true });
+  fs.writeFileSync(manifest, JSON.stringify(entries));
 }

@@ -1,6 +1,19 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
-import { forwardableHeaders, MAX_PROXY_REQUEST_BYTES, MAX_PROXY_RESPONSE_BYTES, originsOf, readCapped, UPSTREAM_TIMEOUT_MS } from "../lib/playground-proxy";
+import {
+  BufferBudget,
+  forwardableHeaders,
+  isCrossSite,
+  jsonFits,
+  MAX_PROXY_REQUEST_BYTES,
+  MAX_PROXY_RESPONSE_BYTES,
+  OVER_BUDGET,
+  parsePayload,
+  readCapped,
+  REQUEST_READ_TIMEOUT_MS,
+  UPSTREAM_TIMEOUT_MS,
+} from "../lib/playground-proxy";
+import { originsOf } from "../scripts/proxy-settings.mjs";
 import { loadRoute, startStub } from "./proxy-harness";
 
 const MB = 1024 * 1024;
@@ -25,12 +38,20 @@ const api = await startStub((req, res) => {
   }
   if (url === "/redirect") {
     res.writeHead(302, { location: `http://127.0.0.1:${other.port}/secret` });
-    return res.end();
+    return res.end(`Redirecting to http://127.0.0.1:${other.port}/secret?token=abc`);
   }
   if (url === "/declared-big") {
     res.writeHead(200, { "content-length": String(MAX_PROXY_RESPONSE_BYTES + 1) });
     return res.write("x"); // never finishes
   }
+  if (url === "/reset") return req.socket.destroy();
+  if (url === "/echo-request") {
+    let size = 0;
+    req.on("data", (c: Buffer) => (size += c.length));
+    req.on("end", () => res.end(JSON.stringify({ method: req.method, size })));
+    return;
+  }
+  if (url === "/control-bytes") return res.end(Buffer.alloc(MAX_PROXY_RESPONSE_BYTES, 1));
   if (url === "/at-cap") return res.end(Buffer.alloc(MAX_PROXY_RESPONSE_BYTES, 97));
   if (url === "/chunked-big") {
     res.write(Buffer.alloc(MAX_PROXY_RESPONSE_BYTES, 97));
@@ -94,21 +115,93 @@ test("the origin check holds however the URL is written", async () => {
     `http://localhost:${other.port}/`,
     `http://localhost.:${p}/ok`,
     `https://localhost:${p}/ok`,
-    `http://localhost:${p}@127.0.0.1:${other.port}/`,
-    `http://localhost@127.0.0.1:${other.port}/`,
   ]) {
     assert.equal((await route.send({ url })).status, 403, url);
+  }
+  for (const url of [`http://localhost:${p}@127.0.0.1:${other.port}/`, `http://localhost@127.0.0.1:${other.port}/`]) {
+    assert.equal((await route.send({ url })).status, 400, url);
   }
   assert.equal((await route.send({ url: "file:///etc/passwd" })).status, 400);
   assert.equal(other.hits.length + api.hits.length, before, "nothing was contacted");
 });
 
-test("credentials in an allowed URL aren't sent", async () => {
+test("credentials in an allowed URL aren't sent or repeated", async () => {
   const before = api.hits.length;
-  const { status, data } = await route.send({ url: `http://user:pw@localhost:${api.port}/ok` });
-  assert.equal(status, 502);
-  assert.equal(data.body, undefined);
+  const { status, data } = await route.send({ url: `http://user:pw-secret@localhost:${api.port}/ok` });
+  assert.equal(status, 400);
+  assert.doesNotMatch(JSON.stringify(data), /pw-secret/);
   assert.equal(api.hits.length, before);
+});
+
+test("error messages don't repeat what was sent", async () => {
+  const { status, data } = await route.send({ url: at("/ok"), headers: { Authorization: "Bearer SECRET-abc\ndef" } });
+  assert.equal(status, 400);
+  assert.doesNotMatch(JSON.stringify(data), /SECRET/);
+
+  const failed = await route.send({ url: at("/reset"), headers: { Authorization: "Bearer SECRET" } });
+  assert.equal(failed.status, 502);
+  assert.doesNotMatch(JSON.stringify(failed.data), /SECRET/);
+  assert.match(String(failed.data.error), /couldn't be reached/);
+});
+
+test("bad input is a 400", async () => {
+  const before = api.hits.length;
+  for (const extra of [
+    { method: 1 },
+    { method: "BAD METHOD" },
+    { method: "CONNECT" },
+    { method: "trace" },
+    { method: "TRACK" },
+    { headers: "cookie: x" },
+    { headers: ["a"] },
+    { headers: { a: 1 } },
+    { body: { a: 1 } },
+    { url: 5 },
+  ]) {
+    assert.equal((await route.send({ url: at("/ok"), ...extra })).status, 400, JSON.stringify(extra));
+  }
+  assert.equal(api.hits.length, before);
+});
+
+test("a method is normalised, and GET and HEAD send no body", async () => {
+  const send = async (method: string) => JSON.parse(String((await route.send({ url: at("/echo-request"), method, body: "12345" })).data.body ?? "{}"));
+  assert.deepEqual(await send("post"), { method: "POST", size: 5 });
+  assert.deepEqual(await send("get"), { method: "GET", size: 0 });
+  assert.deepEqual(await send("GET"), { method: "GET", size: 0 });
+  assert.equal((await route.send({ url: at("/echo-request"), method: "head", body: "12345" })).status, 200);
+});
+
+test("a request from another site is refused, and nothing is forwarded", async () => {
+  const before = api.hits.length;
+  const body = JSON.stringify({ url: at("/ok"), method: "DELETE" });
+  const requests: Record<string, string>[] = [
+    { "sec-fetch-site": "cross-site" },
+    { origin: "https://elsewhere.test", host: "docs.test" },
+    { origin: "null", host: "docs.test" },
+    { origin: "not a url", host: "docs.test" },
+  ];
+  for (const headers of requests) {
+    assert.equal((await route.sendRaw({ headers, body })).status, 403, JSON.stringify(headers));
+  }
+  assert.equal(api.hits.length, before);
+});
+
+test("a request from this site, or from no browser, is allowed", async () => {
+  const body = JSON.stringify({ url: at("/ok") });
+  const requests: Record<string, string>[] = [
+    {},
+    { "sec-fetch-site": "same-origin", origin: "https://docs.test", host: "docs.test" },
+    { origin: "https://docs.test", host: "internal:3000", "x-forwarded-host": "docs.test" },
+    { "sec-fetch-site": "none" },
+  ];
+  for (const headers of requests) {
+    assert.equal((await route.sendRaw({ headers, body })).status, 200, JSON.stringify(headers));
+  }
+});
+
+test("isCrossSite reads the two headers", () => {
+  assert.equal(isCrossSite(new Headers()), false);
+  assert.equal(isCrossSite(new Headers({ "sec-fetch-site": "same-site", origin: "https://a.docs.test", host: "docs.test" })), true);
 });
 
 test("a redirect isn't followed, and its target isn't returned", async () => {
@@ -116,6 +209,7 @@ test("a redirect isn't followed, and its target isn't returned", async () => {
   const { status, data } = await route.send({ url: at("/redirect") });
   assert.equal(status, 200);
   assert.equal(data.status, 302);
+  assert.equal(data.body, "");
   assert.equal(other.hits.length, before);
   assert.doesNotMatch(JSON.stringify(data), new RegExp(String(other.port)));
 });
@@ -203,7 +297,7 @@ test("an upstream that takes too long is a 504 and is dropped", { timeout: 30_00
     await new Promise((r) => setTimeout(r, 100));
     assert.equal(closed.get(path), true, `${path} was dropped`);
   }
-  assert.deepEqual(asked, [UPSTREAM_TIMEOUT_MS, UPSTREAM_TIMEOUT_MS]);
+  assert.ok(asked.includes(UPSTREAM_TIMEOUT_MS));
   assert.equal(UPSTREAM_TIMEOUT_MS, 120_000);
 });
 
@@ -255,6 +349,84 @@ test("a request with 25 MB of base64 in it fits", { timeout: 30_000 }, async () 
   assert.equal(data.body, String(base64.length));
 });
 
+test("a request that never finishes arriving is a 408", { timeout: 30_000 }, async (t) => {
+  const real = AbortSignal.timeout;
+  t.after(() => {
+    AbortSignal.timeout = real;
+  });
+  const asked: number[] = [];
+  AbortSignal.timeout = (ms) => {
+    asked.push(ms);
+    return real.call(AbortSignal, 100);
+  };
+  const stalled = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new Uint8Array(10));
+    },
+  });
+  const { status } = await route.sendRaw({ headers: { "content-length": "1000" }, body: stalled, duplex: "half" } as RequestInit);
+  assert.equal(status, 408);
+  assert.deepEqual(asked, [REQUEST_READ_TIMEOUT_MS]);
+});
+
+test("a client leaving during its request is handled", { timeout: 30_000 }, async () => {
+  const client = new AbortController();
+  const stalled = new ReadableStream<Uint8Array>({
+    start(controller) {
+      controller.enqueue(new Uint8Array(10));
+    },
+  });
+  const sent = route.sendRaw({ body: stalled, duplex: "half", signal: client.signal } as RequestInit);
+  setTimeout(() => client.abort(), 50);
+  assert.equal((await sent).status, 400);
+});
+
+test("a reply that JSON would blow up is a 413, and doesn't hold memory for long", { timeout: 30_000 }, async () => {
+  const { status, data } = await route.send({ url: at("/control-bytes") });
+  assert.equal(status, 413);
+  assert.match(String(data.error), /encoded/);
+  assert.equal(jsonFits("a".repeat(100), 102), true);
+  assert.equal(jsonFits("a".repeat(100), 101), false);
+  for (const text of ['"', "\\", "\n", "\u0001", "é", "€", "😀", 'a"\n\u0001é€😀z']) {
+    const size = Buffer.byteLength(JSON.stringify(text));
+    assert.equal(jsonFits(text, size), true, text);
+    assert.equal(jsonFits(text, size - 1), false, text);
+  }
+});
+
+test("large responses at once are limited with a 503, and the limit recovers", { timeout: 60_000 }, async () => {
+  const results = await Promise.all(Array.from({ length: 5 }, () => route.send({ url: at("/at-cap") })));
+  const statuses = results.map((r) => r.status);
+  assert.ok(statuses.includes(503), statuses.join());
+  assert.ok(statuses.includes(200), statuses.join());
+  assert.equal((await route.send({ url: at("/at-cap") })).status, 200);
+});
+
+test("BufferBudget shares a limit, and releases what it held", () => {
+  const pool = { bytes: 0 };
+  const a = new BufferBudget(pool, 100);
+  const b = new BufferBudget(pool, 100);
+  assert.equal(a.take(60), true);
+  assert.equal(b.take(50), false);
+  assert.equal(b.take(40), true);
+  a.release();
+  assert.equal(pool.bytes, 40);
+  a.release();
+  assert.equal(pool.bytes, 40);
+  assert.equal(b.take(60), true);
+});
+
+test("readCapped reports going over the budget", async () => {
+  const budget = new BufferBudget({ bytes: 0 }, 3);
+  assert.equal(await readCapped(new Response("12345"), 100, budget), OVER_BUDGET);
+});
+
+test("parsePayload reads a call", () => {
+  assert.deepEqual(parsePayload('{"url":"http://a","method":"post","body":null}'), { url: "http://a", method: "POST", headers: {}, body: undefined });
+  assert.deepEqual(parsePayload('{"url":"http://a"}'), { url: "http://a", method: "GET", headers: {}, body: undefined });
+  assert.ok("error" in parsePayload("{}"));
+});
+
 test("a request that isn't a JSON object is a 400", async () => {
   for (const body of ["nope", "null", "[]", "1"]) {
     assert.equal((await route.sendRaw({ body })).status, 400, body);
@@ -267,11 +439,24 @@ test("origins are normalised, and only http(s) ones count", () => {
     "http://a.test",
     "http://a.test:8080",
   ]);
-  assert.deepEqual(originsOf(["/v1", "", undefined, "file:///x", "https://{region}.api.test"]), []);
+  assert.deepEqual(originsOf(["/v1", "", undefined, "file:///x", "https://{region}.api.test", "https://api.{region}.test/v1", "{scheme}://a.test"]), []);
+  assert.deepEqual(originsOf(["https://api.test/{base}", "https://b.test?x={y}"]), ["https://api.test", "https://b.test"]);
 });
 
-test("forwardableHeaders ignores case", () => {
-  assert.deepEqual(forwardableHeaders({ HOST: "a", "X-FORWARDED-PROTO": "b", "PROXY-CONNECTION": "c", "X-Api-Key": "d" }), { "X-Api-Key": "d" });
+test("every dropped header is dropped, in any case", () => {
+  const dropped = [
+    "host", "cookie", "content-length", "connection", "keep-alive", "te", "trailer", "transfer-encoding", "upgrade",
+    "forwarded", "via", "x-forwarded", "x-forwarded-for", "x-forwarded-host", "x-forwarded-proto", "x-real-ip",
+    "true-client-ip", "x-client-ip", "cf-connecting-ip", "x-cluster-client-ip", "proxy-authorization", "proxy-connection",
+    "x-original-url", "x-rewrite-url", "x-envoy-original-path", "x-http-method-override", "x-middleware-subrequest",
+    "x-nextjs-data", "x-invoke-path", "x-matched-path", "rsc", "next-action",
+  ];
+  for (const name of dropped) {
+    assert.deepEqual(forwardableHeaders({ [name]: "v" }), {}, name);
+    assert.deepEqual(forwardableHeaders({ [name.toUpperCase()]: "v" }), {}, name.toUpperCase());
+  }
+  const kept = { Authorization: "a", "X-Api-Key": "b", "xi-api-key": "c", "Content-Type": "d", Accept: "e", "x-forwardedness": "f", "X-Request-Id": "g" };
+  assert.deepEqual(forwardableHeaders(kept), kept);
 });
 
 test("readCapped decodes text and handles an empty body", async () => {

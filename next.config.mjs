@@ -1,6 +1,7 @@
 import createMDX from "@next/mdx";
 import remarkGfm from "remark-gfm";
 import rehypePrettyCode from "rehype-pretty-code";
+import { readProxySettings } from "./scripts/proxy-settings.mjs";
 
 // Build mode is chosen by the CLI:
 //   MARKLINE_EXPORT=1 -> static HTML export (any CDN / GitHub Pages / S3)
@@ -22,7 +23,12 @@ const nextConfig = {
   // them at the consumer's project (MARKLINE_DIST is an absolute path there).
   ...(process.env.MARKLINE_DIST ? { distDir: process.env.MARKLINE_DIST } : {}),
   ...(basePath ? { basePath, assetPrefix: basePath } : {}),
-  env: { NEXT_PUBLIC_MARKLINE_BASE_PATH: basePath },
+  env: {
+    NEXT_PUBLIC_MARKLINE_BASE_PATH: basePath,
+    // A standalone server has no content folder, so the Try it proxy's settings are
+    // decided here.
+    MARKLINE_PROXY_SETTINGS: JSON.stringify(readProxySettings()),
+  },
   reactStrictMode: true,
   // The API playground proxy (app/api/playground/route.ts) is the only `.ts`
   // route in app/. Static export can't include a dynamic route handler, so we

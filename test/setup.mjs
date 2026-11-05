@@ -16,7 +16,7 @@ registerHooks({
       return nextResolve(specifier, context);
     } catch (err) {
       // "@/lib/x" is the repo's own path alias, and next/server has no exports map.
-      if (specifier.startsWith("@/")) return nextResolve(`${ROOT}/${specifier.slice(2)}.ts`, context);
+      if (specifier.startsWith("@/")) return nextResolve(`${ROOT}/${specifier.slice(2)}${/\.\w+$/.test(specifier) ? "" : ".ts"}`, context);
       if (specifier === "next/server") return nextResolve("next/server.js", context);
       if (!specifier.startsWith(".") || /\.\w+$/.test(specifier)) throw err;
       return nextResolve(`${specifier}.ts`, context);

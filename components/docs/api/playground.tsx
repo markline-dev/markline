@@ -160,7 +160,7 @@ export function PlaygroundProvider({ spec, children }: { spec: PlaygroundSpec; c
     return { status: r.status, statusText: r.statusText, durationMs: Math.round(performance.now() - start), body: prettyMaybeJson(text), via: "direct" };
   }
   async function viaProxy(headers: Record<string, string>): Promise<ResponseState> {
-    const r = await fetch("/api/playground", {
+    const r = await fetch(`${process.env.NEXT_PUBLIC_MARKLINE_BASE_PATH ?? ""}/api/playground`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url: targetUrl, method: spec.method.toUpperCase(), headers, body: hasBody ? body : undefined }),

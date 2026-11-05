@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { extractToc, headingText, slugify } from "../lib/toc";
+import { extractToc, remarkStepIds, headingText, slugify } from "../lib/toc";
 
 test("extractToc lists ## and ### headings with depth", () => {
   const body = "Intro\n\n## Set up\n\ntext\n\n### Install it\n\n#### Too deep\n\n## Next steps\n";
@@ -43,8 +43,8 @@ const STEPS = [
 
 test("extractToc lists step titles inside <Steps toc>", () => {
   assert.deepEqual(extractToc(STEPS), [
-    { id: "install-the-sdk", label: "Install the SDK", depth: 2 },
-    { id: "set-api-key-env", label: "Set API_KEY > env", depth: 2 },
+    { id: "step-install-the-sdk", label: "Install the SDK", depth: 2 },
+    { id: "step-set-api-key-env", label: "Set API_KEY > env", depth: 2 },
     { id: "example-response", label: "Example response", depth: 2 },
   ]);
 });
@@ -62,4 +62,52 @@ test("toc: steps lists every <Steps>, nested under the ## before it", () => {
 test("steps stay out of the toc by default", () => {
   assert.deepEqual(extractToc(STEPS.replace("<Steps toc>", "<Steps>")).map((i) => i.label), ["Example response"]);
   assert.deepEqual(extractToc(STEPS.replace("<Steps toc>", "<Steps toc={false}>")).map((i) => i.label), ["Example response"]);
+});
+
+async function stepIdsIn(mdx: string, opts?: { steps?: boolean }): Promise<string[]> {
+  const parser = ["unified", "remark-parse", "remark-mdx"];
+  const [{ unified }, { default: remarkParse }, { default: remarkMdx }] = await Promise.all(parser.map((m) => import(m)));
+  const tree = unified().use(remarkParse).use(remarkMdx).parse(mdx);
+  remarkStepIds(opts)(tree);
+  const ids: string[] = [];
+  const walk = (n: { name?: string; attributes?: { name: string; value: string }[]; children?: [] }) => {
+    if (n.name === "Step") {
+      const id = n.attributes?.find((a) => a.name === "id")?.value;
+      if (id) ids.push(id);
+    }
+    (n.children ?? []).forEach(walk);
+  };
+  walk(tree);
+  return ids;
+}
+
+const COLLIDING = [
+  "<Steps toc>",
+  '  <Step title="Install">a</Step>',
+  '  <Step title={"Run"}>b</Step>',
+  "</Steps>",
+  "",
+  "## Install",
+  "",
+  "<Steps>",
+  '  <Step title="Unlisted">c</Step>',
+  "</Steps>",
+  "",
+  "<Steps toc>",
+  '  <Step title="Install">d</Step>',
+  "</Steps>",
+].join("\n");
+
+test("step ids don't collide with headings or each other", () => {
+  const ids = extractToc(COLLIDING).map((i) => i.id);
+  assert.deepEqual(ids, ["step-install", "step-run", "install", "step-install-2"]);
+  assert.equal(new Set(ids).size, ids.length);
+});
+
+test("the page gives listed steps the ids the toc links to, and others none", async () => {
+  const stepsOnly = (o?: { steps?: boolean }) => extractToc(COLLIDING, o).map((i) => i.id).filter((id) => id.startsWith("step-"));
+  assert.deepEqual(await stepIdsIn(COLLIDING), stepsOnly());
+  assert.deepEqual(await stepIdsIn(COLLIDING, { steps: true }), stepsOnly({ steps: true }));
+  assert.deepEqual(await stepIdsIn('<Steps>\n  <Step title="Plain">x</Step>\n</Steps>'), []);
+  assert.deepEqual(await stepIdsIn('<Steps toc={false}>\n  <Step title="Off">x</Step>\n</Steps>'), []);
 });

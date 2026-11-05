@@ -1,7 +1,6 @@
 import { Children, cloneElement, isValidElement } from "react";
 import Link from "next/link";
 import { resolveVideo } from "@/lib/video";
-import { headingText, slugify } from "@/lib/toc";
 import { isIconPath, navIcon } from "./nav-icons";
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -174,13 +173,14 @@ export function Steps({ children }: { children: React.ReactNode; toc?: boolean }
   );
 }
 
-type StepProps = { title?: string; children: React.ReactNode; __num?: number };
+/** `id` comes from remarkStepIds, on the steps listed in "On this page". */
+type StepProps = { title?: string; id?: string; children: React.ReactNode; __num?: number };
 
-export function Step({ title, children, __num }: StepProps) {
+export function Step({ title, id, children, __num }: StepProps) {
   return (
     <div className="step">
       <span className="num">{__num}</span>
-      {title && <h3 id={slugify(headingText(title)) || undefined}>{title}</h3>}
+      {title && <h3 id={id}>{title}</h3>}
       <div className="step-body">{children}</div>
     </div>
   );

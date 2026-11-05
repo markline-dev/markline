@@ -14,7 +14,7 @@ import { HubHero } from "@/components/docs/hub-hero";
 import { LandingPage } from "@/components/landing/landing";
 import { remarkLandingProse } from "@/lib/landing-prose";
 import { remarkCodeGroupTitles } from "@/lib/code-group";
-import { extractToc } from "@/lib/toc";
+import { extractToc, remarkStepIds } from "@/lib/toc";
 import { SiteFooter } from "@/components/site-footer";
 import type { Crumb, PageNavLink } from "@/components/docs/page";
 import { ChangelogEntryView, ChangelogView } from "@/components/docs/changelog";
@@ -125,7 +125,12 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
       options={{
         mdxOptions: {
           format: "mdx",
-          remarkPlugins: landing ? [remarkGfm, remarkCodeGroupTitles, remarkLandingProse] : [remarkGfm, remarkCodeGroupTitles],
+          remarkPlugins: [
+            remarkGfm,
+            remarkCodeGroupTitles,
+            [remarkStepIds, { steps: doc.fm.tocSteps }],
+            ...(landing ? [remarkLandingProse] : []),
+          ],
           rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]],
         },
         blockJS: false,

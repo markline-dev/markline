@@ -1,5 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -104,19 +105,79 @@ test("import lines in nested fences are kept", async () => {
   assert.equal(pageMarkdown({ title: "T", body: info }), "# T\n\n```bash\n```python\nimport still_in\n```\n");
 });
 
-test("removing generated files keeps the site's own", async (t) => {
+type Generated = {
+  removeGeneratedFiles: (appDir: string) => void;
+  writeManifest: (appDir: string, files: string[]) => void;
+};
+
+async function generated(t: { after: (fn: () => void) => void }) {
   const modulePath = "../scripts/generated-files.mjs";
-  const { removeGeneratedFiles, writeManifest } = (await import(modulePath)) as unknown as {
-    removeGeneratedFiles: (pub: string) => void;
-    writeManifest: (pub: string, files: string[]) => void;
-  };
-  const pub = fs.mkdtempSync(path.join(os.tmpdir(), "markline-public-"));
-  t.after(() => fs.rmSync(pub, { recursive: true, force: true }));
-  removeGeneratedFiles(pub); // no manifest yet: nothing to do
-  fs.mkdirSync(path.join(pub, "guides"));
+  const root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "markline-public-")));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const app = path.join(root, "app");
+  fs.mkdirSync(path.join(app, "public", "guides"), { recursive: true });
+  return { ...((await import(modulePath)) as unknown as Generated), root, app, pub: path.join(app, "public") };
+}
+
+test("removing generated files keeps the site's own", async (t) => {
+  const { removeGeneratedFiles, writeManifest, app, pub } = await generated(t);
+  removeGeneratedFiles(app); // no manifest yet: nothing to do
   for (const f of ["guides/a.md", "guides/llms.txt", "own.md"]) fs.writeFileSync(path.join(pub, f), "x");
-  writeManifest(pub, ["guides/a.md", "guides/llms.txt", "already-gone.md"]);
-  removeGeneratedFiles(pub);
+  writeManifest(app, ["guides/a.md", "guides/llms.txt"]);
+  removeGeneratedFiles(app);
   assert.deepEqual(fs.readdirSync(pub).sort(), ["guides", "own.md"]);
   assert.deepEqual(fs.readdirSync(path.join(pub, "guides")), []);
+  assert.deepEqual(fs.readdirSync(app), ["public"], "the manifest is gone too");
+});
+
+test("a file the site has since put at a generated path stays", async (t) => {
+  const { removeGeneratedFiles, writeManifest, app, pub } = await generated(t);
+  const file = path.join(pub, "foo.md");
+  fs.writeFileSync(file, "generated");
+  writeManifest(app, ["foo.md"]);
+  fs.writeFileSync(file, "the site's own");
+  removeGeneratedFiles(app);
+  assert.equal(fs.readFileSync(file, "utf8"), "the site's own");
+});
+
+test("the manifest isn't read from public/, which the docs project supplies", async (t) => {
+  const { removeGeneratedFiles, app, pub } = await generated(t);
+  fs.writeFileSync(path.join(pub, "a.md"), "x");
+  fs.writeFileSync(path.join(pub, ".markline-generated.json"), JSON.stringify([{ file: "a.md" }, "a.md"]));
+  removeGeneratedFiles(app);
+  assert.ok(fs.existsSync(path.join(pub, "a.md")));
+});
+
+test("a bad manifest never throws or deletes anything else", async (t) => {
+  const { removeGeneratedFiles, root, app, pub } = await generated(t);
+  const hash = crypto.createHash("sha256").update("x").digest("hex");
+  const victim = path.join(root, "victim.md");
+  const keep = path.join(pub, "keep.txt");
+  const dir = path.join(pub, "sub.md");
+  fs.symlinkSync(root, path.join(pub, "linked"));
+  const write = (v: unknown) => {
+    fs.writeFileSync(victim, "x");
+    fs.writeFileSync(keep, "x");
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(app, ".markline-generated.json"), typeof v === "string" ? v : JSON.stringify(v));
+  };
+  const hostile: unknown[] = [
+    "not json",
+    { a: 1 },
+    ["sub"],
+    [1, null, {}, { file: 1 }],
+    [{ file: "../../victim.md", hash }],
+    [{ file: victim, hash }],
+    [{ file: "linked/victim.md", hash }],
+    [{ file: "keep.txt", hash }],
+    [{ file: "sub.md", hash }],
+    [{ file: "gone.md", hash }],
+  ];
+  for (const manifest of hostile) {
+    write(manifest);
+    assert.doesNotThrow(() => removeGeneratedFiles(app), JSON.stringify(manifest));
+    assert.ok(fs.existsSync(victim), JSON.stringify(manifest));
+    assert.ok(fs.existsSync(keep), JSON.stringify(manifest));
+    assert.ok(fs.existsSync(dir), JSON.stringify(manifest));
+  }
 });

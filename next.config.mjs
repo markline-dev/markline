@@ -1,4 +1,3 @@
-import path from "node:path";
 import createMDX from "@next/mdx";
 import { PHASE_DEVELOPMENT_SERVER } from "next/constants.js";
 import remarkGfm from "remark-gfm";
@@ -64,6 +63,6 @@ const withMDX = createMDX({
 });
 
 export default function config(phase) {
-  if (phase === PHASE_DEVELOPMENT_SERVER) removeGeneratedFiles(path.join(process.cwd(), "public"));
+  if (phase === PHASE_DEVELOPMENT_SERVER) removeGeneratedFiles(process.cwd());
   return withMDX(nextConfig);
 }

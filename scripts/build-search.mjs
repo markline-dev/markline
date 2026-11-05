@@ -424,7 +424,7 @@ function writeLlms(root) {
 
 function writeMarkdownFiles(root, cfg, opts, sectionList) {
   const pub = path.join(process.cwd(), "public");
-  removeGeneratedFiles(pub);
+  removeGeneratedFiles(process.cwd());
 
   const written = [];
   const write = (rel, text) => {
@@ -443,7 +443,7 @@ function writeMarkdownFiles(root, cfg, opts, sectionList) {
   }
   for (const id of sectionList) write(`${id}/llms.txt`, sectionIndex(cfg, docs, id, opts));
 
-  writeManifest(pub, written);
+  writeManifest(process.cwd(), written);
   const pages = written.filter((f) => f.endsWith(".md")).length;
   console.log(`[markline] ${pages} page .md files + ${written.length - pages} section llms.txt -> public/`);
 }

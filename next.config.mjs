@@ -1,7 +1,7 @@
+import { readProxySettings } from "./scripts/proxy-settings.mjs";
 import createMDX from "@next/mdx";
 import remarkGfm from "remark-gfm";
 import rehypePrettyCode from "rehype-pretty-code";
-import { readProxySettings } from "./scripts/proxy-settings.mjs";
 
 // Build mode is chosen by the CLI:
 //   MARKLINE_EXPORT=1 -> static HTML export (any CDN / GitHub Pages / S3)

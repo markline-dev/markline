@@ -437,6 +437,7 @@ entries.
 <ParamField path="api.baseUrl" type="string">Base URL the playground sends requests to (overrides the spec's servers).</ParamField>
 <ParamField path="api.playground.mode" type='"full" | "inline" | "explorer" | "off"'>The "Try it" experience. Default `"full"`.</ParamField>
 <ParamField path="api.playground.proxy" type='"auto" | "always" | "never"'>How the playground reaches your API. `never` is required for static export.</ParamField>
+<ParamField path="api.sdkNaming" type='"auto" | "off"'>How generated SDK samples name calls. `auto` (default) uses the spec's `x-fern-sdk-group-name` / `x-fern-sdk-method-name` when present.</ParamField>
 
 See [API reference](/openapi) for the full guide — generating the reference, the live explorer, and per-resource/per-operation MDX overlays.
 

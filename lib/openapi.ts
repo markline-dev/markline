@@ -3,6 +3,7 @@ import path from "node:path";
 import { contentRoot } from "./paths";
 import { mergeTagEvents, parseOperationEvents, parseWebhooks, parseXEvents } from "./openapi-events";
 import { tagLabels, type TagLabels } from "./openapi-tags";
+import { isJsonMediaType, pickMediaType } from "./openapi-media";
 
 export { eventAnchor } from "./openapi-events";
 
@@ -39,8 +40,11 @@ export type OpenAPIParameter = {
 export type OpenAPIResponse = {
   status: string;
   description?: string;
+  /** JSON body schema (only set for JSON media types). */
   schema?: JSONSchema;
   example?: unknown;
+  /** The documented media type (`application/json`, `audio/mpeg`, …), if any. */
+  contentType?: string;
 };
 
 export type OpenAPIOperation = {
@@ -61,6 +65,9 @@ export type OpenAPIOperation = {
     required?: boolean;
     description?: string;
     schema?: JSONSchema;
+    /** The body's media type: `application/json` when offered, else the first
+     *  listed (`multipart/form-data`, `application/x-www-form-urlencoded`, …). */
+    contentType?: string;
   };
   responses: OpenAPIResponse[];
   security: { name: string; scheme: SecurityScheme }[];
@@ -197,22 +204,30 @@ export function normalize(raw: any): OpenAPIDoc {
         else if (resolved.in === "header") params.header.push(resolved);
       }
 
-      const requestBody = op.requestBody
+      const reqBody = op.requestBody ? resolveRef(op.requestBody, raw) : undefined;
+      const reqType = pickMediaType(reqBody?.content);
+      const requestBody = reqBody
         ? {
-            required: op.requestBody.required,
-            description: op.requestBody.description,
-            schema: op.requestBody.content?.["application/json"]?.schema,
+            required: reqBody.required,
+            description: reqBody.description,
+            schema: reqType ? reqBody.content[reqType]?.schema : undefined,
+            contentType: reqType,
           }
         : undefined;
 
       const responses: OpenAPIResponse[] = [];
-      for (const [status, resp] of Object.entries<any>(op.responses ?? {})) {
-        const json = resp.content?.["application/json"];
+      for (const [status, r] of Object.entries<any>(op.responses ?? {})) {
+        const resp = resolveRef(r, raw);
+        const type = pickMediaType(resp?.content);
+        // Only JSON bodies carry a schema/example sample; other media types
+        // (audio, zip, text) are documented by their content type alone.
+        const json = type && isJsonMediaType(type) ? resp.content[type] : undefined;
         responses.push({
           status,
-          description: resp.description,
+          description: resp?.description,
           schema: json?.schema,
           example: json?.example ?? json?.examples?.default?.value,
+          contentType: type,
         });
       }
 

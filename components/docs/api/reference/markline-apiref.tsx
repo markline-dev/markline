@@ -4,7 +4,7 @@ import { createContext, Fragment, useContext, useEffect, useRef, useState } from
 import Link from "next/link";
 import type { ApiRefView, AttrView, EndpointView, EventColors, EventView, NavTreeNode, NavParent } from "@/lib/apiref-view";
 import type { AiPublicConfig } from "@/lib/config";
-import { ApiExplorer, PlaygroundProvider, usePlayground } from "../playground";
+import { ApiExplorer, BinaryBody, PlaygroundProvider, usePlayground } from "../playground";
 import { AskDock, openAskPanel } from "../../ai/ask-dock";
 import { SectionRate } from "../../feedback";
 import { SiteCredit } from "@/components/site-credit";
@@ -815,7 +815,11 @@ function TryItCards({ ep }: { ep: EndpointView }) {
               <span className={`dot ${live.status < 400 ? "g" : "r"}`} /> {live.status} {live.statusText} · {live.durationMs} ms
             </span>
           </div>
-          <pre dangerouslySetInnerHTML={{ __html: colorizeJsonString(live.body) }} />
+          {live.blob ? (
+            <BinaryBody blob={live.blob} contentType={live.contentType} />
+          ) : (
+            <pre dangerouslySetInnerHTML={{ __html: colorizeJsonString(live.body) }} />
+          )}
         </div>
       ) : pg.error ? (
         <div className="code-card resp">

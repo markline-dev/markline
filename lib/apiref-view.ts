@@ -283,7 +283,7 @@ function buildEndpoint(
   base = "/api-reference",
 ): EndpointView {
   const groups = paramGroups(op, root);
-  const code = codeSamples(op, doc, root, baseUrl, langs);
+  const code = codeSamples(op, doc, root, baseUrl, langs, { sdkNaming: loadConfig().api.sdkNaming });
   const response = successResponse(op, root) ?? undefined;
   const responses = allResponses(op, root);
   const hasBearer = op.security.some((s) => s.scheme.type === "http" && s.scheme.scheme === "bearer");

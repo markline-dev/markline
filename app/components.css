@@ -363,6 +363,14 @@ textarea.ml-pg-input { height: auto; padding: 8px 10px; line-height: 1.55; resiz
   background: rgb(var(--c-panel-bg));
   color: rgb(var(--c-panel-fg));
 }
+/* Live binary response: an audio player, or a download link with the size. */
+.ml-pg-binary { padding: 12px 16px; }
+.ml-pg-binary .ml-audio { margin: 0; }
+.ml-pg-binary p { margin: 0; font-size: 13px; }
+.ml-pg-binary a { color: var(--accent-ink); text-decoration: underline; text-underline-offset: 2px; }
+.ml-pg-binary .meta, .ml-pg-file .meta { margin-left: 8px; font-family: var(--mono); font-size: 11px; color: var(--ink-4); }
+.ml-pg-file { display: inline-flex; align-items: center; min-width: 0; font-size: 12px; }
+.ml-pg-file input[type="file"] { min-width: 0; max-width: 100%; font-size: 12px; }
 
 .ml-pg-codepreview { background: rgb(var(--c-panel-bg)); }
 .ml-pg-codepreview-head {

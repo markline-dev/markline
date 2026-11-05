@@ -3,6 +3,18 @@
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
+import { Audio } from "@/components/docs/audio";
+import {
+  bodyKind,
+  bytesToBase64,
+  extensionFor,
+  formatBytes,
+  objectUrlFor,
+  readProxyBody,
+  readResponseBody,
+  PROXY_MAX_BYTES,
+} from "@/lib/openapi-media";
+import { formFieldArg, formFileArg, headerWord, shellWord } from "@/lib/openapi-curl";
 
 export type PlaygroundParam = { name: string; required: boolean; sample: string; description?: string; type?: string; enum?: string[] };
 
@@ -19,6 +31,14 @@ export type PlaygroundSpec = {
   bearer: boolean;
   apiKeyHeaders: { name: string }[];
   bodySample?: string;
+  /** Request media type when it isn't plain `application/json`
+   *  (`multipart/form-data`, `application/x-www-form-urlencoded`, …). For forms,
+   *  `bodySample` is a flat JSON object of the text fields. */
+  bodyContentType?: string;
+  /** File (`format: binary`) fields of a multipart body. */
+  bodyFiles?: { name: string; required: boolean; description?: string }[];
+  /** SDK call prefixes from the spec's naming extensions (`client.textToSpeech.convert`). */
+  sdk?: { node: string; python: string; go: string };
   /** Example responses from the spec, for the response panel's status tabs. */
   responses?: { status: string; body: string }[];
   /** All operations, for the endpoint switcher. */
@@ -35,6 +55,9 @@ type ResponseState = {
   durationMs: number;
   body: string;
   via: "direct" | "proxy";
+  contentType?: string;
+  /** Set for non-text responses (audio, archives, …); `body` is then empty. */
+  blob?: Blob;
 } | null;
 
 type Ctx = {
@@ -45,6 +68,8 @@ type Ctx = {
   setToken: (v: string) => void;
   body: string;
   setBody: (v: string) => void;
+  files: Record<string, File | null>;
+  setFile: (name: string, f: File | null) => void;
   getParam: (loc: Loc, name: string) => string;
   setParam: (loc: Loc, name: string, val: string) => void;
   send: () => void;
@@ -79,6 +104,18 @@ function prettyMaybeJson(text: string): string {
 function shellQuote(s: string) {
   return `'${s.replace(/'/g, "'\\''")}'`;
 }
+/** Non-blank fields of a form body (kept as a flat JSON object while editing). */
+function formEntries(body: string): [string, string][] {
+  try {
+    const o = JSON.parse(body || "{}");
+    if (!o || typeof o !== "object" || Array.isArray(o)) return [];
+    return Object.entries(o as Record<string, unknown>)
+      .filter(([, v]) => v !== "" && v !== null && v !== undefined)
+      .map(([k, v]) => [k, typeof v === "object" ? JSON.stringify(v) : String(v)]);
+  } catch {
+    return [];
+  }
+}
 
 export function PlaygroundProvider({ spec, children }: { spec: PlaygroundSpec; children: React.ReactNode }) {
   const [baseUrl, setBaseUrl] = useState(spec.servers[0] ?? "");
@@ -91,6 +128,8 @@ export function PlaygroundProvider({ spec, children }: { spec: PlaygroundSpec; c
   );
   const [headerVals, setHeaderVals] = useState<Record<string, string>>({});
   const [body, setBody] = useState(spec.bodySample ?? "");
+  const [files, setFiles] = useState<Record<string, File | null>>({});
+  const setFile = (name: string, f: File | null) => setFiles((v) => ({ ...v, [name]: f }));
   const [response, setResponse] = useState<ResponseState>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -118,7 +157,12 @@ export function PlaygroundProvider({ spec, children }: { spec: PlaygroundSpec; c
     setter((v) => ({ ...v, [name]: val }));
   };
 
-  const hasBody = body.trim() !== "" && !["get", "head"].includes(spec.method.toLowerCase());
+  const kind = bodyKind(spec.bodyContentType);
+  const isForm = kind === "multipart" || kind === "form";
+  const hasBody =
+    !["get", "head"].includes(spec.method.toLowerCase()) &&
+    (body.trim() !== "" || Object.values(files).some(Boolean)) &&
+    (!isForm || formEntries(body).length > 0 || Object.values(files).some(Boolean));
 
   const targetUrl = useMemo(() => {
     const p = spec.path.replace(/\{([^}]+)\}/g, (_, n) => (pathVals[n] ? encodeURIComponent(pathVals[n]) : `{${n}}`));
@@ -134,8 +178,26 @@ export function PlaygroundProvider({ spec, children }: { spec: PlaygroundSpec; c
     for (const hp of spec.headerParams) if (headerVals[hp.name]) h[hp.name] = headerVals[hp.name];
     for (const ak of spec.apiKeyHeaders) if (headerVals[ak.name]) h[ak.name] = headerVals[ak.name];
     if (spec.bearer && token) h["Authorization"] = `Bearer ${token}`;
-    if (hasBody) h["Content-Type"] = "application/json";
+    // The browser writes the multipart Content-Type (with its boundary) itself.
+    if (hasBody && kind !== "multipart") {
+      h["Content-Type"] = kind === "form" ? "application/x-www-form-urlencoded" : spec.bodyContentType ?? "application/json";
+    }
     return h;
+  }
+
+  /** The request body as fetch takes it: text, URL-encoded pairs, or FormData. */
+  function encodeBody(): BodyInit | undefined {
+    if (!hasBody) return undefined;
+    if (kind === "form") return new URLSearchParams(formEntries(body)).toString();
+    // A raw binary body is the picked file itself.
+    if (kind === "other" && Object.values(files).some(Boolean)) return Object.values(files).find(Boolean)!;
+    if (kind === "multipart") {
+      const fd = new FormData();
+      for (const [k, v] of formEntries(body)) fd.append(k, v);
+      for (const [k, f] of Object.entries(files)) if (f) fd.append(k, f, f.name);
+      return fd;
+    }
+    return body;
   }
 
   const curl = useMemo(() => {
@@ -146,29 +208,64 @@ export function PlaygroundProvider({ spec, children }: { spec: PlaygroundSpec; c
       lines.push(`  --header ${shellQuote(`${k}: ${k === "Authorization" ? "Bearer <token>" : v}`)}`);
     }
     if (hasBody) {
-      lines[lines.length - 1] += " \\";
-      lines.push(`  --data ${shellQuote(body)}`);
+      const push = (l: string) => {
+        lines[lines.length - 1] += " \\";
+        lines.push(l);
+      };
+      if (isForm) {
+        for (const [k, v] of formEntries(body)) {
+          const arg = formFieldArg(kind as "multipart" | "form", k, v);
+          push(`  --${arg.flag} ${arg.word}`);
+        }
+        for (const [k, f] of Object.entries(files)) {
+          if (!f) continue;
+          const arg = formFileArg(k, f.name);
+          push(`  --${arg.flag} ${arg.word}`);
+        }
+      } else {
+        const file = Object.values(files).find(Boolean);
+        push(file ? `  --data-binary ${shellWord(`@${file.name}`)}` : `  --data-raw ${shellQuote(body)}`);
+      }
     }
     return lines.join("\n");
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [targetUrl, headerVals, token, body, hasBody, spec.method]);
+  }, [targetUrl, headerVals, token, body, files, hasBody, spec.method]);
 
   async function direct(headers: Record<string, string>): Promise<ResponseState> {
     const start = performance.now();
-    const r = await fetch(targetUrl, { method: spec.method.toUpperCase(), headers, body: hasBody ? body : undefined });
-    const text = await r.text();
-    return { status: r.status, statusText: r.statusText, durationMs: Math.round(performance.now() - start), body: prettyMaybeJson(text), via: "direct" };
+    const r = await fetch(targetUrl, { method: spec.method.toUpperCase(), headers, body: encodeBody() });
+    const contentType = r.headers.get("content-type") ?? "";
+    // Audio and other bytes are kept as a Blob; reading them as text corrupts them.
+    const { body: text, blob } = await readResponseBody(r, contentType);
+    return { status: r.status, statusText: r.statusText, durationMs: Math.round(performance.now() - start), body: blob ? "" : prettyMaybeJson(text), via: "direct", contentType, blob };
   }
   async function viaProxy(headers: Record<string, string>): Promise<ResponseState> {
+    // The proxy speaks JSON, so a binary body (an encoded multipart form) travels
+    // as base64 with its Content-Type, boundary included.
+    const encoded = encodeBody();
+    let payloadBody: { body?: string; bodyBase64?: string } = {};
+    const sendHeaders = { ...headers };
+    if (encoded instanceof FormData || encoded instanceof Blob) {
+      const wire = new Response(encoded);
+      if (encoded instanceof FormData) sendHeaders["Content-Type"] = wire.headers.get("content-type") ?? "multipart/form-data";
+      const bytes = new Uint8Array(await wire.arrayBuffer());
+      if (bytes.length > PROXY_MAX_BYTES) {
+        throw new Error(`This upload is ${formatBytes(bytes.length)}, over the ${formatBytes(PROXY_MAX_BYTES)} the proxy carries.`);
+      }
+      payloadBody = { bodyBase64: await bytesToBase64(bytes) };
+    } else if (typeof encoded === "string") payloadBody = { body: encoded };
     const r = await fetch("/api/playground", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: targetUrl, method: spec.method.toUpperCase(), headers, body: hasBody ? body : undefined }),
+      body: JSON.stringify({ url: targetUrl, method: spec.method.toUpperCase(), headers: sendHeaders, ...payloadBody }),
     });
     if (r.status === 404) throw new Error("proxy-unavailable");
     const data = await r.json();
     if (data.error) throw new Error(data.error);
-    return { status: data.status, statusText: data.statusText ?? "", durationMs: data.durationMs ?? 0, body: prettyMaybeJson(typeof data.body === "string" ? data.body : JSON.stringify(data.body)), via: "proxy" };
+    const contentType: string = data.contentType ?? "";
+    const base = { status: data.status, statusText: data.statusText ?? "", durationMs: data.durationMs ?? 0, via: "proxy" as const, contentType };
+    const read = readProxyBody(data);
+    return { ...base, body: read.blob ? "" : prettyMaybeJson(read.body), blob: read.blob };
   }
 
   async function send() {
@@ -201,7 +298,7 @@ export function PlaygroundProvider({ spec, children }: { spec: PlaygroundSpec; c
     }
   }
 
-  const value: Ctx = { spec, baseUrl, setBaseUrl, token, setToken, body, setBody, getParam, setParam, send, response, loading, error, curl, targetUrl };
+  const value: Ctx = { spec, baseUrl, setBaseUrl, token, setToken, body, setBody, files, setFile, getParam, setParam, send, response, loading, error, curl, targetUrl };
   return <PlaygroundCtx.Provider value={value}>{children}</PlaygroundCtx.Provider>;
 }
 
@@ -250,6 +347,41 @@ export function BodyEditor() {
   );
 }
 
+/** A file input for a multipart body's `format: binary` field. */
+export function FileInput({ name }: { name: string }) {
+  const { files, setFile } = usePlayground();
+  const f = files[name];
+  return (
+    <span className="ml-pg-file">
+      <input type="file" aria-label={name} onChange={(e) => setFile(name, e.target.files?.[0] ?? null)} />
+      {f && <span className="meta">{formatBytes(f.size)}</span>}
+    </span>
+  );
+}
+
+/**
+ * A live binary response: an inline player for `audio/*`, else a download link
+ * with the size. The object URL lives as long as this response is shown.
+ */
+export function BinaryBody({ blob, contentType }: { blob: Blob; contentType?: string }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => objectUrlFor(blob, setUrl), [blob]);
+  const ct = contentType || blob.type || "application/octet-stream";
+  const meta = `${ct.split(";")[0]} · ${formatBytes(blob.size)}`;
+  if (!url) return null;
+  return (
+    <div className="ml-pg-binary">
+      {/^audio\//i.test(ct) ? (
+        <Audio src={url} title="Response audio" caption={meta} />
+      ) : (
+        <p>
+          <a href={url} download={`response.${extensionFor(ct)}`}>Download response</a> <span className="meta">{meta}</span>
+        </p>
+      )}
+    </div>
+  );
+}
+
 /* ── Rail request console (Send + live cURL + response) ── */
 
 export function RequestConsole({ explorer = true }: { explorer?: boolean }) {
@@ -295,7 +427,11 @@ function ResponseBlock({ response, error }: { response: ResponseState; error: st
             <span className="stext">{response.statusText}</span>
             <span className="meta">{response.durationMs}ms · {response.via}</span>
           </div>
-          <pre className="ml-pg-resp-body">{response.body || "(empty response)"}</pre>
+          {response.blob ? (
+            <BinaryBody blob={response.blob} contentType={response.contentType} />
+          ) : (
+            <pre className="ml-pg-resp-body">{response.body || "(empty response)"}</pre>
+          )}
         </>
       )}
     </div>
@@ -419,6 +555,7 @@ function ExplorerModal({ onClose }: { onClose: () => void }) {
     for (const ak of spec.apiKeyHeaders) pg.setParam("header", ak.name, "");
     setBodyObj({});
     pg.setBody(spec.bodySample ?? "");
+    for (const f of spec.bodyFiles ?? []) pg.setFile(f.name, null);
   };
 
   return (
@@ -464,8 +601,13 @@ function ExplorerModal({ onClose }: { onClose: () => void }) {
                 {optQuery.map((p) => <ParamRow key={p.name} loc="query" param={p} />)}
               </ExplorerSection>
             )}
-            {bodyFields.length > 0 && (
-              <ExplorerSection title="Body" count={bodyFields.length}>
+            {bodyFields.length + (spec.bodyFiles?.length ?? 0) > 0 && (
+              <ExplorerSection title="Body" count={bodyFields.length + (spec.bodyFiles?.length ?? 0)}>
+                {spec.bodyFiles?.map((f) => (
+                  <RowShell key={f.name} name={f.name} chip={{ cls: "t-hash", label: "file" }} required={f.required} description={f.description}>
+                    <FileInput name={f.name} />
+                  </RowShell>
+                ))}
                 {bodyFields.map(([k, v]) => (
                   <BodyRow key={k} name={k} value={String((bodyObj[k] ?? v ?? "") as string)} onChange={(val) => setBodyField(k, val)} />
                 ))}
@@ -503,6 +645,8 @@ function ExplorerModal({ onClose }: { onClose: () => void }) {
               <div className="xp-respwrap">
                 {pg.error ? (
                   <pre style={{ whiteSpace: "pre-wrap" }}>{pg.error}</pre>
+                ) : live?.blob ? (
+                  <BinaryBody blob={live.blob} contentType={live.contentType} />
                 ) : (
                   <pre dangerouslySetInnerHTML={{ __html: colorizeJsonHtml(live?.body ?? "") }} />
                 )}
@@ -799,7 +943,6 @@ function sdkFn(spec: PlaygroundSpec): string {
 }
 const isNum = (v: unknown) => /^-?\d+$/.test(String(v));
 const cap = (s: string) => s.replace(/(^|_)([a-z])/g, (_, __, c: string) => c.toUpperCase());
-function curlVal(v: unknown) { return isNum(v) ? `<span class="n">${String(v)}</span>` : escHtml(String(v)); }
 function jsVal(v: unknown) { const s = String(v); if (isNum(v)) return `<span class="n">${s}</span>`; if (s === "true" || s === "false") return `<span class="fl">${s}</span>`; return `<span class="s">'${escHtml(s)}'</span>`; }
 function pyVal(v: unknown) { const s = String(v); if (isNum(v)) return `<span class="n">${s}</span>`; if (s === "true") return `<span class="fl">True</span>`; if (s === "false") return `<span class="fl">False</span>`; return `<span class="s">"${escHtml(s)}"</span>`; }
 function goVal(v: unknown) { const s = String(v); return isNum(v) ? `client.<span class="f">Int</span>(<span class="n">${s}</span>)` : `client.<span class="f">String</span>(<span class="s">"${escHtml(s)}"</span>)`; }
@@ -822,33 +965,62 @@ function genCode(lang: LangId, spec: PlaygroundSpec, pg: Ctx, bodyObj: Record<st
     const lines: string[] = [];
     let head = `<span class="f">curl</span>`;
     if (method !== "GET" && method !== "POST") head += ` -X ${method}`;
-    head += ` <span class="s">"${escHtml(pg.targetUrl)}"</span>`;
+    head += ` <span class="s">${escHtml(shellWord(pg.targetUrl))}</span>`;
     lines.push(head);
-    headers.forEach((h) => lines.push(`  -H <span class="s">"${escHtml(h.k)}: ${escHtml(h.v)}"</span>`));
-    if (!isRead) writeFields.forEach(([k, v]) => lines.push(`  -d <span class="key">${escHtml(k)}</span>=${curlVal(v)}`));
+    headers.forEach((h) => lines.push(`  -H <span class="s">${escHtml(headerWord(h.k, h.v))}</span>`));
+    if (!isRead) {
+      const kind = bodyKind(spec.bodyContentType);
+      if (kind === "multipart" || kind === "form") {
+        writeFields.forEach(([k, v]) => {
+          const arg = formFieldArg(kind, k, v);
+          lines.push(`  --${arg.flag} <span class="s">${escHtml(arg.word)}</span>`);
+        });
+        for (const f of spec.bodyFiles ?? []) {
+          const arg = formFileArg(f.name, pg.files[f.name]?.name ?? `path/to/${f.name}`);
+          lines.push(`  -F <span class="s">${escHtml(arg.word)}</span>`);
+        }
+      } else {
+        const contentType = spec.bodyContentType ?? "application/json";
+        const file = (spec.bodyFiles ?? [])[0];
+        if (file) {
+          lines.push(`  -H <span class="s">${escHtml(headerWord("Content-Type", contentType))}</span>`);
+          lines.push(`  --data-binary <span class="s">${escHtml(shellWord(`@${pg.files[file.name]?.name ?? "path/to/file"}`))}</span>`);
+        } else if (pg.body.trim()) {
+          lines.push(`  -H <span class="s">${escHtml(headerWord("Content-Type", contentType))}</span>`);
+          lines.push(`  --data-raw <span class="s">${escHtml(shellQuote(pg.body))}</span>`);
+        }
+      }
+    }
     return lines.join(" \\\n");
   }
 
   const resource = sdkResource(spec.path);
   const fn = sdkFn(spec);
   const objFields = isRead ? queryFields : writeFields;
+  // Spec-named SDK calls (Fern extensions) when present, else path-derived.
+  const call = (l: "node" | "python" | "go") => {
+    const named = spec.sdk?.[l];
+    if (!named) return null;
+    const i = named.lastIndexOf(".");
+    return `${escHtml(named.slice(0, i))}.<span class="f">${escHtml(named.slice(i + 1))}</span>`;
+  };
 
   if (lang === "node") {
-    const head = `<span class="f">const</span> res = <span class="f">await</span> client.${escHtml(resource)}.<span class="f">${fn}</span>(`;
+    const head = `<span class="f">const</span> res = <span class="f">await</span> ${call("node") ?? `client.${escHtml(resource)}.<span class="f">${fn}</span>`}(`;
     const args: string[] = [];
     for (const p of spec.pathParams) { const v = pg.getParam("path", p.name); if (v) args.push(`  <span class="s">'${escHtml(v)}'</span>`); }
     if (objFields.length) args.push(`  {\n${objFields.map(([k, v]) => `    ${escHtml(k)}: ${jsVal(v)},`).join("\n")}\n  }`);
     return head + (args.length ? `\n${args.join(",\n")}\n` : "") + ")";
   }
   if (lang === "python") {
-    const head = `res = client.${escHtml(resource)}.<span class="f">${fn}</span>(`;
+    const head = `res = ${call("python") ?? `client.${escHtml(resource)}.<span class="f">${fn}</span>`}(`;
     const inner: string[] = [];
     for (const p of spec.pathParams) { const v = pg.getParam("path", p.name); if (v) inner.push(`    <span class="s">"${escHtml(v)}"</span>,`); }
     objFields.forEach(([k, v]) => inner.push(`    ${escHtml(k)}=${pyVal(v)},`));
     return head + (inner.length ? `\n${inner.join("\n")}\n` : "") + ")";
   }
   // go
-  const lines = [`res, err := client.${cap(resource)}.<span class="f">${cap(fn)}</span>(ctx, &client.${cap(resource)}Params{`];
+  const lines = [`res, err := ${call("go") ?? `client.${cap(resource)}.<span class="f">${cap(fn)}</span>`}(ctx, &client.${cap(resource)}Params{`];
   objFields.forEach(([k, v]) => lines.push(`    ${cap(k)}: ${goVal(v)},`));
   lines.push("})");
   return lines.join("\n");

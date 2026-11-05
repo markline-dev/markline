@@ -1,6 +1,7 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import http from "node:http";
 import path from "node:path";
 import { createSite, filesUnder } from "./site-server";
 
@@ -59,6 +60,37 @@ test("unknown URLs write nothing and aren't cached", { skip }, async () => {
     await res.arrayBuffer();
   }
   assert.deepEqual(filesUnder(cache), before);
+});
+
+/** A request with its path exactly as written: fetch would tidy up dot segments. */
+const rawGet = (url: string, path: string, headers: Record<string, string> = {}) =>
+  new Promise<{ status: number; cacheControl: string }>((resolve, reject) => {
+    const { hostname, port } = new URL(url);
+    const req = http.request({ hostname, port, path, headers }, (res) => {
+      res.resume();
+      res.on("end", () => resolve({ status: res.statusCode ?? 0, cacheControl: res.headers["cache-control"] ?? "" }));
+    });
+    req.on("error", reject);
+    req.end();
+  });
+
+test("paths with dot segments write nothing, and later requests stay 404", { skip }, async () => {
+  const cache = path.join(site.dir, ".markline", ".next", "server", "app");
+  const before = filesUnder(cache);
+  const paths = ["/%2e/dot1", "/../dot2", "/./dot3", "/%2e%2e/dot4", "/foo/%2e%2e/dot5", "/%2e/guides/dot6", "/%2E/dot7"];
+  for (const p of paths) {
+    const { status, cacheControl } = await rawGet(base, p);
+    assert.equal(status, 404, p);
+    assert.doesNotMatch(cacheControl, /s-maxage/, p);
+  }
+  assert.equal((await rawGet(base, "/%2e/dot8", { rsc: "1" })).status, 404);
+  assert.deepEqual(filesUnder(cache), before);
+  for (const p of ["/dot1", "/dot2", "/dot3", "/dot4", "/dot5", "/guides/dot6", "/dot7", "/dot8"]) {
+    const { status, cacheControl } = await rawGet(base, p);
+    assert.equal(status, 404, p);
+    assert.doesNotMatch(cacheControl, /s-maxage/, p);
+  }
+  assert.equal((await rawGet(base, "/guides/a")).status, 200);
 });
 
 test("the 404 page has the site's header", { skip }, async () => {

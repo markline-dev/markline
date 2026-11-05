@@ -1,16 +1,8 @@
 import { Children, cloneElement, isValidElement, type ReactElement, type ReactNode } from "react";
-import { codeGroupLabel, codeGroupSyncKey } from "@/lib/code-group";
+import { codeGroupLabel, codeGroupSyncKey, duplicateLabels, nodeText } from "@/lib/code-group";
 import { CodeGroupTabs } from "./code-tabs";
 
 type AnyProps = Record<string, unknown> & { children?: ReactNode };
-
-/** A node's text, however it's nested (the copy button's code). */
-function nodeText(node: ReactNode): string {
-  if (typeof node === "string" || typeof node === "number") return String(node);
-  if (Array.isArray(node)) return node.map(nodeText).join("");
-  if (isValidElement(node)) return nodeText((node.props as AnyProps).children);
-  return "";
-}
 
 /** The first element under `node` (itself included) whose props match. */
 function find(node: ReactNode, match: (p: AnyProps) => boolean): ReactElement<AnyProps> | undefined {
@@ -47,7 +39,10 @@ export function CodeGroup({ children, sync }: { children: ReactNode; sync?: stri
     .map((child) => {
       const title = find(child, (p) => "data-rehype-pretty-code-title" in p);
       const pre = find(child, (p) => typeof p["data-language"] === "string" && !("data-rehype-pretty-code-title" in p));
-      if (!pre) return undefined;
+      if (!pre) {
+        console.warn("[markline] <CodeGroup> shows only fenced code blocks; other content in it is dropped.");
+        return undefined;
+      }
       return {
         label: codeGroupLabel(title ? nodeText(title.props.children) : undefined, pre.props["data-language"] as string),
         code: nodeText(pre.props.children).replace(/\n$/, ""),
@@ -57,6 +52,9 @@ export function CodeGroup({ children, sync }: { children: ReactNode; sync?: stri
     .filter((t) => t !== undefined);
   if (tabs.length === 0) return null;
   const labels = tabs.map((t) => t.label);
+  for (const label of duplicateLabels(labels)) {
+    console.warn(`[markline] <CodeGroup> has more than one "${label}" tab; give those fences a title.`);
+  }
   return (
     <CodeGroupTabs labels={labels} codes={tabs.map((t) => t.code)} syncKey={codeGroupSyncKey(labels, sync)}>
       {tabs.map((t, i) => cloneElement(t.panel, { key: i }))}

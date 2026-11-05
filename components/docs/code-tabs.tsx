@@ -2,7 +2,7 @@
 
 import { Children, useEffect, useState } from "react";
 import { CopyButton } from "@/components/copy-button";
-import { codeGroupStorageKey } from "@/lib/code-group";
+import { codeGroupStorageKey, syncedTab } from "@/lib/code-group";
 
 export type HighlightedSnippet = {
   lang: string;
@@ -152,8 +152,7 @@ export function CodeGroupTabs({
   useEffect(() => {
     if (!syncKey) return;
     const show = (label: string | null) => {
-      const i = label == null ? -1 : labels.indexOf(label);
-      if (i >= 0) setActive(i);
+      if (label != null) setActive((current) => syncedTab(labels, label, current));
     };
     show(readChoice(syncKey));
     const onPick = (e: Event) => {

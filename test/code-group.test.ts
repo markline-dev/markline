@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { codeGroupLabel, codeGroupStorageKey, codeGroupSyncKey, remarkCodeGroupTitles } from "../lib/code-group";
+import { createElement } from "react";
+import { codeGroupLabel, codeGroupStorageKey, codeGroupSyncKey, duplicateLabels, nodeText, remarkCodeGroupTitles, syncedTab } from "../lib/code-group";
 
 test("a tab is named by the fence's title, else its language", () => {
   assert.equal(codeGroupLabel("cURL", "bash"), "cURL");
@@ -37,3 +38,33 @@ test("a bare fence meta inside <CodeGroup> becomes its title", () => {
   );
   assert.deepEqual(metas, ["outside", 'title="cURL"', 'title="Shell"', "{1,3}", null, `title="My 'x' file"`]);
 });
+
+test("a synced pick keeps a tab that already has the label", () => {
+  const labels = ["Shell", "Shell", "Python"];
+  assert.equal(syncedTab(labels, "Shell", 1), 1, "the second Shell stays reachable");
+  assert.equal(syncedTab(labels, "Shell", 2), 0);
+  assert.equal(syncedTab(labels, "Python", 1), 2);
+  assert.equal(syncedTab(labels, "Go", 1), 1);
+  assert.deepEqual(duplicateLabels(labels), ["Shell"]);
+  assert.deepEqual(duplicateLabels(["a", "b"]), []);
+});
+
+test("pretty-code meta beside a fence isn't a tab name", () => {
+  const titled = (meta: string) => {
+    const fence = { type: "code", meta };
+    remarkCodeGroupTitles()({ type: "mdxJsxFlowElement", name: "CodeGroup", children: [fence] });
+    return fence.meta;
+  };
+  assert.equal(titled("showLineNumbers"), "showLineNumbers");
+  assert.equal(titled("/foo/"), "/foo/");
+  assert.equal(titled("/foo/#v"), "/foo/#v");
+  assert.equal(titled("cURL showLineNumbers"), 'title="cURL" showLineNumbers');
+  assert.equal(titled("My tab /foo/"), 'title="My tab" /foo/');
+});
+
+test("copied code keeps blank lines blank", () => {
+  const line = (text: string) => createElement("span", { "data-line": "" }, text);
+  const code = createElement("code", null, line("a"), "\n", line(" "), "\n", line("  b"));
+  assert.equal(nodeText(code), "a\n\n  b");
+});
+

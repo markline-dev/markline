@@ -94,10 +94,13 @@ export function parsePayload(raw: string): ProxyPayload | { error: string } {
   return { url, method: upper, headers: headers as Record<string, string>, body: (body as string | null) ?? undefined };
 }
 
-/** A browser request from another site. With neither header it's not a browser's,
- *  so a command-line tool still works. `hosts` is what this site is reached as. */
+/** A browser request from another site. The browser's own Sec-Fetch-Site answers
+ *  that when it's there, as Origin can't be compared behind a proxy that rewrites
+ *  Host. With neither header it's not a browser's, so a command-line tool still works. */
 export function isCrossSite(headers: Headers): boolean {
-  if (headers.get("sec-fetch-site") === "cross-site") return true;
+  const fetchSite = headers.get("sec-fetch-site");
+  if (fetchSite === "same-origin") return false;
+  if (fetchSite === "cross-site") return true;
   const origin = headers.get("origin");
   if (origin === null) return false;
   const hosts = [headers.get("host"), ...(headers.get("x-forwarded-host") ?? "").split(",").map((h) => h.trim())];

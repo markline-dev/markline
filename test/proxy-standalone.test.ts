@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { spawn, type ChildProcess } from "node:child_process";
 import { once } from "node:events";
 import fs from "node:fs";
+import http from "node:http";
 import net from "node:net";
 import path from "node:path";
 import { startStub } from "./proxy-harness";
@@ -84,6 +85,29 @@ test("the proxy forwards to the configured API", { skip }, async () => {
   const { status, data } = await post(`http://127.0.0.1:${stub.port}/`);
   assert.equal(status, 200, JSON.stringify(data));
   assert.equal(data.body, "reached");
+});
+
+test("it works from the site's own pages behind a proxy that rewrites Host", { skip }, async (t) => {
+  // nginx's default: Host becomes the upstream's, and nothing says what it was.
+  const { hostname, port } = new URL(base);
+  const proxy = await startStub((req, res) => {
+    const headers = { ...req.headers, host: `${hostname}:${port}` };
+    const upstream = http.request({ hostname, port, path: req.url, method: req.method, headers }, (r) => {
+      res.writeHead(r.statusCode ?? 502, r.headers);
+      r.pipe(res);
+    });
+    req.pipe(upstream);
+  });
+  t.after(() => proxy.stop());
+  const site = `http://127.0.0.1:${proxy.port}`;
+  const send = async (headers: Record<string, string>) => {
+    const res = await fetch(`${site}/api/playground`, { method: "POST", headers, body: JSON.stringify({ url: `http://127.0.0.1:${stub.port}/` }) });
+    return { status: res.status, data: (await res.json()) as Record<string, unknown> };
+  };
+  const same = await send({ origin: site, "sec-fetch-site": "same-origin" });
+  assert.equal(same.status, 200, JSON.stringify(same.data));
+  assert.equal(same.data.body, "reached");
+  assert.equal((await send({ origin: "https://elsewhere.test", "sec-fetch-site": "cross-site" })).status, 403);
 });
 
 test("and refuses anything else", { skip }, async () => {

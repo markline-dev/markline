@@ -166,7 +166,10 @@ export function PlaygroundProvider({ spec, children }: { spec: PlaygroundSpec; c
       body: JSON.stringify({ url: targetUrl, method: spec.method.toUpperCase(), headers, body: hasBody ? body : undefined }),
     });
     if (r.status === 404) throw new Error("proxy-unavailable");
-    const data = await r.json();
+    // Not the proxy's own answer: a static host's page, say.
+    const data = await r.json().catch(() => {
+      throw new Error("proxy-unavailable");
+    });
     if (data.error) throw new Error(data.error);
     return { status: data.status, statusText: data.statusText ?? "", durationMs: data.durationMs ?? 0, body: prettyMaybeJson(typeof data.body === "string" ? data.body : JSON.stringify(data.body)), via: "proxy" };
   }
@@ -188,8 +191,8 @@ export function PlaygroundProvider({ spec, children }: { spec: PlaygroundSpec; c
               result = await viaProxy(headers);
             } catch (p) {
               // The proxy answered with its reason: that's more use than the failed
-              // direct fetch. Otherwise there's no proxy here (404, or not JSON).
-              const answered = p instanceof Error && p.message !== "proxy-unavailable" && !(p instanceof SyntaxError);
+              // direct fetch. Otherwise there's no proxy here.
+              const answered = p instanceof Error && p.message !== "proxy-unavailable";
               throw answered ? p : e;
             }
           } else throw e;

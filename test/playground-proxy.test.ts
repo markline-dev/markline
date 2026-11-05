@@ -193,10 +193,17 @@ test("a request from this site, or from no browser, is allowed", async () => {
     { "sec-fetch-site": "same-origin", origin: "https://docs.test", host: "docs.test" },
     { origin: "https://docs.test", host: "internal:3000", "x-forwarded-host": "docs.test" },
     { "sec-fetch-site": "none" },
+    // A reverse proxy that rewrites Host and adds nothing: only the browser's word is left.
+    { "sec-fetch-site": "same-origin", origin: "https://docs.test", host: "internal:3000" },
   ];
   for (const headers of requests) {
     assert.equal((await route.sendRaw({ headers, body })).status, 200, JSON.stringify(headers));
   }
+});
+
+test("an older browser behind a Host-rewriting proxy is refused, which the docs note covers", () => {
+  assert.equal(isCrossSite(new Headers({ origin: "https://docs.test", host: "internal:3000" })), true);
+  assert.equal(isCrossSite(new Headers({ "sec-fetch-site": "same-site", origin: "https://docs.test", host: "internal:3000" })), true);
 });
 
 test("isCrossSite reads the two headers", () => {

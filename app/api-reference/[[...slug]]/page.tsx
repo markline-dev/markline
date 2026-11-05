@@ -156,6 +156,7 @@ export default async function ApiReferencePage({ params }: { params: Promise<{ s
   if (slug?.[0] === NOT_FOUND_SEGMENT) return uncachedNotFound();
   const { variantId, rest } = parseVariant(slug);
   if (!hasOpenApiSpec(variantId)) return uncachedNotFound();
+  if (rest.length > 1) return uncachedNotFound(); // a resource or operation is one segment
   const doc = loadOpenApi(variantId);
   const root = loadRaw(variantId);
   const base = variantId ? `/api-reference/${variantId}` : "/api-reference";

@@ -28,6 +28,11 @@ const config = (first: string) =>
 before(async () => {
   if (skip) return;
   fs.writeFileSync(path.join(site.dir, "markline.json"), config("/"));
+  fs.mkdirSync(path.join(site.dir, "api"));
+  fs.writeFileSync(
+    path.join(site.dir, "api", "openapi.json"),
+    JSON.stringify({ openapi: "3.0.3", info: { title: "T", version: "1" }, tags: [{ name: "Things" }], paths: { "/things": { get: { tags: ["Things"], operationId: "listThings", summary: "List", responses: { "200": { description: "ok" } } } } } }),
+  );
   fs.writeFileSync(path.join(site.dir, "docs", `${NOT_FOUND_SEGMENT}.mdx`), "---\ntitle: Hidden page\n---\n\nHidden page\n");
   for (let day = 10; day < 22; day++) {
     fs.writeFileSync(path.join(site.dir, "changelog", `2026-10-${day}.mdx`), `---\ntitle: Day ${day}\n---\n\nentry\n`);
@@ -116,6 +121,17 @@ test("a page added after the build is served fresh, stores nothing, and goes whe
   fs.rmSync(file);
   assert.equal((await fetch(`${base}/later`)).status, 404);
   assert.deepEqual(filesUnder(cache), before);
+});
+
+test("only real API reference paths are pages", { skip }, async () => {
+  for (const url of ["/api-reference", "/api-reference/things", "/api-reference/listThings"]) {
+    assert.equal((await fetch(base + url)).status, 200, url);
+  }
+  for (const url of ["/api-reference/things/extra", "/api-reference/listThings/a/b", "/api-reference/nope"]) {
+    const res = await fetch(base + url);
+    assert.equal(res.status, 404, url);
+    assert.doesNotMatch(res.headers.get("cache-control") ?? "", /s-maxage/, url);
+  }
 });
 
 test("unknown URLs log nothing", { skip }, async () => {

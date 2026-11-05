@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event_name == 'schedule' && 'weekly' || github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -61,6 +61,12 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          version=$(node -p "require('next/package.json').version")
-          gh issue create --title "Tests fail on next $version" --body "The weekly run against the newest allowed Next failed: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
-
+          version=$(node -p "require('next/package.json').version" 2>/dev/null || echo unknown)
+          run="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          title="Weekly tests against the newest Next are failing"
+          open=$(gh issue list --state open --search "in:title \"$title\"" --json number --jq '.[0].number // empty')
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body "Still failing on next $version: $run"
+          else
+            gh issue create --title "$title" --body "Failing on next $version: $run"
+          fi

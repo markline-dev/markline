@@ -19,11 +19,14 @@ All notable changes to `@markline/markline` and `@markline/create`.
 ### Fixed
 - Generated cURL sends JSON bodies as JSON (`Content-Type` header and
   `-d '{…}'`) instead of `-d field=value`, multipart bodies as `-F` with
-  `-F file=@…` for files, and urlencoded bodies with `--data-urlencode`.
+  `-F file=@…` for files, and urlencoded bodies with `--data-urlencode`. Values
+  are quoted so a pasted sample runs nothing, and form fields use
+  `--form-string` so a value is never read as a local file.
   It also sends `apiKey` header auth from the operation's security, and
   keeps `-X POST` when a POST has no body.
 - Request bodies and responses that aren't `application/json` keep their
   media type and schema, so multipart fields are documented.
+
 ### Changed
 - **CLI flags and checkout runs.** `markline dev`, `build` and `start` pass
   extra flags on to Next, so `markline dev -p 3001` sets the port. Run from

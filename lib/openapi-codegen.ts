@@ -1,6 +1,7 @@
 import type { JSONSchema, OpenAPIDoc, OpenAPIOperation, OpenAPIParameter } from "./openapi";
 import { resolveSchema, sampleFromSchema } from "./openapi";
-import { bodyKind, describeMediaType, isBinarySchema, isJsonMediaType, nonNullSchema } from "./openapi-media";
+import { apiKeyWord, formFieldArg, formFileArg, formText, headerWord, sampleUrl, shellWord } from "./openapi-curl";
+import { bodyKind, describeMediaType, flattenObject, isBinarySchema, isJsonMediaType, nonNullSchema } from "./openapi-media";
 
 /**
  * Server-side code-sample + JSON colorizer for the API reference
@@ -69,13 +70,6 @@ function primitiveSample(raw: JSONSchema | undefined, root: unknown): unknown {
   return "value";
 }
 
-/** Fill `{param}` placeholders in a path with sample values. */
-function fillPath(p: string, pathParams: OpenAPIParameter[], root: unknown): string {
-  return p.replace(/\{([^}]+)\}/g, (_, name: string) => {
-    const param = pathParams.find((x) => x.name === name);
-    return String(primitiveSample(param?.schema, root) ?? `:${name}`);
-  });
-}
 
 type BodyField = { name: string; value: unknown; required: boolean; binary?: boolean };
 
@@ -85,8 +79,13 @@ function schemaType(s: JSONSchema | undefined): string | undefined {
 
 /** Sample for one body field: a primitive, or a whole object/array sample. */
 function fieldSample(s: JSONSchema | undefined, root: unknown): unknown {
-  const r = nonNullSchema(s);
+  const r = flattenObject(s);
   if (!r) return "value";
+  // A real union samples as its first member, whatever shape that is.
+  const members = r.oneOf ?? r.anyOf;
+  if (members?.length && r.example === undefined && !r.examples && r.default === undefined) {
+    return fieldSample(members.find((m) => m?.type !== "null") ?? members[0], root);
+  }
   const t = schemaType(r);
   const structured = t === "object" || t === "array" || !!r.properties || !!r.allOf;
   if (structured && r.example === undefined) return sampleFromSchema(r, root);
@@ -95,21 +94,31 @@ function fieldSample(s: JSONSchema | undefined, root: unknown): unknown {
 
 /**
  * Top-level body fields used to populate the samples: every required field and
- * every file field, in spec order. A body with neither shows its first `max`
- * fields instead, so the sample still says what goes in it.
+ * every file field, in spec order, then optional fields until there are `max`,
+ * so a sample shows what else goes in the body.
  */
 function bodyFields(op: OpenAPIOperation, root: unknown, max = 4): BodyField[] {
-  const schema = op.requestBody?.schema ? resolveSchema(op.requestBody.schema, root) : undefined;
+  const schema = flattenObject(op.requestBody?.schema ? resolveSchema(op.requestBody.schema, root) : undefined);
   if (!schema?.properties) return [];
   const required = new Set(schema.required ?? []);
   const entries = Object.entries(schema.properties);
-  const must = entries.filter(([n, s]) => required.has(n) || isBinarySchema(s));
-  return (must.length ? must.slice(0, 8) : entries.slice(0, max)).map(([name, s]) => ({
-    name,
-    value: isBinarySchema(s) ? `path/to/${name}` : fieldSample(s, root),
-    required: required.has(name),
-    binary: isBinarySchema(s) || undefined,
-  }));
+  const must = (name: string, s: JSONSchema) => required.has(name) || isBinarySchema(s);
+  const room = Math.max(0, max - entries.filter(([n, s]) => must(n, s)).length);
+  const optional = new Set(entries.filter(([n, s]) => !must(n, s)).slice(0, room).map(([n]) => n));
+  return entries
+    .filter(([n, s]) => must(n, s) || optional.has(n))
+    .map(([name, s]) => ({
+      name,
+      value: isBinarySchema(s) ? `path/to/${name}` : fieldSample(s, root),
+      required: required.has(name),
+      binary: isBinarySchema(s) || undefined,
+    }));
+}
+
+/** A raw body's sample: strings as written, XML as a stub rather than JSON. */
+function rawBodySample(ct: string, sample: unknown): string {
+  if (typeof sample === "string") return sample;
+  return /[/+]xml\b/i.test(ct) ? "<example/>" : formText(sample);
 }
 
 function requiredQuery(op: OpenAPIOperation, root: unknown): BodyField[] {
@@ -121,8 +130,8 @@ function requiredQuery(op: OpenAPIOperation, root: unknown): BodyField[] {
 /* ── SDK naming ────────────────────────────────────────────────────────── */
 
 function clientVar(doc: OpenAPIDoc): string {
-  const first = (doc.info.title || "api").trim().split(/\s+/)[0].toLowerCase();
-  return first.replace(/[^a-z0-9]/g, "") || "client";
+  const first = (doc.info.title || "api").trim().split(/\s+/)[0].toLowerCase().replace(/[^a-z0-9]/g, "");
+  return /^[a-z]/.test(first) ? first : "client";
 }
 
 /** Singular resource accessor name from a tag ("projects" → "project"). */
@@ -154,7 +163,10 @@ function pascal(s: string): string {
 /** Words of an identifier-ish name: `text_to_speech`, `textToSpeech`, `text-to-speech` → text, to, speech. */
 function words(s: string): string[] {
   return s
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/([A-Z])([A-Z][a-z])/g, "$1 $2")
     .split(/[^A-Za-z0-9]+/)
     .filter(Boolean)
     .map((w) => w.toLowerCase());
@@ -178,8 +190,10 @@ export function camelId(s: string, fallback = "resource"): string {
   const w = words(s);
   return safeId(w.map((x, i) => (i ? cap1(x) : x)).join(""), fallback);
 }
+/** An exported Go name: `_3d` wouldn't be exported, so digits take an `X`. */
 export function pascalId(s: string, fallback = "Resource"): string {
-  return safeId(words(s).map(cap1).join(""), fallback);
+  const id = words(s).map(cap1).join("") || fallback;
+  return /^[0-9]/.test(id) ? `X${id}` : id;
 }
 
 /** The raw (un-normalized) operation object, for vendor extensions. */
@@ -227,8 +241,9 @@ function sdkCall(op: OpenAPIOperation, root: unknown, ns: string, fn: string, cv
   const id = safeId(ns, "resource");
   return {
     node: `${esc(cv)}.${esc(id)}.${F(fn)}`,
-    python: `${esc(cv)}.${esc(id)}.${F(fn)}`,
-    go: `client.${esc(pascal(id))}.${F(pascal(fn))}`,
+    // `del` is a Python keyword.
+    python: `${esc(cv)}.${esc(id)}.${F(fn === "del" ? "delete" : fn)}`,
+    go: `client.${esc(pascalId(id))}.${F(pascal(fn))}`,
     fern: false,
   };
 }
@@ -236,16 +251,21 @@ function sdkCall(op: OpenAPIOperation, root: unknown, ns: string, fn: string, cv
 /* ── literals ──────────────────────────────────────────────────────────── */
 
 const isIdent = (k: string) => /^[A-Za-z_$][A-Za-z0-9_$]*$/.test(k);
+const isPyKeyword = (k: string) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(k) && !PY_KEYWORDS.has(k);
+
+/** A JS string in single quotes, on one line. */
+const jsStr = (v: string) => `'${JSON.stringify(v).slice(1, -1).replace(/\\"/g, '"').replace(/'/g, "\\'")}'`;
+const jsKey = (k: string) => esc(isIdent(k) ? k : jsStr(k));
 
 function jsLit(v: unknown): string {
   if (v === null || v === undefined) return K("null");
   if (typeof v === "number") return N(v);
   if (typeof v === "boolean") return K(String(v));
-  if (typeof v === "string") return S(`'${v.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`);
+  if (typeof v === "string") return S(jsStr(v));
   if (Array.isArray(v)) return PUN("[") + v.map(jsLit).join(PUN(", ")) + PUN("]");
   const entries = Object.entries(v as Record<string, unknown>);
   if (!entries.length) return PUN("{}");
-  return `${PUN("{")} ${entries.map(([k, x]) => `${esc(isIdent(k) ? k : `'${k}'`)}: ${jsLit(x)}`).join(PUN(", "))} ${PUN("}")}`;
+  return `${PUN("{")} ${entries.map(([k, x]) => `${jsKey(k)}: ${jsLit(x)}`).join(PUN(", "))} ${PUN("}")}`;
 }
 
 function pyLit(v: unknown): string {
@@ -263,17 +283,6 @@ function goLit(v: unknown, cv: string): string {
   if (typeof v === "boolean") return `${esc(cv)}.${F("Bool")}(${K(String(v))})`;
   if (typeof v === "string") return `${esc(cv)}.${F("String")}(${S(JSON.stringify(v))})`;
   return K("nil");
-}
-
-/** Quote a shell word only when it needs it (POSIX single quotes). */
-export function shellWord(s: string): string {
-  if (/^[A-Za-z0-9_@%+=:,./-]+$/.test(s)) return s;
-  return `'${s.replace(/'/g, "'\\''")}'`;
-}
-
-/** A form/multipart field value as text: JSON for structured values. */
-function formText(v: unknown): string {
-  return v !== null && typeof v === "object" ? JSON.stringify(v) : String(v);
 }
 
 /* ── code rails ────────────────────────────────────────────────────────── */
@@ -318,9 +327,13 @@ export function codeSamples(
   const custom = customSamples(op, root);
   if (custom) return { tabs: custom };
 
-  const filledPath = fillPath(op.path, op.parameters.path, root);
   const query = requiredQuery(op, root);
-  const queryStr = query.length ? "?" + query.map((q) => `${q.name}=${q.value}`).join("&") : "";
+  const url = sampleUrl(
+    baseUrl,
+    op.path,
+    (name) => primitiveSample(op.parameters.path.find((x) => x.name === name)?.schema, root),
+    query,
+  );
   const hasBearer = op.security.some((s) => s.scheme.type === "http" && s.scheme.scheme === "bearer");
   const fields = bodyFields(op, root);
   const ns = op.tag.toLowerCase().replace(/[^a-z0-9]/g, "");
@@ -331,18 +344,19 @@ export function codeSamples(
   const kind = bodyKind(op.requestBody?.contentType);
   const call = sdkCall(op, root, ns, fn, cv, opts.sdkNaming ?? "auto");
   const pathArgs = op.parameters.path.map((p) => ({ name: p.name, value: primitiveSample(p.schema, root) }));
-  // Query params ride along in the call's options object, as SDKs usually take them.
-  const objFields: BodyField[] = [...fields, ...query];
+  // Query params ride along in the call's options object, as SDKs usually take
+  // them. A name the path already passes isn't sent twice.
+  const objFields: BodyField[] = [...fields, ...query].filter((f) => !pathArgs.some((p) => p.name === f.name));
   const placeholder = (f: BodyField) => String(f.value);
 
   /* cURL */
   const curlLines: string[] = [];
-  const urlSpan = `${esc(baseUrl)}${S(filledPath + queryStr)}`;
+  const urlSpan = S(shellWord(url));
   const reqSchema = op.requestBody?.schema ? resolveSchema(op.requestBody.schema, root) : undefined;
   const hasBody = !!reqSchema && op.method !== "get";
   let head = `${F("curl")} `;
   // A body implies POST to curl; anything else needs -X.
-  if (op.method !== "get" && (op.method !== "post" || !hasBody)) head += `-X ${op.method.toUpperCase()} `;
+  if (op.method !== "get" && (op.method !== "post" || !hasBody)) head += `-X ${esc(op.method.toUpperCase())} `;
   curlLines.push(head + urlSpan);
   if (hasBearer) curlLines.push(`  -H ${S('"Authorization: Bearer sk_live_••••"')}`);
   // apiKey-in-header schemes (e.g. `xi-api-key`) read from the operation's security.
@@ -353,54 +367,60 @@ export function codeSamples(
         .map((x) => x.scheme.name as string),
     ),
   ];
-  for (const name of keyHeaders) curlLines.push(`  -H ${S(`"${name}: $API_KEY"`)}`);
-  for (const h of op.parameters.header) {
+  for (const name of keyHeaders) curlLines.push(`  -H ${S(apiKeyWord(name))}`);
+  for (const h of op.parameters.header ?? []) {
     if (!h.required || keyHeaders.some((k) => k.toLowerCase() === h.name.toLowerCase())) continue;
-    curlLines.push(`  -H ${S(`"${h.name}: ${primitiveSample(h.schema, root)}"`)}`);
+    curlLines.push(`  -H ${S(headerWord(h.name, String(primitiveSample(h.schema, root))))}`);
   }
   if (hasBody) {
     const ct = op.requestBody?.contentType ?? "application/json";
+    const flagName = { form: "-F", "form-string": "--form-string", "data-urlencode": "--data-urlencode", "data-raw": "--data-raw" } as const;
     if (kind === "json") {
       const sample = fields.length ? Object.fromEntries(fields.map((f) => [f.name, f.value])) : sampleFromSchema(reqSchema, root);
-      curlLines.push(`  -H ${S(`"Content-Type: ${ct}"`)}`);
+      curlLines.push(`  -H ${S(headerWord("Content-Type", ct))}`);
       curlLines.push(`  -d ${S(shellWord(JSON.stringify(sample, null, 2)))}`);
-    } else if (kind === "multipart") {
-      // curl sets the multipart Content-Type (with its boundary) itself.
-      for (const f of fields) {
-        const text = f.binary ? `@${placeholder(f)}` : formText(f.value);
-        const flag = !f.binary && /^[@<]/.test(text) ? "--form-string" : "-F";
-        curlLines.push(`  ${flag} ${S(shellWord(`${f.name}=${text}`))}`);
+    } else if (kind === "multipart" || kind === "form") {
+      // curl sets the Content-Type itself (for multipart, with its boundary).
+      const parts: BodyField[] = fields.length ? fields : [{ name: "field", value: "value", required: false }];
+      for (const f of parts) {
+        const arg = f.binary ? formFileArg(f.name, placeholder(f)) : formFieldArg(kind, f.name, f.value);
+        curlLines.push(`  ${flagName[arg.flag]} ${S(arg.word)}`);
       }
-    } else if (kind === "form") {
-      for (const f of fields) curlLines.push(`  --data-urlencode ${S(shellWord(`${f.name}=${formText(f.value)}`))}`);
     } else {
-      curlLines.push(`  -H ${S(`"Content-Type: ${ct}"`)}`);
+      curlLines.push(`  -H ${S(headerWord("Content-Type", ct))}`);
       if (isBinarySchema(reqSchema)) curlLines.push(`  --data-binary ${S("@path/to/file")}`);
-      else curlLines.push(`  -d ${S(shellWord(formText(sampleFromSchema(reqSchema, root))))}`);
+      else curlLines.push(`  --data-raw ${S(shellWord(rawBodySample(ct, sampleFromSchema(reqSchema, root))))}`);
     }
   }
   const curl = curlLines.join(" \\\n");
 
   // Fern-named SDKs camelCase their Node option keys (`model_id` → `modelId`).
   const nodeKey = (k: string) => (call.fern ? camelId(k, k) : k);
-  const nodeVal = (f: BodyField) =>
-    f.binary ? `fs.${F("createReadStream")}(${S(`'${placeholder(f)}'`)})` : jsLit(f.value);
-  const pyVal = (f: BodyField) => (f.binary ? `${F("open")}(${S(`"${placeholder(f)}"`)}, ${S('"rb"')})` : pyLit(f.value));
+  const nodeVal = (f: BodyField) => (f.binary ? `fs.${F("createReadStream")}(${S(jsStr(placeholder(f)))})` : jsLit(f.value));
+  const pyVal = (f: BodyField) => (f.binary ? `${F("open")}(${S(JSON.stringify(placeholder(f)))}, ${S('"rb"')})` : pyLit(f.value));
 
   /* Node */
   const nodeArgs = pathArgs.map((p) => jsLit(String(p.value)));
   if (fields.length) {
-    const body = objFields.map((f) => `  ${esc(isIdent(nodeKey(f.name)) ? nodeKey(f.name) : `'${f.name}'`)}: ${nodeVal(f)},`).join("\n");
+    const body = objFields.map((f) => `  ${jsKey(nodeKey(f.name))}: ${nodeVal(f)},`).join("\n");
     nodeArgs.push(`{\n${body}\n}`);
   } else if (objFields.length) {
-    nodeArgs.push(`{ ${objFields.map((f) => `${esc(nodeKey(f.name))}: ${nodeVal(f)}`).join(", ")} }`);
+    nodeArgs.push(`{ ${objFields.map((f) => `${jsKey(nodeKey(f.name))}: ${nodeVal(f)}`).join(", ")} }`);
   }
   const node = `${K("const")} ${esc(rv)} = ${K("await")} ${call.node}(${nodeArgs.join(", ")})`;
 
   /* Python */
   // Fern's Python SDK takes every argument by keyword; otherwise path params are positional.
   const pyPath = pathArgs.map((p) => (call.fern ? `${esc(snakeId(p.name, p.name))}=${pyLit(String(p.value))}` : pyLit(String(p.value))));
-  const pyKw = objFields.map((f) => `${esc(isIdent(f.name) ? f.name : snakeId(f.name, "arg"))}=${pyVal(f)}`);
+  // A name Python can't take as a keyword (`from`, `$top`) travels in a dict.
+  const pyNamed = objFields.filter((f) => isPyKeyword(f.name));
+  const pyDict = objFields.filter((f) => !isPyKeyword(f.name));
+  const pyKw = [
+    ...pyNamed.map((f) => `${esc(f.name)}=${pyVal(f)}`),
+    ...(pyDict.length
+      ? [`${PUN("**{")}${pyDict.map((f) => `${S(JSON.stringify(f.name))}${PUN(":")} ${pyVal(f)}`).join(PUN(", "))}${PUN("}")}`]
+      : []),
+  ];
   let python: string;
   if (fields.length) {
     python = `${esc(rv)} = ${call.python}(\n${[...pyPath, ...pyKw].map((a) => `    ${a},`).join("\n")}\n)`;
@@ -409,7 +429,7 @@ export function codeSamples(
   }
 
   /* Go */
-  const goParams = pascal(singular(op.tag)) + "Params";
+  const goParams = pascalId(singular(op.tag)) + "Params";
   const goArgs = [`ctx`, ...pathArgs.map((p) => S(JSON.stringify(String(p.value))))];
   const goPre: string[] = [];
   if (objFields.length && fields.length) {
@@ -418,9 +438,9 @@ export function codeSamples(
         if (f.binary) {
           const v = camelId(f.name, "file");
           goPre.push(`${esc(v)}, _ := os.${F("Open")}(${S(JSON.stringify(placeholder(f)))})`);
-          return `    ${esc(pascal(f.name))}: ${esc(v)},`;
+          return `    ${esc(pascalId(f.name))}: ${esc(v)},`;
         }
-        return `    ${esc(pascal(f.name))}: ${goLit(f.value, cv)},`;
+        return `    ${esc(pascalId(f.name))}: ${goLit(f.value, cv)},`;
       })
       .join("\n");
     goArgs.push(`&amp;${esc(cv)}.${esc(goParams)}{\n${body}\n}`);

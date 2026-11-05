@@ -4,7 +4,17 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Audio } from "@/components/docs/audio";
-import { base64ToBytes, bodyKind, bytesToBase64, extensionFor, formatBytes, isTextualMediaType } from "@/lib/openapi-media";
+import {
+  bodyKind,
+  bytesToBase64,
+  extensionFor,
+  formatBytes,
+  objectUrlFor,
+  readProxyBody,
+  readResponseBody,
+  PROXY_MAX_BYTES,
+} from "@/lib/openapi-media";
+import { formFieldArg, formFileArg, headerWord, shellWord } from "@/lib/openapi-curl";
 
 export type PlaygroundParam = { name: string; required: boolean; sample: string; description?: string; type?: string; enum?: string[] };
 
@@ -179,6 +189,8 @@ export function PlaygroundProvider({ spec, children }: { spec: PlaygroundSpec; c
   function encodeBody(): BodyInit | undefined {
     if (!hasBody) return undefined;
     if (kind === "form") return new URLSearchParams(formEntries(body)).toString();
+    // A raw binary body is the picked file itself.
+    if (kind === "other" && Object.values(files).some(Boolean)) return Object.values(files).find(Boolean)!;
     if (kind === "multipart") {
       const fd = new FormData();
       for (const [k, v] of formEntries(body)) fd.append(k, v);
@@ -201,10 +213,19 @@ export function PlaygroundProvider({ spec, children }: { spec: PlaygroundSpec; c
         lines.push(l);
       };
       if (isForm) {
-        const flag = kind === "multipart" ? "--form" : "--data-urlencode";
-        for (const [k, v] of formEntries(body)) push(`  ${flag} ${shellQuote(`${k}=${v}`)}`);
-        for (const [k, f] of Object.entries(files)) if (f) push(`  --form ${shellQuote(`${k}=@${f.name}`)}`);
-      } else push(`  --data ${shellQuote(body)}`);
+        for (const [k, v] of formEntries(body)) {
+          const arg = formFieldArg(kind as "multipart" | "form", k, v);
+          push(`  --${arg.flag} ${arg.word}`);
+        }
+        for (const [k, f] of Object.entries(files)) {
+          if (!f) continue;
+          const arg = formFileArg(k, f.name);
+          push(`  --${arg.flag} ${arg.word}`);
+        }
+      } else {
+        const file = Object.values(files).find(Boolean);
+        push(file ? `  --data-binary ${shellWord(`@${file.name}`)}` : `  --data-raw ${shellQuote(body)}`);
+      }
     }
     return lines.join("\n");
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -215,12 +236,8 @@ export function PlaygroundProvider({ spec, children }: { spec: PlaygroundSpec; c
     const r = await fetch(targetUrl, { method: spec.method.toUpperCase(), headers, body: encodeBody() });
     const contentType = r.headers.get("content-type") ?? "";
     // Audio and other bytes are kept as a Blob; reading them as text corrupts them.
-    if (!isTextualMediaType(contentType)) {
-      const blob = await r.blob();
-      return { status: r.status, statusText: r.statusText, durationMs: Math.round(performance.now() - start), body: "", via: "direct", contentType, blob };
-    }
-    const text = await r.text();
-    return { status: r.status, statusText: r.statusText, durationMs: Math.round(performance.now() - start), body: prettyMaybeJson(text), via: "direct", contentType };
+    const { body: text, blob } = await readResponseBody(r, contentType);
+    return { status: r.status, statusText: r.statusText, durationMs: Math.round(performance.now() - start), body: blob ? "" : prettyMaybeJson(text), via: "direct", contentType, blob };
   }
   async function viaProxy(headers: Record<string, string>): Promise<ResponseState> {
     // The proxy speaks JSON, so a binary body (an encoded multipart form) travels
@@ -228,10 +245,14 @@ export function PlaygroundProvider({ spec, children }: { spec: PlaygroundSpec; c
     const encoded = encodeBody();
     let payloadBody: { body?: string; bodyBase64?: string } = {};
     const sendHeaders = { ...headers };
-    if (encoded instanceof FormData) {
+    if (encoded instanceof FormData || encoded instanceof Blob) {
       const wire = new Response(encoded);
-      sendHeaders["Content-Type"] = wire.headers.get("content-type") ?? "multipart/form-data";
-      payloadBody = { bodyBase64: bytesToBase64(new Uint8Array(await wire.arrayBuffer())) };
+      if (encoded instanceof FormData) sendHeaders["Content-Type"] = wire.headers.get("content-type") ?? "multipart/form-data";
+      const bytes = new Uint8Array(await wire.arrayBuffer());
+      if (bytes.length > PROXY_MAX_BYTES) {
+        throw new Error(`This upload is ${formatBytes(bytes.length)}, over the ${formatBytes(PROXY_MAX_BYTES)} the proxy carries.`);
+      }
+      payloadBody = { bodyBase64: await bytesToBase64(bytes) };
     } else if (typeof encoded === "string") payloadBody = { body: encoded };
     const r = await fetch("/api/playground", {
       method: "POST",
@@ -243,10 +264,8 @@ export function PlaygroundProvider({ spec, children }: { spec: PlaygroundSpec; c
     if (data.error) throw new Error(data.error);
     const contentType: string = data.contentType ?? "";
     const base = { status: data.status, statusText: data.statusText ?? "", durationMs: data.durationMs ?? 0, via: "proxy" as const, contentType };
-    if (typeof data.bodyBase64 === "string") {
-      return { ...base, body: "", blob: new Blob([base64ToBytes(data.bodyBase64) as BlobPart], { type: contentType }) };
-    }
-    return { ...base, body: prettyMaybeJson(typeof data.body === "string" ? data.body : JSON.stringify(data.body)) };
+    const read = readProxyBody(data);
+    return { ...base, body: read.blob ? "" : prettyMaybeJson(read.body), blob: read.blob };
   }
 
   async function send() {
@@ -346,11 +365,7 @@ export function FileInput({ name }: { name: string }) {
  */
 export function BinaryBody({ blob, contentType }: { blob: Blob; contentType?: string }) {
   const [url, setUrl] = useState<string | null>(null);
-  useEffect(() => {
-    const u = URL.createObjectURL(blob);
-    setUrl(u);
-    return () => URL.revokeObjectURL(u);
-  }, [blob]);
+  useEffect(() => objectUrlFor(blob, setUrl), [blob]);
   const ct = contentType || blob.type || "application/octet-stream";
   const meta = `${ct.split(";")[0]} · ${formatBytes(blob.size)}`;
   if (!url) return null;
@@ -928,7 +943,6 @@ function sdkFn(spec: PlaygroundSpec): string {
 }
 const isNum = (v: unknown) => /^-?\d+$/.test(String(v));
 const cap = (s: string) => s.replace(/(^|_)([a-z])/g, (_, __, c: string) => c.toUpperCase());
-function curlVal(v: unknown) { return isNum(v) ? `<span class="n">${String(v)}</span>` : escHtml(String(v)); }
 function jsVal(v: unknown) { const s = String(v); if (isNum(v)) return `<span class="n">${s}</span>`; if (s === "true" || s === "false") return `<span class="fl">${s}</span>`; return `<span class="s">'${escHtml(s)}'</span>`; }
 function pyVal(v: unknown) { const s = String(v); if (isNum(v)) return `<span class="n">${s}</span>`; if (s === "true") return `<span class="fl">True</span>`; if (s === "false") return `<span class="fl">False</span>`; return `<span class="s">"${escHtml(s)}"</span>`; }
 function goVal(v: unknown) { const s = String(v); return isNum(v) ? `client.<span class="f">Int</span>(<span class="n">${s}</span>)` : `client.<span class="f">String</span>(<span class="s">"${escHtml(s)}"</span>)`; }
@@ -951,21 +965,30 @@ function genCode(lang: LangId, spec: PlaygroundSpec, pg: Ctx, bodyObj: Record<st
     const lines: string[] = [];
     let head = `<span class="f">curl</span>`;
     if (method !== "GET" && method !== "POST") head += ` -X ${method}`;
-    head += ` <span class="s">"${escHtml(pg.targetUrl)}"</span>`;
+    head += ` <span class="s">${escHtml(shellWord(pg.targetUrl))}</span>`;
     lines.push(head);
-    headers.forEach((h) => lines.push(`  -H <span class="s">"${escHtml(h.k)}: ${escHtml(h.v)}"</span>`));
+    headers.forEach((h) => lines.push(`  -H <span class="s">${escHtml(headerWord(h.k, h.v))}</span>`));
     if (!isRead) {
       const kind = bodyKind(spec.bodyContentType);
       if (kind === "multipart" || kind === "form") {
-        const flag = kind === "multipart" ? "-F" : "--data-urlencode";
-        writeFields.forEach(([k, v]) => lines.push(`  ${flag} <span class="key">${escHtml(k)}</span>=${curlVal(v)}`));
+        writeFields.forEach(([k, v]) => {
+          const arg = formFieldArg(kind, k, v);
+          lines.push(`  --${arg.flag} <span class="s">${escHtml(arg.word)}</span>`);
+        });
         for (const f of spec.bodyFiles ?? []) {
-          const file = pg.files[f.name];
-          lines.push(`  -F <span class="key">${escHtml(f.name)}</span>=<span class="s">@${escHtml(file?.name ?? `path/to/${f.name}`)}</span>`);
+          const arg = formFileArg(f.name, pg.files[f.name]?.name ?? `path/to/${f.name}`);
+          lines.push(`  -F <span class="s">${escHtml(arg.word)}</span>`);
         }
-      } else if (pg.body.trim()) {
-        lines.push(`  -H <span class="s">"Content-Type: ${escHtml(spec.bodyContentType ?? "application/json")}"</span>`);
-        lines.push(`  -d <span class="s">${escHtml(shellQuote(pg.body))}</span>`);
+      } else {
+        const contentType = spec.bodyContentType ?? "application/json";
+        const file = (spec.bodyFiles ?? [])[0];
+        if (file) {
+          lines.push(`  -H <span class="s">${escHtml(headerWord("Content-Type", contentType))}</span>`);
+          lines.push(`  --data-binary <span class="s">${escHtml(shellWord(`@${pg.files[file.name]?.name ?? "path/to/file"}`))}</span>`);
+        } else if (pg.body.trim()) {
+          lines.push(`  -H <span class="s">${escHtml(headerWord("Content-Type", contentType))}</span>`);
+          lines.push(`  --data-raw <span class="s">${escHtml(shellQuote(pg.body))}</span>`);
+        }
       }
     }
     return lines.join(" \\\n");

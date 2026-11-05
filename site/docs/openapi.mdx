@@ -265,12 +265,13 @@ The generated cURL follows the request body's media type:
 | Body | cURL |
 | --- | --- |
 | `application/json` | `-H "Content-Type: application/json"` and `-d '{ … }'` |
-| `multipart/form-data` | one `-F field=value` per field; `format: binary` fields as `-F file=@path/to/file` |
+| `multipart/form-data` | one `--form-string field=value` per field, so a value is never read as a file; `format: binary` fields as `-F file=@path/to/file` |
 | `application/x-www-form-urlencoded` | `--data-urlencode field=value` |
-| other (e.g. `application/octet-stream`) | its `Content-Type` and `--data-binary @path/to/file` |
+| other, binary (e.g. `application/octet-stream`) | its `Content-Type` and `--data-binary @path/to/file` |
+| other, text (e.g. `text/plain`, `application/xml`) | its `Content-Type` and `--data-raw` with the example |
 
-Samples show the body's required fields and its file fields (or its first few
-fields when none are required), using each field's `example`/`examples`. In the
+Samples show the body's required fields and its file fields, then optional
+fields up to four in total, using each field's `example`/`examples`. In the
 Node and Python samples a file is a stream (`fs.createReadStream(…)`,
 `open(…, "rb")`). If an operation's security uses an `apiKey` scheme in a
 header, the cURL sends it (`-H "X-Api-Key: $API_KEY"`); the SDK samples leave

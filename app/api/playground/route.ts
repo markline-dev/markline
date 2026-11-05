@@ -85,7 +85,7 @@ export async function POST(req: Request) {
     const contentType = upstream.headers.get("content-type") ?? "";
     const payloadBody = isTextualMediaType(contentType)
       ? { body: await upstream.text() }
-      : { bodyBase64: bytesToBase64(new Uint8Array(await upstream.arrayBuffer())) };
+      : { bodyBase64: await bytesToBase64(new Uint8Array(await upstream.arrayBuffer())) };
     return NextResponse.json({
       status: upstream.status,
       statusText: upstream.statusText,

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 // lib/ imports resolve via test/setup.mjs, which `npm test` loads first.
 import { allResponses, codeSamples, successResponse } from "../lib/openapi-codegen.ts";
 import { normalize, type OpenAPIDoc, type OpenAPIOperation } from "../lib/openapi.ts";
+import { buildPlaygroundSpec } from "../lib/playground-spec.ts";
 
 // A small spec in the shape of ElevenLabs': a JSON text-to-speech call that
 // returns audio, and a multipart speech-to-text upload. Both carry Fern's SDK
@@ -122,13 +123,13 @@ test("cURL sends a JSON body as JSON, shell-quoted", () => {
   assert.match(curl, /^curl https:\/\/api\.elevenlabs\.io\/v1\/text-to-speech\/JBFqnCBsd6RMkjVDRZzb \\\n/);
   assert.match(curl, /-H "Content-Type: application\/json"/);
   // The apostrophe in the sample is escaped for the single-quoted shell word.
-  assert.ok(curl.includes(`-d '{\n  "text": "It'\\''s a test."\n}'`), curl);
+  assert.ok(curl.includes(`-d '{\n  "text": "It'\\''s a test.",`), curl);
   assert.ok(!/-d text=/.test(curl));
 });
 
 test("cURL sends multipart bodies as -F fields and binary fields as @file", () => {
   const curl = text(opById("speech_to_text"), "curl");
-  assert.match(curl, /-F model_id=scribe_v2/);
+  assert.match(curl, /--form-string model_id=scribe_v2/);
   assert.match(curl, /-F file=@path\/to\/file/);
   assert.ok(!curl.includes("Content-Type"), "curl writes the multipart boundary header itself");
   assert.ok(!curl.includes("-d "));
@@ -149,8 +150,8 @@ test("SDK calls use x-fern-sdk-group-name / x-fern-sdk-method-name, cased per la
   const node = text(tts, "js");
   const py = text(tts, "py");
   const go = text(tts, "go");
-  assert.match(node, /await client\.textToSpeech\.convert\('JBFqnCBsd6RMkjVDRZzb', \{\n {2}text: 'It\\'s a test\.',\n\}\)$/);
-  assert.match(py, /= client\.text_to_speech\.convert\(\n {4}voice_id="JBFqnCBsd6RMkjVDRZzb",\n {4}text="It's a test\.",\n\)$/);
+  assert.match(node, /await client\.textToSpeech\.convert\('JBFqnCBsd6RMkjVDRZzb', \{\n {2}text: 'It\\'s a test\.',\n/);
+  assert.match(py, /= client\.text_to_speech\.convert\(\n {4}voice_id="JBFqnCBsd6RMkjVDRZzb",\n {4}text="It's a test\.",\n/);
   assert.match(go, /err := client\.TextToSpeech\.Convert\(ctx, "JBFqnCBsd6RMkjVDRZzb", &/);
   // Nested groups (an array) become a chain.
   const audio = opById("get_audio");
@@ -207,4 +208,119 @@ test("binary 2xx responses get a panel naming their media type", () => {
   assert.equal(successResponse(tts, raw)?.status, "200");
   // A 204 with no body still has no panel.
   assert.deepEqual(allResponses(opById("submit_form"), raw), []);
+});
+
+/* ── SDK samples stay valid code ──────────────────────────────────────── */
+
+const awkward = {
+  info: { title: "123 things", version: "1" },
+  paths: {
+    "/3d/{voice_id}": {
+      post: {
+        operationId: "awk",
+        tags: ["3dmodels"],
+        parameters: [{ name: "voice_id", in: "path", required: true, schema: { type: "string", example: "v1" } }],
+        responses: { "200": { description: "OK" } },
+        requestBody: {
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["from", "$top", "filter-by", "page[size]", "msg", "voice_id"],
+                properties: {
+                  from: { type: "string" },
+                  $top: { type: "string" },
+                  "filter-by": { type: "string" },
+                  "page[size]": { type: "string" },
+                  msg: { type: "string", example: "it's\nmultiline" },
+                  voice_id: { type: "string" },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+    "/gone/{id}": { delete: { operationId: "gone", tags: ["things"], parameters: [{ name: "id", in: "path", required: true, schema: { type: "string" } }], responses: { "200": { description: "OK" } } } },
+    "/fern": { get: { operationId: "fern", tags: ["things"], "x-fern-sdk-group-name": ["3d", "2fa", "TTSConfig", "açaí"], "x-fern-sdk-method-name": "class", responses: { "200": { description: "OK" } } } },
+    "/opt": {
+      post: {
+        operationId: "opt",
+        tags: ["things"],
+        responses: { "200": { description: "OK" } },
+        requestBody: {
+          content: {
+            "application/json": {
+              schema: {
+                type: "object",
+                required: ["name", "tool"],
+                properties: {
+                  name: { type: "string", example: "n" },
+                  tool: { oneOf: [{ type: "object", properties: { kind: { type: "string", example: "k" } } }, { type: "string" }] },
+                  plan: { type: "string", example: "p" },
+                  settings: { type: "object", properties: { a: { type: "integer" } } },
+                  extra: { type: "string", example: "e" },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  },
+};
+const awkDoc = normalize(awkward);
+const sample = (id: string, key: string) =>
+  codeSamples(awkDoc.operationsById[id], awkDoc, awkward, "https://x.test").tabs
+    .find((t) => t.key === key)!
+    .html.replace(/<[^>]+>/g, "").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
+
+test("Python: names that can't be keywords travel in a dict, and none is passed twice", () => {
+  const py = sample("awk", "py");
+  assert.match(py, /\*\*\{"from": "value", "\$top": "value", "filter-by": "value", "page\[size\]": "value"\}/);
+  assert.match(py, /msg="it's\\nmultiline"/);
+  assert.equal(py.match(/voice_id/g), null, "the positional path value isn't repeated as a keyword");
+  assert.match(sample("gone", "py"), /\.delete\(/);
+  assert.match(sample("fern", "py"), /client\._3d\._2fa\.tts_config\.acai\.class_\(/);
+});
+
+test("Node: awkward keys are quoted and strings stay on one line", () => {
+  const js = sample("awk", "js");
+  assert.match(js, /'filter-by': 'value'/);
+  assert.match(js, /'page\[size\]': 'value'/);
+  assert.match(js, /msg: 'it\\'s\\nmultiline'/);
+  assert.match(js, /= await client\._3dmodels\.create\(/, "a title starting with a digit can't name the client");
+});
+
+test("Go: names are valid exported identifiers", () => {
+  const go = sample("awk", "go");
+  assert.match(go, /client\.X3dmodels\.Create\(/);
+  assert.match(go, /PageSize: /);
+  assert.ok(!go.includes("]:"), go);
+  assert.match(sample("fern", "go"), /client\.X3d\.X2fa\.TtsConfig\.Acai\.Class\(/);
+});
+
+test("samples show required and file fields, then optional ones up to four", () => {
+  const curl = sample("opt", "curl");
+  assert.match(curl, /"name": "n"/);
+  assert.match(curl, /"plan": "p"/);
+  assert.match(curl, /"settings"/);
+  assert.ok(!curl.includes("extra"), curl);
+  // A required union samples as its first member, not as a bare string.
+  assert.match(curl, /"tool": \{\s*"kind": "k"/);
+});
+
+test("the playground offers file pickers for form files and raw binary bodies", () => {
+  const spec = {
+    info: { title: "T", version: "1" },
+    paths: {
+      "/form": { post: { operationId: "form", tags: ["t"], responses: { "200": { description: "OK" } }, requestBody: { content: { "multipart/form-data": { schema: { allOf: [{ type: "object", required: ["doc"], properties: { doc: { type: "string", format: "binary" }, note: { type: "string" } } }] } } } } } },
+      "/raw": { put: { operationId: "raw", tags: ["t"], responses: { "200": { description: "OK" } }, requestBody: { required: true, content: { "application/octet-stream": { schema: { type: "string", format: "binary" } } } } } },
+      "/text": { put: { operationId: "text", tags: ["t"], responses: { "200": { description: "OK" } }, requestBody: { content: { "text/plain": { schema: { type: "string" } } } } } },
+    },
+  };
+  const d = normalize(spec);
+  assert.deepEqual(buildPlaygroundSpec(d.operationsById.form, d, spec).bodyFiles, [{ name: "doc", required: true, description: undefined }]);
+  assert.deepEqual(buildPlaygroundSpec(d.operationsById.raw, d, spec).bodyFiles, [{ name: "file", required: true, description: undefined }]);
+  assert.equal(buildPlaygroundSpec(d.operationsById.text, d, spec).bodyFiles, undefined);
 });

@@ -71,6 +71,24 @@ export function nonNullSchema(schema: JSONSchema | undefined): JSONSchema | unde
   return rest.length === 1 && list.length === 2 ? rest[0] : schema;
 }
 
+/**
+ * An object schema with its `allOf` parts merged and any nullable wrapper gone,
+ * so a form body's fields are found however the spec composes them.
+ */
+export function flattenObject(schema: JSONSchema | undefined): JSONSchema | undefined {
+  const s = nonNullSchema(schema);
+  if (!s?.allOf?.length) return s;
+  const out: JSONSchema = { ...s, properties: {}, required: [...(s.required ?? [])] };
+  delete out.allOf;
+  for (const part of s.allOf) {
+    const p = flattenObject(part);
+    Object.assign(out.properties!, p?.properties ?? {});
+    out.required!.push(...(p?.required ?? []));
+  }
+  Object.assign(out.properties!, s.properties ?? {});
+  return out;
+}
+
 /** A file field: `format: binary` (or a non-text `contentMediaType`), also inside a nullable union. */
 export function isBinarySchema(schema: JSONSchema | undefined): boolean {
   const s = nonNullSchema(schema);
@@ -121,37 +139,78 @@ export function extensionFor(ct: string | undefined): string {
   return /^[a-z0-9]{1,5}$/.test(sub) ? sub : "bin";
 }
 
+/**
+ * Whether bytes with no Content-Type to go on are binary: a NUL or invalid
+ * UTF-8 near the start, which text has neither of.
+ */
+export function looksBinary(bytes: Uint8Array): boolean {
+  const head = bytes.subarray(0, 4096);
+  if (head.includes(0)) return true;
+  try {
+    new TextDecoder("utf-8", { fatal: true }).decode(head, { stream: true });
+    return false;
+  } catch {
+    return true;
+  }
+}
+
 /* ── base64 (the proxy's JSON envelope carries bytes this way) ──────────── */
 
-const B64 = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+/** The largest body the proxy carries either way; base64 costs a third more in memory. */
+export const PROXY_MAX_BYTES = 25 * 1024 * 1024;
 
-export function bytesToBase64(bytes: Uint8Array): string {
-  let out = "";
-  for (let i = 0; i < bytes.length; i += 3) {
-    const a = bytes[i];
-    const b = i + 1 < bytes.length ? bytes[i + 1] : 0;
-    const c = i + 2 < bytes.length ? bytes[i + 2] : 0;
-    const n = (a << 16) | (b << 8) | c;
-    out += B64[(n >> 18) & 63] + B64[(n >> 12) & 63];
-    out += i + 1 < bytes.length ? B64[(n >> 6) & 63] : "=";
-    out += i + 2 < bytes.length ? B64[n & 63] : "=";
+const BASE64_CHUNK = 3 * 256 * 1024;
+
+/** Encode bytes in chunks, yielding between them so a big upload doesn't freeze the tab. */
+export async function bytesToBase64(bytes: Uint8Array, pause: () => Promise<void> = () => new Promise((r) => setTimeout(r))): Promise<string> {
+  const parts: string[] = [];
+  for (let i = 0; i < bytes.length; i += BASE64_CHUNK) {
+    let bin = "";
+    const end = Math.min(i + BASE64_CHUNK, bytes.length);
+    for (let j = i; j < end; j++) bin += String.fromCharCode(bytes[j]);
+    parts.push(btoa(bin));
+    if (end < bytes.length) await pause();
   }
-  return out;
+  return parts.join("");
 }
 
 export function base64ToBytes(s: string): Uint8Array {
-  const clean = s.replace(/[^A-Za-z0-9+/]/g, "");
-  const out = new Uint8Array(Math.floor((clean.length * 3) / 4));
-  let o = 0;
-  for (let i = 0; i < clean.length; i += 4) {
-    const n =
-      (B64.indexOf(clean[i]) << 18) |
-      (B64.indexOf(clean[i + 1] ?? "A") << 12) |
-      ((i + 2 < clean.length ? B64.indexOf(clean[i + 2]) : 0) << 6) |
-      (i + 3 < clean.length ? B64.indexOf(clean[i + 3]) : 0);
-    if (o < out.length) out[o++] = (n >> 16) & 255;
-    if (i + 2 < clean.length && o < out.length) out[o++] = (n >> 8) & 255;
-    if (i + 3 < clean.length && o < out.length) out[o++] = n & 255;
-  }
+  const bin = atob(s.replace(/[^A-Za-z0-9+/=]/g, ""));
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
   return out;
+}
+
+/** Live responses, as the playground shows them. */
+export type ReadBody = { body: string; blob?: Blob };
+
+/** Read a response as text or as bytes, by Content-Type, else by sniffing the bytes. */
+export async function readResponseBody(r: Response, contentType: string): Promise<ReadBody> {
+  if (contentType) {
+    if (isTextualMediaType(contentType)) return { body: await r.text() };
+    return { body: "", blob: await r.blob() };
+  }
+  const buf = new Uint8Array(await r.arrayBuffer());
+  if (looksBinary(buf)) return { body: "", blob: new Blob([buf]) };
+  return { body: new TextDecoder().decode(buf) };
+}
+
+/** Publish a blob's object URL through `set`; the returned cleanup revokes it. */
+export function objectUrlFor(
+  blob: Blob,
+  set: (url: string) => void,
+  urls: { createObjectURL(b: Blob): string; revokeObjectURL(u: string): void } = URL,
+): () => void {
+  const u = urls.createObjectURL(blob);
+  set(u);
+  return () => urls.revokeObjectURL(u);
+}
+
+/** The proxy's JSON envelope back into the same shape. */
+export function readProxyBody(data: { body?: unknown; bodyBase64?: unknown; contentType?: unknown }): ReadBody {
+  if (typeof data.bodyBase64 === "string") {
+    const type = typeof data.contentType === "string" ? data.contentType : "";
+    return { body: "", blob: new Blob([base64ToBytes(data.bodyBase64) as BlobPart], { type }) };
+  }
+  return { body: typeof data.body === "string" ? data.body : JSON.stringify(data.body) };
 }

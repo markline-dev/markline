@@ -2,7 +2,7 @@ import type { OpenAPIDoc, OpenAPIOperation, JSONSchema } from "./openapi";
 import { resolveSchema, sampleFromSchema, operationHref } from "./openapi";
 import { responseSampleJson } from "./openapi-samples";
 import { loadConfig } from "./config";
-import { bodyKind, describeMediaType, isBinarySchema, isJsonMediaType, nonNullSchema } from "./openapi-media";
+import { bodyKind, describeMediaType, flattenObject, isBinarySchema, isJsonMediaType, nonNullSchema } from "./openapi-media";
 import { camelId, fernSdkName, pascalId, snakeId } from "./openapi-codegen";
 import type { PlaygroundSpec } from "@/components/docs/api/playground";
 
@@ -53,11 +53,15 @@ function bodyForPlayground(op: OpenAPIOperation, root: unknown): Pick<Playground
     };
   }
   const schema = resolveSchema(rb.schema, root);
-  if (kind === "other") return { bodySample: "", bodyContentType: rb.contentType };
-  const required = new Set(schema?.required ?? []);
+  if (kind === "other") {
+    const files = isBinarySchema(schema) ? [{ name: "file", required: !!rb.required, description: rb.description }] : undefined;
+    return { bodySample: "", bodyContentType: rb.contentType, bodyFiles: files };
+  }
+  const flat = flattenObject(schema);
+  const required = new Set(flat?.required ?? []);
   const fields: Record<string, unknown> = {};
   const files: NonNullable<PlaygroundSpec["bodyFiles"]> = [];
-  for (const [name, prop] of Object.entries(schema?.properties ?? {})) {
+  for (const [name, prop] of Object.entries<JSONSchema>(flat?.properties ?? {})) {
     if (isBinarySchema(prop)) {
       files.push({ name, required: required.has(name), description: prop.description });
       continue;

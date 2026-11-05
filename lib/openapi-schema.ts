@@ -4,7 +4,8 @@
  * Generated specs (Pydantic/FastAPI, OpenAPI 3.1) write an optional field as
  * `anyOf: [X, {type: "null"}]` and wrap `$ref`s in a one-member `allOf`. Both
  * should read as plain X, marked nullable, with X's own fields underneath.
- * Pure: takes schemas whose `$ref`s are already resolved.
+ * Pure: takes schemas whose `$ref`s are already resolved, and which
+ * lib/openapi-prune.ts has already stripped of hidden fields.
  */
 import type { JSONSchema } from "./openapi";
 
@@ -24,15 +25,13 @@ export type FieldView = {
 };
 
 export type FieldOptions = {
-  /** Property extensions that hide a field when truthy (e.g. `x-fern-ignore`). */
-  hideExtensions?: readonly string[];
   /** Nesting levels shown below the top-level fields. Default 3. */
   depth?: number;
 };
 
 function isNullSchema(s: JSONSchema | undefined): boolean {
   if (!s) return false;
-  if (s.type === "null") return true;
+  if (s.type === "null" || s.const === null) return true;
   if (Array.isArray(s.type) && s.type.length === 1 && s.type[0] === "null") return true;
   return Array.isArray(s.enum) && s.enum.length === 1 && s.enum[0] === null && !s.type;
 }
@@ -54,6 +53,8 @@ export function collapseNullable(schema: JSONSchema): { schema: JSONSchema; null
   for (let guard = 0; guard < 8; guard++) {
     if (Array.isArray(s.type) && s.type.includes("null")) {
       const types = s.type.filter((t) => t !== "null");
+      // `type: ["null"]` is the null type itself, not a nullable something.
+      if (!types.length) return { schema: { ...s, type: "null" }, nullable: false };
       nullable = true;
       s = { ...s, type: types.length === 1 ? types[0] : types };
       continue;
@@ -79,25 +80,35 @@ export function collapseNullable(schema: JSONSchema): { schema: JSONSchema; null
   return { schema: s, nullable };
 }
 
-/** Merge a multi-member `allOf` into one object schema. */
-function mergeAllOf(s: JSONSchema): JSONSchema {
-  if (!Array.isArray(s.allOf) || s.allOf.length < 2) return s;
-  const out: JSONSchema = { ...s, properties: { ...(s.properties ?? {}) }, required: [...(s.required ?? [])] };
+/** Merge an `allOf` into one object schema; `nullable` if any part is. */
+function mergeAllOf(s: JSONSchema): { schema: JSONSchema; nullable: boolean } {
+  if (!Array.isArray(s.allOf) || !s.allOf.length) return { schema: s, nullable: false };
+  const out: JSONSchema = { ...s, required: [...(s.required ?? [])] };
   delete out.allOf;
+  const own = s.properties ?? {};
+  const props: Record<string, JSONSchema> = {};
+  let nullable = false;
   for (const part of s.allOf) {
-    const p = mergeAllOf(collapseNullable(part).schema);
-    Object.assign(out.properties!, p.properties ?? {});
-    out.required!.push(...(p.required ?? []));
-    if (!out.type && p.type) out.type = p.type;
+    const c = collapseNullable(part);
+    const m = mergeAllOf(c.schema);
+    nullable = nullable || c.nullable || m.nullable;
+    Object.assign(props, m.schema.properties ?? {});
+    out.required!.push(...(m.schema.required ?? []));
+    if (!out.type && m.schema.type) out.type = m.schema.type;
+    if (out.description === undefined && m.schema.description) out.description = m.schema.description;
+    if (out.enum === undefined && m.schema.enum) out.enum = m.schema.enum;
   }
-  return out;
+  // The wrapper's own fields are the more specific ones.
+  if (Object.keys(props).length || Object.keys(own).length) out.properties = { ...props, ...own };
+  return { schema: out, nullable };
 }
 
 /** The schema a field row describes: null stripped, `allOf` merged. */
 export function normalizeField(schema: JSONSchema | undefined): { schema: JSONSchema; nullable: boolean } {
   if (!schema) return { schema: {}, nullable: false };
   const { schema: s, nullable } = collapseNullable(schema);
-  return { schema: mergeAllOf(s), nullable };
+  const merged = mergeAllOf(s);
+  return { schema: merged.schema, nullable: nullable || merged.nullable };
 }
 
 function unionMembers(s: JSONSchema): JSONSchema[] | undefined {
@@ -127,15 +138,6 @@ export function typeLabel(schema: JSONSchema | undefined): string {
   return "any";
 }
 
-/** Whether a field is nullable, in any of the spellings `collapseNullable` knows. */
-export function isNullable(schema: JSONSchema | undefined): boolean {
-  return !!schema && normalizeField(schema).nullable;
-}
-
-function hidden(s: JSONSchema, exts: readonly string[]): boolean {
-  return exts.some((e) => !!s[e]);
-}
-
 /** The object whose fields sit under a field: itself, or its array items. */
 function objectBody(s: JSONSchema): JSONSchema | undefined {
   if (s.properties) return s;
@@ -154,12 +156,11 @@ export function schemaFields(schema: JSONSchema | undefined, opts: FieldOptions 
   if (!schema) return [];
   const body = normalizeField(schema).schema;
   if (!body.properties) return [];
-  const exts = opts.hideExtensions ?? [];
   const depth = opts.depth ?? 3;
   const required = new Set(body.required ?? []);
   const out: FieldView[] = [];
   for (const [name, raw] of Object.entries(body.properties)) {
-    if (!raw || hidden(raw, exts)) continue;
+    if (!raw) continue;
     const { schema: s, nullable } = normalizeField(raw);
     const field: FieldView = {
       name,
@@ -179,7 +180,8 @@ export function schemaFields(schema: JSONSchema | undefined, opts: FieldOptions 
         const children = schemaFields(obj, opts, level + 1);
         if (children.length) field.children = children;
       } else {
-        const members = unionMembers(s);
+        // A union directly on the field, or on the items of an array field.
+        const members = unionMembers(s.type === "array" ? normalizeField(s.items).schema : s);
         const variants = (members ?? [])
           .map((m) => {
             const ms = normalizeField(m).schema;
@@ -193,6 +195,25 @@ export function schemaFields(schema: JSONSchema | undefined, opts: FieldOptions 
     out.push(field);
   }
   return out;
+}
+
+/** A path/query parameter's field row. Pass the schema already resolved. */
+export function paramField(
+  p: { name: string; description?: string; deprecated?: boolean; schema?: JSONSchema },
+  required: boolean,
+): FieldView {
+  const { schema: s, nullable } = normalizeField(p.schema);
+  const field: FieldView = {
+    name: p.name,
+    type: typeLabel(p.schema),
+    required,
+    optional: !required,
+    description: p.description ?? s.description,
+    enums: s.enum?.filter((e) => e !== null).map((e) => String(e)),
+  };
+  if (nullable) field.nullable = true;
+  if (p.deprecated === true || s.deprecated === true) field.deprecated = true;
+  return field;
 }
 
 /** First non-null member of a union, for sample values. */

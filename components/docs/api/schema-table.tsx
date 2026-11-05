@@ -9,6 +9,7 @@ export function ParamRow({
   description,
   location,
   control,
+  deprecated: paramDeprecated,
 }: {
   name: string;
   schema?: JSONSchema;
@@ -17,12 +18,14 @@ export function ParamRow({
   location?: string;
   /** Inline input rendered on the right (turns the param doc into a form field). */
   control?: React.ReactNode;
+  /** `deprecated` on the parameter itself, as opposed to on its schema. */
+  deprecated?: boolean;
 }) {
   // `anyOf: [X, null]` reads as X, marked nullable.
   const { schema: shape, nullable } = normalizeField(schema);
   const typeText = describeType(schema);
   const enumValues = shape.enum?.filter((e) => e !== null).map((e) => String(e));
-  const deprecated = schema?.deprecated === true || shape.deprecated === true;
+  const deprecated = paramDeprecated === true || schema?.deprecated === true || shape.deprecated === true;
   const info = (
     <>
       <div className="ml-param-head">

@@ -181,12 +181,23 @@ rename or hide too.
 and the build prints a warning naming them. Use `label` or `mergeInto` to make
 the choice yourself.</Note>
 
+When tags merge, the page keeps its own description if it has one, otherwise
+the first merged tag's. Its name is its own `label`, then a `label` on a tag
+merged into it, then its `x-displayName`. The sidebar, heading, page title and
+`llms.txt` all follow this.
+
+The build warns about names that don't match: an `api.tags` key or `tagOrder`
+entry with no such tag, and a `mergeInto` that creates a new page, which is
+fine for a rename and a typo otherwise.
+
 ## Hide operations
 
-Operations carrying `x-hidden` or `x-internal` (truthy) are left out of the
-reference, search, `llms.txt` and the sitemap. Fields carrying them are left
-out of the attribute lists. To follow a vendor's own flag, list the extensions
-yourself; the list replaces the default:
+Anything carrying `x-hidden` or `x-internal` (truthy) is left out everywhere:
+operations and whole path items (from the reference, search, `llms.txt` and the
+sitemap), webhooks and callbacks, query and header parameters, and fields (from
+tables, samples and Try it), including a field whose `$ref` points at a flagged
+schema. A path parameter stays, since the URL needs it. To follow a vendor's own
+flag, list the extensions yourself; the list replaces the default:
 
 ```json title="markline.json"
 { "api": { "hideExtensions": ["x-fern-ignore", "x-skip-spec", "x-internal"] } }
@@ -370,7 +381,8 @@ response with status + latency. It's the same engine on every surface.
   marked public with `security: []`, so Try it and the samples send it.
   `{ "header": "xi-api-key" }` sends an API-key header; `{ "type": "bearer" }`
   sends `Authorization: Bearer`. A header parameter with the same name is
-  folded into it rather than shown twice.
+  folded into it rather than shown twice, and the key is masked in the code
+  Try it shows.
 </ParamField>
 
 <ParamField path="api.playground.proxy" type='"auto" | "always" | "never"'>

@@ -1,7 +1,7 @@
 import type { OpenAPIDoc, OpenAPIOperation, JSONSchema } from "./openapi";
 import { resolveSchema, sampleFromSchema, operationHref } from "./openapi";
 import { responseSampleJson } from "./openapi-samples";
-import { typeLabel } from "./openapi-schema";
+import { normalizeField, typeLabel } from "./openapi-schema";
 import { loadConfig } from "./config";
 import type { PlaygroundSpec } from "@/components/docs/api/playground";
 
@@ -32,7 +32,8 @@ export function sampleParam(schema?: JSONSchema): string {
 export function buildPlaygroundSpec(op: OpenAPIOperation, doc: OpenAPIDoc, root: unknown, base = "/api-reference"): PlaygroundSpec {
   const cfg = loadConfig();
   const servers = [...new Set([cfg.api.baseUrl, ...doc.servers.map((s) => s.url)].filter(Boolean))] as string[];
-  const allSchemes = Object.values(doc.securitySchemes ?? {});
+  // An operation the spec marks public (`security: []`) takes no key.
+  const allSchemes = op.public ? [] : Object.values(doc.securitySchemes ?? {});
   const schemeBearer = allSchemes.some((s) => s.type === "http" && s.scheme === "bearer");
   const apiKeyHeaderNames = [
     ...new Set([
@@ -45,14 +46,18 @@ export function buildPlaygroundSpec(op: OpenAPIOperation, doc: OpenAPIDoc, root:
   const param = (
     p: { name: string; required?: boolean; schema?: JSONSchema; description?: string },
     reqDefault: boolean,
-  ) => ({
-    name: p.name,
-    required: p.required ?? reqDefault,
-    sample: sampleParam(p.schema),
-    description: p.description,
-    type: describeType(p.schema),
-    enum: p.schema?.enum?.map((e) => String(e)) ?? (p.schema?.type === "boolean" ? ["true", "false"] : undefined),
-  });
+  ) => {
+    // `anyOf: [Colour, null]` and a bare `$ref` drive the input like Colour itself.
+    const schema = p.schema ? normalizeField(resolveSchema(p.schema, root)).schema : undefined;
+    return {
+      name: p.name,
+      required: p.required ?? reqDefault,
+      sample: sampleParam(schema),
+      description: p.description ?? schema?.description,
+      type: describeType(schema),
+      enum: schema?.enum?.filter((e) => e !== null).map((e) => String(e)) ?? (schema?.type === "boolean" ? ["true", "false"] : undefined),
+    };
+  };
   return {
     method: op.method,
     path: op.path,

@@ -8,12 +8,15 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **Tag overrides.** `api.tags` in markline.json renames (`label`), hides,
   merges (`mergeInto`) and re-describes API tags without editing the spec, and
   `api.tagOrder` puts chosen tags first in the sidebar.
-- **Hidden and deprecated operations.** Operations or fields with `x-hidden` /
-  `x-internal` are left out, or any extensions listed in `api.hideExtensions`
-  (e.g. `x-fern-ignore`). Deprecated operations and fields get a *Deprecated*
-  badge; `api.showDeprecated: false` hides them.
+- **Hidden and deprecated operations.** Anything with `x-hidden` / `x-internal`,
+  or the extensions listed in `api.hideExtensions` (e.g. `x-fern-ignore`), is
+  left out everywhere: operations, path items, webhooks, parameters and fields,
+  from tables, samples, Try it, search and `llms.txt`. Deprecated operations,
+  parameters and fields get a *Deprecated* badge; `api.showDeprecated: false`
+  hides deprecated operations.
 - **`api.auth`** names the auth a spec doesn't declare (e.g. an `xi-api-key`
-  header), so Try it sends it.
+  header), so Try it and the cURL samples send it. The key is masked in the code
+  Try it shows.
 
 ### Fixed
 - Tags that differ only by case (`dubbing` / `Dubbing`) shared one URL, and one
@@ -22,6 +25,8 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - Nullable fields (`anyOf: [X, null]`, `type: [X, "null"]`) showed as a bare
   "oneOf". They now show their type, a `nullable` label and their nested
   fields; real unions list their members.
+- Text beside a `$ref` (`description`, `deprecated`) was dropped. It now applies
+  to that use of the schema.
 
 ### Changed
 - **CLI flags and checkout runs.** `markline dev`, `build` and `start` pass

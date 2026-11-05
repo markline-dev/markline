@@ -143,7 +143,9 @@ export function PlaygroundProvider({ spec, children }: { spec: PlaygroundSpec; c
     const lines = [`curl --request ${spec.method.toUpperCase()} \\`, `  --url ${shellQuote(targetUrl)}`];
     for (const [k, v] of Object.entries(headers)) {
       lines[lines.length - 1] += " \\";
-      lines.push(`  --header ${shellQuote(`${k}: ${k === "Authorization" ? "Bearer <token>" : v}`)}`);
+      // Credentials never show in clear text, whichever header carries them.
+      const shown = k === "Authorization" ? "Bearer <token>" : spec.apiKeyHeaders.some((ak) => ak.name === k) ? "<api-key>" : v;
+      lines.push(`  --header ${shellQuote(`${k}: ${shown}`)}`);
     }
     if (hasBody) {
       lines[lines.length - 1] += " \\";
@@ -810,7 +812,7 @@ function genCode(lang: LangId, spec: PlaygroundSpec, pg: Ctx, bodyObj: Record<st
 
   const headers: { k: string; v: string }[] = [];
   if (spec.bearer) headers.push({ k: "Authorization", v: pg.token ? "Bearer ••••" : "Bearer sk_live_••••" });
-  for (const ak of spec.apiKeyHeaders) { const v = pg.getParam("header", ak.name); if (v) headers.push({ k: ak.name, v }); }
+  for (const ak of spec.apiKeyHeaders) { if (pg.getParam("header", ak.name)) headers.push({ k: ak.name, v: "••••" }); }
   for (const hp of spec.headerParams) { const v = pg.getParam("header", hp.name); if (v) headers.push({ k: hp.name, v }); }
 
   const writeFields = Object.entries(bodyObj).filter(([, v]) => v !== null && typeof v !== "object" && v !== "");

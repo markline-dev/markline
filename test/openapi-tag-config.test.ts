@@ -3,6 +3,9 @@ import assert from "node:assert/strict";
 // lib/ imports resolve via test/setup.mjs, which `npm test` loads first.
 import { normalize, type NormalizeOptions } from "../lib/openapi.ts";
 import { isHiddenOperation, planTags, primaryTag, resolveTag } from "../lib/openapi-tag-config.ts";
+import { parseOpenApiTag, tagSlug } from "../lib/openapi-tags.ts";
+import { codeSamples } from "../lib/openapi-codegen.ts";
+import { curlSample } from "../lib/openapi-samples.ts";
 
 type Op = Record<string, unknown>;
 const op = (operationId: string, extra: Op = {}): Op => ({ operationId, responses: { "200": { description: "OK" } }, ...extra });
@@ -115,34 +118,152 @@ test("api.auth replaces the spec's security, except on explicitly public ops", (
   assert.deepEqual(Object.keys(doc.securitySchemes), ["markline"]);
 });
 
-test("the build script's resource plan matches normalize() under api config", async () => {
-  const modulePath = "../scripts/openapi-order.mjs";
-  const { resourcePlan } = (await import(modulePath)) as {
-    resourcePlan: (spec: object, api?: object) => { tags: string[]; ops: { op: { operationId: string }; tag: string }[] };
-  };
-  const api = {
-    tags: { "access:all": { hidden: true }, Old: { mergeInto: "New/Group" } },
-    tagOrder: ["zeta"],
-    hideExtensions: ["x-fern-ignore"],
-    showDeprecated: false,
-  };
-  const spec = {
-    tags: [{ name: "alpha" }, { name: "Old" }, { name: "zeta" }],
-    paths: {
-      "/a": { get: op("a", { tags: ["alpha"] }), post: op("a2", { tags: ["ALPHA"] }) },
-      "/o": { get: op("o", { tags: ["Old"] }), delete: op("gone", { tags: ["Old"], deprecated: true }) },
-      "/z": { get: op("z", { tags: ["zeta"] }), put: op("ign", { tags: ["zeta"], "x-fern-ignore": true }) },
-      "/x": { get: op("x", { tags: ["access:all"] }) },
-      "/h": { get: op("h") },
-    },
-  };
-  const doc = normalize(spec, api as NormalizeOptions);
-  const plan = resourcePlan(spec, api);
+type Mirror = {
+  resourcePlan: (spec: object, api?: object) => { tags: string[]; ops: { op: { operationId: string }; tag: string }[]; warnings: string[] };
+  resourcePages: (spec: object, api?: object) => { name: string; slug: string; title: string; description?: string }[];
+  apiSearchRecords: (spec: object, api?: object) => { url: string; content: string }[];
+};
+const mirror = async () => (await import("../scripts/openapi-order.mjs" as string)) as Mirror;
+
+const parityApi = {
+  tags: {
+    "access:all": { hidden: true },
+    Old: { mergeInto: "New/Group", label: "Moved" },
+    Dubbing: { label: "Dub" },
+    typo: { hidden: true },
+    Into: { mergeInto: "alpha", description: "from-config" },
+    labelled: { label: "Picked" },
+  },
+  tagOrder: ["zeta", "ALPHA", "nope"],
+  hideExtensions: ["x-fern-ignore"],
+  showDeprecated: false,
+};
+const paritySpec = {
+  tags: [
+    { name: "alpha", description: "alpha-desc" },
+    { name: "Old", description: "old-desc", "x-displayName": "Old Disp" },
+    { name: "zeta" },
+    { name: "Into", description: "into-desc" },
+    { name: "dubbing" },
+    { name: "labelled", "x-displayName": "Spec Label" },
+    { name: "api-keys" },
+  ],
+  paths: {
+    "/a": { get: op("a", { tags: ["alpha"] }), post: op("a2", { tags: ["ALPHA"] }) },
+    "/o": { get: op("o", { tags: ["Old"] }), delete: op("gone", { tags: ["Old"], deprecated: true }) },
+    "/z": { get: op("z", { tags: ["zeta"] }), put: op("ign", { tags: ["zeta"], "x-fern-ignore": true }) },
+    "/x": { get: op("x", { tags: ["access:all"] }) },
+    "/y": { get: op("y", { tags: ["access:all", "zeta"] }) },
+    "/h": { get: op("h") },
+    "/i": { get: op("i", { tags: ["Into"] }) },
+    "/d": { get: op("d", { tags: ["dubbing"] }), post: op("D", { tags: ["Dubbing"] }) },
+    "/l": { get: op("l", { tags: ["labelled"] }) },
+    "/k": { get: op("k", { tags: ["api-keys"] }) },
+    "/item": { "x-fern-ignore": true, get: op("item", { tags: ["zeta"] }) },
+  },
+};
+
+test("the build script's plan, titles, descriptions and warnings match normalize()", async () => {
+  const { resourcePlan, resourcePages } = await mirror();
+  const doc = normalize(paritySpec, parityApi as NormalizeOptions);
+  const plan = resourcePlan(paritySpec, parityApi);
   assert.deepEqual(plan.tags, doc.tags.map((t) => t.name));
   assert.deepEqual(
     plan.ops.map((o) => [o.op.operationId, o.tag]),
     Object.values(doc.operationsById).map((o) => [o.operationId, o.tag]),
   );
+  assert.deepEqual(plan.warnings, doc.warnings);
+  assert.ok(doc.warnings.length >= 4);
+  assert.deepEqual(
+    resourcePages(paritySpec, parityApi).map((p) => [p.name, p.slug, p.title, p.description]),
+    doc.tags.map((t) => [t.name, tagSlug(t.name), parseOpenApiTag(t.name, doc.tagLabels).displayName, t.description]),
+  );
+});
+
+test("search leaves out hidden operations, path items and hidden tags' names", async () => {
+  const { apiSearchRecords } = await mirror();
+  const records = apiSearchRecords(paritySpec, parityApi);
+  const urls = records.map((r) => r.url);
+  for (const gone of ["ign", "gone", "x", "item"]) assert.ok(!urls.includes(`/api-reference/${gone}`), gone);
+  assert.ok(urls.includes("/api-reference/y"));
+  assert.ok(!JSON.stringify(records).includes("access:all"));
+});
+
+test("a merged tag's description never replaces the target's own", () => {
+  const doc = normalize(paritySpec, parityApi as NormalizeOptions);
+  assert.equal(doc.tags.find((t) => t.name === "alpha")!.description, "alpha-desc");
+  const only = normalize(
+    { tags: [{ name: "Old", description: "old" }, { name: "New" }], paths: { "/o": { get: op("o", { tags: ["Old"] }) }, "/n": { get: op("n", { tags: ["New"] }) } } },
+    { tags: { Old: { mergeInto: "New" } } },
+  );
+  assert.equal(only.tags[0].description, "old", "falls back when the target has none");
+});
+
+test("one label rule: own label, then a merged tag's, then x-displayName", () => {
+  const doc = normalize(paritySpec, parityApi as NormalizeOptions);
+  const label = (name: string) => doc.tags.find((t) => t.name === name)!.displayName;
+  assert.equal(label("dubbing"), "Dub", "a collision loser's label names the page");
+  assert.equal(label("New/Group"), "Moved");
+  assert.equal(label("labelled"), "Picked");
+  assert.equal(doc.tagLabels.dubbing, "Dub");
+  const spec = normalize({ tags: [{ name: "a", "x-displayName": "Spec" }], paths: { "/a": { get: op("a", { tags: ["a"] }) } } });
+  assert.equal(spec.tags[0].displayName, "Spec");
+});
+
+test("names in api.tags and api.tagOrder that do nothing are reported", () => {
+  const spec = { tags: [{ name: "real" }, { name: "dubbing" }], paths: { "/r": { get: op("r", { tags: ["real"] }) }, "/a": { get: op("a", { tags: ["dubbing"] }) }, "/b": { get: op("b", { tags: ["Dubbing"] }) } } };
+  const { warnings } = normalize(spec, {
+    tags: { "acces:all": { hidden: true }, real: { mergeInto: "Rael" } },
+    tagOrder: ["nope", "Dubbing"],
+  });
+  assert.ok(warnings.some((w) => /"acces:all" matches no tag/.test(w)));
+  assert.ok(warnings.some((w) => /"real" merges into "Rael".*\/api-reference\/rael/.test(w)));
+  assert.ok(warnings.some((w) => /tagOrder: "nope" matches no tag/.test(w)));
+  assert.ok(warnings.some((w) => /tagOrder: "Dubbing" was merged into "dubbing"/.test(w)));
+  // A label on a nav-only group path is a real target, not a typo.
+  const grouped = normalize({ paths: { "/g": { get: op("g", { tags: ["Team/Sub"] }) } } }, { tags: { Team: { label: "People" } } });
+  assert.deepEqual(grouped.warnings, []);
+});
+
+test("tagOrder naming a collision's loser pins the page it merged into", () => {
+  const doc = normalize(
+    { tags: [{ name: "a" }, { name: "dubbing" }], paths: { "/a": { get: op("a", { tags: ["a"] }) }, "/d": { get: op("d", { tags: ["dubbing"] }) }, "/e": { get: op("e", { tags: ["Dubbing"] }) } } },
+    { tagOrder: ["Dubbing"] },
+  );
+  assert.deepEqual(doc.tags.map((t) => t.name), ["dubbing", "a"]);
+});
+
+test("webhooks follow their tag to the page it merged into", () => {
+  const doc = normalize(
+    {
+      paths: { "/n": { get: op("n", { tags: ["New"] }) } },
+      webhooks: {
+        moved: { post: { tags: ["Old"], summary: "moved" } },
+        gone: { post: { tags: ["secret"], summary: "gone" } },
+        lower: { post: { tags: ["New"], summary: "same" } },
+      },
+    },
+    { tags: { Old: { mergeInto: "New" }, secret: { hidden: true } } },
+  );
+  assert.deepEqual(doc.webhooks.map((w) => [w.name, w.tags]), [["moved", ["New"]], ["gone", []], ["lower", ["New"]]]);
+});
+
+test("api.auth reaches the cURL samples on both surfaces", () => {
+  const spec = { paths: { "/a": { get: op("a", { parameters: [{ name: "xi-api-key", in: "header" }] }) }, "/b": { get: op("b", { security: [] }) } } };
+  const doc = normalize(spec, { auth: { header: "xi-api-key" } });
+  const a = doc.operationsById.a;
+  assert.match(JSON.stringify(codeSamples(a, doc, spec, "https://x.test", ["curl"])), /xi-api-key: \$API_KEY/);
+  assert.match(curlSample(a, doc, spec), /--header 'xi-api-key: <api-key>'/);
+  assert.doesNotMatch(curlSample(doc.operationsById.b, doc, spec), /xi-api-key/);
+  assert.equal(doc.operationsById.b.public, true);
+});
+
+test("bearer auth folds a declared Authorization parameter", () => {
+  const doc = normalize(
+    { paths: { "/a": { get: op("a", { parameters: [{ name: "Authorization", in: "header" }, { name: "X-Other", in: "header" }] }) } } },
+    { auth: { type: "bearer" } },
+  );
+  assert.deepEqual(doc.operationsById.a.parameters.header.map((p) => p.name), ["X-Other"]);
 });
 
 test("a header parameter that duplicates the API-key auth header is dropped", () => {

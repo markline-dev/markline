@@ -1,7 +1,7 @@
 const METHODS = ["get", "post", "put", "patch", "delete", "options", "head"];
 
 // Plain-JS mirror of lib/openapi-tag-config.ts for the build script, which
-// runs under plain node. test/openapi-normalize.test.ts checks that the two
+// runs under plain node. test/openapi-tag-config.test.ts checks that the two
 // agree, so change both together.
 
 const DEFAULT_HIDE_EXTENSIONS = ["x-hidden", "x-internal"];
@@ -45,16 +45,58 @@ export function isHiddenOperation(op, api) {
   return (api?.hideExtensions ?? DEFAULT_HIDE_EXTENSIONS).some((ext) => !!op[ext]);
 }
 
+function isHiddenItem(item, api) {
+  return (api?.hideExtensions ?? DEFAULT_HIDE_EXTENSIONS).some((ext) => !!item?.[ext]);
+}
+
+function knownTags(spec) {
+  const known = new Set((spec.tags ?? []).map((t) => t.name));
+  for (const item of Object.values(spec.paths ?? {})) {
+    for (const method of METHODS) {
+      const op = item?.[method];
+      if (!op) continue;
+      if (Array.isArray(op.tags) && op.tags.length) for (const t of op.tags) known.add(t);
+      else known.add("Default");
+    }
+  }
+  return known;
+}
+
+function configWarnings(known, order, alias, api) {
+  const out = [];
+  const isPath = (name) => order.some((p) => p === name || p.startsWith(`${name}/`));
+  for (const [name, o] of Object.entries(api?.tags ?? {})) {
+    if (!known.has(name) && !isPath(name)) {
+      out.push(`[markline] api.tags: "${name}" matches no tag in the spec, so it has no effect. Check the spelling.`);
+    }
+    const target = typeof o?.mergeInto === "string" ? o.mergeInto.trim() : "";
+    if (target && !known.has(target) && !override(api, target)?.mergeInto) {
+      out.push(`[markline] api.tags: "${name}" merges into "${target}", which isn't a tag in the spec, so it creates the page /api-reference/${slug(target)}. That's fine for a rename; otherwise check the spelling.`);
+    }
+  }
+  for (const name of api?.tagOrder ?? []) {
+    const r = resolveTag(name, api);
+    if (!r) continue;
+    if (alias.has(r)) {
+      out.push(`[markline] api.tagOrder: "${name}" was merged into "${alias.get(r)}". List that name instead.`);
+    } else if (!order.includes(r)) {
+      out.push(`[markline] api.tagOrder: "${name}" matches no tag with operations, so it has no effect. Check the spelling.`);
+    }
+  }
+  return out;
+}
+
 /**
  * Every operation that gets a page, with the resource tag it files under —
  * mirroring normalize() in lib/openapi.ts, so llms.txt, search and the sitemap
  * never link to a page that doesn't exist. Tags whose slugs collide are folded
- * into the first one, and reported in `collisions`.
+ * into the first one. `warnings` is what the site build should print.
  */
 export function resourcePlan(spec, api) {
   const ops = [];
   const used = [];
   for (const [pathStr, item] of Object.entries(spec.paths ?? {})) {
+    if (isHiddenItem(item, api)) continue;
     for (const method of METHODS) {
       const op = item?.[method];
       if (!op || isHiddenOperation(op, api)) continue;
@@ -89,10 +131,82 @@ export function resourcePlan(spec, api) {
     collisions.set(s, c);
   }
   for (const o of ops) o.tag = alias.get(o.tag) ?? o.tag;
-  return { tags: ranked.filter((n) => !alias.has(n)), ops, collisions: [...collisions.values()] };
+  const tags = [...new Set(ranked.map((n) => alias.get(n) ?? n))];
+  const warnings = [...collisions.values()].map((c) => {
+    const names = c.names.map((n) => `"${n}"`).join(", ");
+    return `[markline] API tags ${names} share the URL /api-reference/${c.slug}; their operations are merged into "${c.into}". Use api.tags (label / mergeInto) in markline.json to rename or merge them explicitly.`;
+  });
+  warnings.push(...configWarnings(knownTags(spec), tags, alias, api));
+  return { tags, alias, ops, collisions: [...collisions.values()], warnings };
 }
 
 /** The resources that get a page, in sidebar order. */
 export function orderedResourceTags(spec, api) {
   return resourcePlan(spec, api).tags;
+}
+
+const ACRONYMS = {
+  api: "API", sdk: "SDK", url: "URL", id: "ID", ip: "IP", fx: "FX",
+  kyc: "KYC", otp: "OTP", pin: "PIN", sms: "SMS", us: "US", uk: "UK", eu: "EU",
+  ngn: "NGN", usd: "USD", gbp: "GBP", eur: "EUR",
+};
+
+function segmentDisplayName(seg) {
+  const words = seg.replace(/[-_]/g, " ").replace(/([a-z0-9])([A-Z])/g, "$1 $2").split(/\s+/).filter(Boolean);
+  if (!words.length) return seg;
+  return words
+    .map((w) => {
+      const lw = w.toLowerCase();
+      return Object.prototype.hasOwnProperty.call(ACRONYMS, lw) ? ACRONYMS[lw] : w[0].toUpperCase() + w.slice(1).toLowerCase();
+    })
+    .join(" ");
+}
+
+/**
+ * Each resource page with its title and description, by the same rule as
+ * describeTags() in lib/openapi-tag-config.ts, so llms.txt reads like the site.
+ */
+export function resourcePages(spec, api) {
+  const plan = resourcePlan(spec, api);
+  const specTags = new Map((spec.tags ?? []).map((t) => [t.name, t]));
+  const names = [...new Set([...specTags.keys(), ...plan.alias.keys(), ...Object.keys(api?.tags ?? {})])];
+  const pageOf = (n) => {
+    const r = resolveTag(n, api);
+    return r && (plan.alias.get(r) ?? r);
+  };
+  return plan.tags.map((page) => {
+    const merged = names.filter((n) => n !== page && pageOf(n) === page);
+    const xDisplay = specTags.get(page)?.["x-displayName"];
+    const label =
+      [page, ...merged].map((n) => override(api, n)?.label?.trim()).find(Boolean) ??
+      (typeof xDisplay === "string" ? xDisplay.trim() : "");
+    const description =
+      override(api, page)?.description ??
+      specTags.get(page)?.description ??
+      merged.map((n) => override(api, n)?.description ?? specTags.get(n)?.description).find((d) => d !== undefined);
+    const segments = page.split("/").map((s) => s.trim()).filter(Boolean);
+    return {
+      name: page,
+      slug: slug(page),
+      title: label || segmentDisplayName(segments[segments.length - 1] ?? page),
+      description,
+    };
+  });
+}
+
+function slugifyOpId(method, pathStr) {
+  return `${method}_${pathStr.replace(/[^a-zA-Z0-9]+/g, "_")}`.replace(/^_+|_+$/g, "");
+}
+
+/** Search records for the operations that get a page. A hidden tag's name stays
+ *  out of the text, so hiding `access:all` doesn't leave it searchable. */
+export function apiSearchRecords(spec, api, toPlainText = (s) => s) {
+  return resourcePlan(spec, api).ops.map(({ method, path: pathStr, op }) => {
+    const operationId = op.operationId ?? slugifyOpId(method, pathStr);
+    const tags = (op.tags ?? []).filter((t) => resolveTag(t, api));
+    const content = toPlainText(
+      [op.summary, op.description, `${method.toUpperCase()} ${pathStr}`, tags.join(" ")].filter(Boolean).join(" "),
+    );
+    return { url: `/api-reference/${operationId}`, title: op.summary ?? operationId, content, meta: "API reference" };
+  });
 }

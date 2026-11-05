@@ -130,7 +130,87 @@ export function planTags(used: string[], declared: string[], opts?: TagOptions):
     c.names.push(name);
     collisions.set(slug, c);
   }
-  return { order: ranked.filter((n) => !alias.has(n)), alias, collisions: [...collisions.values()] };
+  // A pin on a collision's loser pins the page it merged into.
+  const order = [...new Set(ranked.map((n) => alias.get(n) ?? n))];
+  return { order, alias, collisions: [...collisions.values()] };
+}
+
+/** The page a spec tag ends up on, after `mergeInto` and slug collisions. */
+function pageOf(name: string, plan: TagPlan, opts?: TagOptions): string | null {
+  const r = resolveTag(name, opts);
+  return r && (plan.alias.get(r) ?? r);
+}
+
+export type SpecTag = { name: string; displayName?: string; description?: string };
+
+/**
+ * Each page's label and description, the single rule every output follows.
+ * Label: the page tag's own `label`, then a `label` on a tag merged into it,
+ * then its `x-displayName`. Description: the page tag's own (config, then
+ * spec), then the first merged tag's. No label means the name is derived.
+ */
+export function describeTags(
+  specTags: SpecTag[],
+  plan: TagPlan,
+  opts?: TagOptions,
+): Map<string, { label?: string; description?: string }> {
+  const spec = new Map(specTags.map((t) => [t.name, t]));
+  const names = [...new Set([...specTags.map((t) => t.name), ...plan.alias.keys(), ...Object.keys(opts?.tags ?? {})])];
+  const out = new Map<string, { label?: string; description?: string }>();
+  for (const page of plan.order) {
+    const merged = names.filter((n) => n !== page && pageOf(n, plan, opts) === page);
+    const chain = [page, ...merged];
+    const label = chain.map((n) => override(opts, n)?.label?.trim()).find(Boolean) ?? (spec.get(page)?.displayName || undefined);
+    const description =
+      override(opts, page)?.description ??
+      spec.get(page)?.description ??
+      merged.map((n) => override(opts, n)?.description ?? spec.get(n)?.description).find((d) => d !== undefined);
+    out.set(page, { label, description });
+  }
+  return out;
+}
+
+/**
+ * Warnings for names in `api.tags` / `api.tagOrder` that don't do what they
+ * look like: a typo otherwise leaves a hidden tag published, or quietly makes
+ * a new page. `known` is every tag the spec declares or an operation carries.
+ */
+export function tagConfigWarnings(known: Set<string>, plan: TagPlan, opts?: TagOptions): string[] {
+  const out: string[] = [];
+  const isPath = (name: string) => plan.order.some((p) => p === name || p.startsWith(`${name}/`));
+  for (const [name, o] of Object.entries(opts?.tags ?? {})) {
+    if (!known.has(name) && !isPath(name)) {
+      out.push(`[markline] api.tags: "${name}" matches no tag in the spec, so it has no effect. Check the spelling.`);
+    }
+    const target = typeof o?.mergeInto === "string" ? o.mergeInto.trim() : "";
+    if (target && !known.has(target) && !override(opts, target)?.mergeInto) {
+      out.push(`[markline] api.tags: "${name}" merges into "${target}", which isn't a tag in the spec, so it creates the page /api-reference/${tagSlug(target)}. That's fine for a rename; otherwise check the spelling.`);
+    }
+  }
+  for (const name of opts?.tagOrder ?? []) {
+    const r = resolveTag(name, opts);
+    if (!r) continue; // hidden on purpose: there's no page to order
+    if (plan.alias.has(r)) {
+      out.push(`[markline] api.tagOrder: "${name}" was merged into "${plan.alias.get(r)}". List that name instead.`);
+    } else if (!plan.order.includes(r)) {
+      out.push(`[markline] api.tagOrder: "${name}" matches no tag with operations, so it has no effect. Check the spelling.`);
+    }
+  }
+  return out;
+}
+
+/** Every tag the spec declares or an operation carries ("Default" for untagged). */
+export function knownTags(raw: { tags?: { name: string }[]; paths?: Record<string, any> }): Set<string> {
+  const known = new Set<string>((raw.tags ?? []).map((t) => t.name));
+  for (const item of Object.values(raw.paths ?? {})) {
+    for (const method of ["get", "post", "put", "patch", "delete", "options", "head"]) {
+      const op = item?.[method];
+      if (!op) continue;
+      if (Array.isArray(op.tags) && op.tags.length) for (const t of op.tags) known.add(t);
+      else known.add("Default");
+    }
+  }
+  return known;
 }
 
 /** Build-time warning text for a slug collision. */

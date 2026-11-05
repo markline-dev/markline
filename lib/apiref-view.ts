@@ -1,4 +1,4 @@
-import type { JSONSchema, OpenAPIDoc, OpenAPIEvent, OpenAPIOperation, OpenAPITag } from "./openapi";
+import type { JSONSchema, OpenAPIDoc, OpenAPIEvent, OpenAPIOperation, OpenAPIParameter, OpenAPITag } from "./openapi";
 import { eventAnchor, resolveSchema } from "./openapi";
 import { allResponses, codeSamples, colorizeJson, successResponse, type CodeRail } from "./openapi-codegen";
 import { buildPlaygroundSpec } from "./playground-spec";
@@ -6,8 +6,7 @@ import { mdToHtml } from "./md-desc";
 import type { PlaygroundSpec } from "@/components/docs/api/playground";
 import { loadConfig, playgroundMode } from "./config";
 import { tagSlug, parseOpenApiTag, buildTagTree, segmentDisplayName, type TagTreeNode } from "./openapi-tags";
-import { isNullable, normalizeField, schemaFields, typeLabel, type FieldView } from "./openapi-schema";
-import { DEFAULT_HIDE_EXTENSIONS } from "./openapi-tag-config";
+import { normalizeField, paramField, schemaFields, type FieldView } from "./openapi-schema";
 
 // Re-export so existing imports (`@/lib/apiref-view`) keep resolving tagSlug.
 export { tagSlug, parseOpenApiTag, segmentDisplayName } from "./openapi-tags";
@@ -183,31 +182,13 @@ export function displayName(s: string): string {
     .join(" ");
 }
 
-/** Field extensions that hide a property (the same list that hides operations). */
-function hideExtensions(): string[] {
-  return loadConfig().api.hideExtensions ?? DEFAULT_HIDE_EXTENSIONS;
-}
-
 function attrsFromSchema(schema: JSONSchema | undefined, root: unknown): AttrView[] {
-  const resolved = schema ? resolveSchema(schema, root) : undefined;
-  return schemaFields(resolved, { hideExtensions: hideExtensions() });
+  return schemaFields(schema ? resolveSchema(schema, root) : undefined);
 }
 
 /** A path/query parameter row. */
-function paramAttr(p: { name: string; required?: boolean; description?: string; schema?: JSONSchema; deprecated?: boolean }, root: unknown, required: boolean): AttrView {
-  const schema = p.schema ? resolveSchema(p.schema, root) : undefined;
-  const { schema: s } = normalizeField(schema);
-  const attr: AttrView = {
-    name: p.name,
-    type: typeLabel(schema),
-    required,
-    optional: !required,
-    description: p.description,
-    enums: s.enum?.filter((e) => e !== null).map((e) => String(e)),
-  };
-  if (isNullable(schema)) attr.nullable = true;
-  if (p.deprecated === true || s.deprecated === true) attr.deprecated = true;
-  return attr;
+function paramAttr(p: OpenAPIParameter, root: unknown, required: boolean): AttrView {
+  return paramField({ ...p, schema: p.schema ? resolveSchema(p.schema, root) : undefined }, required);
 }
 
 /**

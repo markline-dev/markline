@@ -5,13 +5,17 @@ import { mergeTagEvents, parseOperationEvents, parseWebhooks, parseXEvents } fro
 import { tagLabels, type TagLabels } from "./openapi-tags";
 import {
   collisionWarning,
+  describeTags,
   isHiddenOperation,
+  knownTags,
   planTags,
   primaryTag,
   resolveTag,
+  tagConfigWarnings,
   DEFAULT_HIDE_EXTENSIONS,
   type TagOptions,
 } from "./openapi-tag-config";
+import { pruneSpec } from "./openapi-prune";
 import { loadConfig } from "./config";
 import { sampleMember } from "./openapi-schema";
 
@@ -64,6 +68,8 @@ export type OpenAPIOperation = {
   description?: string;
   /** `deprecated: true` in the spec. */
   deprecated?: boolean;
+  /** Marked public with an explicit `security: []`: Try it offers no key field. */
+  public?: boolean;
   /** Explicit position within the tag (`x-nav-order`); unordered ops keep spec order after ordered ones. */
   navOrder?: number;
   parameters: {
@@ -146,6 +152,7 @@ const METHODS = ["get", "post", "put", "patch", "delete", "options", "head"] as 
 
 // Parsed-spec cache, keyed by version id ("" = the default/unprefixed version).
 const _cache = new Map<string, OpenAPIDoc>();
+const _roots = new Map<string, unknown>();
 
 const EMPTY_DOC: OpenAPIDoc = {
   info: { title: "", version: "" },
@@ -194,7 +201,9 @@ export function loadOpenApi(variantId?: string): OpenAPIDoc {
     showDeprecated: api.showDeprecated,
     auth: api.auth,
   });
-  warnOnce(doc.warnings);
+  // A build prints these once, from scripts/build-search.mjs; its page workers
+  // would each repeat them.
+  if (process.env.NODE_ENV !== "production") warnOnce(doc.warnings);
   _cache.set(key, doc);
   return doc;
 }
@@ -217,7 +226,23 @@ function warnOnce(warnings: string[]) {
   }
 }
 
-export function normalize(raw: any, opts: NormalizeOptions = {}): OpenAPIDoc {
+/**
+ * The raw spec `$ref`s resolve against, with everything `api.hideExtensions`
+ * hides already removed. Pass this, not the file on disk, as `root`.
+ */
+export function loadOpenApiRoot(variantId?: string): any {
+  const key = variantId ?? "";
+  if (_roots.has(key)) return _roots.get(key);
+  const file = apiSpecPath(variantId);
+  const root = fs.existsSync(file)
+    ? pruneSpec(JSON.parse(fs.readFileSync(file, "utf8")), loadConfig().api.hideExtensions ?? DEFAULT_HIDE_EXTENSIONS)
+    : {};
+  _roots.set(key, root);
+  return root;
+}
+
+export function normalize(input: any, opts: NormalizeOptions = {}): OpenAPIDoc {
+  const raw = pruneSpec(input, opts.hideExtensions ?? DEFAULT_HIDE_EXTENSIONS);
   const components = raw.components ?? {};
   const authScheme = opts.auth ? configuredScheme(opts.auth) : undefined;
   const securitySchemes: Record<string, SecurityScheme> = authScheme
@@ -226,18 +251,11 @@ export function normalize(raw: any, opts: NormalizeOptions = {}): OpenAPIDoc {
   const hideExtensions = opts.hideExtensions ?? DEFAULT_HIDE_EXTENSIONS;
   const warnings: string[] = [];
 
-  // Spec tag metadata, folded onto the tag each one resolves to (so a merged
-  // tag keeps its description and events). The first value found wins.
-  const tagMeta: Record<string, { displayName?: string; description?: string; events?: OpenAPIEvent[] }> = Object.create(null);
+  // Events declared on a spec tag, folded onto the tag it resolves to.
+  const tagEvents: Record<string, OpenAPIEvent[]> = Object.create(null);
   for (const t of raw.tags ?? []) {
     const name = resolveTag(t.name, opts);
-    if (!name) continue;
-    const label = typeof t["x-displayName"] === "string" ? t["x-displayName"].trim() : "";
-    const meta = (tagMeta[name] ??= {});
-    // A tag's own label only names it when it isn't merged elsewhere.
-    if (name === t.name && label) meta.displayName = label;
-    meta.description ??= t.description;
-    meta.events = [...(meta.events ?? []), ...parseXEvents(t["x-events"])];
+    if (name) tagEvents[name] = [...(tagEvents[name] ?? []), ...parseXEvents(t["x-events"])];
   }
 
   const tagsMap = new Map<string, OpenAPIOperation[]>();
@@ -284,7 +302,8 @@ export function normalize(raw: any, opts: NormalizeOptions = {}): OpenAPIDoc {
       const secList = op.security ?? raw.security ?? [];
       // `api.auth` covers every operation, except one the spec marks public
       // with an explicit empty `security: []`.
-      if (authScheme && !(Array.isArray(op.security) && op.security.length === 0)) {
+      const isPublic = Array.isArray(op.security) && op.security.length === 0;
+      if (authScheme && !isPublic) {
         security.push({ name: "markline", scheme: authScheme });
       } else for (const s of secList) {
         for (const name of Object.keys(s)) {
@@ -296,7 +315,10 @@ export function normalize(raw: any, opts: NormalizeOptions = {}): OpenAPIDoc {
       // A header the auth scheme already sends isn't a parameter of its own
       // (specs often declare the API-key header on every operation too).
       const authHeaders = new Set(
-        security.filter((x) => x.scheme.type === "apiKey" && x.scheme.in === "header" && x.scheme.name).map((x) => x.scheme.name!.toLowerCase()),
+        security.flatMap((x) => {
+          if (x.scheme.type === "http") return ["authorization"];
+          return x.scheme.type === "apiKey" && x.scheme.in === "header" && x.scheme.name ? [x.scheme.name.toLowerCase()] : [];
+        }),
       );
       if (authHeaders.size) params.header = params.header.filter((p) => !authHeaders.has(p.name.toLowerCase()));
 
@@ -308,6 +330,7 @@ export function normalize(raw: any, opts: NormalizeOptions = {}): OpenAPIDoc {
         summary: op.summary,
         description: op.description,
         deprecated: op.deprecated === true || undefined,
+        public: isPublic || undefined,
         navOrder: typeof op["x-nav-order"] === "number" ? op["x-nav-order"] : undefined,
         parameters: params,
         requestBody,
@@ -326,17 +349,20 @@ export function normalize(raw: any, opts: NormalizeOptions = {}): OpenAPIDoc {
   // into one, so neither page silently loses its operations.
   const plan = planTags([...tagsMap.keys()], (raw.tags ?? []).map((t: any) => t.name as string), opts);
   for (const c of plan.collisions) warnings.push(collisionWarning(c));
+  warnings.push(...tagConfigWarnings(knownTags(input), plan, opts));
   for (const [from, into] of plan.alias) {
     for (const op of tagsMap.get(from)!) op.tag = into;
     tagsMap.get(into)!.push(...tagsMap.get(from)!);
     tagsMap.delete(from);
-    const meta = (tagMeta[into] ??= {});
-    meta.description ??= tagMeta[from]?.description;
-    meta.events = [...(meta.events ?? []), ...(tagMeta[from]?.events ?? [])];
+    tagEvents[into] = [...(tagEvents[into] ?? []), ...(tagEvents[from] ?? [])];
   }
-  // Config overrides beat the spec's own label and description.
-  const configured = (name: string) =>
-    opts.tags && Object.prototype.hasOwnProperty.call(opts.tags, name) ? opts.tags[name] : undefined;
+
+  const specLabel = (t: any) => (typeof t["x-displayName"] === "string" ? t["x-displayName"].trim() : "");
+  const described = describeTags(
+    (raw.tags ?? []).map((t: any) => ({ name: t.name, displayName: specLabel(t), description: t.description })),
+    plan,
+    opts,
+  );
 
   const tags: OpenAPITag[] = plan.order.map((name) => {
     // Stable sort: `x-nav-order` ops first (ascending), the rest keep spec order.
@@ -345,22 +371,20 @@ export function normalize(raw: any, opts: NormalizeOptions = {}): OpenAPIDoc {
     );
     return {
       name,
-      displayName: configured(name)?.label?.trim() || tagMeta[name]?.displayName,
-      description: configured(name)?.description ?? tagMeta[name]?.description,
+      displayName: described.get(name)?.label,
+      description: described.get(name)?.description,
       operations,
-      events: mergeTagEvents(operations, tagMeta[name]?.events),
+      events: mergeTagEvents(operations, tagEvents[name]),
     };
   });
 
   // Labels for every tag path: spec `x-displayName`s (incl. nav-only group
-  // tags), then config labels, which also name group paths ("Workspace").
-  const labelEntries: { name: string; displayName?: string }[] = Object.keys(tagMeta).map((name) => ({
-    name,
-    displayName: tagMeta[name].displayName,
-  }));
-  for (const [name, o] of Object.entries(opts.tags ?? {})) {
-    if (o?.label?.trim()) labelEntries.push({ name: resolveTag(name, opts) ?? name, displayName: o.label.trim() });
-  }
+  // tags) and config labels on group paths ("Workspace"), then each page's own.
+  const labelEntries: { name: string; displayName?: string }[] = [
+    ...(raw.tags ?? []).map((t: any) => ({ name: t.name as string, displayName: specLabel(t) || undefined })),
+    ...Object.entries(opts.tags ?? {}).map(([name, o]) => ({ name, displayName: o?.mergeInto ? undefined : o?.label?.trim() })),
+    ...tags.map((t) => ({ name: t.name, displayName: t.displayName })),
+  ];
 
   return {
     info: raw.info ?? { title: "", version: "" },
@@ -398,10 +422,13 @@ export function resolveRef(node: any, root: any, seen = new Set<string>()): any 
 export function resolveSchema(schema: JSONSchema | undefined, root: any, seen = new Set<string>()): JSONSchema | undefined {
   if (!schema) return schema;
   if (schema.$ref) {
-    if (seen.has(schema.$ref)) return { type: "object", description: "(recursive)" };
+    // Keys beside a `$ref` (description, deprecated…) describe this use of it.
+    const { $ref, ...siblings } = schema;
+    const local = Object.keys(siblings).length ? resolveSchema(siblings, root, seen) : undefined;
+    if (seen.has($ref)) return { type: "object", description: "(recursive)", ...local };
     const next = new Set(seen);
-    next.add(schema.$ref);
-    return resolveSchema(resolveRef(schema, root) as JSONSchema, root, next);
+    next.add($ref);
+    return { ...resolveSchema(resolveRef({ $ref }, root) as JSONSchema, root, next), ...local };
   }
   const out: JSONSchema = { ...schema };
   if (schema.properties) {
@@ -428,7 +455,7 @@ export function sampleFromSchema(schema: JSONSchema | undefined, root?: any): un
   if (resolved.enum && resolved.enum.length) return resolved.enum[0];
   if (resolved.default !== undefined) return resolved.default;
 
-  const type = Array.isArray(resolved.type) ? resolved.type[0] : resolved.type;
+  const type = Array.isArray(resolved.type) ? (resolved.type.find((t) => t !== "null") ?? "null") : resolved.type;
   if (resolved.allOf?.length) {
     const merged: JSONSchema = { type: "object", properties: {}, required: [] };
     for (const s of resolved.allOf) {

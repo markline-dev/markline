@@ -1,8 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 // lib/ imports resolve via test/setup.mjs, which `npm test` loads first.
-import { collapseNullable, schemaFields, typeLabel } from "../lib/openapi-schema.ts";
-import { sampleFromSchema } from "../lib/openapi.ts";
+import { collapseNullable, paramField, schemaFields, typeLabel } from "../lib/openapi-schema.ts";
+import { resolveSchema, sampleFromSchema } from "../lib/openapi.ts";
 import type { JSONSchema } from "../lib/openapi.ts";
 
 const NULL = { type: "null" };
@@ -38,7 +38,6 @@ const voiceSettings: JSONSchema = {
   properties: {
     stability: { anyOf: [{ type: "number" }, NULL], description: "How stable." },
     speed: { type: "number", deprecated: true },
-    secret: { type: "string", "x-fern-ignore": true },
   },
 };
 
@@ -51,7 +50,6 @@ test("schemaFields gives a nullable object field its nested fields", () => {
         seed: { anyOf: [{ type: "integer" }, NULL] },
       },
     },
-    { hideExtensions: ["x-fern-ignore"] },
   );
   assert.equal(fields[0].type, "object");
   assert.equal(fields[0].nullable, true);
@@ -71,7 +69,7 @@ test("unions of objects become variants; depth is limited", () => {
     },
   });
   assert.deepEqual(src.variants!.map((v) => [v.label, v.fields.map((f) => f.name)]), [
-    ["A", ["stability", "speed", "secret"]],
+    ["A", ["stability", "speed"]],
     ["B", ["url"]],
   ]);
   const deep: JSONSchema = { type: "object", properties: { a: { type: "object", properties: { b: { type: "object", properties: { c: { type: "string" } } } } } } };
@@ -95,4 +93,52 @@ test("array items of objects are listed as children; enums drop null", () => {
 
 test("samples skip the null member of a union", () => {
   assert.equal(sampleFromSchema({ anyOf: [NULL, { type: "integer", minimum: 3 }] }), 3);
+});
+
+test("edge spellings: only-null type, const null, null-first type arrays", () => {
+  assert.equal(typeLabel({ type: ["null"] }), "null");
+  assert.equal(collapseNullable({ type: ["null"] }).nullable, false);
+  const c = collapseNullable({ anyOf: [{ type: "string" }, { const: null }] });
+  assert.deepEqual([c.schema.type, c.nullable], ["string", true]);
+  assert.equal(sampleFromSchema({ type: ["null", "integer"], minimum: 2 }), 2);
+});
+
+test("allOf keeps the ref's fields beside its own, and any part's nullable", () => {
+  const [f] = schemaFields({
+    type: "object",
+    properties: { x: { allOf: [{ type: "object", properties: { a: { type: "string" } } }], properties: { extra: { type: "string" } } } },
+  });
+  assert.deepEqual(f.children!.map((c) => c.name), ["a", "extra"]);
+  const [g] = schemaFields({
+    type: "object",
+    properties: { y: { allOf: [{ type: "object", properties: { a: { type: "string" } } }, { nullable: true, description: "Why" }] } },
+  });
+  assert.deepEqual([g.nullable, g.description], [true, "Why"]);
+});
+
+test("an array of a union of objects lists its variants", () => {
+  const [f] = schemaFields({
+    type: "object",
+    properties: {
+      list: {
+        type: "array",
+        items: { anyOf: [{ type: "object", title: "A", properties: { a: {} } }, { type: "object", title: "B", properties: { b: {} } }] },
+      },
+    },
+  });
+  assert.deepEqual(f.variants!.map((v) => v.label), ["A", "B"]);
+});
+
+test("keys beside a $ref describe this use of it", () => {
+  const root = { components: { schemas: { Inner: { type: "object", description: "Inner", properties: { a: { type: "string" } } } } } };
+  const s = resolveSchema({ $ref: "#/components/schemas/Inner", description: "Here", deprecated: true } as JSONSchema, root)!;
+  assert.deepEqual([s.description, s.deprecated, Object.keys(s.properties!)], ["Here", true, ["a"]]);
+  assert.equal(resolveSchema({ $ref: "#/components/schemas/Inner" } as JSONSchema, root)!.description, "Inner");
+});
+
+test("paramField reads deprecated and nullable from the parameter or its schema", () => {
+  const onParam = paramField({ name: "q", deprecated: true, schema: { type: "string" } }, false);
+  assert.deepEqual([onParam.deprecated, onParam.nullable, onParam.optional], [true, undefined, true]);
+  const onSchema = paramField({ name: "q", schema: { anyOf: [{ type: "string", enum: ["a"] }, NULL], deprecated: true, description: "D" } }, true);
+  assert.deepEqual([onSchema.deprecated, onSchema.nullable, onSchema.enums, onSchema.description], [true, true, ["a"], "D"]);
 });

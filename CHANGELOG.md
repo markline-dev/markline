@@ -9,6 +9,12 @@ All notable changes to `@markline/markline` and `@markline/create`.
   extra flags on to Next, so `markline dev -p 3001` sets the port. Run from
   a Markline checkout (`node ../markline/bin/markline.mjs dev`), the CLI
   uses the checkout's dependencies, so a docs folder needs no install.
+- **Only built pages are served.** `markline start` serves the pages from the
+  last build, so a page added to the content folder needs a rebuild.
+
+### Fixed
+- **Unknown URLs aren't cached.** The Node server no longer stores a copy of
+  each unknown URL, and its 404 isn't cacheable.
 
 ## 0.1.7
 

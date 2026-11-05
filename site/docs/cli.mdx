@@ -21,6 +21,10 @@ toc:
 `dev`, `build` and `start` pass any extra flags on to Next, so
 `markline dev -p 3001` serves on port 3001.
 
+Under `markline dev`, a page you've just added can show a 404 the first time; refresh
+and it's there. `markline start` serves the pages from the last build, so run
+`markline build` after changing content.
+
 Next runs from the staged app in `.markline/`, so give any path in a flag as an
 absolute path (`--experimental-https-key "$PWD/k.pem"`). The content is always
 the current directory: `markline dev ./docs` is refused, so run it from your

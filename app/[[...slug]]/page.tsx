@@ -23,8 +23,16 @@ import {
 } from "@/lib/changelog-core";
 
 
+// Only the build's pages exist, so an unknown URL is a plain 404 that Next doesn't
+// render and store. Has to be a literal, so it applies under `next dev` too, where
+// a new page is a 404 once before Next refreshes its list.
+export const dynamicParams = false;
+
 export function generateStaticParams(): { slug?: string[] }[] {
   const docs = listDocs().map((d) => ({ slug: d.slug.length ? d.slug : undefined }));
+  // With no root page "/" still renders, to redirect to the first nav entry. Not
+  // in a static export, where a public/index.html may be serving it.
+  if (process.env.MARKLINE_EXPORT !== "1" && !docs.some((d) => !d.slug)) docs.push({ slug: undefined });
   const entries = listChangelog();
   if (!entries.length) return docs;
   const pages = Array.from({ length: pageCount(entries.length) }, (_, i) => pagePath(i + 1));

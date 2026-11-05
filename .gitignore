@@ -22,6 +22,9 @@ next-env.d.ts
 /public/ai-suggestions.json
 /public/changelog/rss.xml
 
+# test sites (test/site-server.ts)
+/.test-tmp
+
 # misc
 .DS_Store
 *.pem

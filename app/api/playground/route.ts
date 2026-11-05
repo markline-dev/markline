@@ -1,38 +1,24 @@
 import { NextResponse } from "next/server";
 import { loadConfig } from "@/lib/config";
 import { loadOpenApi } from "@/lib/openapi";
+import { forwardableHeaders, MAX_PROXY_RESPONSE_BYTES, originsOf, readCapped } from "@/lib/playground-proxy";
 
 // Server-side proxy for the API playground — used when a request can't be sent
 // directly from the browser (CORS). Only present on a Node/Docker/Vercel
 // deployment; static export omits API routes, and the client falls back to a
 // direct fetch.
 //
-// SSRF mitigation: only forward to origins declared in the config baseUrl or
-// the OpenAPI spec's servers. This route is enabled by the docs operator, but
-// we still refuse arbitrary targets.
+// It only forwards to the origins of api.baseUrl and the OpenAPI spec's absolute
+// servers, and with neither set it forwards nothing.
 
 export const dynamic = "force-dynamic";
 
 function allowedOrigins(): string[] {
-  const origins = new Set<string>();
   try {
-    const cfg = loadConfig();
-    if (cfg.api.baseUrl) origins.add(new URL(cfg.api.baseUrl).origin);
+    return originsOf([loadConfig().api.baseUrl, ...loadOpenApi().servers.map((s) => s.url)]);
   } catch {
-    /* ignore */
+    return []; // can't tell what's allowed, so nothing is
   }
-  try {
-    for (const s of loadOpenApi().servers) {
-      try {
-        origins.add(new URL(s.url).origin);
-      } catch {
-        /* relative server url — skip */
-      }
-    }
-  } catch {
-    /* ignore */
-  }
-  return [...origins];
 }
 
 export async function POST(req: Request) {
@@ -57,7 +43,13 @@ export async function POST(req: Request) {
   }
 
   const allowed = allowedOrigins();
-  if (allowed.length > 0 && !allowed.includes(target.origin)) {
+  if (allowed.length === 0) {
+    return NextResponse.json(
+      { error: "The proxy has no API origin to forward to. Set api.baseUrl in markline.json, or an absolute URL in the spec's servers." },
+      { status: 403 },
+    );
+  }
+  if (!allowed.includes(target.origin)) {
     return NextResponse.json(
       { error: `Target ${target.origin} is not an allowed API origin` },
       { status: 403 },
@@ -65,14 +57,24 @@ export async function POST(req: Request) {
   }
 
   const start = Date.now();
+  const request = new AbortController();
   try {
     const upstream = await fetch(target.toString(), {
       method,
-      headers,
+      headers: forwardableHeaders(headers),
       body: ["GET", "HEAD"].includes(method.toUpperCase()) ? undefined : body,
       redirect: "manual",
+      signal: request.signal,
+      cache: "no-store",
     });
-    const text = await upstream.text();
+    const text = await readCapped(upstream);
+    if (text === null) {
+      request.abort();
+      return NextResponse.json(
+        { error: `The response is larger than the ${MAX_PROXY_RESPONSE_BYTES / (1024 * 1024)} MB the proxy returns.` },
+        { status: 413 },
+      );
+    }
     return NextResponse.json({
       status: upstream.status,
       statusText: upstream.statusText,

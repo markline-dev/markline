@@ -307,6 +307,10 @@ response with status + latency. It's the same engine on every surface.
 deployment and is dropped in static export. On a static host, set
 `proxy: "never"` and enable CORS on your API, or the explorer can't reach it.</Warning>
 
+The proxy forwards only to the origin of `api.baseUrl` or an absolute URL in the
+spec's `servers`, so set `api.baseUrl` if your servers are relative or templated.
+Responses over 25 MB return an error.
+
 ## Events & webhooks
 
 If your API emits webhooks or async events, Markline documents them alongside

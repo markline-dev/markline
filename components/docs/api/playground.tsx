@@ -184,7 +184,14 @@ export function PlaygroundProvider({ spec, children }: { spec: PlaygroundSpec; c
           result = await direct(headers);
         } catch (e) {
           if (spec.proxy === "auto") {
-            try { result = await viaProxy(headers); } catch { throw e; }
+            try {
+              result = await viaProxy(headers);
+            } catch (p) {
+              // The proxy answered with its reason: that's more use than the failed
+              // direct fetch. Otherwise there's no proxy here (404, or not JSON).
+              const answered = p instanceof Error && p.message !== "proxy-unavailable" && !(p instanceof SyntaxError);
+              throw answered ? p : e;
+            }
           } else throw e;
         }
       }

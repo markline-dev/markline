@@ -1,6 +1,8 @@
 import createMDX from "@next/mdx";
+import { PHASE_DEVELOPMENT_SERVER } from "next/constants.js";
 import remarkGfm from "remark-gfm";
 import rehypePrettyCode from "rehype-pretty-code";
+import { removeGeneratedFiles } from "./scripts/generated-files.mjs";
 
 // Build mode is chosen by the CLI:
 //   MARKLINE_EXPORT=1 -> static HTML export (any CDN / GitHub Pages / S3)
@@ -35,6 +37,22 @@ const nextConfig = {
   // dynamic grammar/theme imports resolve via node_modules at runtime.
   serverExternalPackages: ["shiki"],
   ...(isExport ? {} : { async redirects() { return []; } }),
+  // <page>.md and <section>/llms.txt are files in public/ after a build
+  // (scripts/build-search.mjs), and a static export serves just those. Under
+  // `next dev` and the Node server, a path with no such file falls through to
+  // the route handlers that render the same text. These run after public/
+  // files, so a built file wins; `next dev` clears those first (below) so it
+  // always serves the current text.
+  ...(isExport
+    ? {}
+    : {
+        async rewrites() {
+          return [
+            { source: "/:path+.md", destination: "/api/md/:path+" },
+            { source: "/:section/llms.txt", destination: "/api/llms/:section" },
+          ];
+        },
+      }),
 };
 
 const withMDX = createMDX({
@@ -44,4 +62,7 @@ const withMDX = createMDX({
   },
 });
 
-export default withMDX(nextConfig);
+export default function config(phase) {
+  if (phase === PHASE_DEVELOPMENT_SERVER) removeGeneratedFiles(process.cwd());
+  return withMDX(nextConfig);
+}

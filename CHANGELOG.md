@@ -4,11 +4,26 @@ All notable changes to `@markline/markline` and `@markline/create`.
 
 ## Unreleased
 
+### Added
+- **`<CodeGroup>`.** Plain fenced code blocks as tabs, named by each fence's
+  `title` (or language). Groups with the same tabs switch together, and the
+  reader's pick is remembered across pages. `sync` joins or separates groups.
+- **Markdown for each page and section.** `/<page>.md` serves a page's
+  Markdown, and `/<section>/llms.txt` indexes one top-level folder, beside the
+  site-wide `llms.txt`. They're files in a build or static export, and served
+  by `markline dev`. Copy for LLM and View as Markdown use the same text.
+- **Steps in "On this page".** `<Steps toc>`, or `toc: steps` in frontmatter,
+  lists step titles in the table of contents.
+
 ### Changed
 - **CLI flags and checkout runs.** `markline dev`, `build` and `start` pass
   extra flags on to Next, so `markline dev -p 3001` sets the port. Run from
   a Markline checkout (`node ../markline/bin/markline.mjs dev`), the CLI
   uses the checkout's dependencies, so a docs folder needs no install.
+
+### Fixed
+- `llms-full.txt` no longer drops `import`/`export` lines inside code blocks
+  (such as Python's `import requests`).
 
 ## 0.1.7
 

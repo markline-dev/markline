@@ -180,6 +180,11 @@
   color: rgb(var(--c-panel-fg));
 }
 
+/* <CodeGroup>: the panels are the page's own fenced <pre>s, so drop their
+   card styling inside the panel. */
+.ml-codegroup { margin: 24px 0; }
+.ml-codegroup .ml-mdx-pre { border-radius: 0; box-shadow: none; font-size: 13px; line-height: 1.7; padding: 16px 20px; }
+
 /* ── operation-page.tsx (.api-*) ── */
 .api-crumbs { font-family: var(--mono); font-size: 12px; color: var(--ink-4); margin-bottom: 16px; }
 .api-crumbs .sep { margin: 0 8px; color: var(--line-2); }

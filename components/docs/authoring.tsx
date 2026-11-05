@@ -160,7 +160,9 @@ export function CardGroup({
 
 /* ── Steps ── */
 
-export function Steps({ children }: { children: React.ReactNode }) {
+/** `toc` lists the step titles in "On this page" (lib/toc.ts reads it from
+ *  the source; frontmatter `toc: steps` does it for every <Steps>). */
+export function Steps({ children }: { children: React.ReactNode; toc?: boolean }) {
   const items = Children.toArray(children).filter(isValidElement);
   return (
     <div className="steps">
@@ -171,13 +173,14 @@ export function Steps({ children }: { children: React.ReactNode }) {
   );
 }
 
-type StepProps = { title?: string; children: React.ReactNode; __num?: number };
+/** `id` comes from remarkStepIds, on the steps listed in "On this page". */
+type StepProps = { title?: string; id?: string; children: React.ReactNode; __num?: number };
 
-export function Step({ title, children, __num }: StepProps) {
+export function Step({ title, id, children, __num }: StepProps) {
   return (
     <div className="step">
       <span className="num">{__num}</span>
-      {title && <h3>{title}</h3>}
+      {title && <h3 id={id}>{title}</h3>}
       <div className="step-body">{children}</div>
     </div>
   );

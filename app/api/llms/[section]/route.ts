@@ -1,21 +1,17 @@
 import { listDocs } from "@/lib/docs";
 import { loadConfig } from "@/lib/config";
-import { sectionIds, sectionIndex } from "@/scripts/llms.mjs";
+import { sectionIndex } from "@/scripts/llms.mjs";
 
 // /<section>/llms.txt, an index of one top-level folder (next.config.mjs
 // rewrites it here). Like app/api/md, this stands in for the file the build
 // writes to public/ under `next dev` and the Node server.
 
-export const dynamic = "force-static";
+export const dynamic = "force-dynamic";
 
 function sectionDocs() {
   return listDocs()
     .filter((d) => !d.variant)
     .map((d) => ({ url: d.pathname, title: d.fm.title, lede: d.fm.lede, body: d.body, layout: d.fm.layout }));
-}
-
-export function generateStaticParams() {
-  return sectionIds(sectionDocs()).map((section) => ({ section }));
 }
 
 export async function GET(_req: Request, { params }: { params: Promise<{ section: string }> }) {

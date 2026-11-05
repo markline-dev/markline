@@ -3,6 +3,10 @@
  * here and in components/docs/mdx.tsx both come from slugify(), so the links
  * land. */
 
+import remarkMdx from "remark-mdx";
+import remarkParse from "remark-parse";
+import { unified } from "unified";
+
 export type TocItem = { id: string; label: string; depth?: 2 | 3 };
 
 export function slugify(s: string): string {
@@ -21,119 +25,114 @@ export function headingText(md: string): string {
     .trim();
 }
 
-/** A JSX attribute's string value: title="…", title='…' or title={"…"}. */
-function attr(tag: string, name: string): string | undefined {
-  const m = tag.match(new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|\\{\\s*(?:"([^"]*)"|'([^']*)'|\`([^\`]*)\`)\\s*\\})`));
-  return m ? (m.slice(1).find((v) => v !== undefined) ?? "") : undefined;
-}
-
-/**
- * Tracks fenced code a line at a time: given the open fence (or null), the one
- * open after `line`. As in CommonMark, only the same character, at least as
- * long and with nothing after it, closes a fence.
- */
-function nextFence(line: string, open: string | null): string | null {
-  const m = line.match(/^\s*(`{3,}|~{3,})(.*)$/);
-  if (!m) return open;
-  if (open) return m[1][0] === open[0] && m[1].length >= open.length && !m[2].trim() ? null : open;
-  return m[1][0] === "`" && m[2].includes("`") ? null : m[1];
-}
-
-/**
- * A listed step's anchor: `step-` so it can't land on a heading of the same
- * name, then numbered when the page repeats a title. `seen` runs in page order.
- */
-function stepId(label: string, seen: Map<string, number>): string {
-  const slug = slugify(label);
-  if (!slug) return "";
-  const n = (seen.get(slug) ?? 0) + 1;
-  seen.set(slug, n);
-  return `step-${slug}${n > 1 ? `-${n}` : ""}`;
-}
-
-/**
- * The page's ## and ### headings, in order, skipping fenced code.
- *
- * Step titles are listed too inside `<Steps toc>`, or in every <Steps> with
- * `steps: true` (frontmatter `toc: steps`). A step sits one level below the
- * ## heading before it, or at the top level when there's none. remarkStepIds
- * gives the same steps the same ids in the page.
- */
-export function extractToc(body: string, opts: { steps?: boolean } = {}): TocItem[] {
-  const items: TocItem[] = [];
-  let fence: string | null = null;
-  let inSteps = false;
-  let listSteps = false;
-  let underH2 = false;
-  const seen = new Map<string, number>();
-  let pending = ""; // the start of a tag that continues on the next line
-  for (const line of body.split("\n")) {
-    const wasOpen = fence;
-    fence = nextFence(line, fence);
-    if (wasOpen || fence) {
-      pending = "";
-      continue;
-    }
-    // <Steps …> opens a list, </Steps> closes it; each <Step title> is a step.
-    // A tag in inline code matches as the code span, so it's passed over.
-    const text = pending + line;
-    let end = 0;
-    for (const m of text.matchAll(/`[^`]*`|<\/?Steps?\b(?:[^>"']|"[^"]*"|'[^']*')*>/g)) {
-      const tag = m[0];
-      end = m.index + tag.length;
-      if (tag.startsWith("</Steps")) inSteps = false;
-      else if (/^<Steps\b/.test(tag)) {
-        inSteps = true;
-        listSteps = !!opts.steps || /\btoc\b(?!\s*=\s*\{\s*false\s*\})/.test(tag.slice(6));
-      } else if (/^<Step\b/.test(tag) && inSteps && listSteps) {
-        const label = headingText(attr(tag, "title") ?? "");
-        const id = stepId(label, seen);
-        if (label && id) items.push({ id, label, depth: underH2 ? 3 : 2 });
-      }
-    }
-    const rest = text.slice(end);
-    const open = rest.search(/<Steps?\b/);
-    pending = open >= 0 ? `${rest.slice(open)}\n` : "";
-    const h = line.match(/^(#{2,3})\s+(.+)$/);
-    if (!h) continue;
-    const label = headingText(h[2]);
-    const id = slugify(label);
-    if (h[1].length === 2) underH2 = true;
-    if (label && id) items.push({ id, label, depth: h[1].length as 2 | 3 });
-  }
-  return items;
-}
-
 type MdxAttr = { type: string; name?: string; value?: string | { value?: string } | null };
-type MdxNode = { type: string; name?: string | null; attributes?: MdxAttr[]; children?: MdxNode[] };
+type MdxNode = {
+  type: string;
+  name?: string | null;
+  depth?: number;
+  value?: string;
+  attributes?: MdxAttr[];
+  children?: MdxNode[];
+};
+
+const attrOf = (node: MdxNode, name: string) => node.attributes?.find((a) => a.type === "mdxJsxAttribute" && a.name === name);
 
 /** An MDX attribute's string value, whether title="…" or title={"…"}. */
-function mdxAttr(node: MdxNode, name: string): string | undefined {
-  const v = node.attributes?.find((a) => a.type === "mdxJsxAttribute" && a.name === name)?.value;
+function stringAttr(node: MdxNode, name: string): string | undefined {
+  const v = attrOf(node, name)?.value;
   if (typeof v === "string") return v;
   return v?.value?.match(/^\s*(["'`])([\s\S]*)\1\s*$/)?.[2];
 }
 
+/** A heading's visible text, as its rendered id reads it (mdx.tsx textOf). */
+function nodeText(node: MdxNode): string {
+  if (node.type === "text" || node.type === "inlineCode") return node.value ?? "";
+  return (node.children ?? []).map(nodeText).join("");
+}
+
+/** A <Steps> asks for its titles with `toc`, unless it's toc={false}. */
+function listsSteps(node: MdxNode): boolean {
+  const toc = attrOf(node, "toc");
+  if (!toc) return false;
+  return !(typeof toc.value === "object" && toc.value?.value?.trim() === "false");
+}
+
 /**
- * Remark plugin: the id of each step extractToc lists, in the same order, so
- * its link lands. Other steps get none, so they can't take over a heading's
- * anchor.
+ * What "On this page" lists, and the id of each step in it, from one walk of
+ * the parsed page, so the links and the page can't disagree. A step's id is
+ * `step-<slug>`, moved along if a heading, an element or an earlier step has it.
+ */
+function planToc(tree: MdxNode, opts: { steps?: boolean }) {
+  const taken = new Set<string>();
+  const reserve = (node: MdxNode) => {
+    if (node.type === "heading") taken.add(slugify(nodeText(node)));
+    const id = stringAttr(node, "id");
+    if (id) taken.add(id);
+    (node.children ?? []).forEach(reserve);
+  };
+  reserve(tree);
+
+  const stepId = (slug: string) => {
+    let id = `step-${slug}`;
+    for (let n = 2; taken.has(id); n++) id = `step-${slug}-${n}`;
+    taken.add(id);
+    return id;
+  };
+
+  const items: TocItem[] = [];
+  const steps = new Map<MdxNode, string>();
+  let underH2 = false;
+  const visit = (node: MdxNode, listing: boolean) => {
+    let list = listing;
+    if (node.type === "heading") {
+      if (node.depth === 2) underH2 = true;
+      const label = nodeText(node).trim();
+      const id = slugify(label);
+      if ((node.depth === 2 || node.depth === 3) && label && id) items.push({ id, label, depth: node.depth });
+      return;
+    }
+    if (node.name === "Steps") list = !!opts.steps || listsSteps(node);
+    else if (node.name === "Step" && listing) {
+      const label = headingText(stringAttr(node, "title") ?? "");
+      const slug = slugify(label);
+      if (label && slug) {
+        const id = stepId(slug);
+        steps.set(node, id);
+        items.push({ id, label, depth: underH2 ? 3 : 2 });
+      }
+    }
+    (node.children ?? []).forEach((c) => visit(c, list));
+  };
+  visit(tree, false);
+  return { items, steps };
+}
+
+const parser = unified().use(remarkParse).use(remarkMdx);
+
+/**
+ * The page's ## and ### headings, in order.
+ *
+ * Step titles are listed too inside `<Steps toc>`, or in every <Steps> with
+ * `steps: true` (frontmatter `toc: steps`). A step sits one level below the
+ * ## heading before it, or at the top level when there's none. A page that
+ * doesn't parse can't render either, so it has none.
+ */
+export function extractToc(body: string, opts: { steps?: boolean } = {}): TocItem[] {
+  try {
+    return planToc(parser.parse(body) as MdxNode, opts).items;
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Remark plugin: the id of each step extractToc lists, so its link lands. Other
+ * steps get none, so they can't take over a heading's anchor.
  */
 export function remarkStepIds(opts: { steps?: boolean } = {}) {
   return (tree: MdxNode) => {
-    const seen = new Map<string, number>();
-    const visit = (node: MdxNode, listing: boolean) => {
-      let list = listing;
-      if (node.name === "Steps") {
-        const toc = node.attributes?.find((a) => a.type === "mdxJsxAttribute" && a.name === "toc");
-        const off = toc && typeof toc.value === "object" && toc.value?.value?.trim() === "false";
-        list = !!opts.steps || (!!toc && !off);
-      } else if (node.name === "Step" && listing) {
-        const id = stepId(headingText(mdxAttr(node, "title") ?? ""), seen);
-        if (id) (node.attributes ??= []).push({ type: "mdxJsxAttribute", name: "id", value: id });
-      }
-      for (const c of node.children ?? []) visit(c, list);
-    };
-    visit(tree, false);
+    for (const [node, id] of planToc(tree, opts).steps) {
+      (node.attributes ??= []).push({ type: "mdxJsxAttribute", name: "id", value: id });
+    }
   };
 }

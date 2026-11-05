@@ -136,3 +136,29 @@ test("only a matching fence closes a code block", () => {
   assert.deepEqual(extractToc(inline).map((i) => i.label), ["Out four"]);
 });
 
+test("step ids avoid a heading that reads the same, and each other", () => {
+  const steps = (titles: string[]) => `<Steps toc>\n${titles.map((t) => `<Step title="${t}">x</Step>`).join("\n")}\n</Steps>`;
+  const clash = extractToc(`${steps(["Install"])}\n\n## Step Install\n`).map((i) => i.id);
+  assert.deepEqual(clash, ["step-install-2", "step-install"]);
+  const numbered = extractToc(steps(["Install", "Install", "Install 2"])).map((i) => i.id);
+  assert.equal(new Set(numbered).size, 3);
+});
+
+test("the toc and the page agree on entities and comments", async () => {
+  const mdx = [
+    '<Steps toc>',
+    '  <Step title="R&amp;D">a</Step>',
+    '  {/* <Step title="Commented out">b</Step> */}',
+    '  <Step title="Caf&#233; time">c</Step>',
+    "</Steps>",
+    "",
+    "## R&amp;D heading",
+    "",
+    "{/* ## Hidden heading */}",
+  ].join("\n");
+  const items = extractToc(mdx);
+  assert.deepEqual(items.map((i) => i.label), ["R&D", "Café time", "R&D heading"]);
+  assert.deepEqual(items.map((i) => i.id), ["step-r-d", "step-caf-time", "r-d-heading"]);
+  assert.deepEqual(await stepIdsIn(mdx), ["step-r-d", "step-caf-time"]);
+});
+

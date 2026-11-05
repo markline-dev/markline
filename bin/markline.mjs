@@ -8,6 +8,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
+import { depsDir, linkDeps } from "./deps.mjs";
 import { isLocalTemplate, scaffold } from "./scaffold.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -60,23 +61,7 @@ function syncApp() {
     fs.cpSync(pub, path.join(WORK_DIR, "public"), { recursive: true });
   }
 
-  const nm = path.join(WORK_DIR, "node_modules");
-  const deps = depsDir();
-  if (!fs.existsSync(nm) && deps) {
-    fs.symlinkSync(deps, nm, "junction");
-  }
-}
-
-/**
- * Where the app's dependencies live: the consumer's own node_modules when
- * @markline/markline is installed there, else the framework checkout's, so a
- * bare content folder runs with `node ../markline/bin/markline.mjs dev`.
- */
-function depsDir() {
-  for (const dir of [path.join(CONTENT_DIR, "node_modules"), path.join(APP_DIR, "node_modules")]) {
-    if (fs.existsSync(path.join(dir, "next"))) return dir;
-  }
-  return null;
+  linkDeps(path.join(WORK_DIR, "node_modules"), depsDir(CONTENT_DIR, APP_DIR));
 }
 
 function readPkgVersion() {

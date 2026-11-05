@@ -12,6 +12,7 @@ type Fake = {
   textContent: string;
   matches: (selector: string) => boolean;
   querySelector: (selector: string) => Fake | null;
+  querySelectorAll: (selector: string) => Fake[];
 };
 
 const text = (value: string): Fake => ({
@@ -20,6 +21,7 @@ const text = (value: string): Fake => ({
   textContent: value,
   matches: () => false,
   querySelector: () => null,
+  querySelectorAll: () => [],
 });
 
 function el(tag: string, props: { cls?: string; role?: string; hidden?: boolean }, ...kids: (Fake | string)[]): Fake {
@@ -37,6 +39,10 @@ function el(tag: string, props: { cls?: string; role?: string; hidden?: boolean 
       assert.equal(selector, '[role="tabpanel"]:not([hidden]) pre');
       const panel = childNodes.find((c) => c.attrs?.role === "tabpanel" && c.attrs.hidden !== "true");
       return panel?.childNodes.find((c) => c.tagName === "PRE") ?? null;
+    },
+    querySelectorAll(selector) {
+      assert.equal(selector, ":scope > li");
+      return childNodes.filter((c) => c.tagName === "LI");
     },
   };
   node.attrs = { role: props.role ?? "", hidden: String(!!props.hidden) };
@@ -75,3 +81,9 @@ test("prose and headings keep their Markdown", () => {
   const md = render(el("h2", {}, "Title"), el("p", {}, "Body  text."), el("aside", { cls: "note" }, el("p", {}, "Careful.")));
   assert.equal(md, "# T\n\n## Title\n\nBody text.\n\nCareful.");
 });
+
+test("a code group in a list item copies the same way", () => {
+  const list = el("ul", {}, el("li", {}, "First"), el("li", {}, el("p", {}, "Second"), group));
+  assert.equal(render(list), "# T\n\n- First\n- Second\n\n```\nnpm install\n\nnpm test\n```");
+});
+

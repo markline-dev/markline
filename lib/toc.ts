@@ -67,13 +67,16 @@ function shownChildren(node: MdxNode): MdxNode[] {
   const children = node.children ?? [];
   if (node.name === "CodeGroup") return [];
   if (node.name === "Accordion" && !flag(node, "defaultOpen")) return [];
-  if (node.name === "Tabs") return children.slice(0, 1);
+  // <Tabs> takes its first element: a comment or {" "} before it renders nothing.
+  if (node.name === "Tabs") return children.filter((c) => !c.type.endsWith("Expression")).slice(0, 1);
   return children;
 }
 
 /**
  * What "On this page" lists, and the id of each step in it, from one walk of
- * the parsed page, so the links and the page can't disagree. A step's id is
+ * the parsed page, so the links and the ids agree. (A <Tab> and its <Steps> on
+ * one line are read as text, so a step there can still be listed from a tab
+ * that isn't showing.) A step's id is
  * `step-<slug>`, moved along if a heading, an element or an earlier step has it.
  */
 function planToc(tree: MdxNode, opts: { steps?: boolean }) {

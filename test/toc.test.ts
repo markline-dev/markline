@@ -202,3 +202,9 @@ test("struck-through text in a heading reads as the page does", () => {
   assert.deepEqual(extractToc("## ~~Old~~ new\n"), [{ id: "old-new", label: "Old new", depth: 2 }]);
 });
 
+test("a comment or space before the first tab doesn't hide it from the toc", () => {
+  const tabs = (before: string) => [before, "<Tabs>", before, '<Tab title="A">', "## In first", "</Tab>", '<Tab title="B">', "## In second", "</Tab>", "</Tabs>"].join("\n");
+  assert.deepEqual(extractToc(tabs("{/* note */}")).map((i) => i.label), ["In first"]);
+  assert.deepEqual(extractToc(tabs('{" "}'), { steps: true }).map((i) => i.label), ["In first"]);
+});
+

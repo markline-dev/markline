@@ -54,7 +54,7 @@ export function pageToMarkdown(title: string, lead: Element | null, prose: Eleme
       case "ul":
       case "ol": {
         el.querySelectorAll(":scope > li").forEach((li) => {
-          md += `- ${clean(li.textContent)}\n`;
+          md += `- ${flatten(li)}\n`;
         });
         md += "\n";
         break;

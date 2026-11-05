@@ -6,10 +6,14 @@ All notable changes to `@markline/markline` and `@markline/create`.
 
 ### Changed
 - **Lighter API reference pages.** The Try it endpoint list is sent once per
-  page instead of once per operation, and palette snippets are trimmed. On
-  ElevenLabs' spec (478 operations) the largest resource page drops from
-  13.2 MB to 4.5 MB. Docs pages list API resources, not every operation, in
-  their navigation data.
+  page instead of once per operation. On ElevenLabs' spec (478 operations) the
+  largest resource page drops from 13.2 MB to 4.4 MB. Docs pages list API
+  resources, not every operation, in their navigation data, unless the API tab
+  also holds docs pages.
+- **CLI flags and checkout runs.** `markline dev`, `build` and `start` pass
+  extra flags on to Next, so `markline dev -p 3001` sets the port. Run from
+  a Markline checkout (`node ../markline/bin/markline.mjs dev`), the CLI
+  uses the checkout's dependencies, so a docs folder needs no install.
 
 ## 0.1.7
 

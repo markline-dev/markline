@@ -57,6 +57,11 @@ function pageToMarkdown(title: string): string {
     if (node.nodeType !== Node.ELEMENT_NODE) return;
     const el = node as HTMLElement;
     const tag = el.tagName.toLowerCase();
+    if (el.matches(".ml-codegroup")) {
+      const shown = el.querySelector('[role="tabpanel"]:not([hidden]) pre');
+      if (shown) md += "```\n" + (shown.textContent || "").replace(/^ $/gm, "").trim() + "\n```\n\n";
+      return;
+    }
     const text = clean(el.textContent);
     if (!text && tag !== "hr") return;
     switch (tag) {
@@ -115,9 +120,6 @@ export function DocAiRow({
   const mdUrl = markdownUrl(pathname);
   // The fetched .md text: undefined until asked for, null when there's none.
   const source = useRef<string | null | undefined>(undefined);
-  useEffect(() => {
-    source.current = undefined;
-  }, [mdUrl]);
   const prefetch = () => {
     if (source.current !== undefined) return;
     source.current = null;

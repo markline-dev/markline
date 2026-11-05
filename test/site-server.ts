@@ -67,8 +67,15 @@ export function createSite() {
   write(path.join(dir, "changelog", "2026-11-05.mdx"), page("One", "entry"));
 
   let server: ChildProcess | undefined;
+  let output = "";
   return {
     dir,
+    /** What the server has printed since this was last called. */
+    takeOutput() {
+      const out = output;
+      output = "";
+      return out;
+    },
     build() {
       const r = spawnSync(process.execPath, [CLI, "build"], { cwd: dir, encoding: "utf8", env: cliEnv() });
       if (r.status !== 0) throw new Error(`markline build failed (${r.status}, ${r.signal}):\n${r.stdout}\n${r.stderr}`);
@@ -78,11 +85,13 @@ export function createSite() {
       const port = await freePort();
       server = spawn(process.execPath, [CLI, command], {
         cwd: dir,
-        stdio: "ignore",
+        stdio: ["ignore", "pipe", "pipe"],
         detached: true,
         env: cliEnv({ PORT: String(port) }),
       });
       running.add(server);
+      server.stdout?.on("data", (d) => (output += d));
+      server.stderr?.on("data", (d) => (output += d));
       const base = `http://127.0.0.1:${port}`;
       const deadline = Date.now() + 120_000;
       while (Date.now() < deadline) {

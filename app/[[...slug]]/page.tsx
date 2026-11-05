@@ -1,4 +1,5 @@
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
+import { NOT_FOUND_SEGMENT, uncachedNotFound } from "@/lib/uncached-not-found";
 import type { Metadata } from "next";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
@@ -23,16 +24,12 @@ import {
 } from "@/lib/changelog-core";
 
 
-// Only the build's pages exist, so an unknown URL is a plain 404 that Next doesn't
-// render and store. Has to be a literal, so it applies under `next dev` too, where
-// a new page is a 404 once before Next refreshes its list.
-export const dynamicParams = false;
-
 export function generateStaticParams(): { slug?: string[] }[] {
   const docs = listDocs().map((d) => ({ slug: d.slug.length ? d.slug : undefined }));
   // With no root page "/" still renders, to redirect to the first nav entry. Not
   // in a static export, where a public/index.html may be serving it.
   if (process.env.MARKLINE_EXPORT !== "1" && !docs.some((d) => !d.slug)) docs.push({ slug: undefined });
+  if (process.env.MARKLINE_EXPORT !== "1") docs.push({ slug: [NOT_FOUND_SEGMENT] });
   const entries = listChangelog();
   if (!entries.length) return docs;
   // /changelog/page/1 is the same listing as /changelog, and may be bookmarked.
@@ -65,6 +62,7 @@ function changelogMetadata(slug: string[]): Metadata | undefined {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug?: string[] }> }): Promise<Metadata> {
   const { slug } = await params;
+  if (slug?.[0] === NOT_FOUND_SEGMENT) return {};
   const cl = changelogMetadata(slug ?? []);
   if (cl) return cl;
   const doc = getDoc(slug);
@@ -92,7 +90,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug?: st
 
 export default async function DocsCatchAll({ params }: { params: Promise<{ slug?: string[] }> }) {
   const { slug } = await params;
-  const changelog = slug?.[0] === CHANGELOG_PATH.slice(1) ? renderChangelog(slug) : undefined;
+  if (slug?.[0] === NOT_FOUND_SEGMENT) return uncachedNotFound();
+  const changelog = slug?.[0] === CHANGELOG_PATH.slice(1) ? await renderChangelog(slug) : undefined;
   if (changelog) return changelog;
   const doc = getDoc(slug);
   if (!doc) {
@@ -104,7 +103,7 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
       const first = firstDocHref();
       if (first && first !== "/") redirect(first);
     }
-    return notFound();
+    return uncachedNotFound();
   }
   const config = loadConfig();
   // A translated or older-version page follows its own sidebar.
@@ -209,7 +208,7 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
  * /changelog (paged) and /changelog/YYYY/MM/DD, when the content has a
  * changelog/ folder. Anything else under /changelog is an ordinary docs page.
  */
-function renderChangelog(slug: string[]) {
+async function renderChangelog(slug: string[]) {
   const entries = listChangelog();
   if (!entries.length) return undefined;
   const config = loadConfig();
@@ -229,14 +228,14 @@ function renderChangelog(slug: string[]) {
   const date = dateFromSlug(slug);
   if (date) {
     const i = entries.findIndex((e) => e.date === date);
-    if (i < 0) return notFound();
+    if (i < 0) return uncachedNotFound();
     return shell(<ChangelogEntryView entry={entries[i]} newer={entries[i - 1]} older={entries[i + 1]} credit={credit} />);
   }
 
   const page = pageFromSlug(slug);
   if (!page) return undefined;
   const pages = pageCount(entries.length);
-  if (page > pages) return notFound();
+  if (page > pages) return uncachedNotFound();
   // docs/changelog.mdx, if it exists, supplies the title, lede and an intro.
   const intro = getDoc(["changelog"]);
   return shell(

@@ -55,7 +55,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "node --import ./test/setup.mjs --test test/*.test.ts"
+    "test": "node --import ./test/setup.mjs --test test/*.test.ts",
+    "test:built": "node --test test/built/*.test.ts"
   },
   "dependencies": {
     "@mdx-js/loader": "3.1.0",

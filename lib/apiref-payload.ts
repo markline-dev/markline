@@ -4,19 +4,6 @@
  * every page's RSC payload. Pure, so it can be unit-tested.
  */
 
-/** Longest command-palette snippet. The palette shows two lines; the rest of
- *  a long description is dead weight on every page. */
-export const SNIPPET_MAX = 200;
-
-/** Collapse whitespace and cut at a word boundary, with an ellipsis. */
-export function clipSnippet(text: string, max = SNIPPET_MAX): string {
-  const flat = text.replace(/\s+/g, " ").trim();
-  if (flat.length <= max) return flat;
-  const cut = flat.slice(0, max);
-  const space = cut.lastIndexOf(" ");
-  return `${(space > max * 0.6 ? cut.slice(0, space) : cut).replace(/[\s,.;:]+$/, "")}…`;
-}
-
 /**
  * Lift the spec-wide endpoint list (the Try it switcher) out of each section's
  * playground spec, so a page sends it once rather than once per operation.
@@ -38,4 +25,28 @@ export function hoistEndpoints<E, S extends { playground?: { endpoints?: E[] } }
 /** Re-attach the shared endpoint list to one section's playground spec. */
 export function withEndpoints<P extends object, E>(playground: P, endpoints: E[]): P & { endpoints: E[] } {
   return { ...playground, endpoints };
+}
+
+/**
+ * Whether docs pages can land in an OpenAPI tab, so its sidebar shows on them:
+ * it matches something outside the reference, or it's where unmatched pages
+ * fall back to (`__default__`, else the first tab; see pickActiveTabId in
+ * components/docs/nav.tsx). The reference renders its own sidebar, so any other
+ * OpenAPI tab can leave operations out of docs pages' navigation data.
+ */
+export function apiTabHoldsDocs(tab: { match?: string[] }, tabs: { match?: string[] }[]): boolean {
+  const outside = (tab.match ?? []).some((p) => p !== "/api-reference" && !p.startsWith("/api-reference/"));
+  if (outside) return true;
+  return tabs[0] === tab && !tabs.some((t) => t.match?.includes("__default__"));
+}
+
+/** The summary of the operation an `/api-reference/<operationId>` link points at. */
+export function apiOperationLabel(
+  href: string,
+  operationsById: Record<string, { summary?: string; operationId: string }>,
+): string | undefined {
+  const m = /^\/api-reference\/([^/#?]+)/.exec(href);
+  if (!m || !Object.prototype.hasOwnProperty.call(operationsById, m[1])) return undefined;
+  const op = operationsById[m[1]];
+  return op.summary ?? op.operationId;
 }

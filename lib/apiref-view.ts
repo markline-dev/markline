@@ -3,7 +3,7 @@ import { eventAnchor, resolveSchema } from "./openapi";
 import { allResponses, codeSamples, colorizeJson, successResponse, type CodeRail } from "./openapi-codegen";
 import { buildPlaygroundSpec } from "./playground-spec";
 import { mdToHtml } from "./md-desc";
-import { clipSnippet, hoistEndpoints } from "./apiref-payload";
+import { hoistEndpoints } from "./apiref-payload";
 import type { PlaygroundSpec } from "@/components/docs/api/playground";
 import { loadConfig, playgroundMode } from "./config";
 import { tagSlug, parseOpenApiTag, buildTagTree, segmentDisplayName, type TagTreeNode } from "./openapi-tags";
@@ -465,14 +465,14 @@ function buildSearchIndex(doc: OpenAPIDoc, base = "/api-reference"): SearchEntry
     out.push({
       title: name,
       crumbs: groupCrumbs,
-      snippet: clipSnippet(tag.description || `${name} resource and its endpoints.`),
+      snippet: tag.description || `${name} resource and its endpoints.`,
       href: `${base}/${slug}#${slug}`,
     });
     for (const op of tag.operations) {
       out.push({
         title: op.summary ?? op.operationId,
         crumbs: [...groupCrumbs, name],
-        snippet: clipSnippet(op.description || `${op.method.toUpperCase()} ${op.path}`),
+        snippet: op.description || `${op.method.toUpperCase()} ${op.path}`,
         verb: (VERB[op.method] ?? op.method.toUpperCase()).toLowerCase(),
         href: `${base}/${slug}#${anchorFor(op)}`,
       });
@@ -481,7 +481,7 @@ function buildSearchIndex(doc: OpenAPIDoc, base = "/api-reference"): SearchEntry
       out.push({
         title: ev.name,
         crumbs: [...groupCrumbs, name, "Events"],
-        snippet: clipSnippet(ev.summary || ev.description || `Webhook event ${ev.name}`),
+        snippet: ev.summary || ev.description || `Webhook event ${ev.name}`,
         href: `${base}/${slug}#${eventAnchor(ev.name)}`,
       });
     }

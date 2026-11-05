@@ -796,7 +796,7 @@ function TryItCards({ ep }: { ep: EndpointView }) {
           </div>
           <ApiExplorer
             trigger={(open) => (
-              <button type="button" className="cc-play" onClick={open}>
+              <button type="button" className="cc-play" onClick={open} data-endpoints={pg.spec.endpoints?.length ?? 0}>
                 <svg viewBox="0 0 24 24" aria-hidden><path d="M8 5v14l11-7z" /></svg> Try it
               </button>
             )}

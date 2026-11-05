@@ -1,15 +1,29 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { clipSnippet, hoistEndpoints, withEndpoints } from "../lib/apiref-payload.ts";
+import { apiOperationLabel, apiTabHoldsDocs, hoistEndpoints, withEndpoints } from "../lib/apiref-payload.ts";
 
-test("clipSnippet keeps short text and cuts long text at a word", () => {
-  assert.equal(clipSnippet("  Lists\n  voices. "), "Lists voices.");
-  const long = "Returns the agent configuration, including the prompt, tools, knowledge base and every voice setting used by the agent.";
-  const out = clipSnippet(long, 60);
-  assert.ok(out.length <= 61, out);
-  assert.ok(out.endsWith("…"));
-  assert.ok(long.startsWith(out.slice(0, -1)));
-  assert.equal(clipSnippet("x".repeat(80), 50), `${"x".repeat(50)}…`);
+test("an OpenAPI tab holds docs when it matches outside the reference or is the fallback", () => {
+  const api = { match: ["/api-reference"] };
+  const docs = { match: ["__default__"] };
+  assert.equal(apiTabHoldsDocs(api, [docs, api]), false);
+  assert.equal(apiTabHoldsDocs({ match: ["/api-reference/v2"] }, [docs, api]), false);
+  const sdk = { match: ["/api-reference", "/sdk"] };
+  assert.equal(apiTabHoldsDocs(sdk, [docs, sdk]), true);
+  assert.equal(apiTabHoldsDocs({ match: ["/api-referencex"] }, [docs]), true, "only the path itself counts");
+  assert.equal(apiTabHoldsDocs(docs, [docs]), true, "__default__ is the fallback");
+  const other = { match: ["/guides"] };
+  assert.equal(apiTabHoldsDocs(api, [api, other]), true, "with no __default__, the first tab is the fallback");
+  assert.equal(apiTabHoldsDocs(api, [other, api]), false);
+});
+
+test("apiOperationLabel names an operation link, and nothing else", () => {
+  const ops = { createProject: { operationId: "createProject", summary: "Create a project" }, bare: { operationId: "bare" } };
+  assert.equal(apiOperationLabel("/api-reference/createProject", ops), "Create a project");
+  assert.equal(apiOperationLabel("/api-reference/createProject#x", ops), "Create a project");
+  assert.equal(apiOperationLabel("/api-reference/bare", ops), "bare");
+  assert.equal(apiOperationLabel("/api-reference/missing", ops), undefined);
+  assert.equal(apiOperationLabel("/api-reference/constructor", ops), undefined);
+  assert.equal(apiOperationLabel("/guides/createProject", ops), undefined);
 });
 
 test("hoistEndpoints sends the endpoint list once; withEndpoints restores it", () => {

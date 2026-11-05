@@ -1,5 +1,6 @@
 import type { DocSection, DocLink, NavData } from "./nav";
-import { loadOpenApi } from "@/lib/openapi";
+import { loadOpenApi, operationHref } from "@/lib/openapi";
+import { apiTabHoldsDocs } from "@/lib/apiref-payload";
 import { tagSlug } from "@/lib/openapi-tags";
 import { loadConfig, type NavLink, type NavTab, type MarklineConfig } from "@/lib/config";
 import { navIcon } from "./nav-icons";
@@ -8,25 +9,36 @@ import { findNavTrail, flattenLinks, collectionLinks } from "./nav-tree";
 export { findNavTrail, flattenLinks, collectionLinks };
 
 /**
- * The API tab's entry in the docs navigation: one link per resource page. The
- * reference renders its own sidebar (operations included), so docs pages only
- * need somewhere to send the reader; listing every operation here put the
- * whole spec into every docs page's payload.
+ * The API tab's entry in the docs navigation. A tab that can hold docs pages
+ * shows this as their sidebar, so it lists every operation. Otherwise only the
+ * reference opens the tab, and it renders its own sidebar: one link per
+ * resource keeps the whole spec out of every docs page's payload.
  */
-function apiSections(): DocSection[] {
+function apiSections(holdsDocs: boolean): DocSection[] {
   const api = loadOpenApi();
+  const overview = { title: "Overview", links: [{ href: "/api-reference", label: "Introduction" }] };
+  if (!holdsDocs) {
+    return [
+      overview,
+      {
+        title: "Resources",
+        links: api.tags.map<DocLink>((tag) => ({
+          href: `/api-reference/${tagSlug(tag.name)}`,
+          label: tag.displayName ?? tag.name,
+        })),
+      },
+    ];
+  }
   return [
-    {
-      title: "Overview",
-      links: [{ href: "/api-reference", label: "Introduction" }],
-    },
-    {
-      title: "Resources",
-      links: api.tags.map<DocLink>((tag) => ({
-        href: `/api-reference/${tagSlug(tag.name)}`,
-        label: tag.displayName ?? tag.name,
+    overview,
+    ...api.tags.map((tag) => ({
+      title: tag.displayName ?? tag.name,
+      links: tag.operations.map<DocLink>((op) => ({
+        href: operationHref(op),
+        label: op.summary ?? op.operationId,
+        method: op.method,
       })),
-    },
+    })),
   ];
 }
 
@@ -42,8 +54,8 @@ function toDocLink(l: NavLink): DocLink {
   };
 }
 
-function tabToSections(tab: NavTab): DocSection[] {
-  if (tab.openapi) return apiSections();
+function tabToSections(tab: NavTab, tabs: NavTab[]): DocSection[] {
+  if (tab.openapi) return apiSections(apiTabHoldsDocs(tab, tabs));
   return (tab.groups ?? []).map((g) => ({
     title: g.group,
     icon: navIcon(g.icon),
@@ -68,7 +80,7 @@ function buildTabs(navTabs: NavTab[]): DocsTab[] {
     label: tab.label,
     href: tab.href,
     matchPrefixes: tab.match ?? [],
-    sections: tabToSections(tab),
+    sections: tabToSections(tab, navTabs),
   }));
 }
 

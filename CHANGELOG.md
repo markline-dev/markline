@@ -27,8 +27,8 @@ All notable changes to `@markline/markline` and `@markline/create`.
 ### Changed
 - **`.env` files beside `markline.json` are read.** The CLI loads site settings
   from a project's `.env`, `.env.local` and so on: `MARKLINE_AI_KEY`,
-  `MARKLINE_SITE_URL`, `MARKLINE_BASE_PATH` and `NEXT_PUBLIC_*`. Anything else has
-  to come from the shell. Files in `.markline/` still work, with the same rule and
+  `MARKLINE_SITE_URL`, `MARKLINE_BASE_PATH` and `NEXT_PUBLIC_*`. Everything else,
+  like `PORT`, has to come from the shell. Files in `.markline/` still work, with the same rule and
   a message suggesting they move, and the project's files win.
 
 ## 0.1.7

@@ -15,9 +15,12 @@ export function apiSecToMarkdown(sec: Pick<HTMLElement, "querySelector" | "query
     attrs.forEach((a) => {
       const k = a.querySelector(".ak");
       const t = a.querySelector(".at");
-      const req = a.querySelector(".req");
+      const req = a.querySelector(":scope > .ah .req");
       const d = a.querySelector(".ad");
-      md += "- `" + clean(k?.textContent) + "` (" + clean(t?.textContent) + (req ? ", required" : "") + ") — " + clean(d?.textContent) + "\n";
+      // Nested rows indent under their parent, so the list keeps its shape.
+      let depth = 0;
+      for (let p = a.parentElement?.closest(".attr"); p; p = p.parentElement?.closest(".attr")) depth++;
+      md += "  ".repeat(depth) + "- `" + clean(k?.textContent) + "` (" + clean(t?.textContent) + (req ? ", required" : "") + ") — " + clean(d?.textContent) + "\n";
     });
     md += "\n";
   }

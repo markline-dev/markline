@@ -311,7 +311,17 @@ export function MarklineApiRef({
         const open = !bar.classList.contains("open");
         bar.classList.toggle("open", open);
         bar.setAttribute("aria-expanded", open ? "true" : "false");
-        wrap.style.setProperty("max-height", open ? `${wrap.scrollHeight}px` : "0px", "important");
+        // Animate to the measured height, then let it grow freely so nested
+        // child attributes can open inside; closing starts from a fixed height.
+        wrap.style.setProperty("max-height", `${wrap.scrollHeight}px`, "important");
+        if (open) {
+          wrap.addEventListener("transitionend", () => {
+            if (bar.classList.contains("open")) wrap.style.setProperty("max-height", "none", "important");
+          }, { once: true });
+        } else {
+          void wrap.offsetHeight;
+          wrap.style.setProperty("max-height", "0px", "important");
+        }
       });
     });
 
@@ -402,7 +412,10 @@ export function MarklineApiRef({
                     {r.endpoints.map((ep) => (
                       <div className="ep-row" data-jump={ep.id} key={ep.id}>
                         <div>
-                          <div className="ep-title">{ep.title}</div>
+                          <div className="ep-title">
+                            {ep.title}
+                            {ep.deprecated && <DeprecatedPill />}
+                          </div>
                           <div className="ep-path">
                             <span className={`verb ${verbClass(ep.verb)}`}>{ep.verb}</span> {ep.path}
                           </div>
@@ -522,7 +535,7 @@ function NavNodeView({ node, base }: { node: NavTreeNode; base: string }) {
               ) : (
                 op.verb && <span className={`verb ${verbClass(op.verb)}`}>{op.verb}</span>
               )}
-              <span className="nm">{op.name}</span>
+              <span className={op.deprecated ? "nm dep" : "nm"}>{op.name}</span>
             </a>
           </Fragment>
         ))}
@@ -646,8 +659,11 @@ function EndpointSection({ ep, aiEnabled }: { ep: EndpointView; aiEnabled: boole
   return (
     <section className="api-sec" id={ep.id}>
       <div className="api-l">
-        <h2>{ep.summary}</h2>
-        <div className="api-path">
+        <h2>
+          {ep.summary}
+          {ep.deprecated && <DeprecatedPill />}
+        </h2>
+        <div className={ep.deprecated ? "api-path dep" : "api-path"}>
           <span className={`verb ${verbClass(ep.verb)}`}>{ep.verb}</span>{" "}
           <span>
             <span className="u">{ep.baseUrl}</span>
@@ -858,12 +874,18 @@ function colorizeJsonString(s: string): string {
 }
 
 /* ── small pieces ──────────────────────────────────────────────────────── */
+function DeprecatedPill() {
+  return <span className="dep-pill">Deprecated</span>;
+}
+
 function Attr({ attr, showReqOpt }: { attr: AttrView; showReqOpt?: boolean }) {
   return (
     <div className="attr">
       <div className="ah">
-        <span className="ak">{attr.name}</span>
+        <span className={attr.deprecated ? "ak dep" : "ak"}>{attr.name}</span>
         <span className="at">{attr.type}</span>
+        {attr.nullable && <span className="nul">nullable</span>}
+        {attr.deprecated && <DeprecatedPill />}
         {showReqOpt && attr.required && <span className="req">required</span>}
         {showReqOpt && !attr.required && attr.optional && <span className="opt">optional</span>}
       </div>
@@ -877,7 +899,39 @@ function Attr({ attr, showReqOpt }: { attr: AttrView; showReqOpt?: boolean }) {
           </span>
         )}
       </div>
+      <AttrKids attr={attr} showReqOpt={showReqOpt} />
     </div>
+  );
+}
+
+/** Nested fields of an object field, or the object members of a union. */
+function AttrKids({ attr, showReqOpt }: { attr: AttrView; showReqOpt?: boolean }) {
+  const kids = attr.children ?? [];
+  const variants = attr.variants ?? [];
+  if (!kids.length && !variants.length) return null;
+  const count = kids.length || variants.length;
+  const noun = kids.length ? "child attributes" : "variants";
+  return (
+    <details className="attr-kids">
+      <summary>
+        <span className="closed-lbl">Show {noun}</span>
+        <span className="open-lbl">Hide {noun}</span>
+        <span className="amb-count">{count}</span>
+      </summary>
+      <div className="attr-kids-body">
+        {kids.map((k) => (
+          <Attr key={k.name} attr={k} showReqOpt={showReqOpt} />
+        ))}
+        {variants.map((v, i) => (
+          <div className="attr-variant" key={v.label + i}>
+            <div className="av-h">{i === 0 ? "One of" : "Or"} · {v.label}</div>
+            {v.fields.map((k) => (
+              <Attr key={k.name} attr={k} showReqOpt={showReqOpt} />
+            ))}
+          </div>
+        ))}
+      </div>
+    </details>
   );
 }
 

@@ -1,6 +1,7 @@
 // What a large spec actually sends: built HTML, since the wiring these check
 // lives in client components and `@/` modules a unit test can't import. Runs
 // `next build` on a generated site, so it's `npm run test:built`, not `npm test`.
+// Everything it writes stays under .test-tmp/ and is removed after.
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
@@ -9,9 +10,20 @@ import os from "node:os";
 import path from "node:path";
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
+
+// The build fetches the site's fonts from Google, so it can't run offline.
+const online = await fetch("https://fonts.googleapis.com", { signal: AbortSignal.timeout(5000) }).then(
+  () => true,
+  () => false,
+);
+const skip = online ? false : "offline: the build needs to reach Google Fonts";
+
 const NEEDLE = "needlepastthesnippet";
 const THINGS = 60;
-const BUDGET = 500_000; // about 430 KB today
+// Guards against repeating spec-wide data per operation, which on this spec adds
+// about 265 KB to a page of about 430 KB. Roomy on purpose: ordinary changes to
+// the page shouldn't fail this.
+const BUDGET = 600_000;
 
 const op = (i: number, tag: string) => ({
   operationId: `${tag}Op${i}`,
@@ -61,19 +73,23 @@ function site(dir: string, apiMatch: string[]) {
   );
 }
 
+/** The env without the test runner's own marker, which Next's workers inherit. */
+function buildEnv(extra: Record<string, string>) {
+  const { NODE_TEST_CONTEXT: _, ...env } = process.env;
+  return { ...env, ...extra, NEXT_TELEMETRY_DISABLED: "1" };
+}
+
 function build(name: string, content: string): string {
-  const dist = `.next-built-test-${name}`;
+  const dist = path.relative(ROOT, path.join(tmp, `dist-${name}`));
   const res = spawnSync("npx", ["next", "build"], {
     cwd: ROOT,
     encoding: "utf8",
-    env: {
-      ...process.env,
+    env: buildEnv({
       MARKLINE_CONTENT: content,
       MARKLINE_CONFIG: path.join(content, "markline.json"),
       MARKLINE_EXPORT: "1",
       MARKLINE_DIST: dist,
-      NEXT_TELEMETRY_DISABLED: "1",
-    },
+    }),
   });
   assert.equal(res.status, 0, `${res.stdout}\n${res.stderr}`);
   return path.join(ROOT, dist);
@@ -85,61 +101,62 @@ let tmp: string;
 let reference: string; // an API tab only the reference opens
 let holding: string; // an API tab that also holds /sdk docs pages
 let tsconfig: string;
-const dists: string[] = [];
 
 before(() => {
+  if (skip) return;
   // Next rewrites tsconfig.json for a custom distDir.
   tsconfig = fs.readFileSync(path.join(ROOT, "tsconfig.json"), "utf8");
-  tmp = fs.mkdtempSync(path.join(os.tmpdir(), "markline-weight-"));
+  const parent = path.join(ROOT, ".test-tmp");
+  fs.mkdirSync(parent, { recursive: true });
+  tmp = fs.mkdtempSync(path.join(parent, "weight-"));
   site(path.join(tmp, "reference"), ["/api-reference"]);
   site(path.join(tmp, "holding"), ["/api-reference", "/sdk"]);
   reference = build("reference", path.join(tmp, "reference"));
   holding = build("holding", path.join(tmp, "holding"));
-  dists.push(reference, holding);
 }, { timeout: 600_000 });
 
 after(() => {
+  if (skip) return;
   fs.writeFileSync(path.join(ROOT, "tsconfig.json"), tsconfig);
-  for (const d of dists) fs.rmSync(d, { recursive: true, force: true });
   if (tmp) fs.rmSync(tmp, { recursive: true, force: true });
 });
 
 const page = (dist: string, route: string) => fs.readFileSync(path.join(dist, `${route}.html`), "utf8");
 
-test("a resource page sends the endpoint list once, not once per operation", () => {
+test("a resource page sends the endpoint list once, not once per operation", { skip }, () => {
   const html = page(reference, "api-reference/things");
   assert.equal(count(html, "currentHref"), THINGS, "one playground spec per operation");
   assert.equal(count(html, 'endpoints\\":[{\\"method'), 1);
 });
 
-test("every Try it still gets the whole endpoint list", () => {
+test("every Try it still gets the whole endpoint list", { skip }, () => {
   const html = page(reference, "api-reference/things");
   assert.equal(count(html, `data-endpoints="${OPERATIONS}"`), THINGS);
 });
 
-test("a resource page stays inside its size budget", () => {
+test("a resource page stays inside its size budget", { skip }, () => {
   // Sending the endpoint list per operation adds about 265 KB here.
   const size = Buffer.byteLength(page(reference, "api-reference/things"));
   assert.ok(size < BUDGET, `${size} B`);
 });
 
-test("the palette searches whole descriptions", () => {
+test("the palette searches whole descriptions", { skip }, () => {
   // On another resource's page, only the palette's index can carry this text.
   assert.ok(page(reference, "api-reference/things").includes(NEEDLE));
 });
 
-test("docs pages carry resource links, not operations, when the API tab holds no docs", () => {
+test("docs pages carry resource links, not operations, when the API tab holds no docs", { skip }, () => {
   const html = page(reference, "guide");
   assert.ok(html.includes("/api-reference/things"));
   assert.equal(count(html, "/api-reference/thingsOp2"), 0);
 });
 
-test("a docs page inside the API tab keeps the operation list", () => {
+test("a docs page inside the API tab keeps the operation list", { skip }, () => {
   const html = page(holding, "sdk/auth");
   assert.ok(html.includes("/api-reference/thingsOp2"));
 });
 
-test("a related link to an operation shows the operation's summary", () => {
+test("a related link to an operation shows the operation's summary", { skip }, () => {
   const html = page(reference, "guide");
   assert.match(html, /things operation 1/);
 });

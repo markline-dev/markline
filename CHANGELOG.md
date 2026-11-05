@@ -17,8 +17,15 @@ All notable changes to `@markline/markline` and `@markline/create`.
   Node version: dead and looping links are skipped with a warning, and a folder
   reached through more than 8 links isn't copied again.
 - **`.markline/` holds only what Markline put there.** Other files in it, including
-  a real `node_modules`, are removed on each run, apart from the last build's
-  output. `MARKLINE_DIST` must be a folder inside the app folder.
+  a real `node_modules`, are removed on each run with a message naming them. The
+  last build's output and `.env` files stay. `MARKLINE_DIST` must be a folder inside
+  the app folder, and `markline export` now works with it.
+- **New projects ignore `.markline/`.** `markline init` and `npm create @markline`
+  now write a `.gitignore`, which was missing from the published package.
+
+### Changed
+- **`.env` files beside `markline.json` are read.** The CLI loads a project's
+  `.env`, `.env.local` and so on, so `.markline/` is no longer needed for them.
 
 ## 0.1.7
 

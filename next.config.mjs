@@ -21,8 +21,7 @@ const nextConfig = {
   // A docs framework builds arbitrary consumer content; a lint rule should never
   // fail a production build. Linting is a separate `npm run lint` step.
   eslint: { ignoreDuringBuilds: true },
-  // Keep build artifacts out of the package/node_modules when the CLI points
-  // them at the consumer's project (MARKLINE_DIST is an absolute path there).
+  // Lets several builds of one checkout sit side by side.
   ...(distDir ? { distDir } : {}),
   ...(basePath ? { basePath, assetPrefix: basePath } : {}),
   env: { NEXT_PUBLIC_MARKLINE_BASE_PATH: basePath },

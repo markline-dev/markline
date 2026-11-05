@@ -25,6 +25,8 @@ export function isLocalTemplate(spec) {
  */
 export function scaffold(target, { initDir, spec, tplDir }) {
   copyDir(initDir, target);
+  // npm won't publish a file named .gitignore, so it ships under this name.
+  fs.renameSync(path.join(target, "_gitignore"), path.join(target, ".gitignore"));
   if (!tplDir) return;
 
   // The template's starter files replace the matching default ones.

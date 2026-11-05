@@ -43,7 +43,7 @@ function resolveNextBin() {
  * them) and point its node_modules at the consumer's installed dependencies.
  */
 function syncApp() {
-  prepareWorkDir(WORK_DIR, APP_FILES);
+  prepareWorkDir(WORK_DIR, APP_FILES, process.env.MARKLINE_DIST);
   for (const name of APP_FILES) {
     const src = path.join(APP_DIR, name);
     if (!fs.existsSync(src)) continue;
@@ -64,6 +64,20 @@ function readPkgVersion() {
   } catch {
     return "0.0.0";
   }
+}
+
+/**
+ * Next reads .env files from where it runs, which is the staging folder, so load
+ * the project's own here. Values already in the environment win, as they do in Next.
+ */
+function loadProjectEnv(dev) {
+  let loadEnvConfig;
+  try {
+    ({ loadEnvConfig } = createRequire(path.join(APP_DIR, "package.json"))("@next/env"));
+  } catch {
+    return; // comes with Next, so an install without it has bigger problems
+  }
+  loadEnvConfig(CONTENT_DIR, dev, { info() {}, error: console.error }, true);
 }
 
 function baseEnv(extra = {}) {
@@ -208,14 +222,15 @@ const COMMANDS = {
     const env = baseEnv({ MARKLINE_EXPORT: "1" });
     await buildSearch(env);
     await runNext(["build"], { env });
-    // Next writes the static site to <work>/out; move it into the consumer's project.
-    const from = path.join(WORK_DIR, "out");
+    // Next writes the static site to its output folder; move it into the consumer's project.
+    const from = path.resolve(WORK_DIR, process.env.MARKLINE_DIST || "out");
     const to = path.join(CONTENT_DIR, "out");
-    if (fs.existsSync(from) && from !== to) {
-      fs.rmSync(to, { recursive: true, force: true });
-      fs.cpSync(from, to, { recursive: true });
-      fs.rmSync(from, { recursive: true, force: true });
+    if (!fs.existsSync(from)) {
+      throw new Error(`The build left no static site at ${from}.`);
     }
+    fs.rmSync(to, { recursive: true, force: true });
+    fs.cpSync(from, to, { recursive: true });
+    fs.rmSync(from, { recursive: true, force: true });
     console.log(`\n  Static site exported to ${path.join(CONTENT_DIR, "out")}\n`);
   },
 
@@ -254,6 +269,7 @@ async function main() {
     process.exit(1);
   }
   try {
+    if (["dev", "build", "start", "export"].includes(cmd)) loadProjectEnv(cmd === "dev");
     await handler(args);
   } catch (err) {
     console.error(`\n  ${err instanceof Error ? err.message : err}\n`);

@@ -5,14 +5,11 @@
 import fs from "node:fs";
 import path from "node:path";
 
-// Not walked: a build's own links are in these parts of .next, and the build
-// replaces them rather than writing through them. If one of them is itself a
-// link, that goes like any other.
-const BUILD_OUTPUT = new Set([path.join(".next", "standalone"), path.join(".next", "node_modules")]);
-
 /** Remove every link under `root`. Only ever the link: this never follows one.
- *  node_modules at the top is left to linkDeps, or isn't ours if it's real. */
-function removeLinks(root, dir = root) {
+ *  node_modules at the top is left to linkDeps, or isn't ours if it's real. A
+ *  build's own links are in `unwalked`, and the build replaces them rather than
+ *  writing through them. If one of those is itself a link, that goes like any other. */
+function removeLinks(root, unwalked, dir = root) {
   let removed = 0;
   for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
     const full = path.join(dir, entry.name);
@@ -21,8 +18,8 @@ function removeLinks(root, dir = root) {
     if (entry.isSymbolicLink()) {
       fs.unlinkSync(full);
       removed++;
-    } else if (entry.isDirectory() && !BUILD_OUTPUT.has(rel)) {
-      removed += removeLinks(root, full);
+    } else if (entry.isDirectory() && !unwalked.has(rel)) {
+      removed += removeLinks(root, unwalked, full);
     }
   }
   return removed;
@@ -30,28 +27,30 @@ function removeLinks(root, dir = root) {
 
 /**
  * Clear out what the CLI and Next didn't put there, since Next would read it as
- * part of the app: config, .env files, instrumentation. `staged` is replaced by
- * the caller anyway. What stays is the last build's output, and the deps link.
+ * part of the app: config, instrumentation. `staged` is replaced by the caller
+ * anyway. What stays is the last build's output, the deps link, and .env files,
+ * which may be where a site keeps its secrets. Returns the names removed.
  */
-function removeLeftovers(workDir, staged) {
-  let removed = 0;
+function removeLeftovers(workDir, staged, outputDirs) {
+  const removed = [];
   for (const entry of fs.readdirSync(workDir, { withFileTypes: true })) {
     const { name } = entry;
     const stays =
       staged.includes(name) ||
       (name === "node_modules" && entry.isSymbolicLink()) ||
-      ((name === ".next" || name === "public") && entry.isDirectory()) ||
-      (name === ".markline-generated.json" && entry.isFile());
+      (outputDirs.includes(name) && entry.isDirectory()) ||
+      ((name === ".markline-generated.json" || name === ".env" || name.startsWith(".env.")) && entry.isFile());
     if (stays) continue;
     fs.rmSync(path.join(workDir, name), { recursive: true, force: true });
-    removed++;
+    removed.push(name);
   }
   return removed;
 }
 
 /** Make `workDir` a real folder, holding only what `staged` and a build put there,
- *  with no links in it. Only ever removes a link itself, not what it points at. */
-export function prepareWorkDir(workDir, staged) {
+ *  with no links in it. Only ever removes a link itself, not what it points at.
+ *  `dist` is MARKLINE_DIST, if the build's output has been put somewhere else. */
+export function prepareWorkDir(workDir, staged, dist) {
   const stat = fs.lstatSync(workDir, { throwIfNoEntry: false });
   const name = path.basename(workDir);
   if (stat?.isSymbolicLink()) {
@@ -61,6 +60,11 @@ export function prepareWorkDir(workDir, staged) {
     throw new Error(`${name} is a file, and the CLI needs that name for a folder. Remove it and try again.`);
   }
   fs.mkdirSync(workDir, { recursive: true });
-  const removed = removeLeftovers(workDir, staged) + removeLinks(workDir);
-  if (removed) console.warn(`[markline] removed ${removed} leftover ${removed === 1 ? "entry" : "entries"} from ${name}/.`);
+
+  const output = dist ? path.relative(workDir, path.resolve(workDir, dist)) : ".next";
+  const unwalked = new Set([path.join(output, "standalone"), path.join(output, "node_modules")]);
+  const removed = removeLeftovers(workDir, staged, [".next", "public", output.split(path.sep)[0]]);
+  if (removed.length) console.warn(`[markline] removed from ${name}/: ${removed.join(", ")}.`);
+  const links = removeLinks(workDir, unwalked);
+  if (links) console.warn(`[markline] removed ${links} link${links === 1 ? "" : "s"} from ${name}/.`);
 }

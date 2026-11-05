@@ -7,27 +7,35 @@
 // A "doc" here is { url, title, lede, body, layout }: body is the MDX source
 // without its frontmatter.
 
-/** Fenced code a line at a time: the fence open after `line` (lib/toc.ts has
- *  the same check). Only the same character, at least as long and with nothing
- *  after it, closes one. */
-function nextFence(line, open) {
-  const m = line.match(/^\s*(`{3,}|~{3,})(.*)$/);
-  if (!m) return open;
-  if (open) return m[1][0] === open[0] && m[1].length >= open.length && !m[2].trim() ? null : open;
-  return m[1][0] === "`" && m[2].includes("`") ? null : m[1];
-}
+import remarkMdx from "remark-mdx";
+import remarkParse from "remark-parse";
+import { unified } from "unified";
 
-/** MDX body → portable Markdown: drop the MDX import/export lines (not the
- *  ones in code blocks), collapse blank runs. (Authored components like <Note>
- *  stay — they read fine as context.) */
+const parser = unified().use(remarkParse).use(remarkMdx);
+
+/** An MDX expression that holds nothing but comments, so renders nothing. */
+const isComment = (value) => /^\s*(?:\/\*[\s\S]*?\*\/\s*|\/\/[^\n]*\s*)*$/.test(value);
+
+/** MDX body → portable Markdown: drop the import/export blocks and comments,
+ *  as the page itself does, and collapse blank runs. It's parsed, since neither
+ *  can be told from prose or code line by line. (Authored components like <Note>
+ *  stay — they read fine as context.) A page that doesn't parse can't render
+ *  either, so its source is left as it is. */
 export function mdxToMarkdown(md) {
-  let fence = null;
-  const kept = md.split("\n").filter((line) => {
-    const wasOpen = fence;
-    fence = nextFence(line, fence);
-    return wasOpen || fence || !/^\s*(import|export)\s/.test(line);
-  });
-  return kept.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  const cuts = [];
+  const visit = (node) => {
+    const expression = node.type === "mdxFlowExpression" || node.type === "mdxTextExpression";
+    if (node.type === "mdxjsEsm" || (expression && isComment(node.value))) cuts.push(node.position);
+    (node.children ?? []).forEach(visit);
+  };
+  try {
+    visit(parser.parse(md));
+  } catch {
+    return md.replace(/\n{3,}/g, "\n\n").trim();
+  }
+  let out = md;
+  for (const { start, end } of cuts.reverse()) out = out.slice(0, start.offset) + out.slice(end.offset);
+  return out.replace(/\n{3,}/g, "\n\n").trim();
 }
 
 /** A page as one Markdown document: its title, lede, then its body. */

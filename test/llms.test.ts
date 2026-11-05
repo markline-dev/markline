@@ -105,6 +105,27 @@ test("import lines in nested fences are kept", async () => {
   assert.equal(pageMarkdown({ title: "T", body: info }), "# T\n\n```bash\n```python\nimport still_in\n```\n");
 });
 
+test("prose that starts with import or export stays", async () => {
+  const { pageMarkdown } = await load();
+  const body = "To use this you can\nexport the data as CSV, or\nimport the file later.\n";
+  assert.equal(pageMarkdown({ title: "T", body }), `# T\n\n${body}`);
+});
+
+test("a multi-line export goes whole", async () => {
+  const { pageMarkdown } = await load();
+  const body = 'export const data = {\n  a: 1,\n  b: 2,\n};\n\nimport {\n  X,\n} from "x";\n\nKept.\n';
+  assert.equal(pageMarkdown({ title: "T", body }), "# T\n\nKept.\n");
+});
+
+test("MDX comments aren't published, other expressions are left alone", async () => {
+  const { pageMarkdown } = await load();
+  const body = "{/* draft: secret */}\n\nShown {/* inline secret */}here {1 + 1}.\n\n{/* one\ntwo */}\n\n```mdx\n{/* in code */}\n```\n";
+  const md = pageMarkdown({ title: "T", body });
+  assert.doesNotMatch(md, /secret|two \*\//);
+  assert.match(md, /Shown here \{1 \+ 1\}\./);
+  assert.match(md, /\{\/\* in code \*\/\}/);
+});
+
 type Generated = {
   removeGeneratedFiles: (appDir: string) => void;
   writeManifest: (appDir: string, files: string[]) => void;

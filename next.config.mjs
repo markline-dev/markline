@@ -1,5 +1,5 @@
-import { readProxySettings } from "./scripts/proxy-settings.mjs";
 import createMDX from "@next/mdx";
+import { readProxySettings } from "./scripts/proxy-settings.mjs";
 import remarkGfm from "remark-gfm";
 import rehypePrettyCode from "rehype-pretty-code";
 

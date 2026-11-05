@@ -3,6 +3,7 @@
  * here and in components/docs/mdx.tsx both come from slugify(), so the links
  * land. */
 
+import remarkGfm from "remark-gfm";
 import remarkMdx from "remark-mdx";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
@@ -50,11 +51,24 @@ function nodeText(node: MdxNode): string {
   return (node.children ?? []).map(nodeText).join("");
 }
 
-/** A <Steps> asks for its titles with `toc`, unless it's toc={false}. */
-function listsSteps(node: MdxNode): boolean {
-  const toc = attrOf(node, "toc");
-  if (!toc) return false;
-  return !(typeof toc.value === "object" && toc.value?.value?.trim() === "false");
+/** A boolean attribute: present, unless it's name={false}. */
+function flag(node: MdxNode, name: string): boolean {
+  const attr = attrOf(node, name);
+  if (!attr) return false;
+  return !(typeof attr.value === "object" && attr.value?.value?.trim() === "false");
+}
+
+/**
+ * The children in the page when it loads, so a link to them lands: the first
+ * <Tab>, an <Accordion> only if it starts open, and nothing in a <CodeGroup>,
+ * which shows only its fences.
+ */
+function shownChildren(node: MdxNode): MdxNode[] {
+  const children = node.children ?? [];
+  if (node.name === "CodeGroup") return [];
+  if (node.name === "Accordion" && !flag(node, "defaultOpen")) return [];
+  if (node.name === "Tabs") return children.slice(0, 1);
+  return children;
 }
 
 /**
@@ -91,7 +105,7 @@ function planToc(tree: MdxNode, opts: { steps?: boolean }) {
       if ((node.depth === 2 || node.depth === 3) && label && id) items.push({ id, label, depth: node.depth });
       return;
     }
-    if (node.name === "Steps") list = !!opts.steps || listsSteps(node);
+    if (node.name === "Steps") list = !!opts.steps || flag(node, "toc");
     else if (node.name === "Step" && listing) {
       const label = headingText(stringAttr(node, "title") ?? "");
       const slug = slugify(label);
@@ -101,13 +115,13 @@ function planToc(tree: MdxNode, opts: { steps?: boolean }) {
         items.push({ id, label, depth: underH2 ? 3 : 2 });
       }
     }
-    (node.children ?? []).forEach((c) => visit(c, list));
+    shownChildren(node).forEach((c) => visit(c, list));
   };
   visit(tree, false);
   return { items, steps };
 }
 
-const parser = unified().use(remarkParse).use(remarkMdx);
+const parser = unified().use(remarkParse).use(remarkGfm).use(remarkMdx);
 
 /**
  * The page's ## and ### headings, in order.

@@ -162,3 +162,43 @@ test("the toc and the page agree on entities and comments", async () => {
   assert.deepEqual(await stepIdsIn(mdx), ["step-r-d", "step-caf-time"]);
 });
 
+test("the toc lists only what's in the page when it loads", () => {
+  const mdx = [
+    "<Tabs>",
+    '  <Tab title="A">',
+    "    ## In the first tab",
+    "  </Tab>",
+    '  <Tab title="B">',
+    "    ## In the second tab",
+    "  </Tab>",
+    "</Tabs>",
+    "",
+    '<Accordion title="Closed">',
+    "  ## In a closed one",
+    "</Accordion>",
+    "",
+    '<Accordion title="Open" defaultOpen>',
+    "  ## In an open one",
+    "</Accordion>",
+    "",
+    "<CodeGroup>",
+    "## In a group",
+    "</CodeGroup>",
+    "",
+    "<Note>",
+    "  ## In a note",
+    "</Note>",
+  ].join("\n");
+  assert.deepEqual(extractToc(mdx).map((i) => i.label), ["In the first tab", "In an open one", "In a note"]);
+});
+
+test("a step in a hidden tab isn't listed and gets no id", async () => {
+  const mdx = '<Tabs>\n<Tab title="A">x</Tab>\n<Tab title="B">\n<Steps toc>\n<Step title="Hidden">y</Step>\n</Steps>\n</Tab>\n</Tabs>';
+  assert.deepEqual(extractToc(mdx), []);
+  assert.deepEqual(await stepIdsIn(mdx), []);
+});
+
+test("struck-through text in a heading reads as the page does", () => {
+  assert.deepEqual(extractToc("## ~~Old~~ new\n"), [{ id: "old-new", label: "Old new", depth: 2 }]);
+});
+

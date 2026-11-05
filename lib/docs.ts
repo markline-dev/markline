@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
-import { contentRoot } from "./paths";
+import { contentRoot, isSafeSlug } from "./paths";
 import { loadConfig, contentPrefixIds } from "./config";
 
 import type { TocItem } from "./toc";
@@ -138,6 +138,7 @@ export function listDocs(): Doc[] {
 
 export function getDoc(slug: string[] | undefined): Doc | undefined {
   const s = slug ?? [];
+  if (!isSafeSlug(s)) return undefined;
   const prefixes = contentPrefixIds(loadConfig());
   const variantId = s.length > 0 && prefixes.includes(s[0]) ? s[0] : undefined;
   const rest = variantId ? s.slice(1) : s;

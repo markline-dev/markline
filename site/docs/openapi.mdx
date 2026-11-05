@@ -187,8 +187,9 @@ merged into it, then its `x-displayName`. The sidebar, heading, page title and
 `llms.txt` all follow this.
 
 The build warns about names that don't match: an `api.tags` key or `tagOrder`
-entry with no such tag, and a `mergeInto` that creates a new page, which is
-fine for a rename and a typo otherwise.
+entry with no such tag, a `mergeInto` that looks like a typo of a real tag, a
+merge cycle, and a merge into a hidden tag. A `mergeInto` that names a new page
+is a rename, and stays silent.
 
 ## Hide operations
 
@@ -196,12 +197,22 @@ Anything carrying `x-hidden` or `x-internal` (truthy) is left out everywhere:
 operations and whole path items (from the reference, search, `llms.txt` and the
 sitemap), webhooks and callbacks, query and header parameters, and fields (from
 tables, samples and Try it), including a field whose `$ref` points at a flagged
-schema. A path parameter stays, since the URL needs it. To follow a vendor's own
-flag, list the extensions yourself; the list replaces the default:
+schema. A flagged component is removed along with anything that can't exist
+without it. To follow a vendor's own flag, list the extensions yourself; the list
+replaces the default:
 
 ```json title="markline.json"
 { "api": { "hideExtensions": ["x-fern-ignore", "x-skip-spec", "x-internal"] } }
 ```
+
+When a whole schema is hidden, the operation stays: a request shows no body, and
+a response keeps its status and description without a sample. A query or header
+parameter with a hidden schema goes, and a path parameter stays without its
+schema, since the URL needs it.
+
+<Note>Object examples lose the hidden keys. Examples written as strings (such as
+serialized JSON or XML) and hand-written `x-codeSamples` aren't rewritten, so
+check those yourself.</Note>
 
 Deprecated operations are shown with a badge. Set `"api": { "showDeprecated": false }`
 to leave them out.
@@ -378,7 +389,8 @@ response with status + latency. It's the same engine on every surface.
 <ParamField path="api.auth" type='{ type?: "apiKey" | "bearer"; header?: string; description?: string }'>
   For a spec that doesn't declare its auth (no `securitySchemes`), or declares
   it wrongly. Replaces the spec's security on every operation, except ones
-  marked public with `security: []`, so Try it and the samples send it.
+  marked public with `security: []`, so Try it and the cURL samples send it. The
+  Node, Python and Go samples leave the key to the client's setup.
   `{ "header": "xi-api-key" }` sends an API-key header; `{ "type": "bearer" }`
   sends `Authorization: Bearer`. A header parameter with the same name is
   folded into it rather than shown twice, and the key is masked in the code

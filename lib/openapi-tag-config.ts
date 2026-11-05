@@ -183,8 +183,17 @@ export function tagConfigWarnings(known: Set<string>, plan: TagPlan, opts?: TagO
       out.push(`[markline] api.tags: "${name}" matches no tag in the spec, so it has no effect. Check the spelling.`);
     }
     const target = typeof o?.mergeInto === "string" ? o.mergeInto.trim() : "";
-    if (target && !known.has(target) && !override(opts, target)?.mergeInto) {
-      out.push(`[markline] api.tags: "${name}" merges into "${target}", which isn't a tag in the spec, so it creates the page /api-reference/${tagSlug(target)}. That's fine for a rename; otherwise check the spelling.`);
+    if (!target) continue;
+    if (mergeCycle(name, opts)) {
+      out.push(`[markline] api.tags: "${name}" is part of a mergeInto cycle. Its operations stay where the cycle stops.`);
+    } else if (resolveTag(target, opts) === null) {
+      out.push(`[markline] api.tags: "${name}" merges into "${target}", which is hidden, so its operations are hidden too.`);
+    } else if (!known.has(target) && !override(opts, target)?.mergeInto) {
+      // A new name is how a page gets renamed, so only a near miss is worth saying.
+      const near = [...known].find((k) => closeName(k, target));
+      if (near) {
+        out.push(`[markline] api.tags: "${name}" merges into "${target}", which isn't a tag in the spec, so it creates a new page. Did you mean "${near}"?`);
+      }
     }
   }
   for (const name of opts?.tagOrder ?? []) {
@@ -197,6 +206,41 @@ export function tagConfigWarnings(known: Set<string>, plan: TagPlan, opts?: TagO
     }
   }
   return out;
+}
+
+/** Whether a tag's `mergeInto` chain comes back around. */
+function mergeCycle(name: string, opts?: TagOptions): boolean {
+  const seen = new Set<string>();
+  let cur = name;
+  while (!seen.has(cur)) {
+    seen.add(cur);
+    const next = override(opts, cur)?.mergeInto;
+    if (typeof next !== "string" || !next.trim()) return false;
+    cur = next.trim();
+  }
+  return true;
+}
+
+/** Levenshtein distance, stopping once it passes `max`. */
+function editDistance(a: string, b: string, max: number): number {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  let row = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const next = [i];
+    for (let j = 1; j <= b.length; j++) {
+      next[j] = Math.min(row[j] + 1, next[j - 1] + 1, row[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    row = next;
+  }
+  return row[b.length];
+}
+
+/** Whether two tag names look like the same name mistyped: same but for case, or a small slip. */
+function closeName(known: string, target: string): boolean {
+  const a = known.toLowerCase();
+  const b = target.toLowerCase();
+  if (a === b) return true;
+  return Math.min(a.length, b.length) >= 4 && editDistance(a, b, 2) <= 2;
 }
 
 /** Every tag the spec declares or an operation carries ("Default" for untagged). */

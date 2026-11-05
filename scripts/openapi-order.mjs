@@ -62,6 +62,38 @@ function knownTags(spec) {
   return known;
 }
 
+function mergeCycle(name, api) {
+  const seen = new Set();
+  let cur = name;
+  while (!seen.has(cur)) {
+    seen.add(cur);
+    const next = override(api, cur)?.mergeInto;
+    if (typeof next !== "string" || !next.trim()) return false;
+    cur = next.trim();
+  }
+  return true;
+}
+
+function editDistance(a, b, max) {
+  if (Math.abs(a.length - b.length) > max) return max + 1;
+  let row = Array.from({ length: b.length + 1 }, (_, i) => i);
+  for (let i = 1; i <= a.length; i++) {
+    const next = [i];
+    for (let j = 1; j <= b.length; j++) {
+      next[j] = Math.min(row[j] + 1, next[j - 1] + 1, row[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+    }
+    row = next;
+  }
+  return row[b.length];
+}
+
+function closeName(known, target) {
+  const a = known.toLowerCase();
+  const b = target.toLowerCase();
+  if (a === b) return true;
+  return Math.min(a.length, b.length) >= 4 && editDistance(a, b, 2) <= 2;
+}
+
 function configWarnings(known, order, alias, api) {
   const out = [];
   const isPath = (name) => order.some((p) => p === name || p.startsWith(`${name}/`));
@@ -70,8 +102,16 @@ function configWarnings(known, order, alias, api) {
       out.push(`[markline] api.tags: "${name}" matches no tag in the spec, so it has no effect. Check the spelling.`);
     }
     const target = typeof o?.mergeInto === "string" ? o.mergeInto.trim() : "";
-    if (target && !known.has(target) && !override(api, target)?.mergeInto) {
-      out.push(`[markline] api.tags: "${name}" merges into "${target}", which isn't a tag in the spec, so it creates the page /api-reference/${slug(target)}. That's fine for a rename; otherwise check the spelling.`);
+    if (!target) continue;
+    if (mergeCycle(name, api)) {
+      out.push(`[markline] api.tags: "${name}" is part of a mergeInto cycle. Its operations stay where the cycle stops.`);
+    } else if (resolveTag(target, api) === null) {
+      out.push(`[markline] api.tags: "${name}" merges into "${target}", which is hidden, so its operations are hidden too.`);
+    } else if (!known.has(target) && !override(api, target)?.mergeInto) {
+      const near = [...known].find((k) => closeName(k, target));
+      if (near) {
+        out.push(`[markline] api.tags: "${name}" merges into "${target}", which isn't a tag in the spec, so it creates a new page. Did you mean "${near}"?`);
+      }
     }
   }
   for (const name of api?.tagOrder ?? []) {
@@ -209,4 +249,15 @@ export function apiSearchRecords(spec, api, toPlainText = (s) => s) {
     );
     return { url: `/api-reference/${operationId}`, title: op.summary ?? operationId, content, meta: "API reference" };
   });
+}
+
+/** What a build should say about the default spec and each version's (`versions`' first entry is the default). */
+export function specWarnings(spec, cfg, readVersion) {
+  const out = [...resourcePlan(spec, cfg?.api).warnings];
+  for (const v of (Array.isArray(cfg?.versions) ? cfg.versions : []).slice(1)) {
+    const versioned = readVersion(v.id);
+    if (!versioned) continue;
+    for (const w of resourcePlan(versioned, cfg.api).warnings) out.push(w.replace("[markline]", `[markline] (version ${v.id})`));
+  }
+  return out;
 }

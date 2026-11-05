@@ -65,7 +65,10 @@ export function buildPlaygroundSpec(op: OpenAPIOperation, doc: OpenAPIDoc, root:
     servers,
     pathParams: op.parameters.path.map((p) => param(p, true)),
     queryParams: op.parameters.query.map((p) => param(p, false)),
-    headerParams: op.parameters.header.map((p) => param(p, false)),
+    // A header the key field sends isn't a second, unmasked input.
+    headerParams: op.parameters.header
+      .filter((p) => !apiKeyHeaderNames.some((name) => name.toLowerCase() === p.name.toLowerCase()))
+      .map((p) => param(p, false)),
     // Offer auth whenever the spec *defines* a bearer/apiKey scheme, even if this
     // operation under-declares its security (common in generated specs).
     bearer: schemeBearer || op.security.some((s) => s.scheme.type === "http" && s.scheme.scheme === "bearer"),

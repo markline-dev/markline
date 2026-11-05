@@ -76,6 +76,10 @@ function prettyMaybeJson(text: string): string {
     return text;
   }
 }
+/** Whether a header carries the API key, which never shows in clear text. */
+function isApiKeyHeader(spec: PlaygroundSpec, name: string): boolean {
+  return spec.apiKeyHeaders.some((ak) => ak.name.toLowerCase() === name.toLowerCase());
+}
 function shellQuote(s: string) {
   return `'${s.replace(/'/g, "'\\''")}'`;
 }
@@ -144,7 +148,7 @@ export function PlaygroundProvider({ spec, children }: { spec: PlaygroundSpec; c
     for (const [k, v] of Object.entries(headers)) {
       lines[lines.length - 1] += " \\";
       // Credentials never show in clear text, whichever header carries them.
-      const shown = k === "Authorization" ? "Bearer <token>" : spec.apiKeyHeaders.some((ak) => ak.name === k) ? "<api-key>" : v;
+      const shown = k === "Authorization" ? "Bearer <token>" : isApiKeyHeader(spec, k) ? "<api-key>" : v;
       lines.push(`  --header ${shellQuote(`${k}: ${shown}`)}`);
     }
     if (hasBody) {
@@ -211,10 +215,11 @@ export function PlaygroundProvider({ spec, children }: { spec: PlaygroundSpec; c
 
 const inputCls = "ml-pg-input";
 
-export function ParamInput({ location, name, sample }: { location: Loc; name: string; sample?: string }) {
+export function ParamInput({ location, name, sample, secret }: { location: Loc; name: string; sample?: string; secret?: boolean }) {
   const { getParam, setParam } = usePlayground();
   return (
     <input
+      type={secret ? "password" : undefined}
       value={getParam(location, name)}
       onChange={(e) => setParam(location, name, e.target.value)}
       placeholder={sample || "value"}
@@ -627,7 +632,7 @@ function ParamRow({ loc, param }: { loc: Loc; param: PlaygroundParam }) {
     control = <HashEditor name={param.name} />;
   } else {
     control = (
-      <input className="xp-input" value={val} placeholder={`enter ${param.name}`} spellCheck={false} onChange={(e) => pg.setParam(loc, param.name, e.target.value)} aria-label={param.name} />
+      <input className="xp-input" type={isApiKeyHeader(pg.spec, param.name) ? "password" : undefined} value={val} placeholder={`enter ${param.name}`} spellCheck={false} onChange={(e) => pg.setParam(loc, param.name, e.target.value)} aria-label={param.name} />
     );
   }
   return (

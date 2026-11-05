@@ -10,7 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
 import * as pagefind from "pagefind";
-import { apiSearchRecords, resourcePages, resourcePlan } from "./openapi-order.mjs";
+import { apiSearchRecords, resourcePages, specWarnings } from "./openapi-order.mjs";
 import { searchGroups, searchTrails } from "./search-groups.mjs";
 import { unified } from "unified";
 import remarkParse from "remark-parse";
@@ -112,9 +112,14 @@ function apiRecords(root) {
   const specFile = path.join(root, "api", "openapi.json");
   if (!fs.existsSync(specFile)) return [];
   const spec = JSON.parse(fs.readFileSync(specFile, "utf8"));
-  const api = loadJsonConfig(root).api;
+  const cfg = loadJsonConfig(root);
+  const api = cfg.api;
   // The one place a build prints these; page workers would each repeat them.
-  for (const w of resourcePlan(spec, api).warnings) console.warn(w);
+  const readVersion = (id) => {
+    const file = path.join(root, id, "api", "openapi.json");
+    return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : null;
+  };
+  for (const w of specWarnings(spec, cfg, readVersion)) console.warn(w);
   return apiSearchRecords(spec, api, toPlainText);
 }
 

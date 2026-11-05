@@ -6,6 +6,7 @@ import { isHiddenOperation, planTags, primaryTag, resolveTag } from "../lib/open
 import { parseOpenApiTag, tagSlug } from "../lib/openapi-tags.ts";
 import { codeSamples } from "../lib/openapi-codegen.ts";
 import { curlSample } from "../lib/openapi-samples.ts";
+import { buildPlaygroundSpec } from "../lib/playground-spec.ts";
 
 type Op = Record<string, unknown>;
 const op = (operationId: string, extra: Op = {}): Op => ({ operationId, responses: { "200": { description: "OK" } }, ...extra });
@@ -122,6 +123,7 @@ type Mirror = {
   resourcePlan: (spec: object, api?: object) => { tags: string[]; ops: { op: { operationId: string }; tag: string }[]; warnings: string[] };
   resourcePages: (spec: object, api?: object) => { name: string; slug: string; title: string; description?: string }[];
   apiSearchRecords: (spec: object, api?: object) => { url: string; content: string }[];
+  specWarnings: (spec: object, cfg: object, read: (id: string) => object | null) => string[];
 };
 const mirror = async () => (await import("../scripts/openapi-order.mjs" as string)) as Mirror;
 
@@ -189,6 +191,18 @@ test("search leaves out hidden operations, path items and hidden tags' names", a
   assert.ok(!JSON.stringify(records).includes("access:all"));
 });
 
+test("a build warns about every version's spec, not just the default", async () => {
+  const { specWarnings } = await mirror();
+  const dup = { paths: { "/a": { get: op("a", { tags: ["dup"] }) }, "/b": { get: op("b", { tags: ["Dup"] }) } } };
+  const clean = { paths: { "/a": { get: op("a", { tags: ["a"] }) } } };
+  const cfg = { versions: [{ id: "v2" }, { id: "v1" }, { id: "v0" }] };
+  const read = (id: string) => (id === "v1" ? dup : null);
+  const warnings = specWarnings(clean, cfg, read);
+  assert.equal(warnings.length, 1);
+  assert.match(warnings[0], /^\[markline\] \(version v1\) API tags "dup", "Dup"/);
+  assert.equal(specWarnings(dup, {}, read).length, 1);
+});
+
 test("a merged tag's description never replaces the target's own", () => {
   const doc = normalize(paritySpec, parityApi as NormalizeOptions);
   assert.equal(doc.tags.find((t) => t.name === "alpha")!.description, "alpha-desc");
@@ -217,12 +231,30 @@ test("names in api.tags and api.tagOrder that do nothing are reported", () => {
     tagOrder: ["nope", "Dubbing"],
   });
   assert.ok(warnings.some((w) => /"acces:all" matches no tag/.test(w)));
-  assert.ok(warnings.some((w) => /"real" merges into "Rael".*\/api-reference\/rael/.test(w)));
+  assert.ok(warnings.some((w) => /"real" merges into "Rael".*Did you mean "real"\?/.test(w)));
   assert.ok(warnings.some((w) => /tagOrder: "nope" matches no tag/.test(w)));
   assert.ok(warnings.some((w) => /tagOrder: "Dubbing" was merged into "dubbing"/.test(w)));
   // A label on a nav-only group path is a real target, not a typo.
   const grouped = normalize({ paths: { "/g": { get: op("g", { tags: ["Team/Sub"] }) } } }, { tags: { Team: { label: "People" } } });
   assert.deepEqual(grouped.warnings, []);
+});
+
+test("a real rename is silent; a near miss, a cycle or a hidden target warns", async () => {
+  const paths = { "/b": { get: op("b", { tags: ["billing"] }) }, "/v": { get: op("v", { tags: ["voices"] }) }, "/h": { get: op("h", { tags: ["hidden-tag"] }) }, "/x": { get: op("x", { tags: ["xa"] }) }, "/y": { get: op("y", { tags: ["yb"] }) } };
+  const spec = { tags: [{ name: "billing" }, { name: "voices" }], paths };
+  const warned = (tags: NonNullable<NormalizeOptions["tags"]>) => normalize(spec, { tags }).warnings;
+  assert.deepEqual(warned({ billing: { mergeInto: "Workspace/Small business" } }), []);
+  assert.match(warned({ billing: { mergeInto: "Voices" } }).join("\n"), /Did you mean "voices"\?/);
+  assert.match(warned({ billing: { mergeInto: "voicse" } })[0], /Did you mean "voices"\?/);
+  assert.match(warned({ xa: { mergeInto: "yb" }, yb: { mergeInto: "xa" } })[0], /"xa" is part of a mergeInto cycle/);
+  assert.match(warned({ billing: { mergeInto: "hidden-tag" }, "hidden-tag": { hidden: true } })[0], /"billing" merges into "hidden-tag", which is hidden/);
+  // Short names are too close to everything for distance to mean a typo.
+  assert.deepEqual(warned({ xa: { mergeInto: "xb" } }), []);
+  const { resourcePlan } = await mirror();
+  const configs: NonNullable<NormalizeOptions["tags"]>[] = [{ billing: { mergeInto: "voicse" } }, { xa: { mergeInto: "yb" }, yb: { mergeInto: "xa" } }, { billing: { mergeInto: "hidden-tag" }, "hidden-tag": { hidden: true } }];
+  for (const tags of configs) {
+    assert.deepEqual(resourcePlan(spec, { tags }).warnings, warned(tags));
+  }
 });
 
 test("tagOrder naming a collision's loser pins the page it merged into", () => {
@@ -256,6 +288,24 @@ test("api.auth reaches the cURL samples on both surfaces", () => {
   assert.match(curlSample(a, doc, spec), /--header 'xi-api-key: <api-key>'/);
   assert.doesNotMatch(curlSample(doc.operationsById.b, doc, spec), /xi-api-key/);
   assert.equal(doc.operationsById.b.public, true);
+});
+
+test("Try it: an explicitly public operation offers no key, and a key header is one masked input", () => {
+  const spec = {
+    components: { securitySchemes: { key: { type: "apiKey", in: "header", name: "X-Api-Key" }, bearer: { type: "http", scheme: "bearer" } } },
+    security: [{ key: [] }],
+    paths: {
+      "/a": { get: op("a", { parameters: [{ name: "x-api-KEY", in: "header", schema: { type: "string" } }, { name: "X-Trace", in: "header", schema: { type: "string" } }] }) },
+      "/b": { get: op("b", { security: [] }) },
+    },
+  };
+  const doc = normalize(spec);
+  const a = buildPlaygroundSpec(doc.operationsById.a, doc, spec);
+  assert.deepEqual(a.apiKeyHeaders, [{ name: "X-Api-Key" }]);
+  assert.deepEqual(a.headerParams.map((p) => p.name), ["X-Trace"]);
+  const b = buildPlaygroundSpec(doc.operationsById.b, doc, spec);
+  assert.deepEqual(b.apiKeyHeaders, []);
+  assert.equal(b.bearer, false);
 });
 
 test("bearer auth folds a declared Authorization parameter", () => {

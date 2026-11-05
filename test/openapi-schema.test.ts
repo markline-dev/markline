@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 // lib/ imports resolve via test/setup.mjs, which `npm test` loads first.
-import { collapseNullable, paramField, schemaFields, typeLabel } from "../lib/openapi-schema.ts";
+import { collapseNullable, isDeprecatedParam, paramField, schemaFields, typeLabel } from "../lib/openapi-schema.ts";
 import { resolveSchema, sampleFromSchema } from "../lib/openapi.ts";
 import type { JSONSchema } from "../lib/openapi.ts";
 
@@ -141,4 +141,18 @@ test("paramField reads deprecated and nullable from the parameter or its schema"
   assert.deepEqual([onParam.deprecated, onParam.nullable, onParam.optional], [true, undefined, true]);
   const onSchema = paramField({ name: "q", schema: { anyOf: [{ type: "string", enum: ["a"] }, NULL], deprecated: true, description: "D" } }, true);
   assert.deepEqual([onSchema.deprecated, onSchema.nullable, onSchema.enums, onSchema.description], [true, true, ["a"], "D"]);
+});
+
+test("fields beside a $ref add to the target's", () => {
+  const root = { components: { schemas: { Sib: { type: "object", required: ["s"], properties: { s: { type: "string" } } } } } };
+  const r = resolveSchema({ $ref: "#/components/schemas/Sib", required: ["extra"], properties: { extra: { type: "string" } } } as JSONSchema, root)!;
+  assert.deepEqual(Object.keys(r.properties!), ["s", "extra"]);
+  assert.deepEqual(r.required, ["s", "extra"]);
+});
+
+test("a parameter is deprecated by itself or by its schema", () => {
+  assert.equal(isDeprecatedParam(true, { type: "string" }, { type: "string" }), true);
+  assert.equal(isDeprecatedParam(undefined, { deprecated: true }, {}), true);
+  assert.equal(isDeprecatedParam(undefined, { anyOf: [] }, { deprecated: true }), true);
+  assert.equal(isDeprecatedParam(false, { type: "string" }, { type: "string" }), false);
 });

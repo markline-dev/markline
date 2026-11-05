@@ -428,7 +428,12 @@ export function resolveSchema(schema: JSONSchema | undefined, root: any, seen = 
     if (seen.has($ref)) return { type: "object", description: "(recursive)", ...local };
     const next = new Set(seen);
     next.add($ref);
-    return { ...resolveSchema(resolveRef({ $ref }, root) as JSONSchema, root, next), ...local };
+    const target = resolveSchema(resolveRef({ $ref }, root) as JSONSchema, root, next);
+    const merged: JSONSchema = { ...target, ...local };
+    // Fields beside a `$ref` add to the target's, rather than replacing them.
+    if (target?.properties && local?.properties) merged.properties = { ...target.properties, ...local.properties };
+    if (target?.required && local?.required) merged.required = [...new Set([...target.required, ...local.required])];
+    return merged;
   }
   const out: JSONSchema = { ...schema };
   if (schema.properties) {

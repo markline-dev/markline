@@ -100,7 +100,7 @@ export function ApiOperationPage({
                   location="header"
                   required
                   schema={{ type: "string" }}
-                  control={showInline ? <ParamInput location="header" name={ak.name} /> : undefined}
+                  control={showInline ? <ParamInput location="header" name={ak.name} secret /> : undefined}
                 />
               ))}
             </Section>

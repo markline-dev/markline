@@ -201,7 +201,7 @@ export type ApiConfig = {
   showDeprecated?: boolean;
   /**
    * Auth for a spec that doesn't declare it (or declares it wrongly). Replaces
-   * the spec's security schemes, so Try it and the samples send it:
+   * the spec's security schemes, so Try it and the cURL samples send it:
    * `{ "header": "xi-api-key" }` for an API-key header, `{ "type": "bearer" }`
    * for `Authorization: Bearer`.
    */

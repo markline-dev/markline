@@ -197,6 +197,11 @@ export function schemaFields(schema: JSONSchema | undefined, opts: FieldOptions 
   return out;
 }
 
+/** Deprecated on the parameter itself, on its schema, or on what's left of a union. */
+export function isDeprecatedParam(paramDeprecated: unknown, raw: JSONSchema | undefined, shape: JSONSchema): boolean {
+  return paramDeprecated === true || raw?.deprecated === true || shape.deprecated === true;
+}
+
 /** A path/query parameter's field row. Pass the schema already resolved. */
 export function paramField(
   p: { name: string; description?: string; deprecated?: boolean; schema?: JSONSchema },
@@ -212,7 +217,7 @@ export function paramField(
     enums: s.enum?.filter((e) => e !== null).map((e) => String(e)),
   };
   if (nullable) field.nullable = true;
-  if (p.deprecated === true || s.deprecated === true) field.deprecated = true;
+  if (isDeprecatedParam(p.deprecated, p.schema, s)) field.deprecated = true;
   return field;
 }
 

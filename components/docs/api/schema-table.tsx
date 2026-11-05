@@ -1,6 +1,6 @@
 import type { JSONSchema } from "@/lib/openapi";
 import { mdToHtml } from "@/lib/md-desc";
-import { normalizeField, typeLabel } from "@/lib/openapi-schema";
+import { isDeprecatedParam, normalizeField, typeLabel } from "@/lib/openapi-schema";
 
 export function ParamRow({
   name,
@@ -25,7 +25,7 @@ export function ParamRow({
   const { schema: shape, nullable } = normalizeField(schema);
   const typeText = describeType(schema);
   const enumValues = shape.enum?.filter((e) => e !== null).map((e) => String(e));
-  const deprecated = paramDeprecated === true || schema?.deprecated === true || shape.deprecated === true;
+  const deprecated = isDeprecatedParam(paramDeprecated, schema, shape);
   const info = (
     <>
       <div className="ml-param-head">

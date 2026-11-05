@@ -242,7 +242,7 @@ function renderChangelog(slug: string[]) {
       lede={intro?.fm.lede}
       intro={
         intro?.body.trim() && page === 1 ? (
-          <MDXRemote source={intro.body} components={mdxComponents} options={{ mdxOptions: { format: "mdx", remarkPlugins: [remarkGfm], rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]] }, blockJS: false }} />
+          <MDXRemote source={intro.body} components={mdxComponents} options={{ mdxOptions: { format: "mdx", remarkPlugins: [remarkGfm, remarkCodeGroupTitles], rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]] }, blockJS: false }} />
         ) : undefined
       }
       entries={entries.slice((page - 1) * PER_PAGE, page * PER_PAGE)}

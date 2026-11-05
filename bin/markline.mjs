@@ -10,6 +10,8 @@ import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import { depsDir, linkDeps, nextPackageJson } from "./deps.mjs";
 import { isLocalTemplate, scaffold } from "./scaffold.mjs";
+import { stagePublic } from "./stage-public.mjs";
+import { prepareWorkDir } from "./staging-folder.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const APP_DIR = path.resolve(__dirname, ".."); // the Next app (this package root)
@@ -41,7 +43,7 @@ function resolveNextBin() {
  * them) and point its node_modules at the consumer's installed dependencies.
  */
 function syncApp() {
-  fs.mkdirSync(WORK_DIR, { recursive: true });
+  prepareWorkDir(WORK_DIR);
   for (const name of APP_FILES) {
     const src = path.join(APP_DIR, name);
     if (!fs.existsSync(src)) continue;
@@ -51,9 +53,7 @@ function syncApp() {
   }
   // Serve the consumer's own static assets (logo, favicon, images) from /public.
   const pub = path.join(CONTENT_DIR, "public");
-  if (fs.existsSync(pub)) {
-    fs.cpSync(pub, path.join(WORK_DIR, "public"), { recursive: true });
-  }
+  if (fs.existsSync(pub)) stagePublic(pub, WORK_DIR);
 
   linkDeps(path.join(WORK_DIR, "node_modules"), depsDir(APP_DIR));
 }

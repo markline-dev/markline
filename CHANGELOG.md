@@ -10,6 +10,11 @@ All notable changes to `@markline/markline` and `@markline/create`.
   a Markline checkout (`node ../markline/bin/markline.mjs dev`), the CLI
   uses the checkout's dependencies, so a docs folder needs no install.
 
+### Fixed
+- **Don't follow links in the staging folder.** `.markline/` is always a real
+  folder with no links in it, and `public/` is staged as real files, on every
+  Node version. Dead and looping links in `public/` are skipped with a warning.
+
 ## 0.1.7
 
 ### Added

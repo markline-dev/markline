@@ -1,86 +1,20 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
-import { spawn, type ChildProcess } from "node:child_process";
-import { once } from "node:events";
-import fs from "node:fs";
-import net from "node:net";
-import os from "node:os";
-import path from "node:path";
+import { createSite } from "./site-server";
 
-// The .md and llms.txt routes over HTTP: a real `markline dev` on a small site,
-// staged in a temp folder so it leaves the repo alone.
+// The .md and llms.txt routes over HTTP: a real `markline dev` on a small site.
 
-const REPO = path.join(import.meta.dirname, "..");
-let root = "";
-let server: ChildProcess | undefined;
+const site = createSite();
 let base = "";
 
-const freePort = () =>
-  new Promise<number>((resolve, reject) => {
-    const s = net.createServer();
-    s.on("error", reject);
-    s.listen(0, () => {
-      const { port } = s.address() as net.AddressInfo;
-      s.close(() => resolve(port));
-    });
-  });
-
-function write(file: string, text: string) {
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  fs.writeFileSync(file, text);
-}
-
-async function waitForServer(url: string) {
-  const deadline = Date.now() + 120_000;
-  while (Date.now() < deadline) {
-    try {
-      await fetch(url);
-      return;
-    } catch {
-      await new Promise((r) => setTimeout(r, 500));
-    }
-  }
-  throw new Error("markline dev didn't start");
-}
-
-/** A raw path, so fetch's URL parsing can't tidy away a `..`. */
+/** A raw path, so nothing tidies away a `..`. */
 const get = (p: string) => fetch(base + p);
 
 before(async () => {
-  root = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "markline-routes-")));
-  const site = path.join(root, "site");
-  fs.symlinkSync(path.join(REPO, "node_modules"), (fs.mkdirSync(site), path.join(site, "node_modules")));
-  write(path.join(site, "markline.json"), '{"name":"t"}');
-  const page = (title: string, body: string) => `---\ntitle: ${title}\n---\n\n${body}\n`;
-  write(path.join(site, "docs", "index.mdx"), page("Home", "home text"));
-  write(path.join(site, "docs", "guides", "a.mdx"), page("Guide", "{/* a comment */}\n\nguide text"));
-  write(path.join(site, "docs", "changelog.mdx"), page("Changelog", "intro only"));
-  write(path.join(site, "changelog", "2026-11-05.mdx"), page("One", "entry"));
-  write(path.join(site, "private.mdx"), page("Private", "CANARY"));
-  write(path.join(root, "outside.mdx"), page("Outside", "CANARY"));
-  const port = await freePort();
-  base = `http://127.0.0.1:${port}`;
-  server = spawn(process.execPath, [path.join(REPO, "bin", "markline.mjs"), "dev"], {
-    cwd: site,
-    stdio: "ignore",
-    env: { ...process.env, PORT: String(port) },
-    detached: true,
-  });
-  await waitForServer(`${base}/api/llms/guides`);
+  base = await site.serve("dev", "/api/llms/guides");
 });
 
-after(async () => {
-  if (server?.pid) {
-    const exited = once(server, "exit");
-    try {
-      process.kill(-server.pid); // the CLI and the Next it started
-      await exited;
-    } catch {
-      // already gone
-    }
-  }
-  fs.rmSync(root, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
-});
+after(() => site.destroy());
 
 test("a page's .md is its Markdown, without comments", async () => {
   const res = await get("/guides/a.md");

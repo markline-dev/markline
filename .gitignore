@@ -25,6 +25,9 @@ next-env.d.ts
 /public/**/*.md
 /public/**/llms.txt
 
+# test sites (test/site-server.ts)
+/.test-tmp
+
 # misc
 .DS_Store
 *.pem

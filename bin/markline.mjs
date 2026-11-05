@@ -9,6 +9,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { createRequire } from "node:module";
 import { isLocalTemplate, scaffold } from "./scaffold.mjs";
+import { stagePublic } from "./stage-public.mjs";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const APP_DIR = path.resolve(__dirname, ".."); // the Next app (this package root)
@@ -56,13 +57,7 @@ function syncApp() {
   }
   // Serve the consumer's own static assets (logo, favicon, images) from /public.
   const pub = path.join(CONTENT_DIR, "public");
-  if (fs.existsSync(pub)) {
-    // Real files, not links: the build writes and removes files in the staged
-    // copy, and that must never reach through to wherever a link points.
-    const staged = path.join(WORK_DIR, "public");
-    if (fs.lstatSync(staged, { throwIfNoEntry: false })?.isSymbolicLink()) fs.unlinkSync(staged);
-    fs.cpSync(pub, staged, { recursive: true, dereference: true });
-  }
+  if (fs.existsSync(pub)) stagePublic(pub, WORK_DIR);
 
   const nm = path.join(WORK_DIR, "node_modules");
   const deps = path.join(CONTENT_DIR, "node_modules");

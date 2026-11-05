@@ -4,6 +4,8 @@ import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import rehypePrettyCode from "rehype-pretty-code";
 import { getDoc, listDocs } from "@/lib/docs";
+import { loadOpenApi } from "@/lib/openapi";
+import { apiOperationLabel } from "@/lib/apiref-payload";
 import { DocsPage } from "@/components/docs/page";
 import { DocsShell } from "@/components/docs/nav";
 import { mdxComponents } from "@/components/docs/mdx";
@@ -265,7 +267,11 @@ function relatedLinks(
     // ("Overview"), and reads as ambiguous once it's listed elsewhere.
     return listed.map((href) => ({
       href,
-      label: getDoc(href.split("/").filter(Boolean))?.fm.title ?? labels.get(href) ?? href,
+      label:
+        getDoc(href.split("/").filter(Boolean))?.fm.title ??
+        labels.get(href) ??
+        apiOperationLabel(href, loadOpenApi().operationsById) ??
+        href,
     }));
   }
   if (mode !== "collection") return [];

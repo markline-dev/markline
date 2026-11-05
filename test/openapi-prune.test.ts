@@ -225,3 +225,21 @@ test("examples written as strings aren't rewritten, as the docs say", () => {
   const s = { components: { schemas: { S: { type: "string", example: "secret text" } } } };
   assert.equal(pruneSpec(s, EXTS).components.schemas.S.example, "secret text");
 });
+
+test("schemas left with only deleted ones go too, whatever order they're declared in", () => {
+  const pruned = pruneSpec(
+    {
+      components: {
+        schemas: {
+          C: { allOf: [ref("B")] },
+          B: { anyOf: [ref("A"), NULL] },
+          A: { type: "object", "x-internal": true },
+          Uses: { type: "object", properties: { keep: { type: "string" }, c: ref("C") } },
+        },
+      },
+    } as any,
+    EXTS,
+  );
+  assert.deepEqual(Object.keys(pruned.components.schemas), ["Uses"]);
+  assert.deepEqual(Object.keys(pruned.components.schemas.Uses.properties), ["keep"]);
+});

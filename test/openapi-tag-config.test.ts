@@ -303,6 +303,13 @@ test("Try it: an explicitly public operation offers no key, and a key header is 
   const a = buildPlaygroundSpec(doc.operationsById.a, doc, spec);
   assert.deepEqual(a.apiKeyHeaders, [{ name: "X-Api-Key" }]);
   assert.deepEqual(a.headerParams.map((p) => p.name), ["X-Trace"]);
+  // An operation that under-declares its security is offered the key anyway,
+  // and its own differently-cased parameter still isn't a second input.
+  const under = { ...spec, security: undefined };
+  const underDoc = normalize(under);
+  const c = buildPlaygroundSpec(underDoc.operationsById.a, underDoc, under);
+  assert.deepEqual(c.apiKeyHeaders, [{ name: "X-Api-Key" }]);
+  assert.deepEqual(c.headerParams.map((p) => p.name), ["X-Trace"]);
   const b = buildPlaygroundSpec(doc.operationsById.b, doc, spec);
   assert.deepEqual(b.apiKeyHeaders, []);
   assert.equal(b.bearer, false);

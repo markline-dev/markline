@@ -111,3 +111,28 @@ test("the page gives listed steps the ids the toc links to, and others none", as
   assert.deepEqual(await stepIdsIn('<Steps>\n  <Step title="Plain">x</Step>\n</Steps>'), []);
   assert.deepEqual(await stepIdsIn('<Steps toc={false}>\n  <Step title="Off">x</Step>\n</Steps>'), []);
 });
+
+test("a step whose tag spans lines is listed, with the id the page gives it", async () => {
+  const mdx = ["<Steps toc>", "  <Step", '    title="Long title"', "    icon='x>y'", "  >", "    a", "  </Step>", '  <Step title="Short">b</Step>', "</Steps>"].join("\n");
+  assert.deepEqual(extractToc(mdx).map((i) => i.id), ["step-long-title", "step-short"]);
+  assert.deepEqual(await stepIdsIn(mdx), ["step-long-title", "step-short"]);
+});
+
+test("a tag in inline code isn't a real one", () => {
+  const mdx = ['Write `<Steps toc>` and `<Step title="Mention">` like so.', "", "<Steps>", '  <Step title="Real">a</Step>', "</Steps>"].join("\n");
+  assert.deepEqual(extractToc(mdx), []);
+  const listed = ['`<Step title="Mention">` goes inside.', "", "<Steps toc>", '  <Step title="Real">a</Step>', "</Steps>"].join("\n");
+  assert.deepEqual(extractToc(listed).map((i) => i.label), ["Real"]);
+});
+
+test("only a matching fence closes a code block", () => {
+  const nested = ["````mdx", "```bash", "## Inside four", "```", "## Still inside", "````", "## Out one"].join("\n");
+  assert.deepEqual(extractToc(nested).map((i) => i.label), ["Out one"]);
+  const info = ["```bash", "```python", "## Inside", "```", "## Out two"].join("\n");
+  assert.deepEqual(extractToc(info).map((i) => i.label), ["Out two"]);
+  const tilde = ["~~~", "```", "## Inside", "~~~", "## Out three"].join("\n");
+  assert.deepEqual(extractToc(tilde).map((i) => i.label), ["Out three"]);
+  const inline = ["```not a fence```", "## Out four"].join("\n");
+  assert.deepEqual(extractToc(inline).map((i) => i.label), ["Out four"]);
+});
+

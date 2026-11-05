@@ -96,6 +96,14 @@ test("import lines in code blocks are kept", async () => {
   assert.equal(md, "# T\n\n```python\nimport requests\nexport_x = 1\n```\n");
 });
 
+test("import lines in nested fences are kept", async () => {
+  const { pageMarkdown } = await load();
+  const nested = "````mdx\n```python\nimport inner\n```\nimport after\n````\nimport real from 'x';\n";
+  assert.equal(pageMarkdown({ title: "T", body: nested }), "# T\n\n````mdx\n```python\nimport inner\n```\nimport after\n````\n");
+  const info = "```bash\n```python\nimport still_in\n```\n";
+  assert.equal(pageMarkdown({ title: "T", body: info }), "# T\n\n```bash\n```python\nimport still_in\n```\n");
+});
+
 test("removing generated files keeps the site's own", async (t) => {
   const modulePath = "../scripts/generated-files.mjs";
   const { removeGeneratedFiles, writeManifest } = (await import(modulePath)) as unknown as {

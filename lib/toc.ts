@@ -28,6 +28,18 @@ function attr(tag: string, name: string): string | undefined {
 }
 
 /**
+ * Tracks fenced code a line at a time: given the open fence (or null), the one
+ * open after `line`. As in CommonMark, only the same character, at least as
+ * long and with nothing after it, closes a fence.
+ */
+function nextFence(line: string, open: string | null): string | null {
+  const m = line.match(/^\s*(`{3,}|~{3,})(.*)$/);
+  if (!m) return open;
+  if (open) return m[1][0] === open[0] && m[1].length >= open.length && !m[2].trim() ? null : open;
+  return m[1][0] === "`" && m[2].includes("`") ? null : m[1];
+}
+
+/**
  * A listed step's anchor: `step-` so it can't land on a heading of the same
  * name, then numbered when the page repeats a title. `seen` runs in page order.
  */
@@ -54,16 +66,21 @@ export function extractToc(body: string, opts: { steps?: boolean } = {}): TocIte
   let listSteps = false;
   let underH2 = false;
   const seen = new Map<string, number>();
+  let pending = ""; // the start of a tag that continues on the next line
   for (const line of body.split("\n")) {
-    const f = line.match(/^\s*(```+|~~~+)/);
-    if (f) {
-      if (!fence) fence = f[1][0];
-      else if (f[1][0] === fence) fence = null;
+    const wasOpen = fence;
+    fence = nextFence(line, fence);
+    if (wasOpen || fence) {
+      pending = "";
       continue;
     }
-    if (fence) continue;
     // <Steps …> opens a list, </Steps> closes it; each <Step title> is a step.
-    for (const tag of line.match(/<\/?Steps?\b(?:[^>"']|"[^"]*"|'[^']*')*>/g) ?? []) {
+    // A tag in inline code matches as the code span, so it's passed over.
+    const text = pending + line;
+    let end = 0;
+    for (const m of text.matchAll(/`[^`]*`|<\/?Steps?\b(?:[^>"']|"[^"]*"|'[^']*')*>/g)) {
+      const tag = m[0];
+      end = m.index + tag.length;
       if (tag.startsWith("</Steps")) inSteps = false;
       else if (/^<Steps\b/.test(tag)) {
         inSteps = true;
@@ -74,6 +91,9 @@ export function extractToc(body: string, opts: { steps?: boolean } = {}): TocIte
         if (label && id) items.push({ id, label, depth: underH2 ? 3 : 2 });
       }
     }
+    const rest = text.slice(end);
+    const open = rest.search(/<Steps?\b/);
+    pending = open >= 0 ? `${rest.slice(open)}\n` : "";
     const h = line.match(/^(#{2,3})\s+(.+)$/);
     if (!h) continue;
     const label = headingText(h[2]);

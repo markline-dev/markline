@@ -7,19 +7,25 @@
 // A "doc" here is { url, title, lede, body, layout }: body is the MDX source
 // without its frontmatter.
 
+/** Fenced code a line at a time: the fence open after `line` (lib/toc.ts has
+ *  the same check). Only the same character, at least as long and with nothing
+ *  after it, closes one. */
+function nextFence(line, open) {
+  const m = line.match(/^\s*(`{3,}|~{3,})(.*)$/);
+  if (!m) return open;
+  if (open) return m[1][0] === open[0] && m[1].length >= open.length && !m[2].trim() ? null : open;
+  return m[1][0] === "`" && m[2].includes("`") ? null : m[1];
+}
+
 /** MDX body → portable Markdown: drop the MDX import/export lines (not the
  *  ones in code blocks), collapse blank runs. (Authored components like <Note>
  *  stay — they read fine as context.) */
 export function mdxToMarkdown(md) {
   let fence = null;
   const kept = md.split("\n").filter((line) => {
-    const f = line.match(/^\s*(```+|~~~+)/);
-    if (f) {
-      if (!fence) fence = f[1][0];
-      else if (f[1][0] === fence) fence = null;
-      return true;
-    }
-    return fence || !/^\s*(import|export)\s/.test(line);
+    const wasOpen = fence;
+    fence = nextFence(line, fence);
+    return wasOpen || fence || !/^\s*(import|export)\s/.test(line);
   });
   return kept.join("\n").replace(/\n{3,}/g, "\n\n").trim();
 }

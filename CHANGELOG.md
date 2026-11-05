@@ -24,6 +24,11 @@ All notable changes to `@markline/markline` and `@markline/create`.
   keeps `-X POST` when a POST has no body.
 - Request bodies and responses that aren't `application/json` keep their
   media type and schema, so multipart fields are documented.
+### Changed
+- **CLI flags and checkout runs.** `markline dev`, `build` and `start` pass
+  extra flags on to Next, so `markline dev -p 3001` sets the port. Run from
+  a Markline checkout (`node ../markline/bin/markline.mjs dev`), the CLI
+  uses the checkout's dependencies, so a docs folder needs no install.
 
 ## 0.1.7
 

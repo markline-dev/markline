@@ -1,5 +1,6 @@
 import path from "node:path";
 import createMDX from "@next/mdx";
+import { readProxySettings } from "./scripts/proxy-settings.mjs";
 import remarkGfm from "remark-gfm";
 import rehypePrettyCode from "rehype-pretty-code";
 import { safeDistDir } from "./scripts/dist-dir.mjs";
@@ -25,7 +26,12 @@ const nextConfig = {
   // Lets several builds of one checkout sit side by side.
   ...(distDir ? { distDir } : {}),
   ...(basePath ? { basePath, assetPrefix: basePath } : {}),
-  env: { NEXT_PUBLIC_MARKLINE_BASE_PATH: basePath },
+  env: {
+    NEXT_PUBLIC_MARKLINE_BASE_PATH: basePath,
+    // A standalone server has no content folder, so the Try it proxy's settings are
+    // decided here.
+    MARKLINE_PROXY_SETTINGS: JSON.stringify(readProxySettings()),
+  },
   reactStrictMode: true,
   // Pages are only cached at build time. See the file for why.
   cacheHandler: path.join(process.cwd(), "scripts", "read-only-cache.cjs"),

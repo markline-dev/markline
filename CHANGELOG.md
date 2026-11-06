@@ -9,6 +9,16 @@ All notable changes to `@markline/markline` and `@markline/create`.
   extra flags on to Next, so `markline dev -p 3001` sets the port. Run from
   a Markline checkout (`node ../markline/bin/markline.mjs dev`), the CLI
   uses the checkout's dependencies, so a docs folder needs no install.
+- **Try it proxy needs a configured API.** A site with no `api.baseUrl` and no
+  absolute URL in the spec's `servers` must set `api.baseUrl` for the proxy to
+  work, in `next start` and standalone deployments alike. It reads these at build
+  time, so rebuild after changing them. It only accepts requests from pages on the
+  site, and `api.playground.proxy: "never"` now turns it off.
+- **Try it proxy limits.** Responses over 25 MB, requests over 35 MB and calls over
+  120 seconds return an error, and so do large responses while the server is
+  holding a lot of data. Connection, routing and client-address headers and
+  `Cookie` aren't forwarded, and a redirect's body isn't shown.
+
 - **Pages are only cached at build time.** Next's page and data cache no longer
   write when a request is served, though on some Next versions a built page is
   still copied within `.next` the first time it's read. Custom revalidation code

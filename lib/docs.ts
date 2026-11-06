@@ -92,12 +92,17 @@ function readMdx(filePath: string): { fm: DocFrontmatter; body: string } {
   return { fm, body: content };
 }
 
-function walk(dir: string): string[] {
+/** The .mdx files under `dir`. A link is followed like what it points at, so
+ *  shared docs can be linked in; `parents` catches a link back up the tree. */
+function walk(dir: string, parents: string[] = []): string[] {
+  const real = fs.realpathSync(dir);
+  if (parents.includes(real)) return [];
   const out: string[] = [];
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const p = path.join(dir, entry.name);
-    if (entry.isDirectory()) out.push(...walk(p));
-    else if (entry.isFile() && entry.name.endsWith(".mdx")) out.push(p);
+  for (const name of fs.readdirSync(dir)) {
+    const p = path.join(dir, name);
+    const stat = fs.statSync(p, { throwIfNoEntry: false });
+    if (stat?.isDirectory()) out.push(...walk(p, [...parents, real]));
+    else if (stat?.isFile() && name.endsWith(".mdx")) out.push(p);
   }
   return out;
 }

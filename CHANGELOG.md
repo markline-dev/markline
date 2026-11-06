@@ -9,6 +9,20 @@ All notable changes to `@markline/markline` and `@markline/create`.
   extra flags on to Next, so `markline dev -p 3001` sets the port. Run from
   a Markline checkout (`node ../markline/bin/markline.mjs dev`), the CLI
   uses the checkout's dependencies, so a docs folder needs no install.
+- **Pages are only cached at build time.** Next's page and data cache no longer
+  write when a request is served, though on some Next versions a built page is
+  still copied within `.next` the first time it's read. Custom revalidation code
+  won't update a page, so rebuild to update one. A page added since the build is
+  rendered on each request.
+- **Nav links to `/x/index`.** They're treated as `/x`, and a nav link to a missing
+  page warns at build.
+- **Next 15.5.18 or later.** The `next` dependency is now `^15.5.18`.
+- **Linked pages in static exports.** A symlinked page or folder under `docs/`
+  is now included in a static export, as it already was on a Node server.
+
+### Fixed
+- **Unknown URLs aren't cached.** The Node server no longer stores a copy of
+  each unknown URL, however its path is written, and its 404 isn't cacheable.
 
 ## 0.1.7
 

@@ -1,3 +1,4 @@
+import path from "node:path";
 import createMDX from "@next/mdx";
 import remarkGfm from "remark-gfm";
 import rehypePrettyCode from "rehype-pretty-code";
@@ -24,6 +25,8 @@ const nextConfig = {
   ...(basePath ? { basePath, assetPrefix: basePath } : {}),
   env: { NEXT_PUBLIC_MARKLINE_BASE_PATH: basePath },
   reactStrictMode: true,
+  // Pages are only cached at build time. See the file for why.
+  cacheHandler: path.join(process.cwd(), "scripts", "read-only-cache.cjs"),
   // The API playground proxy (app/api/playground/route.ts) is the only `.ts`
   // route in app/. Static export can't include a dynamic route handler, so we
   // drop the `ts` page extension in export mode to exclude it; the playground

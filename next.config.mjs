@@ -1,7 +1,9 @@
+import path from "node:path";
 import createMDX from "@next/mdx";
 import { readProxySettings } from "./scripts/proxy-settings.mjs";
 import remarkGfm from "remark-gfm";
 import rehypePrettyCode from "rehype-pretty-code";
+import { safeDistDir } from "./scripts/dist-dir.mjs";
 
 // Build mode is chosen by the CLI:
 //   MARKLINE_EXPORT=1 -> static HTML export (any CDN / GitHub Pages / S3)
@@ -13,15 +15,16 @@ const isExport = process.env.MARKLINE_EXPORT === "1";
 // and other absolute asset URLs resolve correctly.
 const basePath = (process.env.MARKLINE_BASE_PATH || "").replace(/\/$/, "");
 
+const distDir = safeDistDir(process.env.MARKLINE_DIST, process.cwd());
+
 /** @type {import("next").NextConfig} */
 const nextConfig = {
   output: isExport ? "export" : "standalone",
   // A docs framework builds arbitrary consumer content; a lint rule should never
   // fail a production build. Linting is a separate `npm run lint` step.
   eslint: { ignoreDuringBuilds: true },
-  // Keep build artifacts out of the package/node_modules when the CLI points
-  // them at the consumer's project (MARKLINE_DIST is an absolute path there).
-  ...(process.env.MARKLINE_DIST ? { distDir: process.env.MARKLINE_DIST } : {}),
+  // Lets several builds of one checkout sit side by side.
+  ...(distDir ? { distDir } : {}),
   ...(basePath ? { basePath, assetPrefix: basePath } : {}),
   env: {
     NEXT_PUBLIC_MARKLINE_BASE_PATH: basePath,
@@ -30,6 +33,8 @@ const nextConfig = {
     MARKLINE_PROXY_SETTINGS: JSON.stringify(readProxySettings()),
   },
   reactStrictMode: true,
+  // Pages are only cached at build time. See the file for why.
+  cacheHandler: path.join(process.cwd(), "scripts", "read-only-cache.cjs"),
   // The API playground proxy (app/api/playground/route.ts) is the only `.ts`
   // route in app/. Static export can't include a dynamic route handler, so we
   // drop the `ts` page extension in export mode to exclude it; the playground

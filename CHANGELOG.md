@@ -19,6 +19,42 @@ All notable changes to `@markline/markline` and `@markline/create`.
   holding a lot of data. Connection, routing and client-address headers and
   `Cookie` aren't forwarded, and a redirect's body isn't shown.
 
+- **Pages are only cached at build time.** Next's page and data cache no longer
+  write when a request is served, though on some Next versions a built page is
+  still copied within `.next` the first time it's read. Custom revalidation code
+  won't update a page, so rebuild to update one. A page added since the build is
+  rendered on each request.
+- **Nav links to `/x/index`.** They're treated as `/x`, and a nav link to a missing
+  page warns at build.
+- **Next 15.5.18 or later.** The `next` dependency is now `^15.5.18`.
+- **Linked pages in static exports.** A symlinked page or folder under `docs/`
+  is now included in a static export, as it already was on a Node server.
+
+### Fixed
+- **Unknown URLs aren't cached.** The Node server no longer stores a copy of
+  each unknown URL, however its path is written, and its 404 isn't cacheable.
+
+### Fixed
+- **Don't follow links in the staging folder.** The CLI replaces `.markline/` if
+  it's a link and removes any links in it, apart from links inside a build's own
+  output, and only ever the link itself. `public/` is staged as real files on every
+  Node version: dead and looping links are skipped with a warning, and a folder
+  reached through more than 8 links isn't copied again.
+- **`.markline/` holds only what Markline put there.** Other files in it, including
+  a real `node_modules`, are removed on each run with a message naming them. The
+  last build's output and `.env` files stay. `MARKLINE_DIST` is only read from the shell,
+  and must be a folder inside the app folder and outside `node_modules`.
+  `markline export` now works with it.
+- **New projects ignore `.markline/`.** `markline init` and `npm create @markline`
+  now write a `.gitignore`, which was missing from the published package.
+
+### Changed
+- **`.env` files beside `markline.json` are read.** The CLI loads site settings
+  from a project's `.env`, `.env.local` and so on: `MARKLINE_AI_KEY`,
+  `MARKLINE_SITE_URL`, `MARKLINE_BASE_PATH` and `NEXT_PUBLIC_*`. Everything else,
+  like `PORT`, has to come from the shell. Files in `.markline/` still work, with the same rule and
+  a message suggesting they move, and the project's files win.
+
 ## 0.1.7
 
 ### Added

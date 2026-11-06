@@ -61,13 +61,16 @@ function toPlainText(md) {
     .trim();
 }
 
-function walk(dir) {
+function walk(dir, parents = []) {
   if (!fs.existsSync(dir)) return [];
+  const real = fs.realpathSync(dir);
+  if (parents.includes(real)) return []; // a link back up the tree
   const out = [];
-  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-    const p = path.join(dir, entry.name);
-    if (entry.isDirectory()) out.push(...walk(p));
-    else if (entry.isFile() && entry.name.endsWith(".mdx")) out.push(p);
+  for (const name of fs.readdirSync(dir)) {
+    const p = path.join(dir, name);
+    const stat = fs.statSync(p, { throwIfNoEntry: false }); // follows links, as lib/docs.ts does
+    if (stat?.isDirectory()) out.push(...walk(p, [...parents, real]));
+    else if (stat?.isFile() && name.endsWith(".mdx")) out.push(p);
   }
   return out;
 }
@@ -307,6 +310,16 @@ function apiResources(root) {
   }));
 }
 
+/** Whether a nav path that isn't a default-version page still leads somewhere: a
+ *  changelog or API page, or a page in another version or language. */
+function isBuiltRoute(root, href) {
+  const [first, ...rest] = href.split(/[#?]/)[0].split("/").filter(Boolean);
+  if (first === "changelog" || first === "api-reference") return true;
+  const inDocs = (docs, parts) =>
+    fs.existsSync(`${path.join(docs, ...parts)}.mdx`) || fs.existsSync(path.join(docs, ...parts, "index.mdx"));
+  return inDocs(path.join(root, "docs"), [first, ...rest]) || inDocs(path.join(root, first, "docs"), rest);
+}
+
 function writeLlms(root) {
   const cfg = loadJsonConfig(root);
   const name = cfg.name ?? cfg.seo?.title ?? "Documentation";
@@ -334,10 +347,14 @@ function writeLlms(root) {
       // in sidebar order. Folders with no `href` contribute only their children.
       const flatten = (items) => (items ?? []).flatMap((p) => [...(p.href ? [p] : []), ...flatten(p.pages)]);
       for (const p of flatten(g.pages)) {
-        const d = docMap.get(p.href);
-        used.add(p.href);
+        const href = p.href.replace(/(^|\/)index$/, "") || "/"; // as lib/config.ts does
+        const d = docMap.get(href);
+        used.add(href);
+        if (!d && href.startsWith("/") && !isBuiltRoute(root, href)) {
+          console.warn(`[markline] navigation links to ${href}, which isn't a page.`);
+        }
         if (d && d.layout === "landing") continue;
-        pages.push({ title: p.label ?? d?.title ?? p.href, url: p.href, lede: d?.lede ?? "" });
+        pages.push({ title: p.label ?? d?.title ?? href, url: href, lede: d?.lede ?? "" });
       }
       if (pages.length) sections.push({ group: qualify ? `${tab.label} · ${g.group}` : g.group, pages });
     }

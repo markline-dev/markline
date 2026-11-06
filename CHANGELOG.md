@@ -4,6 +4,10 @@ All notable changes to `@markline/markline` and `@markline/create`.
 
 ## Unreleased
 
+### Added
+- **Docs on what a build can run.** The deployment guide now says that building a
+  site runs its code, so only build repositories you trust.
+
 ### Changed
 - **CLI flags and checkout runs.** `markline dev`, `build` and `start` pass
   extra flags on to Next, so `markline dev -p 3001` sets the port. Run from

@@ -14,7 +14,8 @@ import { getDocsTabs, pickActiveTab, getNav, flattenLinks, findNavTrail, collect
 import { HubHero } from "@/components/docs/hub-hero";
 import { LandingPage } from "@/components/landing/landing";
 import { remarkLandingProse } from "@/lib/landing-prose";
-import { extractToc } from "@/lib/toc";
+import { remarkCodeGroupTitles } from "@/lib/code-group";
+import { extractToc, remarkStepIds } from "@/lib/toc";
 import { SiteFooter } from "@/components/site-footer";
 import type { Crumb, PageNavLink } from "@/components/docs/page";
 import { ChangelogEntryView, ChangelogView } from "@/components/docs/changelog";
@@ -132,7 +133,12 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
       options={{
         mdxOptions: {
           format: "mdx",
-          remarkPlugins: landing ? [remarkGfm, remarkLandingProse] : [remarkGfm],
+          remarkPlugins: [
+            remarkGfm,
+            remarkCodeGroupTitles,
+            [remarkStepIds, { steps: doc.fm.tocSteps }],
+            ...(landing ? [remarkLandingProse] : []),
+          ],
           rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]],
         },
         blockJS: false,
@@ -171,7 +177,7 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
         actionStyle={config.layout.pageActions}
         title={doc.fm.title}
         lede={doc.fm.lede}
-        toc={doc.fm.toc ?? extractToc(doc.body)}
+        toc={doc.fm.toc ?? extractToc(doc.body, { steps: doc.fm.tocSteps })}
         lastUpdated={doc.fm.last_updated}
         editUrl={editUrl}
         feedbackEnabled={feedbackConfig() != null}
@@ -244,7 +250,7 @@ async function renderChangelog(slug: string[]) {
       lede={intro?.fm.lede}
       intro={
         intro?.body.trim() && page === 1 ? (
-          <MDXRemote source={intro.body} components={mdxComponents} options={{ mdxOptions: { format: "mdx", remarkPlugins: [remarkGfm], rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]] }, blockJS: false }} />
+          <MDXRemote source={intro.body} components={mdxComponents} options={{ mdxOptions: { format: "mdx", remarkPlugins: [remarkGfm, remarkCodeGroupTitles], rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]] }, blockJS: false }} />
         ) : undefined
       }
       entries={entries.slice((page - 1) * PER_PAGE, page * PER_PAGE)}

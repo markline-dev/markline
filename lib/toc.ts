@@ -3,6 +3,11 @@
  * here and in components/docs/mdx.tsx both come from slugify(), so the links
  * land. */
 
+import remarkGfm from "remark-gfm";
+import remarkMdx from "remark-mdx";
+import remarkParse from "remark-parse";
+import { unified } from "unified";
+
 export type TocItem = { id: string; label: string; depth?: 2 | 3 };
 
 export function slugify(s: string): string {
@@ -26,23 +31,130 @@ export function headingText(md: string): string {
     .trim();
 }
 
-/** The page's ## and ### headings, in order, skipping fenced code. */
-export function extractToc(body: string): TocItem[] {
+type MdxAttr = { type: string; name?: string; value?: string | { value?: string } | null };
+type MdxNode = {
+  type: string;
+  name?: string | null;
+  depth?: number;
+  value?: string;
+  attributes?: MdxAttr[];
+  children?: MdxNode[];
+};
+
+const attrOf = (node: MdxNode, name: string) => node.attributes?.find((a) => a.type === "mdxJsxAttribute" && a.name === name);
+
+/** An MDX attribute's string value, whether title="…" or title={"…"}. */
+function stringAttr(node: MdxNode, name: string): string | undefined {
+  const v = attrOf(node, name)?.value;
+  if (typeof v === "string") return v;
+  return v?.value?.match(/^\s*(["'`])([\s\S]*)\1\s*$/)?.[2];
+}
+
+/** A heading's visible text, as its rendered id reads it (mdx.tsx textOf). */
+function nodeText(node: MdxNode): string {
+  if (node.type === "text" || node.type === "inlineCode") return node.value ?? "";
+  return (node.children ?? []).map(nodeText).join("");
+}
+
+/** A boolean attribute: present, unless it's name={false}. */
+function flag(node: MdxNode, name: string): boolean {
+  const attr = attrOf(node, name);
+  if (!attr) return false;
+  return !(typeof attr.value === "object" && attr.value?.value?.trim() === "false");
+}
+
+/**
+ * The children in the page when it loads, so a link to them lands: the first
+ * <Tab>, an <Accordion> only if it starts open, and nothing in a <CodeGroup>,
+ * which shows only its fences.
+ */
+function shownChildren(node: MdxNode): MdxNode[] {
+  const children = node.children ?? [];
+  if (node.name === "CodeGroup") return [];
+  if (node.name === "Accordion" && !flag(node, "defaultOpen")) return [];
+  // <Tabs> takes its first element: a comment or {" "} before it renders nothing.
+  if (node.name === "Tabs") return children.filter((c) => !c.type.endsWith("Expression")).slice(0, 1);
+  return children;
+}
+
+/**
+ * What "On this page" lists, and the id of each step in it, from one walk of
+ * the parsed page, so the links and the ids agree. (A <Tab> and its <Steps> on
+ * one line are read as text, so a step there can still be listed from a tab
+ * that isn't showing.) A step's id is
+ * `step-<slug>`, moved along if a heading, an element or an earlier step has it.
+ */
+function planToc(tree: MdxNode, opts: { steps?: boolean }) {
+  const taken = new Set<string>();
+  const reserve = (node: MdxNode) => {
+    if (node.type === "heading") taken.add(slugify(nodeText(node)));
+    const id = stringAttr(node, "id");
+    if (id) taken.add(id);
+    (node.children ?? []).forEach(reserve);
+  };
+  reserve(tree);
+
+  const stepId = (slug: string) => {
+    let id = `step-${slug}`;
+    for (let n = 2; taken.has(id); n++) id = `step-${slug}-${n}`;
+    taken.add(id);
+    return id;
+  };
+
   const items: TocItem[] = [];
-  let fence: string | null = null;
-  for (const line of body.split("\n")) {
-    const f = line.match(/^\s*(```+|~~~+)/);
-    if (f) {
-      if (!fence) fence = f[1][0];
-      else if (f[1][0] === fence) fence = null;
-      continue;
+  const steps = new Map<MdxNode, string>();
+  let underH2 = false;
+  const visit = (node: MdxNode, listing: boolean) => {
+    let list = listing;
+    if (node.type === "heading") {
+      if (node.depth === 2) underH2 = true;
+      const label = nodeText(node).trim();
+      const id = slugify(label);
+      if ((node.depth === 2 || node.depth === 3) && label && id) items.push({ id, label, depth: node.depth });
+      return;
     }
-    if (fence) continue;
-    const h = line.match(/^(#{2,3})\s+(.+)$/);
-    if (!h) continue;
-    const label = headingText(h[2]);
-    const id = slugify(label);
-    if (label && id) items.push({ id, label, depth: h[1].length as 2 | 3 });
+    if (node.name === "Steps") list = !!opts.steps || flag(node, "toc");
+    else if (node.name === "Step" && listing) {
+      const label = headingText(stringAttr(node, "title") ?? "");
+      const slug = slugify(label);
+      if (label && slug) {
+        const id = stepId(slug);
+        steps.set(node, id);
+        items.push({ id, label, depth: underH2 ? 3 : 2 });
+      }
+    }
+    shownChildren(node).forEach((c) => visit(c, list));
+  };
+  visit(tree, false);
+  return { items, steps };
+}
+
+const parser = unified().use(remarkParse).use(remarkGfm).use(remarkMdx);
+
+/**
+ * The page's ## and ### headings, in order.
+ *
+ * Step titles are listed too inside `<Steps toc>`, or in every <Steps> with
+ * `steps: true` (frontmatter `toc: steps`). A step sits one level below the
+ * ## heading before it, or at the top level when there's none. A page that
+ * doesn't parse can't render either, so it has none.
+ */
+export function extractToc(body: string, opts: { steps?: boolean } = {}): TocItem[] {
+  try {
+    return planToc(parser.parse(body) as MdxNode, opts).items;
+  } catch {
+    return [];
   }
-  return items;
+}
+
+/**
+ * Remark plugin: the id of each step extractToc lists, so its link lands. Other
+ * steps get none, so they can't take over a heading's anchor.
+ */
+export function remarkStepIds(opts: { steps?: boolean } = {}) {
+  return (tree: MdxNode) => {
+    for (const [node, id] of planToc(tree, opts).steps) {
+      (node.attributes ??= []).push({ type: "mdxJsxAttribute", name: "id", value: id });
+    }
+  };
 }

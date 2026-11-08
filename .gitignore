@@ -21,6 +21,12 @@ next-env.d.ts
 /public/robots.txt
 /public/ai-suggestions.json
 /public/changelog/rss.xml
+/.markline-generated.json
+/public/**/*.md
+/public/**/llms.txt
+
+# test sites (test/site-server.ts)
+/.test-tmp
 
 # test sites (test/site-server.ts)
 /.test-tmp

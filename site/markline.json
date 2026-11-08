@@ -37,7 +37,7 @@
               { "href": "/components", "label": "Components" },
               { "href": "/openapi", "label": "API reference" },
               { "href": "/search", "label": "Search" },
-              { "href": "/llms", "label": "LLM files" }
+              { "href": "/llm-files", "label": "LLM files" }
             ]
           },
           {

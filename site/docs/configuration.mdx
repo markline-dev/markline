@@ -458,19 +458,19 @@ See [API reference](/openapi) for the full guide — generating the reference, t
 ```
 
 <ParamField path="seo.title" type="string">
-  The home page's browser tab title, and the default title for link previews.
-  Unset, `name` is used. Setting it also turns on `titleTemplate` for every
-  other page; without it, a page's tab shows just its own `title`.
+  The title of pages that have none of their own, such as the 404 page, and
+  the default for link previews. Unset, `name` is used. Setting it also turns
+  on `titleTemplate`; without it, a page's tab shows just its own `title`.
 </ParamField>
 <ParamField path="seo.titleTemplate" type="string">
-  How other pages' tab titles are written, with `%s` for the page's `title`.
+  How pages' tab titles are written, with `%s` for the page's `title`.
   Default `%s · <name>`. Only used when `seo.title` is set.
 </ParamField>
 <ParamField path="seo.description" type="string">
   The site's meta description. A page uses its own `description`, then its
   `lede`, then this.
 </ParamField>
-<ParamField path="seo.siteName" type="string">The site name in link previews. Default `name`.</ParamField>
+<ParamField path="seo.siteName" type="string">The site name in link previews (`og:site_name`), on pages such as the 404 page that have no preview data of their own. Default `name`.</ParamField>
 <ParamField path="seo.ogImage" type="string">
   The image for link previews on every page: a path in `public/` or a URL.
 </ParamField>
@@ -478,7 +478,7 @@ See [API reference](/openapi) for the full guide — generating the reference, t
   The site's public URL, such as `https://docs.acme.com`. It makes canonical
   links and preview images absolute, and the build needs it for
   `sitemap.xml`, the sitemap line in `robots.txt`, absolute links in
-  [`llms.txt`](/llms) and the [changelog's RSS feed](#changelog). For those
+  [`llms.txt`](/llm-files) and the [changelog's RSS feed](#changelog). For those
   files, the `MARKLINE_SITE_URL` [environment variable](/cli) works too.
 </ParamField>
 

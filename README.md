@@ -267,7 +267,7 @@ my-docs/
 - **Interactive API playground** ("Try it") on every endpoint.
 - Static full-text search (Pagefind) — zero search infrastructure.
 - **[Ask AI](https://markline.dev/ai)** on your own LLM key (BYOK), off by default.
-- **[LLM files](https://markline.dev/llms)** — `llms.txt`, `llms-full.txt` and a `.md` copy of every page.
+- **[LLM files](https://markline.dev/llm-files)** — `llms.txt`, `llms-full.txt` and a `.md` copy of every page.
 - **[Changelog](https://markline.dev/configuration#changelog)** pages from a `changelog/` folder, with RSS.
 - **[Versions and languages](https://markline.dev/versions)** with a switcher.
 - **[Reader feedback](https://markline.dev/feedback)** ("Was this helpful?") to your own endpoint.

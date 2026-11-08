@@ -34,13 +34,15 @@ text too. With `layout.pageActions: "menu"` the menu links the file.
 ## What they include
 
 - **Landing pages are left out** of all of them.
-- **Pages the sidebar doesn't list** still appear, under "More" at the end of
-  an index.
+- **Pages the sidebar doesn't list** still appear, under "More", after the
+  sidebar's groups. In `llms.txt` the API reference section comes after that.
 - **A folder index** is written for each top-level folder holding at least
   one page below it, such as `docs/guides/setup.mdx`. A folder with only an
   index page gets none.
-- **The changelog** is listed in `llms.txt`, but `/changelog` has no `.md`
-  once there are entries. A `docs/changelog.mdx` is only its intro.
+- **The changelog** appears in `llms.txt` only as a link to `/changelog`:
+  where the sidebar links it, or under "More" when there's a
+  `docs/changelog.mdx`. Its entries aren't listed, and once there are entries
+  `/changelog` has no `.md` (a `docs/changelog.mdx` is only its intro).
 - **Other versions and languages** get a `.md` for each page (`/v1/guides/setup.md`),
   but `llms.txt`, `llms-full.txt` and the folder indexes cover only the
   default one.
@@ -51,7 +53,9 @@ text too. With `layout.pageActions: "menu"` the menu links the file.
 
 `markline build` and `markline export` write them as files, so a static
 export serves them from any host. `markline dev` serves the `.md` and folder
-files without a build, always from the current text.
+`llms.txt` files live, from the current text. It doesn't regenerate `/llms.txt`
+or `/llms-full.txt`: those are from the last build, and a new project has none
+until its first build.
 
 A `.md` or folder `llms.txt` in your own `public/` folder is kept, and the
 build doesn't write that one. `llms.txt` and `llms-full.txt` are always

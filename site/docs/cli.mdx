@@ -50,8 +50,9 @@ usual order). Only a site's own settings are taken from them:
 | `MARKLINE_BASE_PATH` | A path prefix for [sub-path hosting](/deployment#sub-path-hosting), e.g. `/docs` |
 | `NEXT_PUBLIC_*` | Values built into the browser bundle, as in any Next app |
 
-Anything else, like `PORT` or `NODE_OPTIONS`, has to be set in the shell; the
-CLI names the ones it ignored. A value set in the shell wins over the same
+Anything else, like `PORT` or `NODE_OPTIONS`, has to be set in the shell. The
+CLI warns about ignored names that look like Markline, Next or Node settings,
+such as `NODE_OPTIONS`; others, like `PORT`, are dropped without a message. A value set in the shell wins over the same
 name in a file. Keep secrets such as `MARKLINE_AI_KEY` in `.env.local` and
 out of git.
 

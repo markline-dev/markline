@@ -39,7 +39,8 @@ toc:
 <ParamField path="topbar.navLinks" type="array">
   `{ label, href }` links shown after the tabs, styled like them, such as
   anchors on a marketing home page (`/#pricing`). A link is marked current when
-  the page's path matches its `href`. On phones they move into the menu.
+  the page's path matches its `href` or sits under it, ignoring any `#` or
+  `?` part, so `/#pricing` is current on the home page. On phones they move into the menu.
 </ParamField>
 <ParamField path="topbar.cta" type="object">`{ label, href }` for the primary "Get started" button.</ParamField>
 <ParamField path="topbar.secondaryCta" type="object">`{ label, href }` for an outlined button before the primary one, e.g. "Book a demo".</ParamField>
@@ -190,8 +191,8 @@ to nest underneath it, as deep as you need:
 
 <ParamField path="method" type="string">
   On a page: an HTTP method shown before its title, for a hand-written
-  endpoint page. `get`, `post`, `put`, `patch` and `delete` get their own
-  colours; anything else is grey.
+  endpoint page. `get`, `post` and `delete` each have a colour, `put` and
+  `patch` share one, and anything else is grey.
 </ParamField>
 
 Set `"group": ""` to show a group's pages without a heading, which suits a
@@ -486,7 +487,7 @@ See [API reference](/openapi) for the full guide — generating the reference, t
 <ParamField path="feedback.endpoint" type="string">
   POST target for the "Was this helpful?" widgets (same JSON from docs pages and
   API resource sections). Point it at a webhook, a Sheet, your own API, or the
-  bundled [`feedback-worker`](/feedback#worker). See [Feedback](/feedback) for the
+  bundled [`feedback-worker`](/feedback#cloudflare-worker-d1). See [Feedback](/feedback) for the
   payload and deploy steps.
 </ParamField>
 

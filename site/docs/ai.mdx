@@ -64,6 +64,41 @@ MARKLINE_AI_KEY=sk-or-...
 <Tip>Restart `markline dev` after editing `markline.json` — config is read once
 per process.</Tip>
 
+Unset, `model` is `gpt-4o-mini`, `label` is `Ask AI`, `maxTokens` is `1024`
+and `rateLimit.perMinute` is `10`. The assistant only runs with
+`"enabled": true`.
+
+<ParamField path="ai.systemPrompt" type="string">
+  Replaces the built-in instructions the model gets before your docs and the
+  reader's question. Used by the built-in `/api/ai` route. In `byok` mode the
+  built-in instructions are always used, and the
+  [Worker](#static-cloudflare-worker) reads its own from
+  `MARKLINE_AI_SYSTEM_PROMPT`.
+</ParamField>
+
+<ParamField path="ai.vision" type="boolean">
+  Whether readers can attach images to a question. Unset, Markline guesses
+  from the `model` name (GPT-4o, Claude, Gemini, Llama vision models and
+  similar). Set it to force the attach button on or off.
+</ParamField>
+
+<ParamField path="ai.suggestions" type="boolean">
+  Writes up to three starter questions for each page at build time, on your key,
+  into `ai-suggestions.json`, which the assistant shows when it opens. Needs
+  `MARKLINE_AI_KEY` set for `markline build` or `markline export`; without it
+  the step is skipped. Later builds in the same folder only ask again for
+  pages whose text changed. Off by default.
+</ParamField>
+
+A page can choose its own starter questions in frontmatter, which win over
+generated ones. Up to three are used:
+
+```yaml
+aiSuggestions:
+  - How do I rotate an API key?
+  - What happens when a key expires?
+```
+
 ## Providers
 
 Pick a `provider` preset, or use `openai-compatible` with an explicit `baseUrl`.

@@ -10,6 +10,8 @@ toc:
     label: Logo & favicon
   - id: accent-color
     label: Accent color
+  - id: buttons
+    label: Buttons
   - id: icons
     label: Icons
   - id: full-palette
@@ -86,6 +88,15 @@ button text in dark mode without any setting. To choose it yourself:
 
 <ParamField path="theme.colors.primaryText / primaryTextDark" type="string">
   Text colour (hex) on `primary` and, in dark mode, on `primaryDark`.
+</ParamField>
+
+## Buttons
+
+<ParamField path="theme.buttonRadius" type="string">
+  Corner radius of buttons: the topbar buttons, buttons on landing pages, and
+  the smaller buttons on docs pages such as Copy for LLM. Any CSS length, like
+  `"8px"` or `"0.5rem"`. Unset, the topbar and landing buttons are pills and
+  the smaller ones have slightly rounded corners.
 </ParamField>
 
 ## Icons

@@ -254,13 +254,16 @@ export function PlaygroundProvider({ spec, children }: { spec: PlaygroundSpec; c
       }
       payloadBody = { bodyBase64: await bytesToBase64(bytes) };
     } else if (typeof encoded === "string") payloadBody = { body: encoded };
-    const r = await fetch("/api/playground", {
+    const r = await fetch(`${process.env.NEXT_PUBLIC_MARKLINE_BASE_PATH ?? ""}/api/playground`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url: targetUrl, method: spec.method.toUpperCase(), headers: sendHeaders, ...payloadBody }),
     });
     if (r.status === 404) throw new Error("proxy-unavailable");
-    const data = await r.json();
+    // Not the proxy's own answer: a static host's page, say.
+    const data = await r.json().catch(() => {
+      throw new Error("proxy-unavailable");
+    });
     if (data.error) throw new Error(data.error);
     const contentType: string = data.contentType ?? "";
     const base = { status: data.status, statusText: data.statusText ?? "", durationMs: data.durationMs ?? 0, via: "proxy" as const, contentType };
@@ -281,7 +284,14 @@ export function PlaygroundProvider({ spec, children }: { spec: PlaygroundSpec; c
           result = await direct(headers);
         } catch (e) {
           if (spec.proxy === "auto") {
-            try { result = await viaProxy(headers); } catch { throw e; }
+            try {
+              result = await viaProxy(headers);
+            } catch (p) {
+              // The proxy answered with its reason: that's more use than the failed
+              // direct fetch. Otherwise there's no proxy here.
+              const answered = p instanceof Error && p.message !== "proxy-unavailable";
+              throw answered ? p : e;
+            }
           } else throw e;
         }
       }

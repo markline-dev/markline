@@ -1,6 +1,11 @@
+import path from "node:path";
 import createMDX from "@next/mdx";
+import { PHASE_DEVELOPMENT_SERVER } from "next/constants.js";
+import { readProxySettings } from "./scripts/proxy-settings.mjs";
 import remarkGfm from "remark-gfm";
 import rehypePrettyCode from "rehype-pretty-code";
+import { safeDistDir } from "./scripts/dist-dir.mjs";
+import { removeGeneratedFiles } from "./scripts/generated-files.mjs";
 
 // Build mode is chosen by the CLI:
 //   MARKLINE_EXPORT=1 -> static HTML export (any CDN / GitHub Pages / S3)
@@ -12,18 +17,26 @@ const isExport = process.env.MARKLINE_EXPORT === "1";
 // and other absolute asset URLs resolve correctly.
 const basePath = (process.env.MARKLINE_BASE_PATH || "").replace(/\/$/, "");
 
+const distDir = safeDistDir(process.env.MARKLINE_DIST, process.cwd());
+
 /** @type {import("next").NextConfig} */
 const nextConfig = {
   output: isExport ? "export" : "standalone",
   // A docs framework builds arbitrary consumer content; a lint rule should never
   // fail a production build. Linting is a separate `npm run lint` step.
   eslint: { ignoreDuringBuilds: true },
-  // Keep build artifacts out of the package/node_modules when the CLI points
-  // them at the consumer's project (MARKLINE_DIST is an absolute path there).
-  ...(process.env.MARKLINE_DIST ? { distDir: process.env.MARKLINE_DIST } : {}),
+  // Lets several builds of one checkout sit side by side.
+  ...(distDir ? { distDir } : {}),
   ...(basePath ? { basePath, assetPrefix: basePath } : {}),
-  env: { NEXT_PUBLIC_MARKLINE_BASE_PATH: basePath },
+  env: {
+    NEXT_PUBLIC_MARKLINE_BASE_PATH: basePath,
+    // A standalone server has no content folder, so the Try it proxy's settings are
+    // decided here.
+    MARKLINE_PROXY_SETTINGS: JSON.stringify(readProxySettings()),
+  },
   reactStrictMode: true,
+  // Pages are only cached at build time. See the file for why.
+  cacheHandler: path.join(process.cwd(), "scripts", "read-only-cache.cjs"),
   // The API playground proxy (app/api/playground/route.ts) is the only `.ts`
   // route in app/. Static export can't include a dynamic route handler, so we
   // drop the `ts` page extension in export mode to exclude it; the playground
@@ -35,6 +48,24 @@ const nextConfig = {
   // dynamic grammar/theme imports resolve via node_modules at runtime.
   serverExternalPackages: ["shiki"],
   ...(isExport ? {} : { async redirects() { return []; } }),
+  // <page>.md and <section>/llms.txt are files in public/ after a build
+  // (scripts/build-search.mjs), and a static export serves just those. Under
+  // `next dev` and the Node server, a path with no such file falls through to
+  // the route handlers that render the same text. These run after public/
+  // files, so a built file wins; `next dev` clears those first (below) so it
+  // always serves the current text.
+  ...(isExport
+    ? {}
+    : {
+        async rewrites() {
+          // No "." or ".." segment, written plainly or encoded: carried into the
+          // destination, it would resolve outside these routes, to a 404 Next caches.
+          return [
+            { source: "/:path((?:(?!(?:\\.|%2[eE]){1,2}/)[^/]+/)*(?!(?:\\.|%2[eE]){1,2}\\.md$)[^/]+)\\.md", destination: "/api/md/:path" },
+            { source: "/:section((?!(?:\\.|%2[eE]){1,2}/)[^/]+)/llms.txt", destination: "/api/llms/:section" },
+          ];
+        },
+      }),
 };
 
 const withMDX = createMDX({
@@ -44,4 +75,7 @@ const withMDX = createMDX({
   },
 });
 
-export default withMDX(nextConfig);
+export default function config(phase) {
+  if (phase === PHASE_DEVELOPMENT_SERVER) removeGeneratedFiles(process.cwd());
+  return withMDX(nextConfig);
+}

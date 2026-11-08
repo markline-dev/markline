@@ -1,102 +1,134 @@
 import { NextResponse } from "next/server";
-import { loadConfig } from "@/lib/config";
-import { loadOpenApi } from "@/lib/openapi";
-import { base64ToBytes, bytesToBase64, isTextualMediaType } from "@/lib/openapi-media";
+import {
+  BufferBudget,
+  forwardableHeaders,
+  isCrossSite,
+  jsonFits,
+  MAX_PROXY_REPLY_BYTES,
+  MAX_PROXY_REQUEST_BYTES,
+  MAX_PROXY_RESPONSE_BYTES,
+  OVER_BUDGET,
+  parsePayload,
+  readCapped,
+  REQUEST_READ_TIMEOUT_MS,
+  untilAborted,
+  UPSTREAM_TIMEOUT_MS,
+} from "@/lib/playground-proxy";
+import { readProxySettings, type ProxySettings } from "@/scripts/proxy-settings.mjs";
 
 // Server-side proxy for the API playground — used when a request can't be sent
 // directly from the browser (CORS). Only present on a Node/Docker/Vercel
 // deployment; static export omits API routes, and the client falls back to a
 // direct fetch.
 //
-// SSRF mitigation: only forward to origins declared in the config baseUrl or
-// the OpenAPI spec's servers. This route is enabled by the docs operator, but
-// we still refuse arbitrary targets.
+// It only forwards to the origins of api.baseUrl and the absolute servers of the
+// OpenAPI specs (every version's), and with none of those it forwards nothing.
 
 export const dynamic = "force-dynamic";
 
-function allowedOrigins(): string[] {
-  const origins = new Set<string>();
-  try {
-    const cfg = loadConfig();
-    if (cfg.api.baseUrl) origins.add(new URL(cfg.api.baseUrl).origin);
-  } catch {
-    /* ignore */
-  }
-  try {
-    for (const s of loadOpenApi().servers) {
-      try {
-        origins.add(new URL(s.url).origin);
-      } catch {
-        /* relative server url — skip */
-      }
-    }
-  } catch {
-    /* ignore */
-  }
-  return [...origins];
+/** Bytes held by requests in progress, across this server. */
+const buffered = { bytes: 0 };
+
+const refuse = (status: number, error: string) => NextResponse.json({ error }, { status });
+
+const megabytes = (bytes: number) => bytes / (1024 * 1024);
+
+const BUSY = "The proxy is handling too much data right now. Try again shortly.";
+
+/** next.config.mjs bakes these in at build time: a standalone server has no content
+ *  folder. Without a build, as in the tests, they're read here. */
+function settings(): ProxySettings {
+  const built = process.env.MARKLINE_PROXY_SETTINGS;
+  return built ? (JSON.parse(built) as ProxySettings) : readProxySettings();
 }
 
 export async function POST(req: Request) {
-  // `bodyBase64` carries a binary request body (an encoded multipart form with
-  // files); `body` a text one.
-  let payload: { url?: string; method?: string; headers?: Record<string, string>; body?: string; bodyBase64?: string };
-  try {
-    payload = await req.json();
-  } catch {
-    return NextResponse.json({ error: "Invalid JSON payload" }, { status: 400 });
-  }
+  if (isCrossSite(req.headers)) return refuse(403, "The proxy only accepts requests from this site.");
 
-  const { url, method = "GET", headers = {}, body, bodyBase64 } = payload;
-  if (!url) return NextResponse.json({ error: "Missing url" }, { status: 400 });
+  const { origins, mode, found, problem } = settings();
+  if (mode === "never") return refuse(403, 'The proxy is turned off (api.playground.proxy is "never").');
+  if (problem) return refuse(500, `The proxy can't tell which API it may call: ${problem} when the site was built.`);
+
+  const budget = new BufferBudget(buffered);
+  try {
+    return await forward(req, origins, found, budget);
+  } finally {
+    budget.release();
+  }
+}
+
+async function forward(req: Request, origins: string[], found: boolean, budget: BufferBudget) {
+  let raw: Awaited<ReturnType<typeof readCapped>>;
+  try {
+    raw = await untilAborted(
+      readCapped(req, MAX_PROXY_REQUEST_BYTES, budget),
+      AbortSignal.any([AbortSignal.timeout(REQUEST_READ_TIMEOUT_MS), req.signal]),
+    );
+  } catch (e) {
+    if (e instanceof Error && e.name === "TimeoutError") return refuse(408, "The request took too long to arrive.");
+    return refuse(400, "The request was cut off.");
+  }
+  if (raw === OVER_BUDGET) return refuse(503, BUSY);
+  if (raw === null) return refuse(413, `The request is larger than the ${megabytes(MAX_PROXY_REQUEST_BYTES)} MB the proxy accepts.`);
+
+  const payload = parsePayload(raw);
+  if ("error" in payload) return refuse(400, payload.error);
+  const { url, method, headers, body } = payload;
 
   let target: URL;
   try {
     target = new URL(url);
   } catch {
-    return NextResponse.json({ error: "Invalid url" }, { status: 400 });
+    return refuse(400, "Invalid url");
   }
-  if (target.protocol !== "http:" && target.protocol !== "https:") {
-    return NextResponse.json({ error: "Only http(s) targets are allowed" }, { status: 400 });
-  }
+  if (target.protocol !== "http:" && target.protocol !== "https:") return refuse(400, "Only http(s) targets are allowed");
+  if (target.username || target.password) return refuse(400, "The url can't include credentials");
 
-  const allowed = allowedOrigins();
-  if (allowed.length > 0 && !allowed.includes(target.origin)) {
-    return NextResponse.json(
-      { error: `Target ${target.origin} is not an allowed API origin` },
-      { status: 403 },
+  if (origins.length === 0) {
+    return refuse(
+      403,
+      found
+        ? "The proxy has no API origin to forward to. Set api.baseUrl in markline.json, or an absolute URL in the spec's servers."
+        : "The proxy found no markline.json when the site was built, so it has no API origin to forward to.",
     );
   }
+  if (!origins.includes(target.origin)) return refuse(403, `Target ${target.origin} is not an allowed API origin`);
 
   const start = Date.now();
+  const request = new AbortController();
   try {
-    const sendBody = ["GET", "HEAD"].includes(method.toUpperCase())
-      ? undefined
-      : typeof bodyBase64 === "string"
-        ? base64ToBytes(bodyBase64)
-        : body;
     const upstream = await fetch(target.toString(), {
       method,
-      headers,
-      body: sendBody,
+      headers: forwardableHeaders(headers),
+      body: ["GET", "HEAD"].includes(method) ? undefined : body,
       redirect: "manual",
+      // Over the cap, out of time, or the reader has gone.
+      signal: AbortSignal.any([request.signal, AbortSignal.timeout(UPSTREAM_TIMEOUT_MS), req.signal]),
+      // Never Next's data cache: these are one reader's calls, and caching one would
+      // buffer the whole response first, whatever the cap below says.
+      cache: "no-store",
     });
-    // Text bodies go back as-is; audio, archives and other bytes as base64 so
-    // they survive the JSON envelope intact.
-    const contentType = upstream.headers.get("content-type") ?? "";
-    const payloadBody = isTextualMediaType(contentType)
-      ? { body: await upstream.text() }
-      : { bodyBase64: await bytesToBase64(new Uint8Array(await upstream.arrayBuffer())) };
-    return NextResponse.json({
-      status: upstream.status,
-      statusText: upstream.statusText,
-      durationMs: Date.now() - start,
-      contentType,
-      ...payloadBody,
-    });
+    const reply = { status: upstream.status, statusText: upstream.statusText };
+    // A redirect isn't followed, so its body, which often names the target, isn't shown.
+    if (upstream.status >= 300 && upstream.status < 400) {
+      request.abort();
+      return NextResponse.json({ ...reply, durationMs: Date.now() - start, body: "" });
+    }
+    const text = await readCapped(upstream, MAX_PROXY_RESPONSE_BYTES, budget);
+    if (text === OVER_BUDGET) {
+      request.abort();
+      return refuse(503, BUSY);
+    }
+    if (text === null) {
+      request.abort();
+      return refuse(413, `The response is larger than the ${megabytes(MAX_PROXY_RESPONSE_BYTES)} MB the proxy returns.`);
+    }
+    if (!jsonFits(text)) return refuse(413, `The response is larger than the ${megabytes(MAX_PROXY_REPLY_BYTES)} MB the proxy returns once encoded.`);
+    return NextResponse.json({ ...reply, durationMs: Date.now() - start, body: text });
   } catch (e) {
-    return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Upstream request failed" },
-      { status: 502 },
-    );
+    if (e instanceof Error && e.name === "TimeoutError") return refuse(504, `The API didn't finish responding within ${UPSTREAM_TIMEOUT_MS / 1000} s.`);
+    // Only a system error code: fetch's messages can repeat a header's value.
+    const code = (e as { cause?: { code?: unknown } })?.cause?.code;
+    return refuse(502, `The API couldn't be reached${typeof code === "string" && /^[A-Z_]+$/.test(code) ? ` (${code})` : ""}.`);
   }
 }

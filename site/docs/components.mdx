@@ -18,6 +18,8 @@ toc:
     label: Link lists
   - id: steps
     label: Steps
+  - id: code-groups
+    label: Code groups
   - id: tabs-accordions
     label: Tabs & accordions
   - id: param-fields
@@ -168,6 +170,34 @@ end of a page uses the same component.
   <Step title="First">Describe the first action.</Step>
   <Step title="Then">Describe the next one.</Step>
 </Steps>
+
+`<Steps toc>` lists the step titles in "On this page", so readers can jump to
+step 4 of a long recipe. For every `<Steps>` on a page, set `toc: steps` in
+its frontmatter instead. Each step is listed under the `##` heading before it.
+
+## Code groups
+
+The same snippet in several languages, as tabs. Write plain fenced code
+blocks inside `<CodeGroup>`; each tab is named by the fence's `title`, or a
+bare label after the language (` ```bash cURL `), or else the language.
+
+<CodeGroup>
+```python
+import markline
+```
+```ts title="TypeScript"
+import { markline } from "markline";
+```
+```bash cURL
+curl https://example.com
+```
+</CodeGroup>
+
+A reader's pick carries over: every group with the same tab labels switches
+with it, on this page and later ones (it's kept in the browser's
+`localStorage`). `sync="name"` joins groups with different labels on one
+channel (each switches when it has the picked tab); `sync={false}` keeps a
+group to itself.
 
 ## Tabs & accordions
 

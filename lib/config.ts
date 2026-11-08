@@ -618,6 +618,17 @@ export function loadTemplateCss(): string {
   return _templateCss;
 }
 
+/** A nav link to a folder's index page is the folder: /guides/index is /guides. */
+export function normalizeNavHrefs<T>(node: T): T {
+  if (Array.isArray(node)) return node.map(normalizeNavHrefs) as T;
+  if (typeof node !== "object" || node === null) return node;
+  const entries = Object.entries(node).map(([key, value]) => [
+    key,
+    key === "href" && typeof value === "string" ? value.replace(/(^|\/)index$/, "") || "/" : normalizeNavHrefs(value),
+  ]);
+  return Object.fromEntries(entries) as T;
+}
+
 export function loadConfig(): MarklineConfig {
   if (_cache) return _cache;
   const file = resolveConfigPath();
@@ -629,7 +640,11 @@ export function loadConfig(): MarklineConfig {
     // No config file (or invalid) — fall back to defaults so the app still boots.
   }
   const base = withTemplate(DEFAULT_CONFIG, user, path.dirname(file));
-  _cache = mergeConfig(base, user);
+  const config = mergeConfig(base, user);
+  config.navigation = normalizeNavHrefs(config.navigation);
+  config.versions = normalizeNavHrefs(config.versions);
+  if (config.i18n) config.i18n = normalizeNavHrefs(config.i18n);
+  _cache = config;
   return _cache;
 }
 

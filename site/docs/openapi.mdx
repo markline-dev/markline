@@ -367,6 +367,16 @@ the direct fetch and the server proxy.
 deployment and is dropped in static export. On a static host, set
 `proxy: "never"` and enable CORS on your API, or the explorer can't reach it.</Warning>
 
+The proxy forwards only to the origin of `api.baseUrl` or an absolute URL in the
+spec's `servers`, so set `api.baseUrl` if your servers are relative or have a
+templated host. It reads these when the site is built, so rebuild after changing
+them. Only pages on your site can use it, and `proxy: "never"` turns it off. Behind
+a reverse proxy that rewrites `Host`, this works with modern browsers on HTTPS; for
+older browsers or a plain-HTTP site, have the proxy send `X-Forwarded-Host`.
+Responses over 25 MB, requests over 35 MB and calls that take longer than 120
+seconds return an error, as do large responses while the server is already holding
+a lot of data.
+
 ## Events & webhooks
 
 If your API emits webhooks or async events, Markline documents them alongside

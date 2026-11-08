@@ -36,10 +36,17 @@ before(async () => {
   fs.writeFileSync(path.join(site.dir, "docs", `${NOT_FOUND_SEGMENT}.mdx`), "---\ntitle: Hidden page\n---\n\nHidden page\n");
   fs.writeFileSync(
     path.join(site.dir, "docs", "commands.mdx"),
-    "---\ntitle: Commands\n---\n\n## Volumes\n\ntext\n\n### `create <volume>`\n\ntext\n\n### `get <name>` / `delete <name>`\n\ntext\n",
+    [
+      "---\ntitle: Commands\ntoc: steps\n---\n",
+      "## Volumes\n\ntext\n\n### `create <volume>`\n\ntext\n\n### `get <name>` / `delete <name>`\n\ntext\n",
+      // Repeats: of a heading, round a heading's own suffixed slug, in a hidden tab, and of a step.
+      "## Verify\n\na\n\n## Verify\n\nb\n\n## Verify 1\n\nc\n\n## 🚀\n\nd\n",
+      '<Tabs>\n<Tab title="A">\n### Verify\n</Tab>\n<Tab title="B">\n### Verify\n</Tab>\n</Tabs>\n',
+      '<Steps>\n<Step title="Verify">e</Step>\n<Step title="Verify">f</Step>\n</Steps>\n',
+    ].join("\n"),
   );
   for (let day = 10; day < 22; day++) {
-    fs.writeFileSync(path.join(site.dir, "changelog", `2026-10-${day}.mdx`), `---\ntitle: Day ${day}\n---\n\nentry\n`);
+    fs.writeFileSync(path.join(site.dir, "changelog", `2026-10-${day}.mdx`), `---\ntitle: Day ${day}\n---\n\nentry\n\n## Fixes\n\na\n\n## Fixes\n\nb\n\n## 🚀\n\nc\n`);
   }
   site.build();
   base = await site.serve("start", "/");
@@ -138,13 +145,28 @@ test("only real API reference paths are pages", { skip }, async () => {
   }
 });
 
-test("every link in a built page's table of contents lands on a heading", { skip }, async () => {
-  const html = await (await fetch(`${base}/commands`)).text();
-  const ids = new Set([...html.matchAll(/<h[23][^>]* id="([^"]+)"/g)].map((m) => m[1]));
+/** Every "On this page" link in a built page lands on exactly one element, and no id repeats. */
+async function tocLinks(url: string): Promise<string[]> {
+  const html = await (await fetch(url)).text();
+  const ids = [...html.matchAll(/ id="([^"]*)"/g)].map((m) => m[1]);
+  const repeated = ids.filter((id, i) => ids.indexOf(id) !== i);
+  assert.deepEqual(repeated, [], `ids repeat on ${url}`);
+  assert.ok(!ids.includes(""), `an empty id on ${url}`);
   const links = [...html.matchAll(/href="#([^"]+)"/g)].map((m) => m[1]);
-  assert.ok(links.includes("create-volume"), links.join());
-  assert.ok(links.includes("get-name-delete-name"), links.join());
-  for (const link of links) assert.ok(ids.has(link), `#${link} has no heading`);
+  for (const link of links) assert.ok(ids.includes(link), `#${link} has no element on ${url}`);
+  return links;
+}
+
+test("every link in a built page's table of contents lands on its own heading", { skip }, async () => {
+  const links = await tocLinks(`${base}/commands`);
+  for (const id of ["create-volume", "get-name-delete-name", "verify", "verify-2", "verify-1", "verify-3", "step-verify", "step-verify-1"]) {
+    assert.ok(links.includes(id), `#${id} isn't listed: ${links.join()}`);
+  }
+});
+
+test("a changelog entry's repeated headings get their own ids", { skip }, async () => {
+  const links = await tocLinks(`${base}/changelog`);
+  assert.ok(links.includes("2026-10-21-fixes") && links.includes("2026-10-21-fixes-1"), links.join());
 });
 
 test("unknown URLs log nothing", { skip }, async () => {

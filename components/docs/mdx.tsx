@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { Image, ProseImage } from "./prose-image";
 import { Audio, AudioGroup } from "./audio";
-import { slugify } from "@/lib/toc";
 import type { MDXComponents } from "mdx/types";
 import { Callout, DocsH2, DocsP } from "./page";
 import { CodeBlock, type CodeSnippet } from "./code-block";
@@ -18,9 +17,8 @@ import {
 } from "@/components/landing/landing";
 import { MarklineHome } from "@/components/landing/home/markline-home";
 
-/** A heading's visible text, however it's nested (code, bold, links), so
- *  its id matches the one lib/toc.ts gives it in "On this page". */
-export function textOf(node: React.ReactNode): string {
+/** An element's visible text, however it's nested (code, bold, links). */
+function textOf(node: React.ReactNode): string {
   if (typeof node === "string" || typeof node === "number") return String(node);
   if (Array.isArray(node)) return node.map(textOf).join("");
   if (node && typeof node === "object" && "props" in node) {
@@ -113,10 +111,11 @@ export type { CodeSnippet };
 
 export const mdxComponents: MDXComponents = {
   // Prose elements are styled structurally by app/docs.css (.docs-prose …) so
-  // they stay token-driven and theme-aware; the components only carry anchor ids.
+  // they stay token-driven and theme-aware; the components only carry anchor ids,
+  // which remarkTocIds gives the ## and ### headings.
   h1: ({ children }) => <h1 className="docs-h1">{children}</h1>,
-  h2: ({ children }) => <DocsH2 id={slugify(textOf(children))}>{children}</DocsH2>,
-  h3: ({ children }) => <h3 id={slugify(textOf(children)) || undefined}>{children}</h3>,
+  h2: ({ id, children }) => <DocsH2 id={id}>{children}</DocsH2>,
+  h3: ({ id, children }) => <h3 id={id}>{children}</h3>,
   p: ({ children }) => <DocsP>{children}</DocsP>,
   ul: ({ children }) => <ul>{children}</ul>,
   ol: ({ children }) => <ol>{children}</ol>,

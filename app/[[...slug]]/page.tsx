@@ -15,7 +15,7 @@ import { HubHero } from "@/components/docs/hub-hero";
 import { LandingPage } from "@/components/landing/landing";
 import { remarkLandingProse } from "@/lib/landing-prose";
 import { remarkCodeGroupTitles } from "@/lib/code-group";
-import { extractToc, remarkStepIds } from "@/lib/toc";
+import { extractToc, missingTocIds, remarkTocIds } from "@/lib/toc";
 import { SiteFooter } from "@/components/site-footer";
 import type { Crumb, PageNavLink } from "@/components/docs/page";
 import { ChangelogEntryView, ChangelogView } from "@/components/docs/changelog";
@@ -125,6 +125,11 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
   const pathname = doc.slug.length ? `/${doc.slug.join("/")}` : "/";
   const { prev, next } = pageNeighbors(tabs, pathname);
 
+  // A hand-written "On this page" can drift from the headings it links to.
+  for (const id of doc.fm.toc ? missingTocIds(doc.body, doc.fm.toc, { steps: doc.fm.tocSteps }) : []) {
+    console.warn(`[markline] toc: entry #${id} doesn't match any heading on ${pathname}`);
+  }
+
   const landing = doc.fm.layout === "landing";
   const content = (
     <MDXRemote
@@ -136,7 +141,7 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
           remarkPlugins: [
             remarkGfm,
             remarkCodeGroupTitles,
-            [remarkStepIds, { steps: doc.fm.tocSteps }],
+            [remarkTocIds, { steps: doc.fm.tocSteps }],
             ...(landing ? [remarkLandingProse] : []),
           ],
           rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]],
@@ -250,7 +255,7 @@ async function renderChangelog(slug: string[]) {
       lede={intro?.fm.lede}
       intro={
         intro?.body.trim() && page === 1 ? (
-          <MDXRemote source={intro.body} components={mdxComponents} options={{ mdxOptions: { format: "mdx", remarkPlugins: [remarkGfm, remarkCodeGroupTitles], rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]] }, blockJS: false }} />
+          <MDXRemote source={intro.body} components={mdxComponents} options={{ mdxOptions: { format: "mdx", remarkPlugins: [remarkGfm, remarkCodeGroupTitles, remarkTocIds], rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]] }, blockJS: false }} />
         ) : undefined
       }
       entries={entries.slice((page - 1) * PER_PAGE, page * PER_PAGE)}

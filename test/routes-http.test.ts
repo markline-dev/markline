@@ -1,5 +1,7 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import { createSite } from "./site-server";
 
 // The .md and llms.txt routes over HTTP: a real `markline dev` on a small site.
@@ -11,6 +13,9 @@ let base = "";
 const get = (p: string) => fetch(base + p);
 
 before(async () => {
+  // .mdx files outside docs/, which no URL may reach.
+  fs.writeFileSync(path.join(site.dir, "private.mdx"), "---\ntitle: Private\n---\n\nNOT-A-PAGE\n");
+  fs.writeFileSync(path.join(site.dir, "..", "outside.mdx"), "---\ntitle: Outside\n---\n\nNOT-A-PAGE\n");
   base = await site.serve("dev", "/api/llms/guides");
 });
 
@@ -57,6 +62,6 @@ test("no path reaches a file outside docs/", async () => {
   for (const p of paths) {
     const res = await get(p);
     assert.equal(res.status, 404, p);
-    assert.doesNotMatch(await res.text(), /CANARY/, p);
+    assert.doesNotMatch(await res.text(), /NOT-A-PAGE/, p);
   }
 });

@@ -8,6 +8,8 @@ toc:
     label: Node server
   - id: sub-path-hosting
     label: Sub-path hosting
+  - id: what-a-build-can-run
+    label: What a build can run
 ---
 
 ## Static hosting
@@ -37,6 +39,9 @@ Upload `out/` to any static host — a CDN, GitHub Pages, Netlify, or S3.
 markline build && markline start
 ```
 
+It serves pages from the last build, so rebuild to update or remove them. A page
+added since then is rendered on each request until you do.
+
 This enables the playground's server-side proxy for APIs without CORS. The
 scaffolded `Dockerfile` builds and serves the site:
 
@@ -52,3 +57,15 @@ so assets and search resolve correctly:
 ```bash
 MARKLINE_BASE_PATH=/my-repo markline export
 ```
+
+## What a build can run
+
+Building a Markline site runs its code. MDX pages can run JavaScript at build time,
+as `npm install` or any other build tool can, so only build repositories you trust.
+
+That includes preview deploys of pull requests from people outside your team. Don't
+build those automatically with access to secrets.
+
+Serving a built site is different. Pages are rendered from your site's own files,
+never from what a reader sends, so a reader can't run code on your server through
+them.

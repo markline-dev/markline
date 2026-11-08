@@ -1,5 +1,6 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import path from "node:path";
 import { createSite, filesUnder } from "./site-server";
 
@@ -18,6 +19,9 @@ let base = "";
 
 before(async () => {
   if (skip) return;
+  // .mdx files outside docs/, which no URL may reach.
+  fs.writeFileSync(path.join(site.dir, "private.mdx"), "---\ntitle: Private\n---\n\nNOT-A-PAGE\n");
+  fs.writeFileSync(path.join(site.dir, "..", "outside.mdx"), "---\ntitle: Outside\n---\n\nNOT-A-PAGE\n");
   site.build();
   base = await site.serve("start", "/");
 });
@@ -48,6 +52,6 @@ test("no path reaches a file outside docs/", { skip }, async () => {
   for (const p of ["/..%2fprivate.md", "/..%2f..%2foutside.md", "/api/md/..%2fprivate", "/api/md/..%2f..%2foutside"]) {
     const res = await fetch(base + p);
     assert.equal(res.status, 404, p);
-    assert.doesNotMatch(await res.text(), /CANARY/, p);
+    assert.doesNotMatch(await res.text(), /NOT-A-PAGE/, p);
   }
 });

@@ -122,3 +122,61 @@ test("staging replaces a read-only file and a file where a folder now is", (t) =
   assert.equal(fs.readFileSync(path.join(staged, "ro.txt"), "utf8"), "two");
   assert.equal(fs.readFileSync(path.join(staged, "swap", "in.txt"), "utf8"), "in");
 });
+
+test("two links to one folder are both staged", (t) => {
+  const { root, pub, staged, run } = setup(t);
+  const assets = path.join(root, "assets");
+  fs.mkdirSync(assets);
+  fs.writeFileSync(path.join(assets, "logo.txt"), "logo");
+  fs.mkdirSync(pub);
+  fs.symlinkSync(assets, path.join(pub, "one"));
+  fs.symlinkSync(assets, path.join(pub, "two"));
+  const r = run();
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(r.stderr, "");
+  for (const name of ["one", "two"]) assert.equal(fs.readFileSync(path.join(staged, name, "logo.txt"), "utf8"), "logo");
+});
+
+test("links that fan out stop at a fixed number of copies", (t) => {
+  const { root, pub, staged, run } = setup(t);
+  // Each level links twice to the next, which would double the copy per level.
+  const levels = 13;
+  for (let i = 0; i < levels; i++) {
+    const dir = path.join(root, `level${i}`);
+    fs.mkdirSync(dir);
+    fs.writeFileSync(path.join(dir, "file.txt"), "x");
+    if (i < levels - 1) {
+      fs.symlinkSync(path.join(root, `level${i + 1}`), path.join(dir, "a"));
+      fs.symlinkSync(path.join(root, `level${i + 1}`), path.join(dir, "b"));
+    }
+  }
+  fs.symlinkSync(path.join(root, "level0"), pub);
+  const r = run();
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stderr, /copied too many times/);
+  const files = (fs.readdirSync(staged, { recursive: true, withFileTypes: true }) as fs.Dirent[]).filter((e) => e.isFile()).length;
+  assert.ok(files <= levels * 8, `${files} files`);
+  assert.ok(fs.existsSync(path.join(staged, "a", "a", "file.txt")), "the first copies are there");
+});
+
+test("public/ can't link into the staged app", (t) => {
+  const { site, pub, staged, run } = setup(t);
+  assert.equal(run().status, 0); // stages the app
+  const work = path.join(site, ".markline");
+  fs.mkdirSync(pub);
+  fs.writeFileSync(path.join(pub, "keep.txt"), "k");
+  fs.mkdirSync(path.join(work, ".next", "server"), { recursive: true });
+  fs.symlinkSync(path.join(work, ".next", "server"), path.join(pub, "built"));
+  const r = run();
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stderr, /built/);
+  assert.equal(fs.existsSync(path.join(staged, "built")), false);
+  assert.equal(fs.readFileSync(path.join(staged, "keep.txt"), "utf8"), "k");
+
+  fs.rmSync(pub, { recursive: true });
+  fs.symlinkSync(path.join(work, ".next"), pub);
+  const top = run();
+  assert.equal(top.status, 1);
+  assert.match(top.stderr, /holds the staged app/);
+});
+

@@ -1,4 +1,4 @@
-import { notFound } from "next/navigation";
+import { NOT_FOUND_SEGMENT, uncachedNotFound } from "@/lib/uncached-not-found";
 import type { Metadata } from "next";
 import fs from "node:fs";
 import path from "node:path";
@@ -103,13 +103,12 @@ function renderMdx(source: string) {
   );
 }
 
-// Only the params from generateStaticParams exist (keeps `output: export` happy).
-export const dynamicParams = false;
 
 export function generateStaticParams(): { slug?: string[] }[] {
   // Always include the base path so `output: export` has at least one path to
   // generate; on a docs-only site (no spec) the page renders notFound().
   const params: { slug?: string[] }[] = [{ slug: undefined }];
+  if (process.env.MARKLINE_EXPORT !== "1") params.push({ slug: [NOT_FOUND_SEGMENT] });
 
   // Resource pages (one per tag) + per-operation pages (back-compat deep links),
   // for a given version variant, under an optional path prefix.
@@ -155,8 +154,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug?: st
 
 export default async function ApiReferencePage({ params }: { params: Promise<{ slug?: string[] }> }) {
   const { slug } = await params;
+  if (slug?.[0] === NOT_FOUND_SEGMENT) return uncachedNotFound();
   const { variantId, rest } = parseVariant(slug);
-  if (!hasOpenApiSpec(variantId)) return notFound();
+  if (!hasOpenApiSpec(variantId)) return uncachedNotFound();
+  if (rest.length > 1) return uncachedNotFound(); // a resource or operation is one segment
   const doc = loadOpenApi(variantId);
   const root = loadRaw(variantId);
   const base = variantId ? `/api-reference/${variantId}` : "/api-reference";
@@ -187,7 +188,7 @@ export default async function ApiReferencePage({ params }: { params: Promise<{ s
   }
 
   const op = first ? doc.operationsById[first] : undefined;
-  if (!op) return notFound();
+  if (!op) return uncachedNotFound();
 
   const parsedTag = parseOpenApiTag(op.tag, doc.tagLabels);
   const crumbs = [

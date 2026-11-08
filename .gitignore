@@ -28,6 +28,9 @@ next-env.d.ts
 # test sites (test/site-server.ts)
 /.test-tmp
 
+# test sites (test/site-server.ts)
+/.test-tmp
+
 # misc
 .DS_Store
 *.pem

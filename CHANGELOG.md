@@ -35,6 +35,7 @@ All notable changes to `@markline/markline` and `@markline/create`.
   is now included in a static export, as it already was on a Node server.
 
 ### Fixed
+- **"On this page" keeps `<placeholders>` in code.** A heading like ``### `create <volume>` `` now links to its own id. The TOC stripped `<volume>` as HTML before unwrapping the code, so the link missed the heading.
 - **Unknown URLs aren't cached.** The Node server no longer stores a copy of
   each unknown URL, however its path is written, and its 404 isn't cacheable.
 

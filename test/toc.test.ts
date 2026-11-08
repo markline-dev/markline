@@ -21,3 +21,15 @@ test("headings with inline markdown use their visible text", () => {
   assert.equal(headingText("**Bold** and [a link](/x) ##"), "Bold and a link");
   assert.equal(slugify(headingText("Tabs & `accordions`")), "tabs-accordions");
 });
+
+test("angle brackets inside inline code are kept, not stripped as HTML", () => {
+  // The heading renders as <code>create &lt;volume&gt;</code>, so its id is
+  // create-volume; the TOC link has to match.
+  assert.equal(headingText("`create <volume>`"), "create <volume>");
+  assert.equal(headingText("`get <name>` / `delete <name>`"), "get <name> / delete <name>");
+  assert.deepEqual(extractToc("### `create <volume>`\n"), [
+    { id: "create-volume", label: "create <volume>", depth: 3 },
+  ]);
+  // Real inline HTML outside code is still dropped.
+  assert.equal(headingText("Hello <b>world</b> and `<x>`"), "Hello world and <x>");
+});

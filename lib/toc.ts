@@ -11,13 +11,18 @@ export function slugify(s: string): string {
 
 /** Inline markdown in a heading → its visible text. */
 export function headingText(md: string): string {
+  // Code spans are lifted out first and put back last: their content is literal,
+  // so `create <volume>` must keep "<volume>" (the rendered heading does), and
+  // `__x__` must not be read as emphasis.
+  const code: string[] = [];
   return md
+    .replace(/`([^`]*)`/g, (_, c: string) => `\u0000${code.push(c) - 1}\u0000`) // code
     .replace(/!\[([^\]]*)\]\([^)]*\)/g, "$1") // images
     .replace(/\[([^\]]*)\]\([^)]*\)/g, "$1") // links
     .replace(/<[^>]+>/g, "") // inline JSX / HTML
-    .replace(/`([^`]*)`/g, "$1") // code
     .replace(/(\*\*|__|\*|_|~~)(.+?)\1/g, "$2") // emphasis
     .replace(/\s+#+\s*$/, "") // closing #s
+    .replace(/\u0000(\d+)\u0000/g, (_, i: string) => code[Number(i)])
     .trim();
 }
 

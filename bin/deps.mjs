@@ -33,7 +33,8 @@ export function depsDir(appDir) {
  * Point the link at `deps`, replacing one left by an earlier run: its target
  * may be gone (a removed checkout) or no longer the right one (the package has
  * since been installed). With no `deps` an old link is just removed, so
- * Node resolves upward from the staged app. A real folder is left alone.
+ * Node resolves upward from the staged app. A real folder is left alone, though
+ * prepareWorkDir has already removed one from the staging folder.
  */
 export function linkDeps(link, deps) {
   let stat;

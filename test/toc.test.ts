@@ -30,6 +30,9 @@ test("angle brackets inside inline code are kept, not stripped as HTML", () => {
   assert.deepEqual(extractToc("### `create <volume>`\n"), [
     { id: "create-volume", label: "create <volume>", depth: 3 },
   ]);
+  // Code is literal: emphasis markers inside it stay.
+  assert.equal(headingText("`a*b*c`"), "a*b*c");
+  assert.equal(headingText("`snake_case_name`"), "snake_case_name");
   // Real inline HTML outside code is still dropped.
   assert.equal(headingText("Hello <b>world</b> and `<x>`"), "Hello world and <x>");
 });

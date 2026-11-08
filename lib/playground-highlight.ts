@@ -14,7 +14,11 @@ export function escHtml(s: string): string {
 
 /** A JSON (or any) response body as HTML, coloured when it's small enough. */
 export function colorizeJsonHtml(s: string): string {
-  if (!s) return "(empty response)";
+  return s ? colorizeJsonText(s) : "(empty response)";
+}
+
+/** colorizeJsonHtml without the placeholder for an empty body. */
+export function colorizeJsonText(s: string): string {
   if (s.length > COLOR_LIMIT_CHARS) return escHtml(s);
   return escHtml(s).replace(
     /("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g,

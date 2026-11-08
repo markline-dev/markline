@@ -5,6 +5,7 @@ import Link from "next/link";
 import type { ApiRefView, AttrView, EndpointView, EventColors, EventView, NavTreeNode, NavParent } from "@/lib/apiref-view";
 import type { AiPublicConfig } from "@/lib/config";
 import { ApiExplorer, BinaryBody, PlaygroundProvider, usePlayground } from "../playground";
+import { colorizeJsonText } from "@/lib/playground-highlight";
 import { AskDock, openAskPanel } from "../../ai/ask-dock";
 import { SectionRate } from "../../feedback";
 import { SiteCredit } from "@/components/site-credit";
@@ -818,7 +819,7 @@ function TryItCards({ ep }: { ep: EndpointView }) {
           {live.blob ? (
             <BinaryBody blob={live.blob} contentType={live.contentType} />
           ) : (
-            <pre dangerouslySetInnerHTML={{ __html: colorizeJsonString(live.body) }} />
+            <pre dangerouslySetInnerHTML={{ __html: colorizeJsonText(live.body) }} />
           )}
         </div>
       ) : pg.error ? (
@@ -844,20 +845,6 @@ function CodePanels({ code, id }: { code: EndpointView["code"]; id: string }) {
         </div>
       ))}
     </div>
-  );
-}
-
-/** Colorize a JSON string into the design's code-rail span classes. */
-function colorizeJsonString(s: string): string {
-  const esc = s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  return esc.replace(
-    /("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g,
-    (m, str, colon, kw, num) => {
-      if (str) return colon ? `<span class="key">${str}</span>${colon}` : `<span class="s">${str}</span>`;
-      if (kw) return `<span class="k">${kw}</span>`;
-      if (num) return `<span class="n">${num}</span>`;
-      return m;
-    },
   );
 }
 

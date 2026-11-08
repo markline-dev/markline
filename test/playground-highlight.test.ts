@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { COLOR_LIMIT_CHARS, colorizeCurl, colorizeJsonHtml } from "../lib/playground-highlight";
+import { COLOR_LIMIT_CHARS, colorizeCurl, colorizeJsonHtml, colorizeJsonText } from "../lib/playground-highlight";
 
 const MB = 1024 * 1024;
 
@@ -16,8 +16,7 @@ function bigBodies(size: number): Record<string, string> {
 test("10 MB bodies don't overflow either colourer", () => {
   for (const [name, body] of Object.entries(bigBodies(10 * MB))) {
     assert.ok(body.length > COLOR_LIMIT_CHARS, name);
-    const json = colorizeJsonHtml(body);
-    assert.equal(json.includes("<span"), false, name);
+    for (const json of [colorizeJsonHtml(body), colorizeJsonText(body)]) assert.equal(json.includes("<span"), false, name);
     const curl = colorizeCurl(`curl --request POST \\\n  --data '${body}'`);
     assert.equal(curl.includes("<span"), false, name);
   }
@@ -26,7 +25,7 @@ test("10 MB bodies don't overflow either colourer", () => {
 test("uncoloured text is still escaped", () => {
   const html = '<img src=x onerror="alert(1)"><script>alert(2)</script>&amp;';
   const body = JSON.stringify({ html, pad: "a".repeat(COLOR_LIMIT_CHARS) });
-  for (const out of [colorizeJsonHtml(body), colorizeCurl(`curl --data '${body}'`)]) {
+  for (const out of [colorizeJsonHtml(body), colorizeJsonText(body), colorizeCurl(`curl --data '${body}'`)]) {
     assert.equal(out.includes("<img"), false);
     assert.equal(out.includes("<script"), false);
     assert.ok(out.includes("&lt;img src=x onerror="));
@@ -55,6 +54,8 @@ test("small bodies are coloured and escaped as before", () => {
     '{<span class="key">"a"</span>: <span class="n">1</span>, <span class="key">"b"</span>: <span class="k">true</span>, <span class="key">"c"</span>: <span class="s">"&lt;b&gt;"</span>}',
   );
   assert.equal(colorizeJsonHtml(""), "(empty response)");
+  assert.equal(colorizeJsonText(""), "");
+  assert.equal(colorizeJsonText('{"a": 1}'), colorizeJsonHtml('{"a": 1}'));
   assert.equal(
     colorizeCurl("curl --url 'https://x.test/<a>'"),
     '<span style="color:#6E86FA">curl</span> <span style="color:#8E959C">--url</span> <span style="color:#3CC88C">\'https://x.test/&lt;a&gt;\'</span>',

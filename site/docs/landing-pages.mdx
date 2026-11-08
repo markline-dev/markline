@@ -19,8 +19,10 @@ toc:
 ---
 
 Set `layout: landing` in a page's frontmatter and it renders full width,
-with no sidebar. The components below each fill a full-width band. Plain
-Markdown between them sits in a centred column at docs reading width. See
+with no sidebar. `<Hero>`, `<FeatureGrid>`, `<CTASection>`, `<StatStrip>` and
+`<Bento>` each fill a full-width band. Everything else between them, including
+Markdown, `<SectionHead>`, `<Eyebrow>` and `<CodeShowcase>`, sits in a
+centred column at docs reading width. See
 [Page layouts](/configuration#page-layouts).
 
 ```mdx
@@ -56,8 +58,7 @@ The page's opening band, with its only `<h1>`.
 
 `<CTAButton href="…">` is a button link. `variant` is `primary` (default),
 `secondary` or `ghost`; `size` is `md` (default) or `lg`; `external` opens
-the link in a new tab. Its corners follow
-[`theme.buttonRadius`](/theming#buttons).
+the link in a new tab.
 
 ## Features
 

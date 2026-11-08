@@ -23,11 +23,13 @@ Every page in `docs/` starts with a frontmatter block. Only `title` is needed:
 title: Rotate an API key
 lede: Replace a key without downtime.
 description: How to rotate an Acme API key without breaking live traffic.
-last_updated: 2026-11-08
+last_updated: "2026-11-08"
 ---
 ```
 
-Fields not listed here are ignored.
+Fields not listed here are ignored. Some layouts ignore some fields too:
+`landing` pages use only `title`, `description` and `layout`, and `hub` pages
+show no breadcrumbs or related pages.
 
 ## Page text
 
@@ -46,7 +48,9 @@ Fields not listed here are ignored.
 </ParamField>
 <ParamField path="last_updated" type="string">
   Shown as "Last updated …" at the foot of the page, or beside the page
-  actions with `layout.pageActions: "menu"`. Written exactly as given.
+  actions with `layout.pageActions: "menu"`. Written exactly as given. Quote
+  a date (`"2026-11-08"`): unquoted, YAML reads it as a date and the page
+  shows it in a long timestamp format.
 </ParamField>
 
 ## On this page

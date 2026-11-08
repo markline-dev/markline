@@ -4,16 +4,19 @@ on:
   pull_request:
   push:
     branches: [main]
+  schedule:
+    - cron: "0 6 * * 1" # Mondays, for the newest Next a fresh install would get
 
 permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event_name == 'schedule' && 'weekly' || github.ref }}
   cancel-in-progress: true
 
 jobs:
   check:
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -33,3 +36,39 @@ jobs:
         env:
           MARKLINE_CONTENT: site
           MARKLINE_EXPORT: "1"
+
+  # The lockfile pins one Next, and a fresh install gets the newest one allowed.
+  # scripts/read-only-cache.cjs and lib/uncached-not-found.ts depend on how Next behaves.
+  latest-next:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install the newest Next the package allows
+        run: |
+          range=$(node -p "require('./package.json').dependencies.next")
+          npm install --no-save "next@$range"
+          node -p "'Testing against next ' + require('next/package.json').version"
+      - name: Test
+        run: node --import ./test/setup.mjs --test test/page-cache-prod.test.ts test/page-cache-dev.test.ts test/read-only-cache.test.ts
+      - name: Open an issue if the weekly run fails
+        if: failure() && github.event_name == 'schedule'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(node -p "require('next/package.json').version" 2>/dev/null || echo unknown)
+          run="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+          title="Weekly tests against the newest Next are failing"
+          open=$(gh issue list --state open --search "in:title \"$title\"" --json number --jq '.[0].number // empty')
+          if [ -n "$open" ]; then
+            gh issue comment "$open" --body "Still failing on next $version: $run"
+          else
+            gh issue create --title "$title" --body "Failing on next $version: $run"
+          fi

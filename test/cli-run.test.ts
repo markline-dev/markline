@@ -133,6 +133,8 @@ test("a positional argument is refused before anything runs", (t) => {
 test("export warns about flags it can't use, and still builds", (t) => {
   const { root, cli } = setup(t);
   const { app, docs } = checkout(root);
+  const bin = path.join(app, "node_modules", "next", "dist", "bin", "next");
+  fs.writeFileSync(bin, `${FAKE_NEXT}require("node:fs").mkdirSync("out", { recursive: true });\n`);
   const { status, stderr, runs } = cli(app, docs, "export", "--bogus");
   assert.equal(status, 0);
   assert.match(stderr, /--bogus/);

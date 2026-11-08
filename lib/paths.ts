@@ -2,6 +2,14 @@ import fs from "node:fs";
 import path from "node:path";
 
 /**
+ * Whether URL segments are safe to join onto a folder. Route handlers get their
+ * params decoded, so `/..%2fprivate.md` arrives with a literal `..` in it.
+ */
+export function isSafeSlug(slug: string[]): boolean {
+  return slug.every((s) => s !== "." && s !== ".." && !/[/\\\0]/.test(s));
+}
+
+/**
  * Root directory that holds docs content (the `docs/` and `api/` subtrees).
  *
  * Configurable via the `MARKLINE_CONTENT` env var, which may be absolute or

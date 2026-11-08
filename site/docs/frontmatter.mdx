@@ -1,0 +1,106 @@
+---
+title: Frontmatter
+lede: The fields a page can set in the YAML block at its top.
+toc:
+  - id: page-text
+    label: Page text
+  - id: on-this-page
+    label: On this page
+  - id: breadcrumbs-related-pages
+    label: Breadcrumbs & related pages
+  - id: layout
+    label: Layout
+  - id: ask-ai
+    label: Ask AI
+  - id: changelog-entries
+    label: Changelog entries
+---
+
+Every page in `docs/` starts with a frontmatter block. Only `title` is needed:
+
+```mdx
+---
+title: Rotate an API key
+lede: Replace a key without downtime.
+description: How to rotate an Acme API key without breaking live traffic.
+last_updated: 2026-11-08
+---
+```
+
+Fields not listed here are ignored.
+
+## Page text
+
+<ParamField path="title" type="string" required>
+  The page heading, and the browser tab title, written as
+  `title · site name` unless `seo.titleTemplate` says otherwise. Search and
+  related-page lists use it too.
+</ParamField>
+<ParamField path="lede" type="string">
+  A line under the title. Search indexes it, and `llms.txt` lists it beside
+  the page's link.
+</ParamField>
+<ParamField path="description" type="string">
+  The meta description for search engines and link previews. Unset, the
+  `lede` is used, then `seo.description`.
+</ParamField>
+<ParamField path="last_updated" type="string">
+  Shown as "Last updated …" at the foot of the page, or beside the page
+  actions with `layout.pageActions: "menu"`. Written exactly as given.
+</ParamField>
+
+## On this page
+
+<ParamField path="toc" type='array | false | "steps"'>
+  Unset, "On this page" lists the page's `##` and `###` headings. A list of
+  `{ id, label }` replaces it; `false` hides it; `steps` adds the title of
+  every `<Step>`. See [On this page](/configuration#on-this-page).
+</ParamField>
+
+## Breadcrumbs & related pages
+
+<ParamField path="crumbs" type="array">
+  Replaces the breadcrumb trail built from the sidebar. Each item is
+  `{ label, href? }`; one without `href` isn't a link.
+
+  ```yaml
+  crumbs:
+    - label: Guides
+      href: /guides
+    - label: Webhooks
+  ```
+</ParamField>
+<ParamField path="related" type="string[]">
+  Paths of pages listed under "Related articles" at the end, shown by their
+  titles, e.g. `[/billing/plans, /billing/invoices]`. See
+  [`layout.related`](/configuration#layout).
+</ParamField>
+
+## Layout
+
+<ParamField path="layout" type='"doc" | "landing" | "hub"'>
+  `doc` (default) has the sidebar and "On this page". `landing` is full width
+  for [landing pages](/landing-pages). `hub` puts a hero with a large search
+  box above the page. See [Page layouts](/configuration#page-layouts).
+</ParamField>
+<ParamField path="hero" type="object">
+  `hub` pages only: `image`, `imageStyle`, `background`, `text`, `align` and
+  `placeholder` (the search box's text). See
+  [Page layouts](/configuration#page-layouts).
+</ParamField>
+<ParamField path="sidebar" type="boolean">
+  `false` hides the sidebar on desktop so the page uses the full width.
+  Phones still have it in the menu.
+</ParamField>
+
+## Ask AI
+
+<ParamField path="aiSuggestions" type="string[]">
+  Up to three starter questions for the [Ask AI](/ai) panel on this page.
+  They replace generated or default ones.
+</ParamField>
+
+## Changelog entries
+
+Files in `changelog/` have their own fields: `date`, `title`, `tags` and
+`breaking`. See [Changelog](/configuration#changelog).

@@ -24,15 +24,28 @@ toc:
     label: Tabs & accordions
   - id: param-fields
     label: Param fields
+  - id: paths
+    label: Paths
+  - id: endpoint-lists
+    label: Endpoint lists
+  - id: code-blocks-from-data
+    label: Code blocks from data
+  - id: landing-pages
+    label: Landing pages
 ---
 
 ## Callouts
 
 <Note>A neutral note.</Note>
+<Info>The same as a note, by another name.</Info>
 <Tip title="Tip">A helpful suggestion.</Tip>
 <Warning>Something to watch out for.</Warning>
 <Danger>A destructive or irreversible action.</Danger>
 <Check>A confirmation of success.</Check>
+
+Each takes an optional `title`, shown in bold before the text.
+`<Callout tone="info|ok|warn" title="…">` is the same box with the tone
+chosen by a prop, which helps when converting docs from another tool.
 
 ## Cards
 
@@ -215,3 +228,56 @@ group to itself.
 
 <ParamField path="id" type="string" required>The unique identifier.</ParamField>
 <ParamField query="limit" type="integer" default={20}>Maximum number of results.</ParamField>
+
+`<ResponseField>` takes the same props as `<ParamField>` and looks the same.
+Use it for the fields of a response, so the source reads clearly. Either one
+takes `path`, `query`, `header`, `body` or `name` as its label, plus `type`,
+`required` and `default`.
+
+## Paths
+
+Numbered cards that link to the next pages to read, such as the routes
+through a getting-started section. `arrow` is the text in the card's corner.
+
+<Paths>
+  <Path num={1} href="/quickstart" title="Quickstart" arrow="Start →">Create and run a site.</Path>
+  <Path num={2} href="/configuration" title="Configure" arrow="Next →">Set up navigation and branding.</Path>
+</Paths>
+
+```mdx
+<Paths>
+  <Path num={1} href="/quickstart" title="Quickstart" arrow="Start →">Create and run a site.</Path>
+  <Path num={2} href="/configuration" title="Configure" arrow="Next →">Set up navigation and branding.</Path>
+</Paths>
+```
+
+## Endpoint lists
+
+`<EndpointList />` lists every operation in your OpenAPI spec, grouped by tag,
+each linking to its section of the [API reference](/openapi). Put it in a
+hand-written API introduction. `tags` limits it to some tags, by their names in
+the spec:
+
+```mdx
+<EndpointList tags={["users", "billing"]} />
+```
+
+## Code blocks from data
+
+For code written as fenced blocks, use a [code group](#code-groups).
+`<CodeBlock>` takes the snippets as a prop instead. Each snippet is a tab,
+named by its `label` or else its `lang`:
+
+```mdx
+<CodeBlock
+  snippets={[
+    { lang: "bash", label: "cURL", code: "curl https://api.example.com/v1/users" },
+    { lang: "js", label: "Node", code: "await client.users.list();" },
+  ]}
+/>
+```
+
+## Landing pages
+
+Pages with `layout: landing` have their own components: `<Hero>`,
+`<FeatureGrid>`, `<CTASection>` and more. See [Landing pages](/landing-pages).

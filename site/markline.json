@@ -34,7 +34,9 @@
               { "href": "/configuration", "label": "Configuration" },
               { "href": "/theming", "label": "Theming" },
               { "href": "/templates", "label": "Templates" },
+              { "href": "/frontmatter", "label": "Frontmatter" },
               { "href": "/components", "label": "Components" },
+              { "href": "/landing-pages", "label": "Landing pages" },
               { "href": "/openapi", "label": "API reference" },
               { "href": "/search", "label": "Search" }
             ]

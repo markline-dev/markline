@@ -1,6 +1,7 @@
 import { after, before, test } from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import http from "node:http";
 import path from "node:path";
 import { createSite, filesUnder } from "./site-server";
 
@@ -55,3 +56,34 @@ test("no path reaches a file outside docs/", { skip }, async () => {
     assert.doesNotMatch(await res.text(), /NOT-A-PAGE/, p);
   }
 });
+
+/** A request with its path exactly as written: fetch would resolve the `..`. */
+const rawGet = (path: string) =>
+  new Promise<{ status: number; cacheControl: string; body: string }>((resolve, reject) => {
+    const { hostname, port } = new URL(base);
+    const req = http.request({ hostname, port, path }, (res) => {
+      let body = "";
+      res.on("data", (c) => (body += c));
+      res.on("end", () => resolve({ status: res.statusCode ?? 0, cacheControl: res.headers["cache-control"] ?? "", body }));
+    });
+    req.on("error", reject);
+    req.end();
+  });
+
+test("raw dot segments in a .md or llms.txt path are an uncached 404", { skip }, async () => {
+  const cache = path.join(site.dir, ".markline", ".next", "server", "app");
+  const before = filesUnder(cache);
+  const paths = [
+    ...["/../x.md", "/../../guides/a.md", "/../playground.md", "/./guides/a.md", "/guides/../private.md", "/..md"],
+    ...["/../guides/llms.txt", "/./llms.txt", "/../llms.txt", "/./guides/llms.txt"],
+    ...["/%2e%2e/x.md", "/%2E/guides/a.md", "/%2e%2e/llms.txt", "/%2e/llms.txt"],
+  ];
+  for (const p of paths) {
+    const { status, cacheControl, body } = await rawGet(p);
+    assert.equal(status, 404, p);
+    assert.doesNotMatch(cacheControl, /s-maxage/, p);
+    assert.doesNotMatch(body, /NOT-A-PAGE/, p);
+  }
+  assert.deepEqual(filesUnder(cache), before);
+});
+

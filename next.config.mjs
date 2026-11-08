@@ -58,9 +58,11 @@ const nextConfig = {
     ? {}
     : {
         async rewrites() {
+          // No "." or ".." segment, written plainly or encoded: carried into the
+          // destination, it would resolve outside these routes, to a 404 Next caches.
           return [
-            { source: "/:path+.md", destination: "/api/md/:path+" },
-            { source: "/:section/llms.txt", destination: "/api/llms/:section" },
+            { source: "/:path((?:(?!(?:\\.|%2[eE]){1,2}/)[^/]+/)*(?!(?:\\.|%2[eE]){1,2}\\.md$)[^/]+)\\.md", destination: "/api/md/:path" },
+            { source: "/:section((?!(?:\\.|%2[eE]){1,2}/)[^/]+)/llms.txt", destination: "/api/llms/:section" },
           ];
         },
       }),

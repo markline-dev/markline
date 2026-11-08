@@ -21,9 +21,14 @@ All notable changes to `@markline/markline` and `@markline/create`.
   tag + verb naming.
 - **Binary responses.** Non-JSON success responses (`audio/mpeg`, zip, CSV)
   get a response panel naming their media type, and in "Try it" audio
-  responses play inline while other binary ones get a download link.
+  responses play inline while other binary ones get a download link. Through
+  the proxy they arrive intact, as base64, within its 25 MB response limit.
 - **File uploads in "Try it".** Multipart bodies get file pickers and are sent
   as form data, directly or through the proxy.
+
+### Changed
+- **Uploads through the Try it proxy are limited to 25 MB.** Try it says so
+  before sending a larger one, and the proxy refuses it too.
 
 ### Fixed
 - `llms-full.txt` no longer drops `import`/`export` lines inside code blocks
@@ -40,6 +45,10 @@ All notable changes to `@markline/markline` and `@markline/create`.
   keeps `-X POST` when a POST has no body.
 - Request bodies and responses that aren't `application/json` keep their
   media type and schema, so multipart fields are documented.
+- **Large bodies no longer crash Try it.** A request or response body over
+  1 MB shows as plain text, without colouring, and Copy still copies all of
+  it. Colouring a body of about 10 MB overflowed the browser's stack.
+
 ## 0.1.8
 
 ### Added

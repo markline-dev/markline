@@ -7,6 +7,9 @@ export const MAX_PROXY_RESPONSE_BYTES = 25 * 1024 * 1024;
 /** The most it reads of a request: room for a 25 MB upload as base64 in JSON. */
 export const MAX_PROXY_REQUEST_BYTES = 35 * 1024 * 1024;
 
+/** The largest upload (a request's bytes, once decoded from base64) it forwards. */
+export const MAX_PROXY_UPLOAD_BYTES = 25 * 1024 * 1024;
+
 /** The most it sends back. JSON can make text far bigger: a control character takes
  *  six bytes. This allows ordinary JSON text at the response cap. */
 export const MAX_PROXY_REPLY_BYTES = 40 * 1024 * 1024;
@@ -62,7 +65,15 @@ export function forwardableHeaders(headers: Record<string, string>): Record<stri
   );
 }
 
-export type ProxyPayload = { url: string; method: string; headers: Record<string, string>; body?: string };
+/** `bodyBase64` carries a binary body (an encoded multipart form, a file) as base64. */
+export type ProxyPayload = { url: string; method: string; headers: Record<string, string>; body?: string; bodyBase64?: string };
+
+/** How many bytes a strict, padded base64 string decodes to, or null if it isn't one. */
+export function base64Size(s: string): number | null {
+  if (s.length % 4 !== 0 || !/^[A-Za-z0-9+/]*={0,2}$/.test(s)) return null;
+  const pad = s.endsWith("==") ? 2 : s.endsWith("=") ? 1 : 0;
+  return (s.length / 4) * 3 - pad;
+}
 
 const REFUSED_METHODS = new Set(["CONNECT", "TRACE", "TRACK"]);
 
@@ -76,7 +87,7 @@ export function parsePayload(raw: string): ProxyPayload | { error: string } {
     return { error: "Invalid JSON payload" };
   }
   if (typeof data !== "object" || data === null || Array.isArray(data)) return { error: "Invalid JSON payload" };
-  const { url, method = "GET", headers = {}, body } = data as Record<string, unknown>;
+  const { url, method = "GET", headers = {}, body, bodyBase64 } = data as Record<string, unknown>;
   if (!url) return { error: "Missing url" };
   if (typeof url !== "string") return { error: "url must be a string" };
   if (typeof method !== "string" || !/^[!#$%&'*+.^_`|~0-9A-Za-z-]+$/.test(method)) return { error: "method must be an HTTP method" };
@@ -91,7 +102,15 @@ export function parsePayload(raw: string): ProxyPayload | { error: string } {
     return { error: "A header has an invalid name or value" };
   }
   if (body !== undefined && body !== null && typeof body !== "string") return { error: "body must be a string" };
-  return { url, method: upper, headers: headers as Record<string, string>, body: (body as string | null) ?? undefined };
+  if (bodyBase64 === undefined || bodyBase64 === null) {
+    return { url, method: upper, headers: headers as Record<string, string>, body: (body as string | null) ?? undefined };
+  }
+  if (body !== undefined && body !== null) return { error: "Send body or bodyBase64, not both" };
+  if (typeof bodyBase64 !== "string") return { error: "bodyBase64 must be a string" };
+  const size = base64Size(bodyBase64);
+  if (size === null) return { error: "bodyBase64 isn't valid base64" };
+  if (size > MAX_PROXY_UPLOAD_BYTES) return { error: `The upload is larger than the ${MAX_PROXY_UPLOAD_BYTES / (1024 * 1024)} MB the proxy forwards.` };
+  return { url, method: upper, headers: headers as Record<string, string>, bodyBase64 };
 }
 
 /** A browser request from another site. The browser's own Sec-Fetch-Site answers
@@ -146,7 +165,17 @@ export async function readCapped(
   max = MAX_PROXY_RESPONSE_BYTES,
   budget?: BufferBudget,
 ): Promise<string | null | typeof OVER_BUDGET> {
-  if (!res.body) return "";
+  const bytes = await readCappedBytes(res, max, budget);
+  return bytes instanceof Uint8Array ? new TextDecoder().decode(bytes) : bytes;
+}
+
+/** readCapped's bytes, undecoded: for audio, images and other binary bodies. */
+export async function readCappedBytes(
+  res: Pick<Response, "body" | "headers">,
+  max = MAX_PROXY_RESPONSE_BYTES,
+  budget?: BufferBudget,
+): Promise<Uint8Array | null | typeof OVER_BUDGET> {
+  if (!res.body) return new Uint8Array(0);
   if (Number(res.headers.get("content-length")) > max) return null;
   const reader = res.body.getReader();
   const chunks: Uint8Array[] = [];
@@ -165,7 +194,7 @@ export async function readCapped(
     bytes.set(chunk, at);
     at += chunk.byteLength;
   }
-  return new TextDecoder().decode(bytes);
+  return bytes;
 }
 
 /** Whether `text` as a JSON string, in UTF-8, stays within `max` bytes. Stops at

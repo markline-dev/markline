@@ -156,9 +156,6 @@ export function looksBinary(bytes: Uint8Array): boolean {
 
 /* ── base64 (the proxy's JSON envelope carries bytes this way) ──────────── */
 
-/** The largest body the proxy carries either way; base64 costs a third more in memory. */
-export const PROXY_MAX_BYTES = 25 * 1024 * 1024;
-
 const BASE64_CHUNK = 3 * 256 * 1024;
 
 /** Encode bytes in chunks, yielding between them so a big upload doesn't freeze the tab. */

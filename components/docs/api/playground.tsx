@@ -12,9 +12,10 @@ import {
   objectUrlFor,
   readProxyBody,
   readResponseBody,
-  PROXY_MAX_BYTES,
 } from "@/lib/openapi-media";
 import { formFieldArg, formFileArg, headerWord, shellWord } from "@/lib/openapi-curl";
+import { colorizeCurl, colorizeJsonHtml, escHtml } from "@/lib/playground-highlight";
+import { MAX_PROXY_UPLOAD_BYTES } from "@/lib/playground-proxy";
 
 export type PlaygroundParam = { name: string; required: boolean; sample: string; description?: string; type?: string; enum?: string[] };
 
@@ -249,8 +250,8 @@ export function PlaygroundProvider({ spec, children }: { spec: PlaygroundSpec; c
       const wire = new Response(encoded);
       if (encoded instanceof FormData) sendHeaders["Content-Type"] = wire.headers.get("content-type") ?? "multipart/form-data";
       const bytes = new Uint8Array(await wire.arrayBuffer());
-      if (bytes.length > PROXY_MAX_BYTES) {
-        throw new Error(`This upload is ${formatBytes(bytes.length)}, over the ${formatBytes(PROXY_MAX_BYTES)} the proxy carries.`);
+      if (bytes.length > MAX_PROXY_UPLOAD_BYTES) {
+        throw new Error(`This upload is ${formatBytes(bytes.length)}, over the ${formatBytes(MAX_PROXY_UPLOAD_BYTES)} the proxy carries.`);
       }
       payloadBody = { bodyBase64: await bytesToBase64(bytes) };
     } else if (typeof encoded === "string") payloadBody = { body: encoded };
@@ -474,9 +475,6 @@ function chipFor(type?: string, hasEnum?: boolean): { cls: string; label: string
   }
 }
 
-function escHtml(s: string): string {
-  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-}
 function stripTags(html: string): string {
   return html.replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">");
 }
@@ -925,18 +923,6 @@ function CopyButton({ className, text, label }: { className: string; text: strin
 
 /* ── live, syntax-highlighted code generation (cURL / Node / Python / Go) ── */
 
-function colorizeJsonHtml(s: string): string {
-  if (!s) return "(empty response)";
-  return escHtml(s).replace(
-    /("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g,
-    (m, str, colon, kw, num) => {
-      if (str) return colon ? `<span class="key">${str}</span>${colon}` : `<span class="s">${str}</span>`;
-      if (kw) return `<span class="k">${kw}</span>`;
-      if (num) return `<span class="n">${num}</span>`;
-      return m;
-    },
-  );
-}
 
 function sdkResource(path: string): string {
   const segs = path.split("/").filter(Boolean).filter((s) => !/^[:{]/.test(s));
@@ -1057,13 +1043,6 @@ function CodePreview({ code }: { code: string }) {
   );
 }
 
-function colorizeCurl(s: string): string {
-  const esc = s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  return esc
-    .replace(/^curl/gm, '<span style="color:#6E86FA">curl</span>')
-    .replace(/(--[a-z-]+)/g, '<span style="color:#8E959C">$1</span>')
-    .replace(/(&#39;|')((?:[^&]|&(?!#39;))*?)(&#39;|')/g, '<span style="color:#3CC88C">$1$2$3</span>');
-}
 
 function StatusPill({ status }: { status: number }) {
   const s = String(status);

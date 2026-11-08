@@ -34,6 +34,10 @@ before(async () => {
     JSON.stringify({ openapi: "3.0.3", info: { title: "T", version: "1" }, tags: [{ name: "Things" }], paths: { "/things": { get: { tags: ["Things"], operationId: "listThings", summary: "List", responses: { "200": { description: "ok" } } } } } }),
   );
   fs.writeFileSync(path.join(site.dir, "docs", `${NOT_FOUND_SEGMENT}.mdx`), "---\ntitle: Hidden page\n---\n\nHidden page\n");
+  fs.writeFileSync(
+    path.join(site.dir, "docs", "commands.mdx"),
+    "---\ntitle: Commands\n---\n\n## Volumes\n\ntext\n\n### `create <volume>`\n\ntext\n\n### `get <name>` / `delete <name>`\n\ntext\n",
+  );
   for (let day = 10; day < 22; day++) {
     fs.writeFileSync(path.join(site.dir, "changelog", `2026-10-${day}.mdx`), `---\ntitle: Day ${day}\n---\n\nentry\n`);
   }
@@ -132,6 +136,15 @@ test("only real API reference paths are pages", { skip }, async () => {
     assert.equal(res.status, 404, url);
     assert.doesNotMatch(res.headers.get("cache-control") ?? "", /s-maxage/, url);
   }
+});
+
+test("every link in a built page's table of contents lands on a heading", { skip }, async () => {
+  const html = await (await fetch(`${base}/commands`)).text();
+  const ids = new Set([...html.matchAll(/<h[23][^>]* id="([^"]+)"/g)].map((m) => m[1]));
+  const links = [...html.matchAll(/href="#([^"]+)"/g)].map((m) => m[1]);
+  assert.ok(links.includes("create-volume"), links.join());
+  assert.ok(links.includes("get-name-delete-name"), links.join());
+  for (const link of links) assert.ok(ids.has(link), `#${link} has no heading`);
 });
 
 test("unknown URLs log nothing", { skip }, async () => {

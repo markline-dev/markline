@@ -18,6 +18,9 @@ All notable changes to `@markline/markline` and `@markline/create`.
 ### Fixed
 - `llms-full.txt` no longer drops `import`/`export` lines inside code blocks
   (such as Python's `import requests`).
+- **"On this page" keeps `<placeholders>` in code.** A heading like
+  ``### `create <volume>` `` now links to its own id. The TOC stripped `<volume>`
+  as HTML before unwrapping the code, so the link missed the heading.
 
 ## 0.1.8
 

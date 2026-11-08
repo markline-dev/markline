@@ -208,3 +208,17 @@ test("a comment or space before the first tab doesn't hide it from the toc", () 
   assert.deepEqual(extractToc(tabs('{" "}'), { steps: true }).map((i) => i.label), ["In first"]);
 });
 
+test("angle brackets inside inline code are kept, not stripped as HTML", () => {
+  // The heading renders as <code>create &lt;volume&gt;</code>, so its id is
+  // create-volume; the TOC link has to match.
+  assert.equal(headingText("`create <volume>`"), "create <volume>");
+  assert.equal(headingText("`get <name>` / `delete <name>`"), "get <name> / delete <name>");
+  assert.deepEqual(extractToc("### `create <volume>`\n"), [
+    { id: "create-volume", label: "create <volume>", depth: 3 },
+  ]);
+  // Code is literal: emphasis markers inside it stay.
+  assert.equal(headingText("`a*b*c`"), "a*b*c");
+  assert.equal(headingText("`snake_case_name`"), "snake_case_name");
+  // Real inline HTML outside code is still dropped.
+  assert.equal(headingText("Hello <b>world</b> and `<x>`"), "Hello world and <x>");
+});

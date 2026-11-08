@@ -16,8 +16,8 @@ All notable changes to `@markline/markline` and `@markline/create`.
   lists step titles in the table of contents, as each step shows them. A
   step's link is `#step-<title>`, with `-1`, `-2` added when it repeats.
 - **A warning for a `toc:` link that misses.** When a page's frontmatter lists
-  its own "On this page" entries, the build warns about any `#id` that no
-  heading or element on the page has.
+  its own "On this page" entries, Markline warns, at build and in dev, about any
+  `#id` that no heading or element on the page has.
 
 ### Fixed
 - `llms-full.txt` no longer drops `import`/`export` lines inside code blocks
@@ -30,6 +30,9 @@ All notable changes to `@markline/markline` and `@markline/create`.
   A heading's own text wins over a number added to a repeat, so a heading named
   "Verify 1" keeps `#verify-1`. Changelog entries and the API reference intro
   get the same ids.
+- **A changelog heading with no letters or digits no longer repeats its date's
+  id.** A heading such as `## 🚀` in an entry got the entry's date as its id,
+  the same as the entry itself. It now gets no id.
 
 ## 0.1.8
 

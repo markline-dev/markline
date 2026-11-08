@@ -291,3 +291,8 @@ test("a hand-written toc entry that matches nothing on the page is reported", ()
   ];
   assert.deepEqual(missingTocIds(body, toc), ["where-theyre-served"]);
 });
+
+test("a repeated heading's id skips a step's own id", () => {
+  const mdx = '## Step X\n\n## Step X\n\n<Steps toc>\n<Step title="X 1">y</Step>\n</Steps>\n';
+  assert.deepEqual(ids(mdx), ["step-x", "step-x-2", "step-x-1"]);
+});

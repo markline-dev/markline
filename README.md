@@ -101,7 +101,7 @@ Mintlify-style projects). `theme.appearance` sets the default color scheme —
     "links": [{ "label": "GitHub ↗", "href": "https://github.com/me/repo" }],
     "cta": { "label": "Get started", "href": "/quickstart" },
     "width": "full",        // docs + API reference topbar: "full" (edge-to-edge) | "contained" (centered max-width)
-    "homeWidth": "contained" // homepage topbar — independent (defaults to "contained")
+    "homeWidth": "contained" // homepage topbar — independent (defaults to "full")
   },
   "navigation": {
     "tabs": [
@@ -125,8 +125,8 @@ Mintlify-style projects). `theme.appearance` sets the default color scheme —
 - **`topbar.width`** / **`topbar.homeWidth`** — topbar layout: `"full"` spans
   edge-to-edge; `"contained"` centers it to the content max-width. `width`
   governs docs + the API reference (default `"full"`); `homeWidth` governs the
-  homepage independently (default `"contained"`, so the marketing nav aligns
-  with the hero).
+  homepage independently (default `"full"`; `"contained"` lines the marketing
+  nav up with a centered hero).
 - **`api.playground.mode`** — the "Try it" experience: `"full"` (inline param
   inputs + live console + API Explorer modal), `"inline"` (Mintlify-style, no
   modal), `"explorer"` (read-only docs + console + Explorer modal, Stripe-style),

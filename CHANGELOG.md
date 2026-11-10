@@ -27,6 +27,9 @@ All notable changes to `@markline/markline` and `@markline/create`.
   also holds docs pages.
 
 ### Fixed
+- **The Markline home page shows only real numbers.** The GitHub card no longer
+  shows invented stars, contributors or a version, and the showcase links to
+  real sites built with Markline instead of placeholder tiles.
 - `llms-full.txt` no longer drops `import`/`export` lines inside code blocks
   (such as Python's `import requests`).
 - **"On this page" keeps `<placeholders>` in code.** A heading like

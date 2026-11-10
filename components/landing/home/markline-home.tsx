@@ -547,9 +547,11 @@ export function MarklineHome() {
               {[
                 ["https://markline.dev", "Markline.dev", "docs + API reference"],
                 ["https://docs.runestack.io/", "Rune", "orchestration docs"],
+                ["https://docs.floruntime.io/", "Flo", "runtime docs"],
                 ["https://docs.trycareflow.com/", "Careflow", "help center"],
               ].map(([href, name, kind]) => (
-                <a className="made-shot reveal" href={href} key={href} target="_blank" rel="noopener noreferrer">
+                // markline.dev is this site, so it opens in place.
+                <a className="made-shot reveal" href={href} key={href} {...(href === "https://markline.dev" ? {} : { target: "_blank", rel: "noopener noreferrer" })}>
                   <div className="cap">{name} <span className="u">{kind}</span></div>
                 </a>
               ))}

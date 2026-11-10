@@ -525,7 +525,7 @@ export function MarklineHome() {
         <div className="wrap">
           <div className="sec-head reveal">
             <h2>Run by the people who read the source</h2>
-            <p>No logo wall yet — just an open repo and a permissive license.</p>
+            <p>No logo wall yet — just an open repo, a permissive license, and sites already shipping on Markline.</p>
           </div>
 
           <div className="proof-grid">
@@ -544,9 +544,15 @@ export function MarklineHome() {
             </div>
 
             <div className="made">
-              <a className="made-shot reveal" href="https://markline.dev">
-                <div className="cap">Markline.dev <span className="u">built with Markline</span></div>
-              </a>
+              {[
+                ["https://markline.dev", "Markline.dev", "docs + API reference"],
+                ["https://docs.runestack.io/", "Rune", "orchestration docs"],
+                ["https://docs.trycareflow.com/", "Careflow", "help center"],
+              ].map(([href, name, kind]) => (
+                <a className="made-shot reveal" href={href} key={href} target="_blank" rel="noopener noreferrer">
+                  <div className="cap">{name} <span className="u">{kind}</span></div>
+                </a>
+              ))}
             </div>
           </div>
         </div>

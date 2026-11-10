@@ -11,22 +11,30 @@ function op(tag: string, method: "get" | "post" = "get"): OpenAPIOperation {
     summary: "Sample operation",
     operationId: "sampleOperation",
     security: [],
-    parameters: { path: [], query: [] },
+    parameters: { path: [], query: [], header: [] },
     responses: [],
     requestBody: undefined,
+    events: [],
   };
 }
 
 const doc: OpenAPIDoc = {
   info: { title: "Acme Payments API", version: "1.0.0" },
   servers: [{ url: "https://api.example.com" }],
+  tags: [],
+  tagLabels: {},
+  operationsById: {},
+  securitySchemes: {},
+  webhooks: [],
+  warnings: [],
 };
 
 const root = {};
 
 function nodeSample(tag: string): string {
   const rail = codeSamples(op(tag), doc, root, "https://api.example.com", ["node"]);
-  return rail.tabs[0].html;
+  // Samples carry highlight markup; the variable name is what these tests are about.
+  return rail.tabs[0].html.replace(/<[^>]+>/g, "");
 }
 
 test("plain singular tag keeps its name", () => {

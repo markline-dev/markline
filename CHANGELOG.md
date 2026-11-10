@@ -25,6 +25,9 @@ All notable changes to `@markline/markline` and `@markline/create`.
   largest resource page drops from 13.2 MB to 4.4 MB. Docs pages list API
   resources, not every operation, in their navigation data, unless the API tab
   also holds docs pages.
+- **Ask AI gets its own button in the menu style.** With
+  `layout.pageActions: "menu"`, Ask AI is its own button beside Copy for LLM,
+  and the menu holds only View as Markdown and Open Markdown file.
 
 ### Fixed
 - **The Markline home page shows only real numbers.** The GitHub card no longer

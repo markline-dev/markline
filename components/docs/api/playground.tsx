@@ -12,6 +12,7 @@ import {
   objectUrlFor,
   readProxyBody,
   readResponseBody,
+  safeBlobType,
 } from "@/lib/openapi-media";
 import { formFieldArg, formFileArg, headerWord, shellWord } from "@/lib/openapi-curl";
 import { colorizeCurl, colorizeJsonHtml, escHtml } from "@/lib/playground-highlight";
@@ -389,7 +390,7 @@ export function BinaryBody({ blob, contentType }: { blob: Blob; contentType?: st
   if (!url) return null;
   return (
     <div className="ml-pg-binary">
-      {/^audio\//i.test(ct) ? (
+      {safeBlobType(ct).startsWith("audio/") ? (
         <Audio src={url} title="Response audio" caption={meta} />
       ) : (
         <p>

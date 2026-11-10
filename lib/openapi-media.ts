@@ -178,6 +178,31 @@ export function base64ToBytes(s: string): Uint8Array {
   return out;
 }
 
+/** Image types a browser shows as an image, never as a page or a script. */
+const SAFE_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp", "image/avif", "image/bmp"]);
+const SAFE_OTHER_TYPES = new Set([
+  "application/pdf",
+  "application/zip",
+  "application/gzip",
+  "application/octet-stream",
+  "video/mp4",
+  "video/webm",
+  "video/ogg",
+]);
+
+/**
+ * The type to give a response's Blob, whose `blob:` URL is same-origin with the
+ * docs: one bare, known-safe `type/subtype`, else `application/octet-stream`. A
+ * combined or malformed Content-Type, HTML, SVG and anything unlisted can't then
+ * be opened as a page.
+ */
+export function safeBlobType(ct: string | undefined | null): string {
+  const b = base(ct ?? undefined);
+  if (!/^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*$/.test(b)) return "application/octet-stream";
+  if (/^audio\//.test(b) || SAFE_IMAGE_TYPES.has(b) || SAFE_OTHER_TYPES.has(b)) return b;
+  return "application/octet-stream";
+}
+
 /** Live responses, as the playground shows them. */
 export type ReadBody = { body: string; blob?: Blob };
 
@@ -185,10 +210,11 @@ export type ReadBody = { body: string; blob?: Blob };
 export async function readResponseBody(r: Response, contentType: string): Promise<ReadBody> {
   if (contentType) {
     if (isTextualMediaType(contentType)) return { body: await r.text() };
-    return { body: "", blob: await r.blob() };
+    const blob = await r.blob();
+    return { body: "", blob: blob.slice(0, blob.size, safeBlobType(contentType)) };
   }
   const buf = new Uint8Array(await r.arrayBuffer());
-  if (looksBinary(buf)) return { body: "", blob: new Blob([buf]) };
+  if (looksBinary(buf)) return { body: "", blob: new Blob([buf], { type: "application/octet-stream" }) };
   return { body: new TextDecoder().decode(buf) };
 }
 
@@ -198,7 +224,8 @@ export function objectUrlFor(
   set: (url: string) => void,
   urls: { createObjectURL(b: Blob): string; revokeObjectURL(u: string): void } = URL,
 ): () => void {
-  const u = urls.createObjectURL(blob);
+  const type = safeBlobType(blob.type);
+  const u = urls.createObjectURL(blob.type === type ? blob : blob.slice(0, blob.size, type));
   set(u);
   return () => urls.revokeObjectURL(u);
 }
@@ -206,7 +233,7 @@ export function objectUrlFor(
 /** The proxy's JSON envelope back into the same shape. */
 export function readProxyBody(data: { body?: unknown; bodyBase64?: unknown; contentType?: unknown }): ReadBody {
   if (typeof data.bodyBase64 === "string") {
-    const type = typeof data.contentType === "string" ? data.contentType : "";
+    const type = safeBlobType(typeof data.contentType === "string" ? data.contentType : "");
     return { body: "", blob: new Blob([base64ToBytes(data.bodyBase64) as BlobPart], { type }) };
   }
   return { body: typeof data.body === "string" ? data.body : JSON.stringify(data.body) };

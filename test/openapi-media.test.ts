@@ -6,6 +6,7 @@ import {
   objectUrlFor,
   readProxyBody,
   readResponseBody,
+  safeBlobType,
   base64ToBytes,
   bodyKind,
   bytesToBase64,
@@ -139,4 +140,44 @@ test("flattenObject merges allOf, through a nullable wrapper", () => {
   })!;
   assert.deepEqual(Object.keys(flat.properties!), ["a", "b"]);
   assert.deepEqual(flat.required, ["a"]);
+});
+
+test("a response's Blob only ever gets a bare, known-safe type", async () => {
+  for (const ct of ["audio/mpeg", "Audio/MPEG; codec=mp3", "image/png", "image/webp", "application/pdf", "video/mp4"]) {
+    assert.equal(safeBlobType(ct), ct.split(";")[0].toLowerCase(), ct);
+  }
+  for (const ct of [
+    "text/html",
+    "image/svg+xml",
+    "image/png, text/html",
+    "audio/mpeg, text/html",
+    "audio/<script>",
+    "application/xhtml+xml",
+    "application/javascript",
+    "text/xml",
+    "multipart/x-mixed-replace; boundary=x",
+    "image/png\ttext/html",
+    "",
+    undefined,
+    "audio",
+    "/png",
+  ]) {
+    assert.equal(safeBlobType(ct), "application/octet-stream", String(ct));
+  }
+  const bytes = new Uint8Array([1, 2, 3]);
+  // Every path: direct with a type, direct sniffed, through the proxy, and the object URL.
+  assert.equal((await readResponseBody(new Response(bytes), "image/png, text/html")).blob!.type, "application/octet-stream");
+  // SVG is XML, so it's read and shown as text, never given a Blob.
+  assert.equal((await readResponseBody(new Response("<svg/>"), "image/svg+xml")).blob, undefined);
+  assert.equal((await readResponseBody(new Response(bytes), "audio/mpeg")).blob!.type, "audio/mpeg");
+  assert.equal((await readResponseBody(new Response(new Uint8Array([0xff, 0, 1])), "")).blob!.type, "application/octet-stream");
+  const proxied = readProxyBody({ bodyBase64: Buffer.from(bytes).toString("base64"), contentType: "text/html; charset=utf-8" }).blob!;
+  assert.equal(proxied.type, "application/octet-stream");
+  assert.deepEqual(new Uint8Array(await proxied.arrayBuffer()), bytes);
+  const made: Blob[] = [];
+  const urls = { createObjectURL: (b: Blob) => (made.push(b), "blob:1"), revokeObjectURL: () => {} };
+  objectUrlFor(new Blob(["<script>"], { type: "text/html" }), () => {}, urls);
+  objectUrlFor(new Blob(["x"], { type: "audio/wav" }), () => {}, urls);
+  assert.deepEqual(made.map((b) => b.type), ["application/octet-stream", "audio/wav"]);
+  assert.equal(await made[0].text(), "<script>");
 });

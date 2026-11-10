@@ -1,6 +1,7 @@
 import type { OpenAPIDoc, OpenAPIOperation, JSONSchema } from "./openapi";
 import { resolveSchema, sampleFromSchema, operationHref } from "./openapi";
 import { responseSampleJson } from "./openapi-samples";
+import { normalizeField, typeLabel } from "./openapi-schema";
 import { loadConfig } from "./config";
 import type { PlaygroundSpec } from "@/components/docs/api/playground";
 
@@ -12,16 +13,9 @@ import type { PlaygroundSpec } from "@/components/docs/api/playground";
  * type, so the result crosses the server→client boundary unchanged.
  */
 
-/** Local copy of schema-table's describeType (kept here so this stays a pure lib). */
+/** Type chip for a parameter input. */
 function describeType(schema?: JSONSchema): string | undefined {
-  if (!schema) return undefined;
-  if (schema.enum) return "enum";
-  if (schema.type === "array") return `array<${describeType(schema.items) ?? "any"}>`;
-  if (Array.isArray(schema.type)) return schema.type.join(" | ");
-  if (schema.type === "integer") return "integer";
-  if (typeof schema.type === "string") return schema.type;
-  if (schema.oneOf || schema.anyOf) return "oneOf";
-  return "object";
+  return schema ? typeLabel(schema) : undefined;
 }
 
 /** Best-effort placeholder value for a parameter input. */
@@ -38,7 +32,8 @@ export function sampleParam(schema?: JSONSchema): string {
 export function buildPlaygroundSpec(op: OpenAPIOperation, doc: OpenAPIDoc, root: unknown, base = "/api-reference"): PlaygroundSpec {
   const cfg = loadConfig();
   const servers = [...new Set([cfg.api.baseUrl, ...doc.servers.map((s) => s.url)].filter(Boolean))] as string[];
-  const allSchemes = Object.values(doc.securitySchemes ?? {});
+  // An operation the spec marks public (`security: []`) takes no key.
+  const allSchemes = op.public ? [] : Object.values(doc.securitySchemes ?? {});
   const schemeBearer = allSchemes.some((s) => s.type === "http" && s.scheme === "bearer");
   const apiKeyHeaderNames = [
     ...new Set([
@@ -51,14 +46,18 @@ export function buildPlaygroundSpec(op: OpenAPIOperation, doc: OpenAPIDoc, root:
   const param = (
     p: { name: string; required?: boolean; schema?: JSONSchema; description?: string },
     reqDefault: boolean,
-  ) => ({
-    name: p.name,
-    required: p.required ?? reqDefault,
-    sample: sampleParam(p.schema),
-    description: p.description,
-    type: describeType(p.schema),
-    enum: p.schema?.enum?.map((e) => String(e)) ?? (p.schema?.type === "boolean" ? ["true", "false"] : undefined),
-  });
+  ) => {
+    // `anyOf: [Colour, null]` and a bare `$ref` drive the input like Colour itself.
+    const schema = p.schema ? normalizeField(resolveSchema(p.schema, root)).schema : undefined;
+    return {
+      name: p.name,
+      required: p.required ?? reqDefault,
+      sample: sampleParam(schema),
+      description: p.description ?? schema?.description,
+      type: describeType(schema),
+      enum: schema?.enum?.filter((e) => e !== null).map((e) => String(e)) ?? (schema?.type === "boolean" ? ["true", "false"] : undefined),
+    };
+  };
   return {
     method: op.method,
     path: op.path,
@@ -66,7 +65,10 @@ export function buildPlaygroundSpec(op: OpenAPIOperation, doc: OpenAPIDoc, root:
     servers,
     pathParams: op.parameters.path.map((p) => param(p, true)),
     queryParams: op.parameters.query.map((p) => param(p, false)),
-    headerParams: op.parameters.header.map((p) => param(p, false)),
+    // A header the key field sends isn't a second, unmasked input.
+    headerParams: op.parameters.header
+      .filter((p) => !apiKeyHeaderNames.some((name) => name.toLowerCase() === p.name.toLowerCase()))
+      .map((p) => param(p, false)),
     // Offer auth whenever the spec *defines* a bearer/apiKey scheme, even if this
     // operation under-declares its security (common in generated specs).
     bearer: schemeBearer || op.security.some((s) => s.scheme.type === "http" && s.scheme.scheme === "bearer"),

@@ -32,3 +32,27 @@ test("apiSecToMarkdown falls back to the rendered text without data-md", () => {
   });
   assert.equal(apiSecToMarkdown(sec), "# Ledger\n\nSee the ledger guide");
 });
+
+test("apiSecToMarkdown indents nested attributes under their parent", () => {
+  const row = (name: string, parent: unknown, req: boolean) => {
+    const parts: Record<string, FakeEl> = { ".ak": el(name), ".at": el("string"), ".ad": el(`${name} text`) };
+    if (req) parts[":scope > .ah .req"] = el("required");
+    const self = {
+      querySelector: (sel: string) => parts[sel] ?? null,
+      // The nearest enclosing row, as `.closest(".attr")` from its parent gives it.
+      parentElement: { closest: () => parent },
+    };
+    return self;
+  };
+  const top = row("voice", null, false);
+  const kid = row("speed", top, true);
+  const sec = {
+    textContent: "",
+    querySelector: () => null,
+    querySelectorAll: (sel: string) => (sel === ".attr" ? [top, kid] : []),
+  } as unknown as Parameters<typeof apiSecToMarkdown>[0];
+  assert.equal(
+    apiSecToMarkdown(sec),
+    "## Attributes\n\n- `voice` (string) — voice text\n  - `speed` (string, required) — speed text",
+  );
+});

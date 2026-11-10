@@ -25,12 +25,37 @@ const THINGS = 60;
 // the page shouldn't fail this.
 const BUDGET = 600_000;
 
+// Deprecated and hidden parameters and fields, on one operation: the per-operation
+// page draws parameters with ParamRow, which a unit test can't render.
+const MARKED = {
+  parameters: [
+    { name: "oldparam", in: "query", deprecated: true, schema: { type: "string" } },
+    { name: "currentparam", in: "query", schema: { type: "string" } },
+    { name: "secretparam", in: "query", "x-internal": true, schema: { type: "string" } },
+  ],
+  requestBody: {
+    content: {
+      "application/json": {
+        schema: {
+          type: "object",
+          properties: {
+            shownfield: { type: "string" },
+            secretfield: { type: "string", "x-hidden": true },
+            secretref: { $ref: "#/components/schemas/Secret" },
+          },
+        },
+      },
+    },
+  },
+};
+
 const op = (i: number, tag: string) => ({
   operationId: `${tag}Op${i}`,
   summary: `${tag} operation ${i}`,
   // Long enough that clipping it for the palette would cut off the needle.
   description: `${"Describes the operation at some length. ".repeat(10)}${tag === "others" && i === 0 ? NEEDLE : ""}`,
   tags: [tag],
+  ...(tag === "others" && i === 1 ? MARKED : {}),
   responses: { "200": { description: "OK" } },
 });
 
@@ -39,6 +64,7 @@ const spec = {
   info: { title: "Weight", version: "1" },
   servers: [{ url: "https://api.example.com" }],
   tags: [{ name: "things" }, { name: "others" }],
+  components: { schemas: { Secret: { type: "object", "x-internal": true, properties: { secretinner: { type: "string" } } } } },
   paths: Object.fromEntries([
     ...Array.from({ length: THINGS }, (_, i) => [`/things/${i}`, { post: op(i, "things") }]),
     ...Array.from({ length: 3 }, (_, i) => [`/others/${i}`, { post: op(i, "others") }]),
@@ -159,4 +185,28 @@ test("a docs page inside the API tab keeps the operation list", { skip }, () => 
 test("a related link to an operation shows the operation's summary", { skip }, () => {
   const html = page(reference, "guide");
   assert.match(html, /things operation 1/);
+});
+
+/** A parameter's row on the per-operation page: from its name to the next row. */
+function paramRow(html: string, name: string): string {
+  const at = html.indexOf(`>${name}<`);
+  assert.ok(at >= 0, `${name} has a row`);
+  const next = html.indexOf("ml-param-head", at);
+  return html.slice(at, next < 0 ? undefined : next);
+}
+
+test("the per-operation page marks a deprecated parameter, and only that one", { skip }, () => {
+  const html = page(reference, "api-reference/othersOp1");
+  assert.match(paramRow(html, "oldparam"), /ml-param-deprecated/);
+  assert.doesNotMatch(paramRow(html, "currentparam"), /ml-param-deprecated/);
+});
+
+test("hidden parameters and fields stay out of every page that shows the operation", { skip }, () => {
+  for (const route of ["api-reference/othersOp1", "api-reference/others"]) {
+    const html = page(reference, route);
+    assert.ok(html.includes("shownfield"), `${route} shows the visible field`);
+    for (const hidden of ["secretparam", "secretfield", "secretref", "secretinner"]) {
+      assert.equal(html.includes(hidden), false, `${hidden} on ${route}`);
+    }
+  }
 });

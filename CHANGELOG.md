@@ -27,8 +27,9 @@ All notable changes to `@markline/markline` and `@markline/create`.
   also holds docs pages.
 - **`ai.rateLimit.perDay` is enforced.** It's a per-IP limit on each server
   instance, not a spending cap; set spending limits with your AI provider. The
-  Ask AI Worker reads `MARKLINE_RATE_PER_DAY`. A request over either limit now
-  gets a `Retry-After` header with its 429.
+  Ask AI Worker reads `MARKLINE_RATE_PER_DAY`. Both limits count each valid
+  request, and one over either now gets a `Retry-After` header with its 429. A
+  limit that isn't a whole number from 1 to 1,000,000 is reported and ignored.
 
 ### Fixed
 - `llms-full.txt` no longer drops `import`/`export` lines inside code blocks

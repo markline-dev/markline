@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { contentRoot } from "./paths";
+import { limitOf, MAX_LIMIT } from "./ai/rate-limit";
 import { checkTemplateVersions, deepMerge, loadTemplateChain, templateCss, templateOptions } from "./templates";
 
 /**
@@ -626,6 +627,17 @@ export function normalizeNavHrefs<T>(node: T): T {
   return Object.fromEntries(entries) as T;
 }
 
+/** A limit that isn't a whole number from 1 to MAX_LIMIT is ignored; say so. */
+export function warnRateLimits(limits: unknown, warn: (msg: string) => void = console.warn): void {
+  if (!limits || typeof limits !== "object") return;
+  for (const name of ["perMinute", "perDay"] as const) {
+    const value = (limits as Record<string, unknown>)[name];
+    if (value !== undefined && limitOf(value) === undefined) {
+      warn(`[markline] ai.rateLimit.${name} must be a whole number from 1 to ${MAX_LIMIT}; ignoring ${JSON.stringify(value)}.`);
+    }
+  }
+}
+
 export function loadConfig(): MarklineConfig {
   if (_cache) return _cache;
   const file = resolveConfigPath();
@@ -641,6 +653,7 @@ export function loadConfig(): MarklineConfig {
   config.navigation = normalizeNavHrefs(config.navigation);
   config.versions = normalizeNavHrefs(config.versions);
   if (config.i18n) config.i18n = normalizeNavHrefs(config.i18n);
+  warnRateLimits(config.ai?.rateLimit);
   _cache = config;
   return _cache;
 }

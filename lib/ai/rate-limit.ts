@@ -20,30 +20,50 @@ type Hits = { times: number[]; day: number; dayCount: number };
 const MINUTE = 60_000;
 const DAY = 86_400_000;
 
+/** The most a limit can be. */
+export const MAX_LIMIT = 1_000_000;
+
 /**
- * A limiter: call it once per request. It returns undefined when the request
- * may go ahead, or how many seconds to wait (for a Retry-After header). Every
- * request counts toward the minute; only those let through count toward the day.
+ * How many callers the limiter remembers. Past this, the one seen longest ago
+ * is forgotten, and starts a fresh day if it comes back.
+ */
+export const MAX_CALLERS = 50_000;
+
+/**
+ * A limiter: call it once per valid request, just before the provider is
+ * called. It returns undefined when the request may go ahead, or how many
+ * seconds to wait (for a Retry-After header). Every request counts toward the
+ * minute; only those let through count toward the day. (A clock that steps back
+ * across midnight starts a fresh day; that's allowed.)
  */
 export function createRateLimiter(now: () => number = Date.now) {
+  // In the order callers were last seen, oldest first.
   const hits = new Map<string, Hits>();
   let swept = 0;
 
   return (ip: string, limits: RateLimits): number | undefined => {
     const t = now();
     const day = Math.floor(t / DAY);
+    const recent = (h: Hits) => h.times.some((x) => x > t - MINUTE);
 
-    // Forget callers with nothing left in either window, so the map doesn't grow
-    // with every address it has seen.
+    // Forget callers with nothing left to count: no request in the last minute
+    // and, with a daily limit, none today.
     if (t - swept >= MINUTE) {
       swept = t;
       for (const [key, h] of hits) {
-        if (h.day !== day && !h.times.some((x) => x > t - MINUTE)) hits.delete(key);
+        if (!recent(h) && (limits.perDay === undefined || h.day !== day)) hits.delete(key);
       }
     }
 
     let h = hits.get(ip);
-    if (!h) hits.set(ip, (h = { times: [], day, dayCount: 0 }));
+    if (h) hits.delete(ip);
+    else h = { times: [], day, dayCount: 0 };
+    hits.set(ip, h);
+    for (const key of hits.keys()) {
+      if (hits.size <= MAX_CALLERS) break;
+      hits.delete(key);
+    }
+
     if (h.day !== day) {
       h.day = day;
       h.dayCount = 0;
@@ -67,8 +87,12 @@ export function createRateLimiter(now: () => number = Date.now) {
   };
 }
 
-/** A limit from config or an env var: a positive whole number, or undefined. */
+/**
+ * A limit from config or an env var: a whole number from 1 to MAX_LIMIT, as a
+ * number or a string of digits. Anything else is undefined, for the caller to
+ * report.
+ */
 export function limitOf(value: unknown): number | undefined {
-  const n = typeof value === "string" && value.trim() ? Number(value) : value;
-  return typeof n === "number" && Number.isInteger(n) && n > 0 ? n : undefined;
+  const n = typeof value === "string" ? (/^\s*\d+\s*$/.test(value) ? Number(value) : NaN) : value;
+  return typeof n === "number" && Number.isInteger(n) && n >= 1 && n <= MAX_LIMIT ? n : undefined;
 }

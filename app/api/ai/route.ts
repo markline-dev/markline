@@ -34,15 +34,6 @@ export async function POST(req: Request) {
   if (!key) return new Response("AI not configured (no MARKLINE_AI_KEY)", { status: 503 });
 
   if (!sameOrigin(req)) return new Response("Forbidden origin", { status: 403 });
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
-  const wait = rateLimited(ip, {
-    perMinute: limitOf(ai.rateLimit?.perMinute) ?? 10,
-    perDay: limitOf(ai.rateLimit?.perDay),
-  });
-  if (wait !== undefined) {
-    return new Response("Rate limit exceeded", { status: 429, headers: { "retry-after": String(wait) } });
-  }
-
   let body: { question?: string; context?: string; images?: string[] };
   try {
     body = await req.json();
@@ -58,6 +49,17 @@ export async function POST(req: Request) {
   const images = Array.isArray(body.images)
     ? body.images.filter((u) => typeof u === "string" && /^data:image\//.test(u)).slice(0, 4)
     : undefined;
+
+  // Only a valid request counts. The check and the count happen together, with
+  // nothing awaited between them and the provider call.
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  const wait = rateLimited(ip, {
+    perMinute: limitOf(ai.rateLimit?.perMinute) ?? 10,
+    perDay: limitOf(ai.rateLimit?.perDay),
+  });
+  if (wait !== undefined) {
+    return new Response("Rate limit exceeded", { status: 429, headers: { "retry-after": String(wait) } });
+  }
 
   const baseUrl = resolveAiBaseUrl(ai);
   try {

@@ -78,37 +78,73 @@ for (const [name, mod] of [["route", route], ["Worker", worker]] as const) {
   });
 
   test(`${name}: limits come from whole positive numbers only`, () => {
-    for (const ok of [1, 10, "10", " 5 "]) assert.equal(mod.limitOf(ok), Number(ok));
-    for (const bad of [undefined, null, "", "x", 0, -1, 1.5, "1.5", Infinity, true, {}]) assert.equal(mod.limitOf(bad), undefined, String(bad));
+    for (const ok of [1, 10, "10", " 5 ", mod.MAX_LIMIT]) assert.equal(mod.limitOf(ok), Number(ok));
+    const bad = [undefined, null, "", "x", "10abc", "0x10", "1e3", "-1", 0, -1, 2.5, "2.5", 1e300, mod.MAX_LIMIT + 1, Infinity, true, {}];
+    for (const v of bad) assert.equal(mod.limitOf(v), undefined, String(v));
   });
 
-  test(`${name}: callers with nothing left to count are forgotten`, () => {
-    const c = clock(LATE - 2 * DAY);
+  /** A limiter, and the map it keeps callers in. */
+  const watched = (now: () => number) => {
     const seen: Map<string, unknown>[] = [];
     const real = Map;
-    // Watch the limiter's map: the first one made while creating it.
     globalThis.Map = class extends real<string, unknown> {
       constructor() {
         super();
         seen.push(this);
       }
     } as MapConstructor;
-    let limit: ReturnType<typeof mod.createRateLimiter>;
     try {
-      limit = mod.createRateLimiter(c.now);
+      return { limit: mod.createRateLimiter(now), hits: seen[0] };
     } finally {
       globalThis.Map = real;
     }
-    const hits = seen[0];
+  };
+
+  test(`${name}: with a daily limit, today's callers are kept until the day ends`, () => {
+    const c = clock(Date.UTC(2026, 10, 8, 12));
+    const { limit, hits } = watched(c.now);
     for (let i = 0; i < 50; i++) limit(`ip${i}`, { perMinute: 5, perDay: 5 });
-    assert.equal(hits.size, 50);
+    c.t += 10 * MINUTE;
+    limit("later", { perMinute: 5, perDay: 5 });
+    assert.equal(hits.size, 51);
     c.t += DAY;
     limit("late", { perMinute: 5, perDay: 5 });
     assert.equal(hits.size, 1);
   });
+
+  test(`${name}: with no daily limit, a caller is forgotten a minute after its last request`, () => {
+    const c = clock(Date.UTC(2026, 10, 8, 12));
+    const { limit, hits } = watched(c.now);
+    for (let i = 0; i < 50; i++) limit(`ip${i}`, { perMinute: 5 });
+    c.t += 30_000;
+    limit("recent", { perMinute: 5 });
+    c.t += 31_000;
+    limit("now", { perMinute: 5 });
+    assert.deepEqual([...hits.keys()].sort(), ["now", "recent"]);
+  });
+
+  test(`${name}: past MAX_CALLERS, the caller seen longest ago is forgotten`, () => {
+    const c = clock(LATE - 2 * DAY);
+    const { limit, hits } = watched(c.now);
+    const lim = { perMinute: 5, perDay: 1 };
+    assert.equal(limit("first", lim), undefined);
+    assert.notEqual(limit("first", lim), undefined, "its day is used up");
+    for (let i = 0; i < mod.MAX_CALLERS; i++) limit(`ip${i}`, lim);
+    assert.equal(hits.size, mod.MAX_CALLERS);
+    assert.ok(!hits.has("first") && hits.has("ip0") && hits.has(`ip${mod.MAX_CALLERS - 1}`));
+    assert.equal(limit("first", lim), undefined, "forgotten, so it starts a fresh day");
+    assert.ok(!hits.has("ip0"), "and the next oldest makes room");
+  });
+
+  test(`${name}: Retry-After is at least a second, even just before midnight`, () => {
+    const c = clock(Date.UTC(2026, 10, 11) - 1);
+    const limit = mod.createRateLimiter(c.now);
+    assert.equal(limit("a", { perMinute: 5, perDay: 1 }), undefined);
+    assert.equal(limit("a", { perMinute: 5, perDay: 1 }), 1);
+  });
 }
 
-test("the route answers 429 with Retry-After once perDay is used up", async (t) => {
+test("the route counts valid requests, and answers 429 with Retry-After once perDay is used up", async (t) => {
   const site = fs.mkdtempSync(path.join(os.tmpdir(), "markline-ai-"));
   fs.mkdirSync(path.join(site, "docs"));
   fs.writeFileSync(
@@ -138,11 +174,27 @@ test("the route answers 429 with Retry-After once perDay is used up", async (t) 
   const ask = (ip: string) =>
     POST(new Request("http://site.test/api/ai", { method: "POST", headers: { "x-forwarded-for": ip }, body: JSON.stringify({ question: "hi" }) }));
 
-  assert.equal((await ask("1.1.1.1")).status, 200);
+  const junk = (body: string) =>
+    POST(new Request("http://site.test/api/ai", { method: "POST", headers: { "x-forwarded-for": "1.1.1.1" }, body }));
+  assert.equal((await junk("not json")).status, 400);
+  assert.equal((await junk(JSON.stringify({ question: " " }))).status, 400);
+  assert.equal(calls, 0);
+  assert.equal((await ask("1.1.1.1")).status, 200, "requests that weren't valid don't count");
   assert.equal((await ask("1.1.1.1")).status, 200);
   const over = await ask("1.1.1.1");
   assert.equal(over.status, 429);
   assert.ok(Number(over.headers.get("retry-after")) > 0);
   assert.equal(calls, 2, "the provider isn't called once the day is used up");
   assert.equal((await ask("2.2.2.2")).status, 200);
+});
+
+test("a rate limit that isn't a whole number from 1 to MAX_LIMIT is reported", async () => {
+  const { warnRateLimits } = await import("../lib/config");
+  const said: string[] = [];
+  warnRateLimits({ perMinute: 20, perDay: "10abc" }, (m) => said.push(m));
+  warnRateLimits({ perMinute: 0, perDay: 1e300 }, (m) => said.push(m));
+  warnRateLimits({ perMinute: 10 }, (m) => said.push(m));
+  warnRateLimits(undefined, (m) => said.push(m));
+  assert.deepEqual(said.map((m) => m.match(/ai\.rateLimit\.(\w+)/)?.[1]), ["perDay", "perMinute", "perDay"]);
+  assert.match(said[0], /ignoring "10abc"/);
 });

@@ -24,7 +24,7 @@
  *   # non-secret knobs live in wrangler.toml [vars]
  */
 
-import { createRateLimiter, limitOf } from "./rate-limit";
+import { createRateLimiter, limitOf, MAX_LIMIT } from "./rate-limit";
 
 export interface Env {
   /** Provider API key — set with `wrangler secret put MARKLINE_AI_KEY`. */
@@ -63,6 +63,20 @@ const DEFAULT_SYSTEM =
 // Per-IP limits, in this isolate's memory (see rate-limit.ts).
 const rateLimited = createRateLimiter();
 
+/** A limit var: whole digits from 1 to MAX_LIMIT. Anything else is logged once
+ *  and ignored, so the default applies. */
+const reported = new Set<string>();
+function envLimit(env: Env, name: "MARKLINE_RATE_PER_MIN" | "MARKLINE_RATE_PER_DAY"): number | undefined {
+  const raw = env[name];
+  if (raw === undefined || raw === "") return undefined;
+  const n = limitOf(raw);
+  if (n === undefined && !reported.has(name)) {
+    reported.add(name);
+    console.warn(`${name} must be a whole number from 1 to ${MAX_LIMIT}; ignoring ${JSON.stringify(raw)}.`);
+  }
+  return n;
+}
+
 function allowedOrigin(origin: string | null, env: Env): string | null {
   const list = (env.MARKLINE_ALLOWED_ORIGIN ?? "")
     .split(",")
@@ -96,15 +110,6 @@ export default {
     if (origin && !allow) return new Response("Forbidden origin", { status: 403 });
     if (!env.MARKLINE_AI_KEY) return new Response("Worker missing MARKLINE_AI_KEY secret", { status: 503, headers: cors });
 
-    const ip = req.headers.get("cf-connecting-ip") ?? "anon";
-    const wait = rateLimited(ip, {
-      perMinute: limitOf(env.MARKLINE_RATE_PER_MIN) ?? 10,
-      perDay: limitOf(env.MARKLINE_RATE_PER_DAY),
-    });
-    if (wait !== undefined) {
-      return new Response("Rate limit exceeded", { status: 429, headers: { ...cors, "retry-after": String(wait) } });
-    }
-
     let body: { question?: string; context?: string };
     try {
       body = await req.json();
@@ -118,6 +123,17 @@ export default {
     const provider = env.MARKLINE_AI_PROVIDER ?? "openai";
     const baseUrl = (env.MARKLINE_AI_BASE_URL || PRESETS[provider] || "").replace(/\/$/, "");
     if (!baseUrl) return new Response("No provider base URL (set MARKLINE_AI_BASE_URL)", { status: 500, headers: cors });
+
+    // Only a valid request counts. The check and the count happen together, with
+    // nothing awaited between them and the provider call.
+    const ip = req.headers.get("cf-connecting-ip") ?? "anon";
+    const wait = rateLimited(ip, {
+      perMinute: envLimit(env, "MARKLINE_RATE_PER_MIN") ?? 10,
+      perDay: envLimit(env, "MARKLINE_RATE_PER_DAY"),
+    });
+    if (wait !== undefined) {
+      return new Response("Rate limit exceeded", { status: 429, headers: { ...cors, "retry-after": String(wait) } });
+    }
 
     const system = (env.MARKLINE_AI_SYSTEM_PROMPT || DEFAULT_SYSTEM) + (context ? `\n\nContext:\n${context}` : "");
     const headers: Record<string, string> = {

@@ -184,14 +184,16 @@ budget. Both the built-in route and the Worker ship with conservative defaults:
 - **Origin allow-list** — only your docs domain(s) may call it.
 - **Per-IP rate limit** — `ai.rateLimit.perMinute` (route) / `MARKLINE_RATE_PER_MIN` (Worker)
   for requests in any 60 seconds, and `ai.rateLimit.perDay` / `MARKLINE_RATE_PER_DAY`
-  for requests per UTC day (off unless set). Over either, the reader gets a 429
-  with a `Retry-After` header.
+  for requests per UTC day (off unless set). Each counts valid requests, ones
+  with a question. Over either, the reader gets a 429 with a `Retry-After`
+  header. A limit must be a whole number from 1 to 1,000,000; any other value
+  is reported and ignored.
 - **Token cap** — `ai.maxTokens` / `MARKLINE_AI_MAX_TOKENS`, plus an input-length clamp.
 
 <Warning>Tune the rate limit and pick a cheap model for public sites. The limits
 are per IP and kept in memory, so each server instance (or Worker isolate)
-counts on its own: they slow one caller down but don't cap what the site
-spends. Set a spending limit with your AI provider. Limits use the client IP
+counts on its own, and remembers at most 50,000 callers (one forgotten starts
+a fresh day): they slow one caller down but don't cap what the site spends. Set a spending limit with your AI provider. Limits use the client IP
 your host reports; behind a proxy you don't control, a caller can change it.</Warning>
 
 ## Markdown for agents

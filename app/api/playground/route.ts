@@ -29,7 +29,6 @@ import { readProxySettings, type ProxySettings } from "@/scripts/proxy-settings.
 
 export const dynamic = "force-dynamic";
 
-
 const refuse = (status: number, error: string) => NextResponse.json({ error }, { status });
 
 const megabytes = (bytes: number) => bytes / (1024 * 1024);

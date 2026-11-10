@@ -253,7 +253,7 @@ export function MarklineHome() {
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
                   </svg>
-                  docs.acme.dev/reference
+                  docs.example.com/reference
                 </div>
               </div>
               <div className="apiref">
@@ -273,7 +273,7 @@ export function MarklineHome() {
                 <div className="col ar-main">
                   <div className="ar-bc">Core / Payments</div>
                   <div className="ar-h"><span className="verb post">POST</span> Create payment</div>
-                  <div className="ar-route"><span className="verb post">POST</span> https://api.acme.dev/v1/payments</div>
+                  <div className="ar-route"><span className="verb post">POST</span> https://api.example.com/v1/payments</div>
                   <p className="ar-p">
                     Creates a payment and returns the resulting object. Idempotent on{" "}
                     <span className="mono" style={{ color: "var(--ink)" }}>Idempotency-Key</span>.
@@ -292,7 +292,7 @@ export function MarklineHome() {
                   <div className="ar-code">
                     <span className="c"># request</span>{"\n"}
                     <span className="f">curl</span> -X POST \{"\n"}
-                    {"  "}https://api.acme.dev<span className="s">/v1/payments</span> \{"\n"}
+                    {"  "}https://api.example.com<span className="s">/v1/payments</span> \{"\n"}
                     {"  "}-H <span className="s">"Authorization: Bearer ••••"</span> \{"\n"}
                     {"  "}-d <span className="s">{`'{ "amount": 2400,`}</span>{"\n"}
                     <span className="s">{`      "currency": "usd" }'`}</span>

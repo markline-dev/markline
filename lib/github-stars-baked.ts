@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import { HOME_PACKAGE, HOME_REPO, statKey, type Stat, type StarsMode } from "./github-stars";
+import { HOME_PACKAGE, HOME_REPO, isStat, statKey, type Stat, type StarsMode } from "./github-stars";
 import { loadConfig } from "./config";
 
 /* The stats the build fetched (scripts/github-stats.mjs) into
@@ -19,7 +19,7 @@ export function bakedStat(key: string | undefined): Stat | undefined {
     }
   }
   const s = cache?.[key];
-  return s && (typeof s.value === "number" || typeof s.value === "string") && Number.isFinite(s.fetchedAt) ? s : undefined;
+  return isStat(key, s) ? s : undefined;
 }
 
 /** topbar.githubStars, for everything that shows a count. */

@@ -286,7 +286,8 @@ named by its `label` or else its `lang`:
 "★ 1.2k", as a link to the repo. It shows nothing until there's a count. The
 build fetches the counts of the repos your pages name (up to 20), and
 [`topbar.githubStars`](/configuration) decides whether readers' browsers
-refresh them:
+refresh them. With `"live"`, each repo shown is its own request from the
+reader's browser, at most hourly, so a page naming many repos makes many:
 
 ```mdx
 Markline is open source <GitHubStars repo="markline-dev/markline" />.

@@ -8,7 +8,7 @@ import path from "node:path";
 const SITE_SETTINGS = /^(?:MARKLINE_AI_KEY|MARKLINE_SITE_URL|MARKLINE_BASE_PATH|NEXT_PUBLIC_\w+)$/;
 
 /** Names someone might expect to work here, so an ignored one is worth mentioning. */
-const LOOKS_LIKE_OURS = /^(?:MARKLINE_|NEXT_|__NEXT_|NODE_|PATH$|LD_|DYLD_)/;
+const LOOKS_LIKE_OURS = /^(?:MARKLINE_|NEXT_|__NEXT_|NODE_|PATH$|LD_|DYLD_|GITHUB_TOKEN$|GITHUB_API_URL$)/;
 
 /** A folder's .env files, read by Next's own loader, leaving process.env as it was. */
 function readEnvFiles(loadEnvConfig, dir, dev) {

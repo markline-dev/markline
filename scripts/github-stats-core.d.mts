@@ -5,6 +5,7 @@ export const HOME_PACKAGE: string;
 export function repoOf(url: string): string | undefined;
 export function isRepo(s: unknown): boolean;
 export function statKey(kind: "stars" | "contributors" | "version", name: string): string | undefined;
+export function validValue(key: string, value: unknown): boolean;
 export function lastPage(link: string | null | undefined): number | undefined;
 export function fetchStat(
   key: string,

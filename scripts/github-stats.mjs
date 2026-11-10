@@ -11,7 +11,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
-import { fetchStat, HOME_PACKAGE, HOME_REPO, repoOf, statKey } from "./github-stats-core.mjs";
+import { fetchStat, HOME_PACKAGE, HOME_REPO, repoOf, statKey, validValue } from "./github-stats-core.mjs";
 
 export const STATS_FILE = ".markline-github.json";
 
@@ -62,40 +62,53 @@ export function readStats(dir) {
   }
 }
 
-/** GITHUB_API_URL, for GitHub Enterprise or a test: an http(s) URL, else the
- *  public API. */
+/** GITHUB_API_URL, for GitHub Enterprise or a test: an http(s) URL. `bad` when
+ *  it's set to anything else, in which case the token isn't sent anywhere. */
 export function githubApi(env = process.env) {
   const v = env.GITHUB_API_URL;
-  if (!v) return undefined;
+  if (!v) return { url: undefined, bad: false };
   try {
     const u = new URL(v);
-    if (u.protocol === "https:" || u.protocol === "http:") return v.replace(/\/+$/, "");
+    if (u.protocol === "https:" || u.protocol === "http:") return { url: v.replace(/\/+$/, ""), bad: false };
   } catch {}
-  console.warn("[markline] GITHUB_API_URL must be an http(s) URL; using api.github.com.");
-  return undefined;
+  return { url: undefined, bad: true };
 }
 
 /**
- * Fetch what the site shows into `<dir>/.markline-github.json`. A stat younger
- * than `maxAgeMs` is kept as it is (0: fetch everything). Returns what it fetched.
+ * Fetch what the site shows into `<dir>/.markline-github.json`. A stat fetched,
+ * or tried and failed, less than `maxAgeMs` ago is left alone (0: try
+ * everything). Returns what it fetched.
  */
 export async function writeGithubStats({ dir = process.cwd(), config, docsDir, maxAgeMs = 0, env = process.env, fetchImpl = fetch, now = Date.now } = {}) {
   if (config?.topbar?.githubStars === false) return [];
   const old = readStats(dir);
   const keys = wantedStats(config, docsDir);
-  const stale = keys.filter((k) => !(old[k]?.fetchedAt > now() - maxAgeMs && maxAgeMs > 0));
+  const recent = (t) => maxAgeMs > 0 && Number.isFinite(t) && t <= now() && t > now() - maxAgeMs;
+  const stale = keys.filter((k) => !recent(old[k]?.fetchedAt) && !recent(old[`failed:${k}`]));
   if (stale.length === 0) return [];
 
-  const opts = { api: githubApi(env), token: env.GITHUB_TOKEN || undefined, fetchImpl, now };
+  const api = githubApi(env);
+  if (api.bad) console.warn("[markline] GITHUB_API_URL must be an http(s) URL; using api.github.com, without GITHUB_TOKEN.");
+  const opts = { api: api.url, token: api.bad ? undefined : env.GITHUB_TOKEN || undefined, fetchImpl, now };
   const got = await Promise.all(stale.map((k) => fetchStat(k, opts)));
-  const next = Object.fromEntries(keys.filter((k) => old[k]).map((k) => [k, old[k]]));
-  const failed = [];
+  const next = {};
+  for (const k of keys) {
+    if (validValue(k, old[k]?.value)) next[k] = old[k];
+    if (Number.isFinite(old[`failed:${k}`])) next[`failed:${k}`] = old[`failed:${k}`];
+  }
+  const kept = [], missing = [];
   stale.forEach((k, i) => {
-    if (got[i]) next[k] = got[i];
-    else failed.push(k);
+    if (got[i]) {
+      next[k] = got[i];
+      delete next[`failed:${k}`];
+    } else {
+      next[`failed:${k}`] = now();
+      (next[k] ? kept : missing).push(k);
+    }
   });
   fs.writeFileSync(path.join(dir, STATS_FILE), JSON.stringify(next));
-  if (failed.length) console.warn(`[markline] couldn't fetch ${failed.join(", ")}; ${failed.some((k) => next[k]) ? "keeping the last values" : "leaving them out"}.`);
+  if (kept.length) console.warn(`[markline] couldn't fetch ${kept.join(", ")}; keeping the last value${kept.length > 1 ? "s" : ""}.`);
+  if (missing.length) console.warn(`[markline] couldn't fetch ${missing.join(", ")}; showing no count.`);
   return stale.filter((_, i) => got[i]);
 }
 

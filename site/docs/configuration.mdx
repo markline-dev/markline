@@ -61,11 +61,13 @@ toc:
   The star count in the GitHub badge, for the repo its link points at, such as
   "★ 1.2k". The build fetches the count and puts it in the page, so it shows
   on a static export and to readers whose network blocks GitHub. A build that
-  can't reach GitHub just shows no count.
+  can't reach GitHub keeps the count from the last build that could, or shows
+  none if there wasn't one.
 
   - `"live"` (default): the browser also fetches the current count, at most
-    once an hour per reader, and keeps the newest one it has seen. Each
-    reader's browser contacts `api.github.com`, which sees their IP address.
+    once an hour per reader, even when that fails, and keeps the newest one
+    it has seen. Each reader's browser contacts `api.github.com`, which sees
+    their IP address.
   - `"build"`: only the count from the build. Readers' browsers never contact
     GitHub, so use this where that matters for privacy or GDPR.
   - `false`: no count.

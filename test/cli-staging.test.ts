@@ -289,6 +289,8 @@ test("env files can't change how Markline or Node runs", (t) => {
     __NEXT_PROCESSED_ENV: "",
     DYLD_INSERT_LIBRARIES: "/evil",
     LD_PRELOAD: "/evil",
+    GITHUB_TOKEN: "/evil-token",
+    GITHUB_API_URL: "http://evil.test",
   };
   const text = Object.entries(dangerous).map(([k, v]) => `${k}=${v}`).join("\n");
   fs.writeFileSync(path.join(site, ".env"), text);
@@ -303,6 +305,7 @@ test("env files can't change how Markline or Node runs", (t) => {
   }
   assert.doesNotMatch(r.stderr, /--require|\/evil/, "values aren't printed");
   assert.match(r.stderr, /NODE_OPTIONS/, "the names are");
+  assert.match(r.stderr, /GITHUB_API_URL, GITHUB_TOKEN/, "including GitHub's");
 });
 
 test("env files left in the staging folder still work, and the project's win", (t) => {

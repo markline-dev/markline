@@ -22,8 +22,12 @@ export function repoOf(url) {
   return owner && name && isRepo(`${owner}/${name}`) ? `${owner}/${name}` : undefined;
 }
 
-/** A plain "owner/repo". */
-export const isRepo = (s) => typeof s === "string" && /^[\w.-]+\/[\w.-]+$/.test(s) && !s.split("/").some((p) => p === "." || p === "..");
+/** A plain "owner/repo", within GitHub's lengths (39 and 100). */
+export const isRepo = (s) => {
+  if (typeof s !== "string" || !/^[\w.-]+\/[\w.-]+$/.test(s)) return false;
+  const [owner, repo] = s.split("/");
+  return owner.length <= 39 && repo.length <= 100 && ![owner, repo].some((p) => p === "." || p === "..");
+};
 
 /** An npm package name, scoped or not. */
 const isPackage = (s) => typeof s === "string" && /^(@[\w.-]+\/)?[\w.-]+$/.test(s);
@@ -34,6 +38,14 @@ export function statKey(kind, name) {
   if ((kind === "stars" || kind === "contributors") && isRepo(name)) return `${kind}:${name}`;
   if (kind === "version" && isPackage(name)) return `version:${name}`;
   return undefined;
+}
+
+/** A value a stat can have: a count (stars, contributors) is a whole number
+ *  from 0, a version a short x.y.z. */
+export function validValue(key, value) {
+  if (typeof key !== "string") return false;
+  if (key.startsWith("version:")) return typeof value === "string" && value.length <= 40 && /^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(value);
+  return Number.isSafeInteger(value) && value >= 0;
 }
 
 /** The last page number in a GitHub Link header: with per_page=1, a count. */
@@ -67,8 +79,7 @@ export async function fetchStat(key, { api = GITHUB, token, timeoutMs = 5000, fe
       kind === "stars" ? body?.stargazers_count
       : kind === "contributors" ? (lastPage(res.headers.get("link")) ?? (Array.isArray(body) ? body.length : undefined))
       : body?.version;
-    const ok = kind === "version" ? typeof value === "string" && value.length > 0 && value.length < 64 : Number.isInteger(value) && value >= 0;
-    return ok ? { value, fetchedAt: now() } : undefined;
+    return validValue(key, value) ? { value, fetchedAt: now() } : undefined;
   } catch {
     return undefined;
   }

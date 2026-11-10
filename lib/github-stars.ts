@@ -5,7 +5,7 @@
  * the newest value it has. Pure apart from the storage and fetch it's given, so
  * it's unit-tested. */
 
-import { fetchStat } from "@/scripts/github-stats-core.mjs";
+import { fetchStat, validValue } from "@/scripts/github-stats-core.mjs";
 
 export { HOME_PACKAGE, HOME_REPO, repoOf, statKey } from "@/scripts/github-stats-core.mjs";
 
@@ -16,6 +16,7 @@ export type StarsMode = "live" | "build" | false;
 export const MAX_AGE = 60 * 60 * 1000;
 
 const CACHE_PREFIX = "markline:stat:";
+const FAILED_PREFIX = "markline:stat-failed:";
 
 /** 5, 999, 1k, 1.2k, 12k, 1.5M. Rounded down, so it never overstates. */
 export function formatCount(n: number): string {
@@ -37,25 +38,27 @@ export function newest(...stats: (Stat | undefined)[]): Stat | undefined {
   return stats.reduce<Stat | undefined>((best, s) => (s && (!best || s.fetchedAt > best.fetchedAt) ? s : best), undefined);
 }
 
-const isStat = (s: unknown): s is Stat =>
-  !!s && typeof s === "object" &&
-  (typeof (s as Stat).value === "number" || typeof (s as Stat).value === "string") &&
-  Number.isFinite((s as Stat).fetchedAt);
+/** A well-formed stat for `key`; anything else, from storage or a file, is ignored. */
+export const isStat = (key: string, s: unknown): s is Stat =>
+  !!s && typeof s === "object" && validValue(key, (s as Stat).value) && Number.isFinite((s as Stat).fetchedAt);
+
+/** A time from the future (a clock that's wrong) counts as long ago, so it
+ *  neither wins over a real value nor stops a refresh. */
+const sane = (s: Stat | undefined, now: number): Stat | undefined => (s && s.fetchedAt > now ? { ...s, fetchedAt: 0 } : s);
 
 type Store = Pick<Storage, "getItem" | "setItem">;
 
-function readCache(store: Store | undefined, key: string): Stat | undefined {
+function readItem(store: Store | undefined, name: string): unknown {
   try {
-    const s = JSON.parse(store?.getItem(CACHE_PREFIX + key) ?? "null");
-    return isStat(s) ? s : undefined;
+    return JSON.parse(store?.getItem(name) ?? "null");
   } catch {
     return undefined;
   }
 }
 
-function writeCache(store: Store | undefined, key: string, stat: Stat) {
+function writeItem(store: Store | undefined, name: string, value: unknown) {
   try {
-    store?.setItem(CACHE_PREFIX + key, JSON.stringify(stat));
+    store?.setItem(name, JSON.stringify(value));
   } catch {}
 }
 
@@ -64,8 +67,9 @@ const inFlight = new Map<string, Promise<Stat | undefined>>();
 
 /**
  * The value to show for `key`, given the one baked into the page: first what
- * the page and this reader's cache already have, then, in "live" mode with no
- * value under MAX_AGE, after one fetch. `show` is called with each better value.
+ * the page and this reader's cache already have, then, in "live" mode, after
+ * one fetch, unless there's a value, or a failed try, from under MAX_AGE ago.
+ * `show` is called with each better value.
  */
 export async function refreshStat(
   key: string,
@@ -75,9 +79,15 @@ export async function refreshStat(
   { store, fetchImpl = fetch, now = Date.now }: { store?: Store; fetchImpl?: typeof fetch; now?: () => number } = {},
 ): Promise<void> {
   if (mode !== "live") return show(baked);
-  const best = newest(baked, readCache(store, key));
+  const t = now();
+  const cached = readItem(store, CACHE_PREFIX + key);
+  const best = newest(sane(isStat(key, baked) ? baked : undefined, t), sane(isStat(key, cached) ? cached : undefined, t));
   show(best);
-  if (best && best.fetchedAt > now() - MAX_AGE) return;
+  if (best && best.fetchedAt > t - MAX_AGE) return;
+  // A failed fetch (rate limit, a repo that isn't there, offline) isn't retried
+  // for MAX_AGE either.
+  const failed = readItem(store, FAILED_PREFIX + key);
+  if (typeof failed === "number" && failed <= t && failed > t - MAX_AGE) return;
 
   let request = inFlight.get(key);
   if (!request) {
@@ -86,8 +96,8 @@ export async function refreshStat(
     request.finally(() => inFlight.delete(key));
   }
   const fresh = await request;
-  if (!fresh) return;
-  writeCache(store, key, fresh);
+  if (!fresh) return writeItem(store, FAILED_PREFIX + key, now());
+  writeItem(store, CACHE_PREFIX + key, fresh);
   show(newest(best, fresh));
 }
 

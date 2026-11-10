@@ -21,6 +21,10 @@ test("a repo comes from a github.com repo URL only", () => {
   }
   assert.equal(statKey("stars", "a/b"), "stars:a/b");
   assert.equal(statKey("stars", "a/b/c"), undefined);
+  for (const name of ["./b", "a/..", "../b", "a/."]) assert.equal(statKey("stars", name), undefined, name);
+  assert.equal(statKey("stars", `${"o".repeat(39)}/${"r".repeat(100)}`), `stars:${"o".repeat(39)}/${"r".repeat(100)}`);
+  assert.equal(statKey("stars", `${"o".repeat(40)}/r`), undefined, "owner over 39");
+  assert.equal(statKey("stars", `o/${"r".repeat(101)}`), undefined, "repo over 100");
   assert.equal(statKey("version", "@markline/markline"), "version:@markline/markline");
 });
 
@@ -135,8 +139,9 @@ test("the token goes to the GitHub API only, and the API can be pointed elsewher
   assert.equal((calls[0].init?.headers as Record<string, string>).authorization, "Bearer t0k");
   assert.equal(calls[1].url, "https://registry.npmjs.org/@markline/markline/latest");
   assert.equal((calls[1].init?.headers as Record<string, string>).authorization, undefined);
-  assert.equal(githubApi({ GITHUB_API_URL: "https://ghe.example.com/api/v3/" }), "https://ghe.example.com/api/v3");
-  for (const bad of ["file:///etc/passwd", "javascript:alert(1)", "not a url"]) assert.equal(githubApi({ GITHUB_API_URL: bad }), undefined, bad);
+  assert.deepEqual(githubApi({ GITHUB_API_URL: "https://ghe.example.com/api/v3/" }), { url: "https://ghe.example.com/api/v3", bad: false });
+  assert.deepEqual(githubApi({}), { url: undefined, bad: false });
+  for (const bad of ["file:///etc/passwd", "javascript:alert(1)", "not a url"]) assert.deepEqual(githubApi({ GITHUB_API_URL: bad }), { url: undefined, bad: true }, bad);
 });
 
 /** A site folder with markline.json-like config and docs pages. */
@@ -172,11 +177,11 @@ test("the build writes what it got, keeps the last value it can't refresh, and n
 
   const down = fakeFetch(() => Promise.reject(new TypeError("offline")));
   await writeGithubStats({ dir, config, docsDir: path.join(dir, "docs"), fetchImpl: down.f, now: () => NOW + 1, env: {} });
-  assert.deepEqual(JSON.parse(fs.readFileSync(file, "utf8")), { "stars:o/r": { value: 7, fetchedAt: NOW } }, "kept");
+  assert.deepEqual(JSON.parse(fs.readFileSync(file, "utf8")), { "stars:o/r": { value: 7, fetchedAt: NOW }, "failed:stars:o/r": NOW + 1 }, "kept, and the failure noted");
 
   const fresh = site(t);
-  await writeGithubStats({ dir: fresh, config, docsDir: path.join(fresh, "docs"), fetchImpl: down.f, env: {} });
-  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(fresh, STATS_FILE), "utf8")), {}, "nothing it didn't get");
+  await writeGithubStats({ dir: fresh, config, docsDir: path.join(fresh, "docs"), fetchImpl: down.f, now: () => NOW, env: {} });
+  assert.deepEqual(JSON.parse(fs.readFileSync(path.join(fresh, STATS_FILE), "utf8")), { "failed:stars:o/r": NOW }, "no value it didn't get");
 });
 
 test("dev doesn't fetch again within the hour, and githubStars: false fetches nothing", async (t) => {
@@ -195,4 +200,59 @@ test("dev doesn't fetch again within the hour, and githubStars: false fetches no
 test("newest picks the latest fetch", () => {
   assert.equal(newest(undefined, stat(1, 3), stat(2, 1), undefined)?.value, 2);
   assert.equal(newest(), undefined);
+});
+
+test("a failed fetch isn't tried again for an hour", async () => {
+  const { f, calls } = fakeFetch(() => new Response("{}", { status: 429 }));
+  const store = fakeStore();
+  const at = (now: number) => refreshStat(KEY, undefined, "live", () => {}, { fetchImpl: f, store, now: () => now });
+  await at(NOW);
+  await at(NOW + HOUR / 2);
+  assert.equal(calls.length, 1, "no retry within the hour");
+  await at(NOW + HOUR + 1);
+  assert.equal(calls.length, 2, "tried again after it");
+});
+
+test("values in storage that aren't real counts or versions are ignored", async () => {
+  const { f } = fakeFetch(() => new Response("", { status: 500 }));
+  for (const bad of [{ value: 1e308, fetchedAt: NOW }, { value: -1, fetchedAt: NOW }, { value: 1.5, fetchedAt: NOW }, { value: "x", fetchedAt: NOW }, { value: 5 }, "junk"]) {
+    const store = fakeStore({ [`markline:stat:${KEY}`]: JSON.stringify(bad) });
+    const seen = await shownFor(stat(5, 2 * HOUR), { fetchImpl: f, store });
+    assert.deepEqual(seen.map((s) => s?.value), [5], JSON.stringify(bad));
+  }
+  const vkey = "version:@markline/markline";
+  const store = fakeStore({ [`markline:stat:${vkey}`]: JSON.stringify({ value: 42, fetchedAt: NOW }) });
+  const seen: (Stat | undefined)[] = [];
+  await refreshStat(vkey, undefined, "live", (s) => seen.push(s), { fetchImpl: f, store, now: () => NOW });
+  assert.deepEqual(seen, [undefined], "a version must be x.y.z");
+});
+
+test("a time in the future neither wins nor stops a refresh", async () => {
+  const { f, calls } = fakeFetch(() => Response.json({ stargazers_count: 9 }));
+  const store = fakeStore(cached({ value: 99, fetchedAt: NOW + 10 * HOUR }));
+  const seen = await shownFor(stat(5, 2 * HOUR), { fetchImpl: f, store });
+  assert.equal(calls.length, 1);
+  assert.deepEqual(seen.map((s) => s?.value), [5, 9]);
+});
+
+test("dev doesn't retry what failed within the hour", async (t) => {
+  const dir = site(t);
+  const config = topbar("https://github.com/o/r");
+  const { f, calls } = fakeFetch(() => new Response("{}", { status: 404 }));
+  const run = (now: number) => writeGithubStats({ dir, config, docsDir: path.join(dir, "docs"), fetchImpl: f, now: () => now, maxAgeMs: MAX_AGE, env: {} });
+  await run(NOW);
+  await run(NOW + HOUR / 2);
+  assert.equal(calls.length, 1);
+  await run(NOW + HOUR + 1);
+  assert.equal(calls.length, 2);
+  await writeGithubStats({ dir, config, docsDir: path.join(dir, "docs"), fetchImpl: f, now: () => NOW + HOUR + 2, env: {} });
+  assert.equal(calls.length, 3, "a build always tries");
+});
+
+test("with a GITHUB_API_URL that isn't http(s), the token isn't sent", async (t) => {
+  const dir = site(t);
+  const { f, calls } = fakeFetch(() => Response.json({ stargazers_count: 7 }));
+  await writeGithubStats({ dir, config: topbar("https://github.com/o/r"), docsDir: path.join(dir, "docs"), fetchImpl: f, env: { GITHUB_TOKEN: "enterprise-token", GITHUB_API_URL: "ftp://ghe.example.com" } });
+  assert.equal(calls[0].url, "https://api.github.com/repos/o/r");
+  assert.equal((calls[0].init?.headers as Record<string, string>).authorization, undefined);
 });

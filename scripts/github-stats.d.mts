@@ -6,7 +6,7 @@ export const STATS_FILE: string;
 export const MAX_REPOS: number;
 export function wantedStats(config: unknown, docsDir: string): string[];
 export function readStats(dir: string): Record<string, Stat>;
-export function githubApi(env?: Record<string, string | undefined>): string | undefined;
+export function githubApi(env?: Record<string, string | undefined>): { url: string | undefined; bad: boolean };
 export function writeGithubStats(opts?: {
   dir?: string;
   config?: unknown;

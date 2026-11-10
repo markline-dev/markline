@@ -30,6 +30,8 @@ toc:
     label: Endpoint lists
   - id: code-blocks-from-data
     label: Code blocks from data
+  - id: github-stars
+    label: GitHub stars
   - id: landing-pages
     label: Landing pages
 ---
@@ -276,6 +278,18 @@ named by its `label` or else its `lang`:
     { lang: "js", label: "Node", code: "await client.users.list();" },
   ]}
 />
+```
+
+## GitHub stars
+
+`<GitHubStars repo="owner/name" />` shows a repo's star count, such as
+"★ 1.2k", as a link to the repo. It shows nothing until there's a count. The
+build fetches the counts of the repos your pages name (up to 20), and
+[`topbar.githubStars`](/configuration) decides whether readers' browsers
+refresh them:
+
+```mdx
+Markline is open source <GitHubStars repo="markline-dev/markline" />.
 ```
 
 ## Landing pages

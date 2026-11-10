@@ -191,6 +191,14 @@ test("env files in the staging folder are kept", (t) => {
   assert.equal(r.stderr, "");
 });
 
+test("the GitHub stats cache in the staging folder survives runs", (t) => {
+  const { work, run } = setup(t);
+  fs.mkdirSync(work);
+  fs.writeFileSync(path.join(work, ".markline-github.json"), '{"stars:o/r":{"value":5,"fetchedAt":1}}');
+  for (let i = 0; i < 2; i++) assert.equal(run().status, 0);
+  assert.equal(fs.readFileSync(path.join(work, ".markline-github.json"), "utf8"), '{"stars:o/r":{"value":5,"fetchedAt":1}}');
+});
+
 test("a configured output folder survives between runs, and its build's own links stay", (t) => {
   const { work, run } = setup(t);
   const env = { MARKLINE_DIST: ".next-x" };

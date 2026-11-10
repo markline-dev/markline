@@ -28,8 +28,9 @@ function removeLinks(root, unwalked, dir = root) {
 /**
  * Clear out what the CLI and Next didn't put there, since Next would read it as
  * part of the app: config, instrumentation. `staged` is replaced by the caller
- * anyway. What stays is the last build's output, the deps link, and .env files,
- * which may be where a site keeps its secrets. Returns the names removed.
+ * anyway. What stays is the last build's output, the deps link, the generated
+ * files' manifest, the GitHub stats cache, and .env files, which may be where a
+ * site keeps its secrets. Returns the names removed.
  */
 function removeLeftovers(workDir, staged, outputDirs) {
   const removed = [];
@@ -39,7 +40,7 @@ function removeLeftovers(workDir, staged, outputDirs) {
       staged.includes(name) ||
       (name === "node_modules" && entry.isSymbolicLink()) ||
       (outputDirs.includes(name) && entry.isDirectory()) ||
-      ((name === ".markline-generated.json" || name === ".env" || name.startsWith(".env.")) && entry.isFile());
+      ((name === ".markline-generated.json" || name === ".markline-github.json" || name === ".env" || name.startsWith(".env.")) && entry.isFile());
     if (stays) continue;
     fs.rmSync(path.join(workDir, name), { recursive: true, force: true });
     removed.push(name);

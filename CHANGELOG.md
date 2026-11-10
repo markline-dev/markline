@@ -5,6 +5,13 @@ All notable changes to `@markline/markline` and `@markline/create`.
 ## Unreleased
 
 ### Added
+- **GitHub stars.** The topbar's GitHub badge shows the repo's star count
+  ("★ 1.2k"). The build fetches it into the page; `topbar.githubStars: "live"`
+  (default) also refreshes it in the browser, at most hourly per reader;
+  `"build"` never contacts GitHub from the browser; `false` hides it.
+  `<GitHubStars repo="owner/name" />` shows any repo's count. `GITHUB_TOKEN`
+  in the shell or CI raises the build's rate limit. Markline's own home page
+  shows its real stars, contributors and latest version the same way.
 - **`<CodeGroup>`.** Plain fenced code blocks as tabs, named by each fence's
   `title` (or language). Groups with the same tabs switch together, and the
   reader's pick is remembered across pages. `sync` joins or separates groups.

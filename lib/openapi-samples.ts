@@ -2,6 +2,12 @@ import type { OpenAPIDoc, OpenAPIOperation } from "./openapi";
 import { sampleFromSchema } from "./openapi";
 import { loadConfig } from "./config";
 
+/** Header names the operation authenticates with through an API key. */
+export function apiKeyHeaders(op: OpenAPIOperation): string[] {
+  const names = op.security.flatMap((s) => (s.scheme.type === "apiKey" && s.scheme.in === "header" && s.scheme.name ? [s.scheme.name] : []));
+  return [...new Set(names)];
+}
+
 /** Build a cURL example for an operation. */
 export function curlSample(op: OpenAPIOperation, doc: OpenAPIDoc, root: any): string {
   const baseUrl = loadConfig().api.baseUrl ?? doc.servers[0]?.url ?? "https://api.example.com";
@@ -25,6 +31,10 @@ export function curlSample(op: OpenAPIOperation, doc: OpenAPIDoc, root: any): st
   if (hasBearer) {
     lines[lines.length - 1] += " \\";
     lines.push(`  --header 'Authorization: Bearer <token>'`);
+  }
+  for (const name of apiKeyHeaders(op)) {
+    lines[lines.length - 1] += " \\";
+    lines.push(`  --header '${name}: <api-key>'`);
   }
   for (const h of op.parameters.header) {
     lines[lines.length - 1] += " \\";

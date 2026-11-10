@@ -1,5 +1,6 @@
-import type { OpenAPIDoc, OpenAPIOperation } from "@/lib/openapi";
+import type { JSONSchema, OpenAPIDoc, OpenAPIOperation } from "@/lib/openapi";
 import { resolveSchema } from "@/lib/openapi";
+import { normalizeField } from "@/lib/openapi-schema";
 import { curlSample, responseSampleJson } from "@/lib/openapi-samples";
 import { loadConfig, playgroundMode } from "@/lib/config";
 import { buildPlaygroundSpec, sampleParam } from "@/lib/playground-spec";
@@ -31,6 +32,7 @@ export function ApiOperationPage({
   /** Route base for the explorer's endpoint switcher ("/api-reference[/<id>]"). */
   base?: string;
 }) {
+  const resolved = (schema?: JSONSchema) => (schema ? resolveSchema(schema, root) : undefined);
   const reqSchema = op.requestBody?.schema ? resolveSchema(op.requestBody.schema, root) : undefined;
   const cfg = loadConfig();
   const mode = playgroundMode(cfg.api);
@@ -66,7 +68,10 @@ export function ApiOperationPage({
           </nav>
         )}
 
-        <h1 className="api-title">{op.summary ?? op.operationId}</h1>
+        <h1 className="api-title">
+          {op.summary ?? op.operationId}
+          {op.deprecated && <span className="ml-param-deprecated api-title-dep">Deprecated</span>}
+        </h1>
         {op.description && (
           <div className="api-desc" dangerouslySetInnerHTML={{ __html: mdToHtml(op.description) }} />
         )}
@@ -95,7 +100,7 @@ export function ApiOperationPage({
                   location="header"
                   required
                   schema={{ type: "string" }}
-                  control={showInline ? <ParamInput location="header" name={ak.name} /> : undefined}
+                  control={showInline ? <ParamInput location="header" name={ak.name} secret /> : undefined}
                 />
               ))}
             </Section>
@@ -123,10 +128,11 @@ export function ApiOperationPage({
               <ParamRow
                 key={p.name}
                 name={p.name}
-                schema={p.schema}
+                schema={resolved(p.schema)}
+                deprecated={p.deprecated}
                 required={p.required ?? true}
                 description={p.description}
-                control={showInline ? <ParamInput location="path" name={p.name} sample={sampleParam(p.schema)} /> : undefined}
+                control={showInline ? <ParamInput location="path" name={p.name} sample={sampleParam(normalizeField(resolved(p.schema)).schema)} /> : undefined}
               />
             ))}
           </Section>
@@ -138,10 +144,11 @@ export function ApiOperationPage({
               <ParamRow
                 key={p.name}
                 name={p.name}
-                schema={p.schema}
+                schema={resolved(p.schema)}
+                deprecated={p.deprecated}
                 required={p.required}
                 description={p.description}
-                control={showInline ? <ParamInput location="query" name={p.name} sample={sampleParam(p.schema)} /> : undefined}
+                control={showInline ? <ParamInput location="query" name={p.name} sample={sampleParam(normalizeField(resolved(p.schema)).schema)} /> : undefined}
               />
             ))}
           </Section>
@@ -153,10 +160,11 @@ export function ApiOperationPage({
               <ParamRow
                 key={p.name}
                 name={p.name}
-                schema={p.schema}
+                schema={resolved(p.schema)}
+                deprecated={p.deprecated}
                 required={p.required}
                 description={p.description}
-                control={showInline ? <ParamInput location="header" name={p.name} sample={sampleParam(p.schema)} /> : undefined}
+                control={showInline ? <ParamInput location="header" name={p.name} sample={sampleParam(normalizeField(resolved(p.schema)).schema)} /> : undefined}
               />
             ))}
           </Section>

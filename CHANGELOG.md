@@ -18,6 +18,18 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **A warning for a `toc:` link that misses.** When a page's frontmatter lists
   its own "On this page" entries, Markline warns, at build and in dev, about any
   `#id` that no heading or element on the page has.
+- **Tag overrides.** `api.tags` in markline.json renames (`label`), hides,
+  merges (`mergeInto`) and re-describes API tags without editing the spec, and
+  `api.tagOrder` puts chosen tags first in the sidebar.
+- **Hidden and deprecated operations.** Anything with `x-hidden` / `x-internal`,
+  or the extensions listed in `api.hideExtensions` (e.g. `x-fern-ignore`), is
+  left out everywhere: operations, path items, webhooks, parameters and fields,
+  from tables, samples, Try it, search and `llms.txt`. Deprecated operations,
+  parameters and fields get a *Deprecated* badge; `api.showDeprecated: false`
+  hides deprecated operations.
+- **`api.auth`** names the auth a spec doesn't declare (e.g. an `xi-api-key`
+  header), so Try it and the cURL samples send it. The key is masked in the code
+  Try it shows.
 
 ### Changed
 - **Lighter API reference pages.** The Try it endpoint list is sent once per
@@ -32,6 +44,9 @@ All notable changes to `@markline/markline` and `@markline/create`.
   limit that isn't a whole number from 1 to 1,000,000 is reported and ignored.
 
 ### Fixed
+- **The Markline home page shows only real numbers.** The GitHub card no longer
+  shows invented stars, contributors or a version, and the showcase links to
+  real sites built with Markline instead of placeholder tiles.
 - `llms-full.txt` no longer drops `import`/`export` lines inside code blocks
   (such as Python's `import requests`).
 - **"On this page" keeps `<placeholders>` in code.** A heading like
@@ -45,6 +60,14 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **A changelog heading with no letters or digits no longer repeats its date's
   id.** A heading such as `## 🚀` in an entry got the entry's date as its id,
   the same as the entry itself. It now gets no id.
+- Tags that differ only by case (`dubbing` / `Dubbing`) shared one URL, and one
+  tag's operations vanished. They now merge into one page, with a build
+  warning naming them.
+- Nullable fields (`anyOf: [X, null]`, `type: [X, "null"]`) showed as a bare
+  "oneOf". They now show their type, a `nullable` label and their nested
+  fields; real unions list their members.
+- Text beside a `$ref` (`description`, `deprecated`) was dropped. It now applies
+  to that use of the schema.
 
 ## 0.1.8
 

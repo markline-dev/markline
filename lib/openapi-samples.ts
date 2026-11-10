@@ -4,6 +4,12 @@ import { bodyKind, flattenObject, isBinarySchema } from "./openapi-media";
 import { formFieldArg, formFileArg, formText, sampleUrl } from "./openapi-curl";
 import { loadConfig } from "./config";
 
+/** Header names the operation authenticates with through an API key. */
+export function apiKeyHeaders(op: OpenAPIOperation): string[] {
+  const names = op.security.flatMap((s) => (s.scheme.type === "apiKey" && s.scheme.in === "header" && s.scheme.name ? [s.scheme.name] : []));
+  return [...new Set(names)];
+}
+
 /** Build a cURL example for an operation. */
 export function curlSample(op: OpenAPIOperation, doc: OpenAPIDoc, root: any): string {
   const baseUrl = loadConfig().api.baseUrl ?? doc.servers[0]?.url ?? "https://api.example.com";
@@ -26,13 +32,7 @@ export function curlSample(op: OpenAPIOperation, doc: OpenAPIDoc, root: any): st
     lines[lines.length - 1] += " \\";
     lines.push(`  --header 'Authorization: Bearer <token>'`);
   }
-  const keyHeaders = [
-    ...new Set(
-      op.security
-        .filter((s) => s.scheme.type === "apiKey" && s.scheme.in === "header" && s.scheme.name)
-        .map((s) => s.scheme.name as string),
-    ),
-  ];
+  const keyHeaders = apiKeyHeaders(op);
   for (const name of keyHeaders) {
     lines[lines.length - 1] += " \\";
     lines.push(`  --header ${shellQuote(`${name}: <api-key>`)}`);

@@ -7,7 +7,7 @@ import remarkGfm from "remark-gfm";
 import { remarkCodeGroupTitles } from "@/lib/code-group";
 import { remarkTocIds } from "@/lib/toc";
 import rehypePrettyCode from "rehype-pretty-code";
-import { loadOpenApi, hasOpenApiSpec, apiSpecPath } from "@/lib/openapi";
+import { loadOpenApi, loadOpenApiRoot, hasOpenApiSpec } from "@/lib/openapi";
 import { ApiOperationPage } from "@/components/docs/api/operation-page";
 import { MarklineApiRef } from "@/components/docs/api/reference/markline-apiref";
 import { buildApiRefView, tagSlug, parseOpenApiTag } from "@/lib/apiref-view";
@@ -27,12 +27,6 @@ const prettyCodeOptions = {
   getHighlighter,
   transformers: [shellTransformer],
 } as const;
-
-function loadRaw(variantId?: string) {
-  const file = apiSpecPath(variantId);
-  if (!fs.existsSync(file)) return {};
-  return JSON.parse(fs.readFileSync(file, "utf8"));
-}
 
 /** The `api/` directory for the default version or a named version variant. */
 function apiDir(variantId?: string): string {
@@ -147,7 +141,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug?: st
   const tag = doc.tags.find((t) => tagSlug(t.name) === first);
   // Descriptions may be markdown; meta/OG tags need plain text, so syntax like
   // `code` or [links](url) doesn't surface verbatim in a snippet.
-  if (tag) return meta(`${tag.displayName ?? tag.name} · API reference`, mdToText(tag.description));
+  if (tag) return meta(`${parseOpenApiTag(tag.name, doc.tagLabels).displayName} · API reference`, mdToText(tag.description));
   const op = doc.operationsById[first];
   if (!op) return {};
   return meta(`${op.summary ?? op.operationId} · API`, mdToText(op.description));
@@ -160,7 +154,7 @@ export default async function ApiReferencePage({ params }: { params: Promise<{ s
   if (!hasOpenApiSpec(variantId)) return uncachedNotFound();
   if (rest.length > 1) return uncachedNotFound(); // a resource or operation is one segment
   const doc = loadOpenApi(variantId);
-  const root = loadRaw(variantId);
+  const root = loadOpenApiRoot(variantId);
   const base = variantId ? `/api-reference/${variantId}` : "/api-reference";
 
   // Resolve the (variant-stripped) slug. Empty → the first resource (the design

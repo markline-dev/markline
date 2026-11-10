@@ -2,6 +2,7 @@ import type { JSONSchema, OpenAPIDoc, OpenAPIOperation, OpenAPIParameter } from 
 import { resolveSchema, sampleFromSchema } from "./openapi";
 import { apiKeyWord, formFieldArg, formFileArg, formText, headerWord, sampleUrl, shellWord } from "./openapi-curl";
 import { bodyKind, describeMediaType, flattenObject, isBinarySchema, isJsonMediaType, nonNullSchema } from "./openapi-media";
+import { apiKeyHeaders } from "./openapi-samples";
 
 /**
  * Server-side code-sample + JSON colorizer for the API reference
@@ -63,7 +64,7 @@ function primitiveSample(raw: JSONSchema | undefined, root: unknown): unknown {
   if (Array.isArray(schema.examples) && schema.examples.length) return schema.examples[0];
   if (schema.enum?.length) return schema.enum[0];
   if (schema.default !== undefined) return schema.default;
-  const type = Array.isArray(schema.type) ? schema.type[0] : schema.type;
+  const type = Array.isArray(schema.type) ? schema.type.find((t) => t !== "null") : schema.type;
   if (type === "integer" || type === "number") return schema.minimum ?? 100;
   if (type === "boolean") return true;
   if (schema.format === "date-time") return "2026-01-01T00:00:00Z";
@@ -360,13 +361,7 @@ export function codeSamples(
   curlLines.push(head + urlSpan);
   if (hasBearer) curlLines.push(`  -H ${S('"Authorization: Bearer sk_live_••••"')}`);
   // apiKey-in-header schemes (e.g. `xi-api-key`) read from the operation's security.
-  const keyHeaders = [
-    ...new Set(
-      op.security
-        .filter((x) => x.scheme.type === "apiKey" && x.scheme.in === "header" && x.scheme.name)
-        .map((x) => x.scheme.name as string),
-    ),
-  ];
+  const keyHeaders = apiKeyHeaders(op);
   for (const name of keyHeaders) curlLines.push(`  -H ${S(apiKeyWord(name))}`);
   for (const h of op.parameters.header ?? []) {
     if (!h.required || keyHeaders.some((k) => k.toLowerCase() === h.name.toLowerCase())) continue;

@@ -18,6 +18,8 @@ import { loadRoute, startStub } from "./proxy-harness";
 
 const MB = 1024 * 1024;
 const closed = new Map<string, boolean>();
+/** Callers to /at-cap-held, released together. */
+const held = { expected: 0, arrived: 0, release: () => {}, all: Promise.resolve() };
 let seen: Record<string, string | string[] | undefined> = {};
 
 const api = await startStub((req, res) => {
@@ -53,6 +55,15 @@ const api = await startStub((req, res) => {
   }
   if (url === "/control-bytes") return res.end(Buffer.alloc(MAX_PROXY_RESPONSE_BYTES, 1));
   if (url === "/at-cap") return res.end(Buffer.alloc(MAX_PROXY_RESPONSE_BYTES, 97));
+  if (url === "/at-cap-held") {
+    // Half now, the rest once every caller has arrived: none can finish, and free
+    // its share of the budget, before they all hold some of it.
+    res.write(Buffer.alloc(MAX_PROXY_RESPONSE_BYTES / 2, 97));
+    held.arrived += 1;
+    if (held.arrived === held.expected) held.release();
+    held.all.then(() => res.end(Buffer.alloc(MAX_PROXY_RESPONSE_BYTES / 2, 97)));
+    return;
+  }
   if (url === "/chunked-big") {
     res.write(Buffer.alloc(MAX_PROXY_RESPONSE_BYTES, 97));
     return res.end(Buffer.alloc(MB, 97));
@@ -402,7 +413,11 @@ test("a reply that JSON would blow up is a 413, and doesn't hold memory for long
 });
 
 test("large responses at once are limited with a 503, and the limit recovers", { timeout: 60_000 }, async () => {
-  const results = await Promise.all(Array.from({ length: 5 }, () => route.send({ url: at("/at-cap") })));
+  // Five at the cap need 125 MB together, and each is held until all have arrived.
+  held.expected = 5;
+  held.arrived = 0;
+  held.all = new Promise<void>((r) => (held.release = r));
+  const results = await Promise.all(Array.from({ length: 5 }, () => route.send({ url: at("/at-cap-held") })));
   const statuses = results.map((r) => r.status);
   assert.ok(statuses.includes(503), statuses.join());
   assert.ok(statuses.includes(200), statuses.join());

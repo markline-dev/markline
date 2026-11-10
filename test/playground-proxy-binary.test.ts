@@ -19,6 +19,7 @@ import { loadRoute, startStub } from "./proxy-harness";
 const MB = 1024 * 1024;
 const closed = new Map<string, boolean>();
 let uploadArrived = () => {};
+let textWritten = () => {};
 let release = Promise.resolve();
 let received: { method?: string; type?: string; size: number; sha: string } = { size: 0, sha: "" };
 
@@ -65,6 +66,13 @@ const api = await startStub((req, res) => {
     return res.end('{"ok":true}');
   }
   if (url === "/untyped") return res.end(Buffer.from([0x68, 0x69]));
+  if (url === "/text-held") {
+    // Written (so read by the proxy, give or take a socket buffer), then held.
+    res.writeHead(200, { "content-type": "text/plain" });
+    res.write(Buffer.alloc(22 * MB, 97), () => textWritten());
+    release.then(() => res.end());
+    return;
+  }
   if (url === "/five-mb") return res.end(Buffer.alloc(5 * MB, 97));
   if (url === "/upload-hold") {
     req.resume();
@@ -131,10 +139,16 @@ test("a binary response over the cap is a 413 and the upstream is dropped", { ti
 });
 
 test("the base64 counts against the shared budget, which recovers", { timeout: 60_000 }, async () => {
-  // Two at-cap binaries fit the budget as bytes (50 MB) but not with their base64 (117 MB).
-  const results = await Promise.all([route.send({ url: at("/audio-at-cap") }), route.send({ url: at("/audio-at-cap") })]);
-  const statuses = results.map((r) => r.status);
-  assert.ok(statuses.includes(503), statuses.join());
+  // A text response held open with 22 MB read. An at-cap binary then fits as bytes
+  // (47 MB in all), but not with its 33 MB of base64.
+  let done = () => {};
+  release = new Promise<void>((r) => (done = r));
+  const written = new Promise<void>((r) => (textWritten = r));
+  const text = route.send({ url: at("/text-held") });
+  await written;
+  assert.equal((await route.send({ url: at("/audio-at-cap") })).status, 503);
+  done();
+  assert.equal((await text).status, 200);
   assert.equal((await route.send({ url: at("/audio-at-cap") })).status, 200);
 });
 

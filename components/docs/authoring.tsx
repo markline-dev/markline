@@ -173,7 +173,7 @@ export function Steps({ children }: { children: React.ReactNode; toc?: boolean }
   );
 }
 
-/** `id` comes from remarkStepIds, on the steps listed in "On this page". */
+/** `id` comes from remarkTocIds, on the steps listed in "On this page". */
 type StepProps = { title?: string; id?: string; children: React.ReactNode; __num?: number };
 
 export function Step({ title, id, children, __num }: StepProps) {

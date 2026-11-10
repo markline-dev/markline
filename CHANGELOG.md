@@ -25,6 +25,10 @@ All notable changes to `@markline/markline` and `@markline/create`.
   largest resource page drops from 13.2 MB to 4.4 MB. Docs pages list API
   resources, not every operation, in their navigation data, unless the API tab
   also holds docs pages.
+- **`ai.rateLimit.perDay` is enforced.** It's a per-IP limit on each server
+  instance, not a spending cap; set spending limits with your AI provider. The
+  Ask AI Worker reads `MARKLINE_RATE_PER_DAY`. A request over either limit now
+  gets a `Retry-After` header with its 429.
 
 ### Fixed
 - `llms-full.txt` no longer drops `import`/`export` lines inside code blocks

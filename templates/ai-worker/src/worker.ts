@@ -24,6 +24,8 @@
  *   # non-secret knobs live in wrangler.toml [vars]
  */
 
+import { createRateLimiter, limitOf } from "./rate-limit";
+
 export interface Env {
   /** Provider API key — set with `wrangler secret put MARKLINE_AI_KEY`. */
   MARKLINE_AI_KEY: string;
@@ -36,7 +38,10 @@ export interface Env {
   MARKLINE_AI_SYSTEM_PROMPT?: string;
   /** Comma-separated docs origin(s) allowed to call this Worker. "*" allows any (not recommended). */
   MARKLINE_ALLOWED_ORIGIN?: string;
+  /** Per-IP requests in any 60 seconds (default 10). */
   MARKLINE_RATE_PER_MIN?: string;
+  /** Per-IP requests per UTC day; unset for no daily limit. */
+  MARKLINE_RATE_PER_DAY?: string;
   MARKLINE_SITE_NAME?: string;
 }
 
@@ -55,15 +60,8 @@ const DEFAULT_SYSTEM =
   "fenced code blocks (```) for example requests. Use **bold** for key terms and `code` for fields, " +
   "endpoints and commands. If the context does not cover the question, say so briefly.";
 
-// Per-isolate rate limit. For multi-region durability, swap for a KV/DO counter.
-const HITS = new Map<string, number[]>();
-function rateLimited(ip: string, perMinute: number): boolean {
-  const now = Date.now();
-  const arr = (HITS.get(ip) ?? []).filter((t) => t > now - 60_000);
-  arr.push(now);
-  HITS.set(ip, arr);
-  return arr.length > perMinute;
-}
+// Per-IP limits, in this isolate's memory (see rate-limit.ts).
+const rateLimited = createRateLimiter();
 
 function allowedOrigin(origin: string | null, env: Env): string | null {
   const list = (env.MARKLINE_ALLOWED_ORIGIN ?? "")
@@ -99,8 +97,12 @@ export default {
     if (!env.MARKLINE_AI_KEY) return new Response("Worker missing MARKLINE_AI_KEY secret", { status: 503, headers: cors });
 
     const ip = req.headers.get("cf-connecting-ip") ?? "anon";
-    if (rateLimited(ip, Number(env.MARKLINE_RATE_PER_MIN) || 10)) {
-      return new Response("Rate limit exceeded", { status: 429, headers: cors });
+    const wait = rateLimited(ip, {
+      perMinute: limitOf(env.MARKLINE_RATE_PER_MIN) ?? 10,
+      perDay: limitOf(env.MARKLINE_RATE_PER_DAY),
+    });
+    if (wait !== undefined) {
+      return new Response("Rate limit exceeded", { status: 429, headers: { ...cors, "retry-after": String(wait) } });
     }
 
     let body: { question?: string; context?: string };

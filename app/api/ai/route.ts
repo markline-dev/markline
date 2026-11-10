@@ -1,5 +1,6 @@
 import { loadConfig, resolveAiBaseUrl } from "@/lib/config";
 import { buildMessages, chatComplete } from "@/lib/ai/transport";
+import { createRateLimiter, limitOf } from "@/lib/ai/rate-limit";
 
 /**
  * Ask AI server proxy (BYOK, proxy mode). Holds the operator key
@@ -10,16 +11,8 @@ import { buildMessages, chatComplete } from "@/lib/ai/transport";
  */
 export const dynamic = "force-dynamic";
 
-// Conservative in-memory per-IP rate limit (single-instance; swap for KV at scale).
-const HITS = new Map<string, number[]>();
-function rateLimited(ip: string, perMinute: number): boolean {
-  const now = Date.now();
-  const win = now - 60_000;
-  const arr = (HITS.get(ip) ?? []).filter((t) => t > win);
-  arr.push(now);
-  HITS.set(ip, arr);
-  return arr.length > perMinute;
-}
+// Per-IP limits, in this instance's memory (see lib/ai/rate-limit.ts).
+const rateLimited = createRateLimiter();
 
 function sameOrigin(req: Request): boolean {
   const origin = req.headers.get("origin");
@@ -42,8 +35,12 @@ export async function POST(req: Request) {
 
   if (!sameOrigin(req)) return new Response("Forbidden origin", { status: 403 });
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
-  if (rateLimited(ip, ai.rateLimit?.perMinute ?? 10)) {
-    return new Response("Rate limit exceeded", { status: 429 });
+  const wait = rateLimited(ip, {
+    perMinute: limitOf(ai.rateLimit?.perMinute) ?? 10,
+    perDay: limitOf(ai.rateLimit?.perDay),
+  });
+  if (wait !== undefined) {
+    return new Response("Rate limit exceeded", { status: 429, headers: { "retry-after": String(wait) } });
   }
 
   let body: { question?: string; context?: string; images?: string[] };

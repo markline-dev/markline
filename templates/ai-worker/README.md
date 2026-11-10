@@ -52,7 +52,8 @@ Rebuild and redeploy your docs — the assistant now runs on your key.
 | `MARKLINE_AI_MODEL` | model id, e.g. `deepseek/deepseek-v4-flash` |
 | `MARKLINE_AI_MAX_TOKENS` | response token cap (default 1024) |
 | `MARKLINE_ALLOWED_ORIGIN` | comma-separated docs origin(s) allowed to call the Worker; `*` allows any (not recommended) |
-| `MARKLINE_RATE_PER_MIN` | per-IP requests/min (default 10) |
+| `MARKLINE_RATE_PER_MIN` | per-IP requests in any 60 seconds (default 10) |
+| `MARKLINE_RATE_PER_DAY` | per-IP requests per UTC day (unset: no daily limit) |
 | `MARKLINE_AI_SYSTEM_PROMPT` | optional system-prompt override |
 | `MARKLINE_AI_KEY` | **secret** — set with `wrangler secret put`, never in this file |
 
@@ -60,5 +61,7 @@ Rebuild and redeploy your docs — the assistant now runs on your key.
 
 A public `/api/ai` is an open relay to your paid LLM. This Worker ships with an
 **origin allow-list** (`MARKLINE_ALLOWED_ORIGIN`), a **per-IP rate limit**, and a
-**token cap** — tune them for your traffic. The rate limit is per-isolate
-in-memory; for strict global limits, back it with Workers KV or a Durable Object.
+**token cap** — tune them for your traffic. The rate limits are per-isolate
+in-memory, so they slow one caller down but don't cap total spending: set a
+spending limit with your AI provider. For strict global limits, back them with
+Workers KV or a Durable Object.

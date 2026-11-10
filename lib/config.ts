@@ -286,7 +286,12 @@ export type AiConfig = {
    */
   suggestions?: boolean;
   maxTokens?: number;
-  /** Per-IP abuse limits for the proxy route. */
+  /**
+   * Per-IP limits for the proxy route: requests in any 60 seconds (default 10),
+   * and per UTC day (unset: none). Each server instance counts on its own, so
+   * they limit one caller's rate, not total spending; set spending limits with
+   * the AI provider.
+   */
   rateLimit?: { perMinute?: number; perDay?: number };
 };
 

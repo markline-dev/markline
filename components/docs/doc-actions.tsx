@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { pageToMarkdown as renderPage } from "@/lib/page-markdown";
 import { openAskPanel } from "./ai/ask-dock";
+import { menuLayout, type PageAction } from "./page-actions";
 
 /* ──────────────────────────────────────────────────────────────────────────
  * Docs page AI/affordance row (the design's .doc-ai): rendered below the lede.
@@ -17,7 +18,8 @@ import { openAskPanel } from "./ai/ask-dock";
  * page content (no fabricated text). The menu also links the .md file.
  *
  * `layout.pageActions: "menu"` shows them as one "Copy for LLM" button with
- * the others in a dropdown, beside the last-updated date.
+ * the Markdown ones in a dropdown, beside the last-updated date, and Ask AI as
+ * its own button.
  * ────────────────────────────────────────────────────────────────────────── */
 
 const SparkIcon = (
@@ -109,18 +111,26 @@ export function DocAiRow({
   };
 
   if (variant === "menu") {
+    const layout = menuLayout(aiEnabled);
+    const actions: Partial<Record<PageAction, MenuItem>> = {
+      view: { label: "View as Markdown", icon: MarkdownIcon, run: () => openMarkdownModal(markdown()) },
+      open: { label: "Open Markdown file", icon: MarkdownIcon, run: () => window.open(mdUrl, "_blank", "noopener") },
+    };
     return (
       <div className="doc-ai doc-ai--menu" onPointerEnter={prefetch} onFocus={prefetch}>
         <span className="date">{lastUpdated}</span>
-        <ActionMenu
-          copied={copied}
-          onCopy={copyForLlm}
-          items={[
-            { label: "View as Markdown", icon: MarkdownIcon, run: () => openMarkdownModal(markdown()) },
-            { label: "Open Markdown file", icon: MarkdownIcon, run: () => window.open(mdUrl, "_blank", "noopener") },
-            ...(aiEnabled ? [{ label: "Ask AI about this page", icon: SparkIcon, run: () => openAskPanel(title) }] : []),
-          ]}
-        />
+        <div className="doc-ai-actions">
+          {layout.buttons.includes("ask") && (
+            <button type="button" className="doc-ai-ask" aria-label="Ask AI about this page" onClick={() => openAskPanel(title)}>
+              {SparkIcon} Ask AI
+            </button>
+          )}
+          <ActionMenu
+            copied={copied}
+            onCopy={copyForLlm}
+            items={layout.menu.flatMap((a) => actions[a] ?? [])}
+          />
+        </div>
       </div>
     );
   }

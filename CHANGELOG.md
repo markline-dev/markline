@@ -48,6 +48,14 @@ All notable changes to `@markline/markline` and `@markline/create`.
   largest resource page drops from 13.2 MB to 4.4 MB. Docs pages list API
   resources, not every operation, in their navigation data, unless the API tab
   also holds docs pages.
+- **`ai.rateLimit.perDay` is enforced.** It's a per-IP limit on each server
+  instance, not a spending cap; set spending limits with your AI provider. The
+  Ask AI Worker reads `MARKLINE_RATE_PER_DAY`. Both limits count each valid
+  request, and one over either now gets a `Retry-After` header with its 429. A
+  limit that isn't a whole number from 1 to 1,000,000 is reported and ignored.
+- **Ask AI gets its own button in the menu style.** With
+  `layout.pageActions: "menu"`, Ask AI is its own button beside Copy for LLM,
+  and the menu holds only View as Markdown and Open Markdown file.
 - **Uploads through the Try it proxy are limited to 25 MB.** Try it says so
   before sending a larger one, and the proxy refuses it too.
 

@@ -1,5 +1,6 @@
 import type { JSONSchema } from "@/lib/openapi";
 import { mdToHtml } from "@/lib/md-desc";
+import { isDeprecatedParam, normalizeField, typeLabel } from "@/lib/openapi-schema";
 
 export function ParamRow({
   name,
@@ -8,6 +9,7 @@ export function ParamRow({
   description,
   location,
   control,
+  deprecated: paramDeprecated,
 }: {
   name: string;
   schema?: JSONSchema;
@@ -16,22 +18,29 @@ export function ParamRow({
   location?: string;
   /** Inline input rendered on the right (turns the param doc into a form field). */
   control?: React.ReactNode;
+  /** `deprecated` on the parameter itself, as opposed to on its schema. */
+  deprecated?: boolean;
 }) {
-  const typeLabel = describeType(schema);
-  const enumValues = schema?.enum?.map((e) => String(e));
+  // `anyOf: [X, null]` reads as X, marked nullable.
+  const { schema: shape, nullable } = normalizeField(schema);
+  const typeText = describeType(schema);
+  const enumValues = shape.enum?.filter((e) => e !== null).map((e) => String(e));
+  const deprecated = isDeprecatedParam(paramDeprecated, schema, shape);
   const info = (
     <>
       <div className="ml-param-head">
         <span className="ml-param-name">{name}</span>
-        {typeLabel && <span className="ml-param-tag">{typeLabel}</span>}
+        {typeText && <span className="ml-param-tag">{typeText}</span>}
         {location && <span className="ml-param-tag">{location}</span>}
+        {nullable && <span className="ml-param-fmt">nullable</span>}
+        {deprecated && <span className="ml-param-deprecated">deprecated</span>}
         {required && <span className="ml-param-required">required</span>}
-        {schema?.format && <span className="ml-param-fmt">· {schema.format}</span>}
+        {shape.format && <span className="ml-param-fmt">· {shape.format}</span>}
       </div>
-      {(description || schema?.description) && (
+      {(description || shape.description) && (
         <div
           className="ml-param-desc"
-          dangerouslySetInnerHTML={{ __html: mdToHtml((description ?? schema?.description)!) }}
+          dangerouslySetInnerHTML={{ __html: mdToHtml((description ?? shape.description)!) }}
         />
       )}
       {enumValues && enumValues.length > 0 && (
@@ -54,8 +63,8 @@ export function ParamRow({
       ) : (
         info
       )}
-      {schema?.type === "object" && schema.properties && <NestedObject schema={schema} />}
-      {schema?.type === "array" && schema.items && <NestedArray items={schema.items} />}
+      {shape.properties && <NestedObject schema={shape} />}
+      {shape.type === "array" && shape.items && <NestedArray items={normalizeField(shape.items).schema} />}
     </div>
   );
 }
@@ -78,7 +87,7 @@ function NestedObject({ schema }: { schema: JSONSchema }) {
 }
 
 function NestedArray({ items }: { items: JSONSchema }) {
-  if (items.type !== "object" || !items.properties) return null;
+  if (!items.properties) return null;
   const required = new Set(items.required ?? []);
   return (
     <details className="ml-param-nested">
@@ -119,14 +128,5 @@ export function SchemaTable({ schema }: { schema?: JSONSchema }) {
 
 export function describeType(schema?: JSONSchema): string | null {
   if (!schema) return null;
-  if (schema.enum) return "enum";
-  if (schema.type === "array") {
-    const inner = describeType(schema.items) ?? "any";
-    return `array<${inner}>`;
-  }
-  if (Array.isArray(schema.type)) return schema.type.join(" | ");
-  if (schema.type === "integer") return "integer";
-  if (typeof schema.type === "string") return schema.type;
-  if (schema.oneOf || schema.anyOf) return "oneOf";
-  return "object";
+  return typeLabel(schema);
 }

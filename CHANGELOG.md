@@ -4,12 +4,130 @@ All notable changes to `@markline/markline` and `@markline/create`.
 
 ## Unreleased
 
+### Added
+- **`<CodeGroup>`.** Plain fenced code blocks as tabs, named by each fence's
+  `title` (or language). Groups with the same tabs switch together, and the
+  reader's pick is remembered across pages. `sync` joins or separates groups.
+- **Markdown for each page and section.** `/<page>.md` serves a page's
+  Markdown, and `/<section>/llms.txt` indexes one top-level folder, beside the
+  site-wide `llms.txt`. They're files in a build or static export, and served
+  by `markline dev`. Copy for LLM and View as Markdown use the same text.
+- **Steps in "On this page".** `<Steps toc>`, or `toc: steps` in frontmatter,
+  lists step titles in the table of contents, as each step shows them. A
+  step's link is `#step-<title>`, with `-1`, `-2` added when it repeats.
+- **A warning for a `toc:` link that misses.** When a page's frontmatter lists
+  its own "On this page" entries, Markline warns, at build and in dev, about any
+  `#id` that no heading or element on the page has.
+- **Tag overrides.** `api.tags` in markline.json renames (`label`), hides,
+  merges (`mergeInto`) and re-describes API tags without editing the spec, and
+  `api.tagOrder` puts chosen tags first in the sidebar.
+- **Hidden and deprecated operations.** Anything with `x-hidden` / `x-internal`,
+  or the extensions listed in `api.hideExtensions` (e.g. `x-fern-ignore`), is
+  left out everywhere: operations, path items, webhooks, parameters and fields,
+  from tables, samples, Try it, search and `llms.txt`. Deprecated operations,
+  parameters and fields get a *Deprecated* badge; `api.showDeprecated: false`
+  hides deprecated operations.
+- **`api.auth`** names the auth a spec doesn't declare (e.g. an `xi-api-key`
+  header), so Try it and the cURL samples send it. The key is masked in the code
+  Try it shows.
+
+### Changed
+- **Lighter API reference pages.** The Try it endpoint list is sent once per
+  page instead of once per operation. On ElevenLabs' spec (478 operations) the
+  largest resource page drops from 13.2 MB to 4.4 MB. Docs pages list API
+  resources, not every operation, in their navigation data, unless the API tab
+  also holds docs pages.
+- **`ai.rateLimit.perDay` is enforced.** It's a per-IP limit on each server
+  instance, not a spending cap; set spending limits with your AI provider. The
+  Ask AI Worker reads `MARKLINE_RATE_PER_DAY`. Both limits count each valid
+  request, and one over either now gets a `Retry-After` header with its 429. A
+  limit that isn't a whole number from 1 to 1,000,000 is reported and ignored.
+- **Ask AI gets its own button in the menu style.** With
+  `layout.pageActions: "menu"`, Ask AI is its own button beside Copy for LLM,
+  and the menu holds only View as Markdown and Open Markdown file.
+
 ### Fixed
+- **The Markline home page shows only real numbers.** The GitHub card no longer
+  shows invented stars, contributors or a version, and the showcase links to
+  real sites built with Markline instead of placeholder tiles.
+- `llms-full.txt` no longer drops `import`/`export` lines inside code blocks
+  (such as Python's `import requests`).
+- **"On this page" keeps `<placeholders>` in code.** A heading like
+  ``### `create <volume>` `` now links to its own id. The TOC stripped `<volume>`
+  as HTML before unwrapping the code, so the link missed the heading.
+- **Headings with the same text get their own ids.** The second "Verify" on a
+  page is `#verify-1`, and its "On this page" link goes to it, not to the first.
+  A heading's own text wins over a number added to a repeat, so a heading named
+  "Verify 1" keeps `#verify-1`. Changelog entries and the API reference intro
+  get the same ids.
+- **A changelog heading with no letters or digits no longer repeats its date's
+  id.** A heading such as `## 🚀` in an entry got the entry's date as its id,
+  the same as the entry itself. It now gets no id.
+- Tags that differ only by case (`dubbing` / `Dubbing`) shared one URL, and one
+  tag's operations vanished. They now merge into one page, with a build
+  warning naming them.
+- Nullable fields (`anyOf: [X, null]`, `type: [X, "null"]`) showed as a bare
+  "oneOf". They now show their type, a `nullable` label and their nested
+  fields; real unions list their members.
+- Text beside a `$ref` (`description`, `deprecated`) was dropped. It now applies
+  to that use of the schema.
 - **API samples.** Generated SDK result variables take the last path segment
   of the OpenAPI tag, singularize and camelCase it, and append `Result` when
   the name collides with a reserved word in JS, Python or Go (`types` →
   `typeResult`). Tags with a trailing slash keep their last segment instead of
   degrading to `result`.
+
+## 0.1.8
+
+### Added
+- **Docs on what a build can run.** The deployment guide now says that building a
+  site runs its code, so only build repositories you trust.
+
+### Changed
+- **Try it proxy needs a configured API.** A site with no `api.baseUrl` and no
+  absolute URL in the spec's `servers` must set `api.baseUrl` for the proxy to
+  work, in `next start` and standalone deployments alike. It reads these at build
+  time, so rebuild after changing them. It only accepts requests from pages on the
+  site, and `api.playground.proxy: "never"` now turns it off.
+- **Try it proxy limits.** Responses over 25 MB, requests over 35 MB and calls over
+  120 seconds return an error, and so do large responses while the server is
+  holding a lot of data. Connection, routing and client-address headers and
+  `Cookie` aren't forwarded, and a redirect's body isn't shown.
+- **`.env` files beside `markline.json` are read.** The CLI loads site settings
+  from a project's `.env`, `.env.local` and so on: `MARKLINE_AI_KEY`,
+  `MARKLINE_SITE_URL`, `MARKLINE_BASE_PATH` and `NEXT_PUBLIC_*`. Everything else,
+  like `PORT`, has to come from the shell. Files in `.markline/` still work, with the same rule and
+  a message suggesting they move, and the project's files win.
+- **`.markline/` holds only what Markline put there.** Other files in it, including
+  a real `node_modules`, are removed on each run with a message naming them. The
+  last build's output and `.env` files stay. `MARKLINE_DIST` is only read from the shell,
+  and must be a folder inside the app folder and outside `node_modules`.
+  `markline export` now works with it.
+- **Next 15.5.18 or later.** The `next` dependency is now `^15.5.18`.
+- **Pages are only cached at build time.** Next's page and data cache no longer
+  write when a request is served, though on some Next versions a built page is
+  still copied within `.next` the first time it's read. Custom revalidation code
+  won't update a page, so rebuild to update one. A page added since the build is
+  rendered on each request.
+- **CLI flags and checkout runs.** `markline dev`, `build` and `start` pass
+  extra flags on to Next, so `markline dev -p 3001` sets the port. Run from
+  a Markline checkout (`node ../markline/bin/markline.mjs dev`), the CLI
+  uses the checkout's dependencies, so a docs folder needs no install.
+- **Nav links to `/x/index`.** They're treated as `/x`, and a nav link to a missing
+  page warns at build.
+
+### Fixed
+- **Unknown URLs aren't cached.** The Node server no longer stores a copy of
+  each unknown URL, however its path is written, and its 404 isn't cacheable.
+- **Don't follow links in the staging folder.** The CLI replaces `.markline/` if
+  it's a link and removes any links in it, apart from links inside a build's own
+  output, and only ever the link itself. `public/` is staged as real files on every
+  Node version: dead and looping links are skipped with a warning, and a folder
+  reached through more than 8 links isn't copied again.
+- **New projects ignore `.markline/`.** `markline init` and `npm create @markline`
+  now write a `.gitignore`, which was missing from the published package.
+- **Linked pages in static exports.** A symlinked page or folder under `docs/`
+  is now included in a static export, as it already was on a Node server.
 
 ## 0.1.7
 

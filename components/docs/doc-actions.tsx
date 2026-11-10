@@ -1,18 +1,25 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { usePathname } from "next/navigation";
+import { pageToMarkdown as renderPage } from "@/lib/page-markdown";
 import { openAskPanel } from "./ai/ask-dock";
+import { menuLayout, type PageAction } from "./page-actions";
 
 /* ──────────────────────────────────────────────────────────────────────────
  * Docs page AI/affordance row (the design's .doc-ai): rendered below the lede.
  * - "Ask AI about this page"  → opens the docked Ask-AI panel (gated on AI).
  * - "Copy for LLM"            → copies a Markdown rendering of the page DOM.
  * - "View as Markdown"        → opens the shared View-as-Markdown modal.
- * All three derive their Markdown from the rendered .docs-prose, so they stay
- * bound to the real page content (no fabricated text).
+ * Both Markdown actions use the page's own Markdown, served at <page>.md
+ * (scripts/llms.mjs), once it has loaded; it's fetched when the pointer or
+ * focus first reaches the row. Until then, or where there's no .md file, they
+ * fall back to rendering the .docs-prose DOM, so they stay bound to the real
+ * page content (no fabricated text). The menu also links the .md file.
  *
  * `layout.pageActions: "menu"` shows them as one "Copy for LLM" button with
- * the others in a dropdown, beside the last-updated date.
+ * the Markdown ones in a dropdown, beside the last-updated date, and Ask AI as
+ * its own button.
  * ────────────────────────────────────────────────────────────────────────── */
 
 const SparkIcon = (
@@ -38,44 +45,20 @@ const MarkdownIcon = (
   </svg>
 );
 
-/** Render the current docs page (title + lede + prose) to Markdown from the DOM. */
+/** The current docs page (title + lede + prose) as Markdown, from the DOM. */
 function pageToMarkdown(title: string): string {
-  const clean = (s?: string | null) => (s || "").replace(/\s+/g, " ").trim();
-  let md = `# ${clean(title)}\n\n`;
-  const lead = document.querySelector(".docs-shell .docs-lead");
-  if (lead) md += clean(lead.textContent) + "\n\n";
+  return renderPage(
+    title,
+    document.querySelector(".docs-shell .docs-lead"),
+    document.querySelector(".docs-shell .docs-prose"),
+  );
+}
 
-  const prose = document.querySelector(".docs-shell .docs-prose");
-  if (!prose) return md.trim();
-
-  // Walk top-level prose nodes and emit a faithful-enough Markdown view.
-  prose.childNodes.forEach((node) => {
-    if (node.nodeType !== Node.ELEMENT_NODE) return;
-    const el = node as HTMLElement;
-    const tag = el.tagName.toLowerCase();
-    const text = clean(el.textContent);
-    if (!text && tag !== "hr") return;
-    switch (tag) {
-      case "h2": md += `## ${text}\n\n`; break;
-      case "h3": md += `### ${text}\n\n`; break;
-      case "p": md += `${text}\n\n`; break;
-      case "ul":
-      case "ol": {
-        el.querySelectorAll(":scope > li").forEach((li) => {
-          md += `- ${clean(li.textContent)}\n`;
-        });
-        md += "\n";
-        break;
-      }
-      case "pre": md += "```\n" + (el.textContent || "").trim() + "\n```\n\n"; break;
-      case "hr": md += "---\n\n"; break;
-      default: {
-        // Code panels, callouts, steps, cards — flatten to text.
-        if (text) md += `${text}\n\n`;
-      }
-    }
-  });
-  return md.trim();
+/** The current page's .md URL (scripts/llms.mjs markdownPath). */
+function markdownUrl(pathname: string): string {
+  const base = process.env.NEXT_PUBLIC_MARKLINE_BASE_PATH ?? "";
+  const p = pathname.replace(/\/$/, "");
+  return `${base}${p ? p : "/index"}.md`;
 }
 
 function openMarkdownModal(md: string) {
@@ -100,9 +83,24 @@ export function DocAiRow({
   lastUpdated?: string;
 }) {
   const [copied, setCopied] = useState(false);
+  const pathname = usePathname() ?? "/";
+  const mdUrl = markdownUrl(pathname);
+  // The fetched .md text: undefined until asked for, null when there's none.
+  const source = useRef<string | null | undefined>(undefined);
+  const prefetch = () => {
+    if (source.current !== undefined) return;
+    source.current = null;
+    fetch(mdUrl)
+      .then((r) => (r.ok && !(r.headers.get("content-type") ?? "").includes("html") ? r.text() : null))
+      .then((t) => {
+        source.current = t;
+      })
+      .catch(() => {});
+  };
+  const markdown = () => source.current || pageToMarkdown(title);
 
   const copyForLlm = () => {
-    const md = pageToMarkdown(title);
+    const md = markdown();
     navigator.clipboard?.writeText(md).then(
       () => {
         setCopied(true);
@@ -113,23 +111,32 @@ export function DocAiRow({
   };
 
   if (variant === "menu") {
+    const layout = menuLayout(aiEnabled);
+    const actions: Partial<Record<PageAction, MenuItem>> = {
+      view: { label: "View as Markdown", icon: MarkdownIcon, run: () => openMarkdownModal(markdown()) },
+      open: { label: "Open Markdown file", icon: MarkdownIcon, run: () => window.open(mdUrl, "_blank", "noopener") },
+    };
     return (
-      <div className="doc-ai doc-ai--menu">
+      <div className="doc-ai doc-ai--menu" onPointerEnter={prefetch} onFocus={prefetch}>
         <span className="date">{lastUpdated}</span>
-        <ActionMenu
-          copied={copied}
-          onCopy={copyForLlm}
-          items={[
-            { label: "View as Markdown", icon: MarkdownIcon, run: () => openMarkdownModal(pageToMarkdown(title)) },
-            ...(aiEnabled ? [{ label: "Ask AI about this page", icon: SparkIcon, run: () => openAskPanel(title) }] : []),
-          ]}
-        />
+        <div className="doc-ai-actions">
+          {layout.buttons.includes("ask") && (
+            <button type="button" className="doc-ai-ask" aria-label="Ask AI about this page" onClick={() => openAskPanel(title)}>
+              {SparkIcon} Ask AI
+            </button>
+          )}
+          <ActionMenu
+            copied={copied}
+            onCopy={copyForLlm}
+            items={layout.menu.flatMap((a) => actions[a] ?? [])}
+          />
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="doc-ai">
+    <div className="doc-ai" onPointerEnter={prefetch} onFocus={prefetch}>
       {aiEnabled && (
         <button type="button" className="ask" onClick={() => openAskPanel(title)}>
           {SparkIcon} Ask AI about this page
@@ -138,7 +145,7 @@ export function DocAiRow({
       <button type="button" className={copied ? "copied" : undefined} onClick={copyForLlm}>
         {copied ? CopiedIcon : CopyIcon} {copied ? "Copied" : "Copy for LLM"}
       </button>
-      <button type="button" onClick={() => openMarkdownModal(pageToMarkdown(title))}>
+      <button type="button" onClick={() => openMarkdownModal(markdown())}>
         {MarkdownIcon} View as Markdown
       </button>
     </div>

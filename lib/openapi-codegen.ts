@@ -1,5 +1,6 @@
 import type { JSONSchema, OpenAPIDoc, OpenAPIOperation, OpenAPIParameter } from "./openapi";
 import { resolveSchema, sampleFromSchema } from "./openapi";
+import { apiKeyHeaders } from "./openapi-samples";
 
 /**
  * Server-side code-sample + JSON colorizer for the API reference
@@ -58,7 +59,7 @@ function primitiveSample(schema: JSONSchema | undefined, root: unknown): unknown
   if (schema.example !== undefined) return schema.example;
   if (schema.enum?.length) return schema.enum[0];
   if (schema.default !== undefined) return schema.default;
-  const type = Array.isArray(schema.type) ? schema.type[0] : schema.type;
+  const type = Array.isArray(schema.type) ? schema.type.find((t) => t !== "null") : schema.type;
   if (type === "integer" || type === "number") return schema.minimum ?? 100;
   if (type === "boolean") return true;
   if (schema.format === "date-time") return "2026-01-01T00:00:00Z";
@@ -222,6 +223,7 @@ export function codeSamples(
   if (op.method !== "get" && op.method !== "post") head += `-X ${op.method.toUpperCase()} `;
   curlLines.push(head + urlSpan);
   if (hasBearer) curlLines.push(`  -H ${S('"Authorization: Bearer sk_live_••••"')}`);
+  for (const name of apiKeyHeaders(op)) curlLines.push(`  -H ${S(`"${name}: $API_KEY"`)}`);
   for (const f of fields) {
     const v = typeof f.value === "number" ? N(f.value) : esc(String(f.value));
     curlLines.push(`  -d ${KEY(f.name)}=${v}`);

@@ -1,0 +1,116 @@
+---
+title: LLM files
+description: Markline writes llms.txt, llms-full.txt and a Markdown copy of every page, so coding agents and other LLM tools can read your docs.
+lede: Plain-text copies of your docs for coding agents and other LLM tools, written on every build.
+toc:
+  - id: the-files
+    label: The files
+  - id: what-they-include
+    label: What they include
+  - id: serving-the-files
+    label: Serving the files
+  - id: page-actions
+    label: Page actions
+---
+
+Every site gets these, with no setting to turn on and no `ai` block needed.
+
+## The files
+
+| URL | What it is |
+| --- | --- |
+| `/llms.txt` | An index of every page, grouped and ordered as in the sidebar ([llmstxt.org](https://llmstxt.org)), with each page's `lede`. It ends with your API reference's resources, when you have one |
+| `/llms-full.txt` | The source of every page in one file, in sidebar order |
+| `/<page>.md` | One page's Markdown: its title, lede and body, e.g. `/quickstart.md`. The home page is `/index.md` |
+| `/<folder>/llms.txt` | An index of the pages under one top-level folder, e.g. `/guides/llms.txt` |
+
+`llms.txt` tells readers about the `.md` and folder files, so an agent given
+the index can find the rest.
+
+Links in `llms.txt` are absolute when [`seo.metadataBase`](/configuration#seo)
+or `MARKLINE_SITE_URL` is set, and paths otherwise.
+
+Readers can also copy a page's Markdown from the page itself, with its
+[page actions](#page-actions).
+
+## What they include
+
+- **Landing pages are left out** of all of them.
+- **Pages the sidebar doesn't list** still appear, under "More", after the
+  sidebar's groups. In `llms.txt` the API reference section comes after that.
+- **A folder index** is written for each top-level folder holding at least
+  one page below it, such as `docs/guides/setup.mdx`. A folder with only an
+  index page gets none.
+- **The changelog** appears in `llms.txt` only as a link to `/changelog`:
+  where the sidebar links it, or under "More" when there's a
+  `docs/changelog.mdx`. Its entries aren't listed, and once there are entries
+  `/changelog` has no `.md` (a `docs/changelog.mdx` is only its intro).
+- **Other versions and languages** get a `.md` for each page (`/v1/guides/setup.md`),
+  but `llms.txt`, `llms-full.txt` and the folder indexes cover only the
+  default one.
+- **MDX components** like `<Note>` stay as they are in the `.md` files; they
+  read fine as context. `import` and `export` lines and comments are removed.
+
+## Serving the files
+
+`markline build` and `markline export` write them as files, so a static
+export serves them from any host. `markline dev` serves the `.md` and folder
+`llms.txt` files live, from the current text. It doesn't regenerate `/llms.txt`
+or `/llms-full.txt`: those are from the last build, and a new project has none
+until its first build.
+
+A `.md` or folder `llms.txt` in your own `public/` folder is kept, and the
+build doesn't write that one. `llms.txt` and `llms-full.txt` are always
+generated.
+
+## Page actions
+
+Every docs page has actions under its title for getting the page into an
+LLM. They're on by default, with no setting needed.
+
+- **Copy for LLM** copies the page as Markdown.
+- **View as Markdown** shows that Markdown in a window over the page, with
+  its own copy button.
+- **Ask AI about this page** opens the [Ask AI](/ai) panel about this page.
+  It only appears when [Ask AI is set up](/ai).
+
+`layout.pageActions` picks how they look, for the whole site.
+
+### Inline
+
+The default. The actions are links in a row under the page's lede.
+
+![Ask AI about this page, Copy for LLM and View as Markdown as links in a row](/shots/page-actions-inline.webp)
+
+### Menu
+
+`"layout": { "pageActions": "menu" }` shows a **Copy for LLM** button, with
+**Ask AI** beside it when Ask AI is set up. Copy for LLM's arrow opens the
+Markdown actions: **View as Markdown** and **Open Markdown file** (the page's
+`.md` in a new tab). The page's [`last_updated`](/frontmatter#page-text) date
+moves to the left of the buttons. The `help-center` template uses this style.
+
+![The page's date on the left; an Ask AI button and a Copy for LLM button with an arrow on the right](/shots/page-actions-menu.webp)
+
+![The open menu under Copy for LLM: View as Markdown and Open Markdown file](/shots/page-actions-menu-open.webp)
+
+These two were taken with `layout.pageActions: "menu"` and a `last_updated`
+date on the page. The site has Ask AI set up; without it, there's no Ask AI
+button, and the inline row starts at Copy for LLM.
+
+### Where the Markdown comes from
+
+Both styles use the page's own `.md` file, fetched when the pointer or
+keyboard focus first reaches the actions, so they work on a static export.
+Until it has loaded, or if there's no `.md` file, they use the text of the
+page as rendered.
+
+### Where they show
+
+On docs pages only: not on landing pages, hub pages or changelog pages. The
+[API reference](/openapi#ai-page-actions) has its own actions on each
+resource section, the same in either style.
+
+The setting applies to the whole site. A page can't change it, and the
+actions can't be added to, removed or reordered.
+

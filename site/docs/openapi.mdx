@@ -70,6 +70,15 @@ resource. Each page has:
 - A **resource summary** + an Endpoints card listing the tag's operations.
 - A **"The object" section** — attributes derived from the schema, with types,
   required/optional flags, enums, and a sample JSON.
+- **Nullable fields read as their type.** `anyOf: [X, {type: "null"}]` (the
+  OpenAPI 3.1 / FastAPI / Pydantic spelling), `type: [X, "null"]` and
+  `nullable: true` all show as X with a `nullable` label, and an object or
+  array-of-objects field lists its own fields under **Show child attributes**.
+  A real union shows its member types (`string | integer`), and a union of
+  objects lists each one's fields.
+- **Deprecated** operations and fields (`deprecated: true`) carry a
+  *Deprecated* badge; a deprecated operation's path and sidebar entry are struck
+  through.
 - One **section per endpoint** — method + path, parameters (path / query / body)
   from the schema, and a dark code rail with **cURL, Node, Python and Go**
   samples generated from the operation, plus the example response.
@@ -105,7 +114,7 @@ admin/api/keys       Admin
 
 <Note>This is automatic for any spec using slash tags — you don't flatten your
 `@ApiTags` to get clean resource boundaries. Per-resource
-[MDX overlays](#overlays) still key off the full slug (`store-orders.mdx`).</Note>
+[MDX overlays](#mdx-overlays) still key off the full slug (`store-orders.mdx`).</Note>
 
 ### Custom labels with `x-displayName`
 
@@ -127,6 +136,96 @@ shows that label exactly:
 - It names one node. `tools/WhatsApp` relabels the leaf and leaves the `Tools`
   group derived; to relabel a group, give its own path a `tags` entry.
 - **URLs are unchanged** — the slug still comes from `name`.
+
+## Rename, hide and merge tags
+
+When the spec isn't yours to edit (a vendor's, or one generated from code),
+fix its tags in `markline.json` instead. `api.tags` is keyed by the tag's name
+in the spec:
+
+```json title="markline.json"
+{
+  "api": {
+    "tags": {
+      "smb": { "label": "Small business" },
+      "access:all": { "hidden": true },
+      "Dubbing": { "mergeInto": "dubbing" },
+      "Conversational AI": { "mergeInto": "Agents Platform" },
+      "pvc-voices": { "mergeInto": "Voices/Professional cloning" }
+    },
+    "tagOrder": ["text-to-speech", "speech-to-text"]
+  }
+}
+```
+
+<ParamField path="label" type="string">
+  Sidebar and heading name. Wins over `x-displayName`. The URL keeps the tag's
+  own slug.
+</ParamField>
+<ParamField path="description" type="string">Replaces the tag's description.</ParamField>
+<ParamField path="hidden" type="boolean">
+  Drops the tag. An operation then files under its next tag; one with no other
+  tag leaves the reference.
+</ParamField>
+<ParamField path="mergeInto" type="string">
+  Files this tag's operations under another tag. Naming a tag the spec doesn't
+  have renames the page (and its URL); a slashed name nests it under a group.
+</ParamField>
+
+`api.tagOrder` lists the tags that open the sidebar, in order; the rest follow
+in spec order. Untagged operations file under `Default`, which these keys can
+rename or hide too.
+
+<Note>Two tags whose URLs would collide (`dubbing` and `Dubbing` both become
+`/api-reference/dubbing`) are merged into one page, the first in spec order,
+and the build prints a warning naming them. Use `label` or `mergeInto` to make
+the choice yourself.</Note>
+
+When tags merge, the page keeps its own description if it has one, otherwise
+the first merged tag's. Its name is its own `label`, then a `label` on a tag
+merged into it, then its `x-displayName`. The sidebar, heading, page title and
+`llms.txt` all follow this.
+
+The build warns about names that don't match: an `api.tags` key or `tagOrder`
+entry with no such tag, a `mergeInto` that looks like a typo of a real tag, a
+merge cycle, and a merge into a hidden tag. A `mergeInto` that names a new page
+is a rename, and stays silent.
+
+## Hide operations
+
+Anything carrying `x-hidden` or `x-internal` (truthy) is left out everywhere:
+operations and whole path items (from the reference, search, `llms.txt` and the
+sitemap), webhooks and callbacks, query and header parameters, and fields (from
+tables, samples and Try it), including a field whose `$ref` points at a flagged
+schema. A flagged component is removed along with anything that can't exist
+without it. To follow a vendor's own flag, list the extensions yourself; the list
+replaces the default:
+
+```json title="markline.json"
+{ "api": { "hideExtensions": ["x-fern-ignore", "x-skip-spec", "x-internal"] } }
+```
+
+When a whole schema is hidden, the operation stays: a request shows no body, and
+a response keeps its status and description without a sample. A query or header
+parameter with a hidden schema goes, and a path parameter stays without its
+schema, since the URL needs it.
+
+<Note>Object examples lose the keys that are declared and hidden. A key the schema
+doesn't declare stays, since nothing marks it hidden. Examples written as strings
+(such as serialized JSON or XML) and hand-written `x-codeSamples` aren't
+rewritten either, so check those yourself.</Note>
+
+Deprecated operations are shown with a badge. Set `"api": { "showDeprecated": false }`
+to leave them out.
+
+## Large specs
+
+Each resource is one page, so a tag with a hundred operations is a long page.
+Markline keeps what it sends lean: the Try it endpoint switcher's list of every
+operation is sent once per page (not once per operation), and docs pages carry
+one link per API resource rather than the whole spec, unless the API tab is also
+where docs pages live. If a resource is still too heavy, split its tag into
+smaller ones in the spec.
 
 ## Sidebar order
 
@@ -297,6 +396,17 @@ response with status + latency. It's the same engine on every surface.
   `off` — a static cURL panel, no interactivity.
 </ParamField>
 
+<ParamField path="api.auth" type='{ type?: "apiKey" | "bearer"; header?: string; description?: string }'>
+  For a spec that doesn't declare its auth (no `securitySchemes`), or declares
+  it wrongly. Replaces the spec's security on every operation, except ones
+  marked public with `security: []`, so Try it and the cURL samples send it. The
+  Node, Python and Go samples leave the key to the client's setup.
+  `{ "header": "xi-api-key" }` sends an API-key header; `{ "type": "bearer" }`
+  sends `Authorization: Bearer`. A header parameter with the same name is
+  folded into it rather than shown twice, and the key is masked in the code
+  Try it shows.
+</ParamField>
+
 <ParamField path="api.playground.proxy" type='"auto" | "always" | "never"'>
   How requests reach your API. `auto` (default) tries a direct browser fetch
   and falls back to the built-in server proxy on CORS failure; `always` forces
@@ -306,6 +416,16 @@ response with status + latency. It's the same engine on every surface.
 <Warning>The server proxy (`/api/playground`) only runs on a Node/Vercel
 deployment and is dropped in static export. On a static host, set
 `proxy: "never"` and enable CORS on your API, or the explorer can't reach it.</Warning>
+
+The proxy forwards only to the origin of `api.baseUrl` or an absolute URL in the
+spec's `servers`, so set `api.baseUrl` if your servers are relative or have a
+templated host. It reads these when the site is built, so rebuild after changing
+them. Only pages on your site can use it, and `proxy: "never"` turns it off. Behind
+a reverse proxy that rewrites `Host`, this works with modern browsers on HTTPS; for
+older browsers or a plain-HTTP site, have the proxy send `X-Forwarded-Host`.
+Responses over 25 MB, requests over 35 MB and calls that take longer than 120
+seconds return an error, as do large responses while the server is already holding
+a lot of data.
 
 ## Events & webhooks
 
@@ -476,7 +596,9 @@ api/
 Every resource section carries the same affordances as the docs: **Copy for
 LLM** (copies the section as Markdown), **View as Markdown**, and — when
 [Ask AI](/ai) is enabled — **Ask about this section**, which opens the docked
-assistant with that section as context.
+assistant with that section as context. They look the same whatever
+`layout.pageActions` is set to; see [Page actions](/llm-files#page-actions)
+for docs pages.
 
 ## Versions
 

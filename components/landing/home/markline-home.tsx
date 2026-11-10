@@ -253,7 +253,7 @@ export function MarklineHome() {
                   <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" />
                   </svg>
-                  docs.acme.dev/reference
+                  docs.example.com/reference
                 </div>
               </div>
               <div className="apiref">
@@ -273,7 +273,7 @@ export function MarklineHome() {
                 <div className="col ar-main">
                   <div className="ar-bc">Core / Payments</div>
                   <div className="ar-h"><span className="verb post">POST</span> Create payment</div>
-                  <div className="ar-route"><span className="verb post">POST</span> https://api.acme.dev/v1/payments</div>
+                  <div className="ar-route"><span className="verb post">POST</span> https://api.example.com/v1/payments</div>
                   <p className="ar-p">
                     Creates a payment and returns the resulting object. Idempotent on{" "}
                     <span className="mono" style={{ color: "var(--ink)" }}>Idempotency-Key</span>.
@@ -292,7 +292,7 @@ export function MarklineHome() {
                   <div className="ar-code">
                     <span className="c"># request</span>{"\n"}
                     <span className="f">curl</span> -X POST \{"\n"}
-                    {"  "}https://api.acme.dev<span className="s">/v1/payments</span> \{"\n"}
+                    {"  "}https://api.example.com<span className="s">/v1/payments</span> \{"\n"}
                     {"  "}-H <span className="s">"Authorization: Bearer ••••"</span> \{"\n"}
                     {"  "}-d <span className="s">{`'{ "amount": 2400,`}</span>{"\n"}
                     <span className="s">{`      "currency": "usd" }'`}</span>
@@ -534,17 +534,8 @@ export function MarklineHome() {
                 <svg width="17" height="17" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0016 8c0-4.42-3.58-8-8-8z" /></svg>
                 markline-dev/markline
               </div>
-              <div className="gh-star"><span className="star">★</span><span className="v">4,212</span></div>
-              <div style={{ fontSize: 12.5, color: "var(--ink-3)" }}>stars · growing every week</div>
-              <div className="gh-spark">
-                {[24, 31, 28, 42, 55, 49, 68, 74, 90, 100].map((h, i) => (
-                  <i key={i} style={{ height: `${h}%` }} />
-                ))}
-              </div>
               <div className="gh-meta">
-                <div><b>128</b>contributors</div>
                 <div><b>MIT</b>license</div>
-                <div><b>v1.4</b>latest</div>
               </div>
               <a className="btn btn-ghost" style={{ marginTop: 20 }} href="https://github.com/markline-dev/markline" target="_blank" rel="noopener noreferrer">
                 Star on GitHub
@@ -554,15 +545,15 @@ export function MarklineHome() {
 
             <div className="made">
               {[
-                ["markline.dev — home, dark", "Markline.dev", "self-hosted"],
-                ["API reference, light theme", "Acme API docs", "/reference"],
-                ["SDK guide — three-pane", "Tomoul SDK", "docs site"],
-                ["changelog + versioning", "Hyphen", "changelog"],
-              ].map((s, i) => (
-                <div className="made-shot reveal" key={i}>
-                  <div className="ph"><div className="lbl">[ product shot ]<br />{s[0]}</div></div>
-                  <div className="cap">{s[1]} <span className="u">{s[2]}</span></div>
-                </div>
+                ["https://markline.dev", "Markline.dev", "docs + API reference"],
+                ["https://docs.runestack.io/", "Rune", "orchestration docs"],
+                ["https://docs.floruntime.io/", "Flo", "runtime docs"],
+                ["https://docs.trycareflow.com/", "Careflow", "help center"],
+              ].map(([href, name, kind]) => (
+                // markline.dev is this site, so it opens in place.
+                <a className="made-shot reveal" href={href} key={href} {...(href === "https://markline.dev" ? {} : { target: "_blank", rel: "noopener noreferrer" })}>
+                  <div className="cap">{name} <span className="u">{kind}</span></div>
+                </a>
               ))}
             </div>
           </div>

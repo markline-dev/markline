@@ -1,9 +1,12 @@
-import { notFound, redirect } from "next/navigation";
+import { redirect } from "next/navigation";
+import { NOT_FOUND_SEGMENT, uncachedNotFound } from "@/lib/uncached-not-found";
 import type { Metadata } from "next";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import rehypePrettyCode from "rehype-pretty-code";
 import { getDoc, listDocs } from "@/lib/docs";
+import { loadOpenApi } from "@/lib/openapi";
+import { apiOperationLabel } from "@/lib/apiref-payload";
 import { DocsPage } from "@/components/docs/page";
 import { DocsShell } from "@/components/docs/nav";
 import { mdxComponents } from "@/components/docs/mdx";
@@ -13,7 +16,8 @@ import { getDocsTabs, pickActiveTab, getNav, flattenLinks, findNavTrail, collect
 import { HubHero } from "@/components/docs/hub-hero";
 import { LandingPage } from "@/components/landing/landing";
 import { remarkLandingProse } from "@/lib/landing-prose";
-import { extractToc } from "@/lib/toc";
+import { remarkCodeGroupTitles } from "@/lib/code-group";
+import { extractToc, missingTocIds, remarkTocIds } from "@/lib/toc";
 import { SiteFooter } from "@/components/site-footer";
 import type { Crumb, PageNavLink } from "@/components/docs/page";
 import { ChangelogEntryView, ChangelogView } from "@/components/docs/changelog";
@@ -25,9 +29,14 @@ import {
 
 export function generateStaticParams(): { slug?: string[] }[] {
   const docs = listDocs().map((d) => ({ slug: d.slug.length ? d.slug : undefined }));
+  // With no root page "/" still renders, to redirect to the first nav entry. Not
+  // in a static export, where a public/index.html may be serving it.
+  if (process.env.MARKLINE_EXPORT !== "1" && !docs.some((d) => !d.slug)) docs.push({ slug: undefined });
+  if (process.env.MARKLINE_EXPORT !== "1") docs.push({ slug: [NOT_FOUND_SEGMENT] });
   const entries = listChangelog();
   if (!entries.length) return docs;
-  const pages = Array.from({ length: pageCount(entries.length) }, (_, i) => pagePath(i + 1));
+  // /changelog/page/1 is the same listing as /changelog, and may be bookmarked.
+  const pages = [...Array.from({ length: pageCount(entries.length) }, (_, i) => pagePath(i + 1)), `${CHANGELOG_PATH}/page/1`];
   const changelog = [...pages, ...entries.map((e) => entryPath(e.date))]
     .map((p) => ({ slug: p.split("/").filter(Boolean) }))
     // docs/changelog.mdx, if there is one, is shown as the changelog's intro
@@ -56,6 +65,7 @@ function changelogMetadata(slug: string[]): Metadata | undefined {
 
 export async function generateMetadata({ params }: { params: Promise<{ slug?: string[] }> }): Promise<Metadata> {
   const { slug } = await params;
+  if (slug?.[0] === NOT_FOUND_SEGMENT) return {};
   const cl = changelogMetadata(slug ?? []);
   if (cl) return cl;
   const doc = getDoc(slug);
@@ -83,7 +93,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug?: st
 
 export default async function DocsCatchAll({ params }: { params: Promise<{ slug?: string[] }> }) {
   const { slug } = await params;
-  const changelog = slug?.[0] === CHANGELOG_PATH.slice(1) ? renderChangelog(slug) : undefined;
+  if (slug?.[0] === NOT_FOUND_SEGMENT) return uncachedNotFound();
+  const changelog = slug?.[0] === CHANGELOG_PATH.slice(1) ? await renderChangelog(slug) : undefined;
   if (changelog) return changelog;
   const doc = getDoc(slug);
   if (!doc) {
@@ -95,7 +106,7 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
       const first = firstDocHref();
       if (first && first !== "/") redirect(first);
     }
-    return notFound();
+    return uncachedNotFound();
   }
   const config = loadConfig();
   // A translated or older-version page follows its own sidebar.
@@ -116,6 +127,11 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
   const pathname = doc.slug.length ? `/${doc.slug.join("/")}` : "/";
   const { prev, next } = pageNeighbors(tabs, pathname);
 
+  // A hand-written "On this page" can drift from the headings it links to.
+  for (const id of doc.fm.toc ? missingTocIds(doc.body, doc.fm.toc, { steps: doc.fm.tocSteps }) : []) {
+    console.warn(`[markline] toc: entry #${id} doesn't match any heading on ${pathname}`);
+  }
+
   const landing = doc.fm.layout === "landing";
   const content = (
     <MDXRemote
@@ -124,7 +140,12 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
       options={{
         mdxOptions: {
           format: "mdx",
-          remarkPlugins: landing ? [remarkGfm, remarkLandingProse] : [remarkGfm],
+          remarkPlugins: [
+            remarkGfm,
+            remarkCodeGroupTitles,
+            [remarkTocIds, { steps: doc.fm.tocSteps }],
+            ...(landing ? [remarkLandingProse] : []),
+          ],
           rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]],
         },
         blockJS: false,
@@ -163,7 +184,7 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
         actionStyle={config.layout.pageActions}
         title={doc.fm.title}
         lede={doc.fm.lede}
-        toc={doc.fm.toc ?? extractToc(doc.body)}
+        toc={doc.fm.toc ?? extractToc(doc.body, { steps: doc.fm.tocSteps })}
         lastUpdated={doc.fm.last_updated}
         editUrl={editUrl}
         feedbackEnabled={feedbackConfig() != null}
@@ -200,7 +221,7 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
  * /changelog (paged) and /changelog/YYYY/MM/DD, when the content has a
  * changelog/ folder. Anything else under /changelog is an ordinary docs page.
  */
-function renderChangelog(slug: string[]) {
+async function renderChangelog(slug: string[]) {
   const entries = listChangelog();
   if (!entries.length) return undefined;
   const config = loadConfig();
@@ -220,14 +241,14 @@ function renderChangelog(slug: string[]) {
   const date = dateFromSlug(slug);
   if (date) {
     const i = entries.findIndex((e) => e.date === date);
-    if (i < 0) return notFound();
+    if (i < 0) return uncachedNotFound();
     return shell(<ChangelogEntryView entry={entries[i]} newer={entries[i - 1]} older={entries[i + 1]} credit={credit} />);
   }
 
   const page = pageFromSlug(slug);
   if (!page) return undefined;
   const pages = pageCount(entries.length);
-  if (page > pages) return notFound();
+  if (page > pages) return uncachedNotFound();
   // docs/changelog.mdx, if it exists, supplies the title, lede and an intro.
   const intro = getDoc(["changelog"]);
   return shell(
@@ -236,7 +257,7 @@ function renderChangelog(slug: string[]) {
       lede={intro?.fm.lede}
       intro={
         intro?.body.trim() && page === 1 ? (
-          <MDXRemote source={intro.body} components={mdxComponents} options={{ mdxOptions: { format: "mdx", remarkPlugins: [remarkGfm], rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]] }, blockJS: false }} />
+          <MDXRemote source={intro.body} components={mdxComponents} options={{ mdxOptions: { format: "mdx", remarkPlugins: [remarkGfm, remarkCodeGroupTitles, remarkTocIds], rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]] }, blockJS: false }} />
         ) : undefined
       }
       entries={entries.slice((page - 1) * PER_PAGE, page * PER_PAGE)}
@@ -265,7 +286,11 @@ function relatedLinks(
     // ("Overview"), and reads as ambiguous once it's listed elsewhere.
     return listed.map((href) => ({
       href,
-      label: getDoc(href.split("/").filter(Boolean))?.fm.title ?? labels.get(href) ?? href,
+      label:
+        getDoc(href.split("/").filter(Boolean))?.fm.title ??
+        labels.get(href) ??
+        apiOperationLabel(href, loadOpenApi().operationsById) ??
+        href,
     }));
   }
   if (mode !== "collection") return [];

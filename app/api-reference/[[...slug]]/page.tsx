@@ -1,11 +1,13 @@
-import { notFound } from "next/navigation";
+import { NOT_FOUND_SEGMENT, uncachedNotFound } from "@/lib/uncached-not-found";
 import type { Metadata } from "next";
 import fs from "node:fs";
 import path from "node:path";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
+import { remarkCodeGroupTitles } from "@/lib/code-group";
+import { remarkTocIds } from "@/lib/toc";
 import rehypePrettyCode from "rehype-pretty-code";
-import { loadOpenApi, hasOpenApiSpec, apiSpecPath } from "@/lib/openapi";
+import { loadOpenApi, loadOpenApiRoot, hasOpenApiSpec } from "@/lib/openapi";
 import { ApiOperationPage } from "@/components/docs/api/operation-page";
 import { MarklineApiRef } from "@/components/docs/api/reference/markline-apiref";
 import { buildApiRefView, tagSlug, parseOpenApiTag } from "@/lib/apiref-view";
@@ -25,12 +27,6 @@ const prettyCodeOptions = {
   getHighlighter,
   transformers: [shellTransformer],
 } as const;
-
-function loadRaw(variantId?: string) {
-  const file = apiSpecPath(variantId);
-  if (!fs.existsSync(file)) return {};
-  return JSON.parse(fs.readFileSync(file, "utf8"));
-}
 
 /** The `api/` directory for the default version or a named version variant. */
 function apiDir(variantId?: string): string {
@@ -94,7 +90,7 @@ function renderMdx(source: string) {
       options={{
         mdxOptions: {
           format: "mdx",
-          remarkPlugins: [remarkGfm],
+          remarkPlugins: [remarkGfm, remarkCodeGroupTitles, remarkTocIds],
           rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]],
         },
       }}
@@ -102,13 +98,12 @@ function renderMdx(source: string) {
   );
 }
 
-// Only the params from generateStaticParams exist (keeps `output: export` happy).
-export const dynamicParams = false;
 
 export function generateStaticParams(): { slug?: string[] }[] {
   // Always include the base path so `output: export` has at least one path to
   // generate; on a docs-only site (no spec) the page renders notFound().
   const params: { slug?: string[] }[] = [{ slug: undefined }];
+  if (process.env.MARKLINE_EXPORT !== "1") params.push({ slug: [NOT_FOUND_SEGMENT] });
 
   // Resource pages (one per tag) + per-operation pages (back-compat deep links),
   // for a given version variant, under an optional path prefix.
@@ -146,7 +141,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug?: st
   const tag = doc.tags.find((t) => tagSlug(t.name) === first);
   // Descriptions may be markdown; meta/OG tags need plain text, so syntax like
   // `code` or [links](url) doesn't surface verbatim in a snippet.
-  if (tag) return meta(`${tag.displayName ?? tag.name} · API reference`, mdToText(tag.description));
+  if (tag) return meta(`${parseOpenApiTag(tag.name, doc.tagLabels).displayName} · API reference`, mdToText(tag.description));
   const op = doc.operationsById[first];
   if (!op) return {};
   return meta(`${op.summary ?? op.operationId} · API`, mdToText(op.description));
@@ -154,10 +149,12 @@ export async function generateMetadata({ params }: { params: Promise<{ slug?: st
 
 export default async function ApiReferencePage({ params }: { params: Promise<{ slug?: string[] }> }) {
   const { slug } = await params;
+  if (slug?.[0] === NOT_FOUND_SEGMENT) return uncachedNotFound();
   const { variantId, rest } = parseVariant(slug);
-  if (!hasOpenApiSpec(variantId)) return notFound();
+  if (!hasOpenApiSpec(variantId)) return uncachedNotFound();
+  if (rest.length > 1) return uncachedNotFound(); // a resource or operation is one segment
   const doc = loadOpenApi(variantId);
-  const root = loadRaw(variantId);
+  const root = loadOpenApiRoot(variantId);
   const base = variantId ? `/api-reference/${variantId}` : "/api-reference";
 
   // Resolve the (variant-stripped) slug. Empty → the first resource (the design
@@ -186,7 +183,7 @@ export default async function ApiReferencePage({ params }: { params: Promise<{ s
   }
 
   const op = first ? doc.operationsById[first] : undefined;
-  if (!op) return notFound();
+  if (!op) return uncachedNotFound();
 
   const parsedTag = parseOpenApiTag(op.tag, doc.tagLabels);
   const crumbs = [

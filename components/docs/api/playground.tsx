@@ -76,6 +76,10 @@ function prettyMaybeJson(text: string): string {
     return text;
   }
 }
+/** Whether a header carries the API key, which never shows in clear text. */
+function isApiKeyHeader(spec: PlaygroundSpec, name: string): boolean {
+  return spec.apiKeyHeaders.some((ak) => ak.name.toLowerCase() === name.toLowerCase());
+}
 function shellQuote(s: string) {
   return `'${s.replace(/'/g, "'\\''")}'`;
 }
@@ -143,7 +147,9 @@ export function PlaygroundProvider({ spec, children }: { spec: PlaygroundSpec; c
     const lines = [`curl --request ${spec.method.toUpperCase()} \\`, `  --url ${shellQuote(targetUrl)}`];
     for (const [k, v] of Object.entries(headers)) {
       lines[lines.length - 1] += " \\";
-      lines.push(`  --header ${shellQuote(`${k}: ${k === "Authorization" ? "Bearer <token>" : v}`)}`);
+      // Credentials never show in clear text, whichever header carries them.
+      const shown = k === "Authorization" ? "Bearer <token>" : isApiKeyHeader(spec, k) ? "<api-key>" : v;
+      lines.push(`  --header ${shellQuote(`${k}: ${shown}`)}`);
     }
     if (hasBody) {
       lines[lines.length - 1] += " \\";
@@ -160,13 +166,16 @@ export function PlaygroundProvider({ spec, children }: { spec: PlaygroundSpec; c
     return { status: r.status, statusText: r.statusText, durationMs: Math.round(performance.now() - start), body: prettyMaybeJson(text), via: "direct" };
   }
   async function viaProxy(headers: Record<string, string>): Promise<ResponseState> {
-    const r = await fetch("/api/playground", {
+    const r = await fetch(`${process.env.NEXT_PUBLIC_MARKLINE_BASE_PATH ?? ""}/api/playground`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url: targetUrl, method: spec.method.toUpperCase(), headers, body: hasBody ? body : undefined }),
     });
     if (r.status === 404) throw new Error("proxy-unavailable");
-    const data = await r.json();
+    // Not the proxy's own answer: a static host's page, say.
+    const data = await r.json().catch(() => {
+      throw new Error("proxy-unavailable");
+    });
     if (data.error) throw new Error(data.error);
     return { status: data.status, statusText: data.statusText ?? "", durationMs: data.durationMs ?? 0, body: prettyMaybeJson(typeof data.body === "string" ? data.body : JSON.stringify(data.body)), via: "proxy" };
   }
@@ -184,7 +193,14 @@ export function PlaygroundProvider({ spec, children }: { spec: PlaygroundSpec; c
           result = await direct(headers);
         } catch (e) {
           if (spec.proxy === "auto") {
-            try { result = await viaProxy(headers); } catch { throw e; }
+            try {
+              result = await viaProxy(headers);
+            } catch (p) {
+              // The proxy answered with its reason: that's more use than the failed
+              // direct fetch. Otherwise there's no proxy here.
+              const answered = p instanceof Error && p.message !== "proxy-unavailable";
+              throw answered ? p : e;
+            }
           } else throw e;
         }
       }
@@ -209,10 +225,11 @@ export function PlaygroundProvider({ spec, children }: { spec: PlaygroundSpec; c
 
 const inputCls = "ml-pg-input";
 
-export function ParamInput({ location, name, sample }: { location: Loc; name: string; sample?: string }) {
+export function ParamInput({ location, name, sample, secret }: { location: Loc; name: string; sample?: string; secret?: boolean }) {
   const { getParam, setParam } = usePlayground();
   return (
     <input
+      type={secret ? "password" : undefined}
       value={getParam(location, name)}
       onChange={(e) => setParam(location, name, e.target.value)}
       placeholder={sample || "value"}
@@ -625,7 +642,7 @@ function ParamRow({ loc, param }: { loc: Loc; param: PlaygroundParam }) {
     control = <HashEditor name={param.name} />;
   } else {
     control = (
-      <input className="xp-input" value={val} placeholder={`enter ${param.name}`} spellCheck={false} onChange={(e) => pg.setParam(loc, param.name, e.target.value)} aria-label={param.name} />
+      <input className="xp-input" type={isApiKeyHeader(pg.spec, param.name) ? "password" : undefined} value={val} placeholder={`enter ${param.name}`} spellCheck={false} onChange={(e) => pg.setParam(loc, param.name, e.target.value)} aria-label={param.name} />
     );
   }
   return (
@@ -810,7 +827,7 @@ function genCode(lang: LangId, spec: PlaygroundSpec, pg: Ctx, bodyObj: Record<st
 
   const headers: { k: string; v: string }[] = [];
   if (spec.bearer) headers.push({ k: "Authorization", v: pg.token ? "Bearer ••••" : "Bearer sk_live_••••" });
-  for (const ak of spec.apiKeyHeaders) { const v = pg.getParam("header", ak.name); if (v) headers.push({ k: ak.name, v }); }
+  for (const ak of spec.apiKeyHeaders) { if (pg.getParam("header", ak.name)) headers.push({ k: ak.name, v: "••••" }); }
   for (const hp of spec.headerParams) { const v = pg.getParam("header", hp.name); if (v) headers.push({ k: hp.name, v }); }
 
   const writeFields = Object.entries(bodyObj).filter(([, v]) => v !== null && typeof v !== "object" && v !== "");

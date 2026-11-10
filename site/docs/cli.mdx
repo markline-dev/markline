@@ -4,19 +4,78 @@ lede: The markline command runs your docs project from its own markline.json and
 toc:
   - id: commands
     label: Commands
+  - id: environment-variables
+    label: Environment variables
+  - id: the-markline-folder
+    label: The .markline folder
   - id: how-it-works
     label: How it works
+  - id: running-from-a-markline-checkout
+    label: Running from a Markline checkout
 ---
 
 ## Commands
 
 | Command | Description |
 | --- | --- |
-| `markline init [dir]` | Scaffold a new docs project. |
+| `markline init [dir]` | Scaffold a new docs project. `--template <name>` (or `-t`) starts it from a [template](/templates). |
 | `markline dev` | Start the dev server against `./markline.json`. |
 | `markline build` | Build a production Node server bundle. |
 | `markline start` | Serve a production build. |
 | `markline export` | Build a static HTML site into `./out`. |
+| `markline version` | Print the installed Markline version. Also `-v` and `--version`. |
+| `markline help` | List the commands. Also `-h`, `--help`, or no command at all. |
+
+`dev`, `build` and `start` pass any extra flags on to Next, so
+`markline dev -p 3001` serves on port 3001.
+
+Building a site runs its code, so only build repositories you trust. See
+[What a build can run](/deployment#what-a-build-can-run).
+
+Next runs from the staged app in `.markline/`, so give any path in a flag as an
+absolute path (`--experimental-https-key "$PWD/k.pem"`). The content is always
+the current directory: `markline dev ./docs` is refused, so run it from your
+docs folder instead. `markline export` takes no flags and warns if given any.
+
+## Environment variables
+
+`dev`, `build`, `start` and `export` read the `.env` files beside
+`markline.json` (`.env`, `.env.local`, `.env.production` and so on, in Next's
+usual order). Only a site's own settings are taken from them:
+
+| Variable | What it sets |
+| --- | --- |
+| `MARKLINE_AI_KEY` | The provider key for [Ask AI](/ai) in `proxy` mode, and for `ai.suggestions` at build time |
+| `MARKLINE_SITE_URL` | The site's URL, used when `seo.metadataBase` isn't set: for `sitemap.xml`, links in `llms.txt` and the changelog's RSS feed. Page metadata still needs `seo.metadataBase` |
+| `MARKLINE_BASE_PATH` | A path prefix for [sub-path hosting](/deployment#sub-path-hosting), e.g. `/docs` |
+| `NEXT_PUBLIC_*` | Values built into the browser bundle, as in any Next app |
+
+Anything else, like `PORT` or `NODE_OPTIONS`, has to be set in the shell. The
+CLI warns about ignored names that look like Markline, Next or Node settings,
+such as `NODE_OPTIONS`; others, like `PORT`, are dropped without a message. A value set in the shell wins over the same
+name in a file. Keep secrets such as `MARKLINE_AI_KEY` in `.env.local` and
+out of git.
+
+<Note>Sites from before 0.1.8 may keep their `.env` files in `.markline/`.
+Those are still read, with the same rules and a message suggesting you move
+them; the files beside `markline.json` win.</Note>
+
+## The .markline folder
+
+The CLI copies the app into `.markline/` in your project and runs Next from
+there. It's rebuilt on every run, so don't edit it, and keep it out of git
+(new projects' `.gitignore` already does). Anything in it the CLI didn't put
+there is removed on the next run, with a message naming it. The last build's
+output and any `.env` files stay.
+
+`MARKLINE_DIST` puts the build output somewhere other than `.markline/.next`,
+so several builds of one project can sit side by side. It's read from the
+shell only, and must be a folder inside `.markline/` (a relative path such as
+`.next-preview`), not in `node_modules`:
+
+```bash
+MARKLINE_DIST=.next-preview markline build
+```
 
 ## How it works
 
@@ -44,3 +103,15 @@ upgrade it like any dependency.
     A Node server with full features.
   </Tab>
 </Tabs>
+
+## Running from a Markline checkout
+
+To try unreleased changes, or to keep docs next to a clone of the framework,
+run the CLI from the checkout instead of installing the package. The docs
+folder then needs no `node_modules` of its own: the CLI uses the checkout's,
+even if the folder has some installed.
+
+```bash
+cd my-docs
+node ../markline/bin/markline.mjs dev
+```

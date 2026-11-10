@@ -1,6 +1,6 @@
 {
   "name": "@markline/markline",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "Open-source, self-hostable documentation framework with first-class OpenAPI, search, and an interactive API playground.",
   "license": "MIT",
   "keywords": [
@@ -55,7 +55,8 @@
     "start": "next start",
     "lint": "next lint",
     "typecheck": "tsc --noEmit",
-    "test": "node --import ./test/setup.mjs --test test/*.test.ts"
+    "test": "node --import ./test/setup.mjs --test test/*.test.ts",
+    "test:built": "node --test test/built/*.test.ts"
   },
   "dependencies": {
     "@mdx-js/loader": "3.1.0",
@@ -69,7 +70,7 @@
     "autoprefixer": "10.4.20",
     "clsx": "2.1.1",
     "gray-matter": "4.0.3",
-    "next": "^15.3.0",
+    "next": "^15.5.18",
     "next-mdx-remote": "^6.0.0",
     "pagefind": "^1.5.2",
     "postcss": "8.4.49",
@@ -79,6 +80,7 @@
     "rehype-sanitize": "^6.0.0",
     "rehype-stringify": "^10.0.1",
     "remark-gfm": "4.0.0",
+    "remark-mdx": "3.1.1",
     "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.2",
     "shiki": "1.22.2",

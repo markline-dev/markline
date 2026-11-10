@@ -1,13 +1,14 @@
 import Link from "next/link";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
+import { remarkCodeGroupTitles } from "@/lib/code-group";
 import rehypePrettyCode from "rehype-pretty-code";
 import type { MDXComponents } from "mdx/types";
-import { mdxComponents, textOf } from "./mdx";
+import { mdxComponents } from "./mdx";
 import { prettyCodeOptions } from "./mdx-options";
 import { DocsToc } from "./nav";
 import { SiteCredit } from "../site-credit";
-import { extractToc, slugify, type TocItem } from "@/lib/toc";
+import { extractToc, remarkTocIds, type TocItem } from "@/lib/toc";
 import type { ChangelogEntry } from "@/lib/changelog";
 import {
   CHANGELOG_PATH, entryPath, formatDate, headingId, pagePath,
@@ -24,11 +25,11 @@ import {
 /** MDX components for one entry: its headings get ids prefixed with its date,
  *  since the same heading ("All changes") repeats from entry to entry. */
 function entryComponents(date: string): MDXComponents {
-  const id = (children: React.ReactNode) => headingId(date, slugify(textOf(children)));
+  const prefixed = (id?: string) => (id ? headingId(date, id) : undefined);
   return {
     ...mdxComponents,
-    h2: ({ children }) => <h3 id={id(children)}>{children}</h3>,
-    h3: ({ children }) => <h3 id={id(children)}>{children}</h3>,
+    h2: ({ id, children }) => <h3 id={prefixed(id)}>{children}</h3>,
+    h3: ({ id, children }) => <h3 id={prefixed(id)}>{children}</h3>,
   };
 }
 
@@ -74,7 +75,7 @@ function Entry({ entry, linkDate = true }: { entry: ChangelogEntry; linkDate?: b
           source={entry.body}
           components={entryComponents(entry.date)}
           options={{
-            mdxOptions: { format: "mdx", remarkPlugins: [remarkGfm], rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]] },
+            mdxOptions: { format: "mdx", remarkPlugins: [remarkGfm, remarkCodeGroupTitles, remarkTocIds], rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]] },
             blockJS: false,
           }}
         />

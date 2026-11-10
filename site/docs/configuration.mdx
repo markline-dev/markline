@@ -12,8 +12,12 @@ toc:
     label: Layout
   - id: footer
     label: Footer
+  - id: changelog
+    label: Changelog
   - id: api-playground
     label: API & playground
+  - id: seo
+    label: SEO
   - id: integrations
     label: Integrations
   - id: versions-i18n
@@ -34,6 +38,12 @@ toc:
   link shows as the GitHub badge instead. An entry with `items` instead of
   `href` is a dropdown; each item can have a `description`.
 </ParamField>
+<ParamField path="topbar.navLinks" type="array">
+  `{ label, href }` links shown after the tabs, styled like them, such as
+  anchors on a marketing home page (`/#pricing`). A link is marked current when
+  the page's path matches its `href` or sits under it, ignoring any `#` or
+  `?` part, so `/#pricing` is current on the home page. On phones they move into the menu.
+</ParamField>
 <ParamField path="topbar.cta" type="object">`{ label, href }` for the primary "Get started" button.</ParamField>
 <ParamField path="topbar.secondaryCta" type="object">`{ label, href }` for an outlined button before the primary one, e.g. "Book a demo".</ParamField>
 <ParamField path="topbar.banner" type="object">
@@ -46,7 +56,7 @@ toc:
 </ParamField>
 <ParamField path="topbar.badge" type="string">A small label pill next to the logo (e.g. `docs · v1`).</ParamField>
 <ParamField path="topbar.width" type='"full" | "contained"'>Topbar layout on docs + the API reference. `"full"` (default) spans edge-to-edge; `"contained"` centers it to the content max-width.</ParamField>
-<ParamField path="topbar.homeWidth" type='"full" | "contained"'>The homepage topbar, independent of `width`. Defaults to `"contained"` so the marketing nav aligns with the hero.</ParamField>
+<ParamField path="topbar.homeWidth" type='"full" | "contained"'>The homepage topbar, independent of `width`. `"full"` (default) spans edge-to-edge; `"contained"` lines the nav up with a centered hero.</ParamField>
 
 ```jsonc
 "topbar": {
@@ -177,12 +187,30 @@ to nest underneath it, as deep as you need:
   On a group: lets readers open and close the whole group from its title.
 </ParamField>
 
+<ParamField path="badge" type='"new" | "beta"'>
+  On a page: a small label after its title in the sidebar.
+</ParamField>
+
+<ParamField path="method" type="string">
+  On a page: an HTTP method shown before its title, for a hand-written
+  endpoint page. `get`, `post` and `delete` each have a colour, `put` and
+  `patch` share one, and anything else is grey.
+</ParamField>
+
 Set `"group": ""` to show a group's pages without a heading, which suits a
 sidebar that's a single list of collections.
 
 Previous/Next links, breadcrumbs and `llms.txt` all follow the sidebar,
 nested pages included. A page's breadcrumb is its tab, its group and each item
 it sits under, unless the page sets `crumbs` in its frontmatter.
+
+A link to a folder's index page is the folder: `/guides/index` is treated as
+`/guides`. `markline build` and `markline export` warn about a navigation
+link to a page that doesn't exist.
+
+Without a `docs/index.mdx`, `/` redirects to the first page in the
+navigation, so the logo still lands somewhere. A static export has no
+redirects, so there `/` needs a `docs/index.mdx` or a `public/index.html`.
 
 ## Layout
 
@@ -384,7 +412,7 @@ The footer shows on docs, hub, landing and API reference pages and the 404
 page. Set its maximum width with `--footer-width` in `theme.cssVariables`
 (default `1120px`).
 
-### Changelog
+## Changelog
 
 Add a `changelog/` folder next to `docs/`, with one file per release, and
 Markline lists them at `/changelog`, newest first: the date in a column on
@@ -448,10 +476,57 @@ entries.
 
 See [API reference](/openapi) for the full guide — generating the reference, the live explorer, and per-resource/per-operation MDX overlays.
 
+## SEO
+
+```jsonc
+"seo": {
+  "title": "Acme API docs",
+  "titleTemplate": "%s · Acme",
+  "description": "Guides and API reference for Acme.",
+  "metadataBase": "https://docs.acme.com",
+  "ogImage": "/og.png"
+}
+```
+
+<ParamField path="seo.title" type="string">
+  The title of pages that have none of their own, such as the 404 page, and
+  the default for link previews. Unset, `name` is used. Setting it also turns
+  on `titleTemplate`; without it, a page's tab shows just its own `title`.
+</ParamField>
+<ParamField path="seo.titleTemplate" type="string">
+  How pages' tab titles are written, with `%s` for the page's `title`.
+  Default `%s · <name>`. Only used when `seo.title` is set.
+</ParamField>
+<ParamField path="seo.description" type="string">
+  The site's meta description. A page uses its own `description`, then its
+  `lede`, then this.
+</ParamField>
+<ParamField path="seo.siteName" type="string">The site name in link previews (`og:site_name`), on pages such as the 404 page that have no preview data of their own. Default `name`.</ParamField>
+<ParamField path="seo.ogImage" type="string">
+  The image for link previews on every page: a path in `public/` or a URL.
+</ParamField>
+<ParamField path="seo.metadataBase" type="string">
+  The site's public URL, such as `https://docs.acme.com`. It makes canonical
+  links and preview images absolute, and the build needs it for
+  `sitemap.xml`, the sitemap line in `robots.txt`, absolute links in
+  [`llms.txt`](/llm-files) and the [changelog's RSS feed](#changelog). For those
+  files, the `MARKLINE_SITE_URL` [environment variable](/cli) works too.
+</ParamField>
+
 ## Integrations
 
 <ParamField path="editUrl" type="string">Base URL for "Edit this page" links; the page path is appended.</ParamField>
-<ParamField path="analytics" type="object">`plausible`, `googleAnalytics`, or `posthog`.</ParamField>
+<ParamField path="analytics" type="object">
+  One or more analytics scripts, loaded on every page:
+
+  - `plausible`: `{ domain, src? }`. `src` defaults to `https://plausible.io/js/script.js`; point it at your own Plausible's script.
+  - `googleAnalytics`: `{ measurementId }`, e.g. `G-XXXXXXX`.
+  - `posthog`: `{ apiKey, apiHost? }`. `apiHost` defaults to `https://us.i.posthog.com`.
+
+  ```jsonc
+  "analytics": { "plausible": { "domain": "docs.acme.com" } }
+  ```
+</ParamField>
 <ParamField path="feedback.enabled" type="boolean">
   Force the "Was this helpful?" widgets on or off. Omitted → shown only when an
   `endpoint` is set. See [Feedback](/feedback).
@@ -459,7 +534,7 @@ See [API reference](/openapi) for the full guide — generating the reference, t
 <ParamField path="feedback.endpoint" type="string">
   POST target for the "Was this helpful?" widgets (same JSON from docs pages and
   API resource sections). Point it at a webhook, a Sheet, your own API, or the
-  bundled [`feedback-worker`](/feedback#worker). See [Feedback](/feedback) for the
+  bundled [`feedback-worker`](/feedback#cloudflare-worker-d1). See [Feedback](/feedback) for the
   payload and deploy steps.
 </ParamField>
 

@@ -2,6 +2,7 @@
 
 import { createContext, Fragment, useContext, useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { withEndpoints } from "@/lib/apiref-payload";
 import type { ApiRefView, AttrView, EndpointView, EventColors, EventView, NavTreeNode, NavParent } from "@/lib/apiref-view";
 import type { AiPublicConfig } from "@/lib/config";
 import { ApiExplorer, PlaygroundProvider, usePlayground } from "../playground";
@@ -473,7 +474,7 @@ export function MarklineApiRef({
 
           {/* 3..N · Endpoints */}
           {r.sections.map((ep) => (
-            <EndpointSection key={ep.opId} ep={ep} aiEnabled={aiOn} />
+            <EndpointSection key={ep.opId} ep={ep} endpoints={view.endpoints} aiEnabled={aiOn} />
           ))}
 
           {/* Webhook events — collapsible cards at the foot of the resource */}
@@ -654,7 +655,7 @@ function EventSection({
 }
 
 /* ── endpoint section ──────────────────────────────────────────────────── */
-function EndpointSection({ ep, aiEnabled }: { ep: EndpointView; aiEnabled: boolean }) {
+function EndpointSection({ ep, endpoints, aiEnabled }: { ep: EndpointView; endpoints: ApiRefView["endpoints"]; aiEnabled: boolean }) {
   const eventDot = useEventDot();
   return (
     <section className="api-sec" id={ep.id}>
@@ -694,7 +695,7 @@ function EndpointSection({ ep, aiEnabled }: { ep: EndpointView; aiEnabled: boole
       <div className="api-r">
         <AiActions resource={ep.summary} markdown aiEnabled={aiEnabled} />
         {ep.playground ? (
-          <PlaygroundProvider spec={ep.playground}>
+          <PlaygroundProvider spec={withEndpoints(ep.playground, endpoints)}>
             <TryItCards ep={ep} />
           </PlaygroundProvider>
         ) : (
@@ -811,7 +812,7 @@ function TryItCards({ ep }: { ep: EndpointView }) {
           </div>
           <ApiExplorer
             trigger={(open) => (
-              <button type="button" className="cc-play" onClick={open}>
+              <button type="button" className="cc-play" onClick={open} data-endpoints={pg.spec.endpoints?.length ?? 0}>
                 <svg viewBox="0 0 24 24" aria-hidden><path d="M8 5v14l11-7z" /></svg> Try it
               </button>
             )}

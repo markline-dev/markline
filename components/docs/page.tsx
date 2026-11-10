@@ -145,7 +145,7 @@ export function DocsPage({
 
 // Prose headings/paragraphs are styled structurally by app/docs.css
 // (.docs-prose h2/h3/p), so these emit plain elements with just the anchor id.
-export function DocsH2({ id, children }: { id: string; children: React.ReactNode }) {
+export function DocsH2({ id, children }: { id?: string; children: React.ReactNode }) {
   return <h2 id={id}>{children}</h2>;
 }
 

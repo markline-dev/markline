@@ -7,7 +7,8 @@ search, and an interactive API playground. A fully open alternative to Scalar an
 [![CI](https://github.com/markline-dev/markline/actions/workflows/ci.yml/badge.svg)](https://github.com/markline-dev/markline/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](./LICENSE)
 
-**[markline.dev](https://markline.dev)** — built with Markline.
+**[markline.dev](https://markline.dev)** — built with Markline. The full
+documentation lives there; this README is the short version.
 
 ## Quickstart
 
@@ -26,11 +27,19 @@ npx markline init      # scaffold markline.json + sample content in the current 
 npx markline dev
 ```
 
+To start from a [template](https://markline.dev/templates) (`classic`, `paper`,
+`product-docs` or `help-center`):
+
+```bash
+npm create @markline@latest my-docs -- --template help-center
+```
+
 Your project holds only content + config:
 
 ```
 my-docs/
 ├── markline.json      # navigation, theme, branding, API settings
+├── .gitignore         # ignores node_modules/, .markline/ and out/
 ├── docs/              # your pages (*.mdx)
 │   ├── index.mdx
 │   └── quickstart.mdx
@@ -42,11 +51,19 @@ my-docs/
 
 | Command | Description |
 | --- | --- |
-| `markline init [dir]` | Scaffold a new docs project. |
+| `markline init [dir]` | Scaffold a new docs project. `--template <name>` (or `-t`) starts from a template. |
 | `markline dev` | Start the dev server against `./markline.json`. |
 | `markline build` | Build a production Node server bundle (Docker / Vercel). |
 | `markline start` | Serve a production build. |
 | `markline export` | Build a static HTML site into `./out` (any CDN / GitHub Pages / S3). |
+| `markline version` | Print the Markline version (also `-v`, `--version`). |
+| `markline help` | List the commands (also `-h`, `--help`). |
+
+`dev`, `build` and `start` pass extra flags on to Next, so `markline dev -p 3001`
+serves on port 3001. The CLI reads `MARKLINE_AI_KEY`, `MARKLINE_SITE_URL`,
+`MARKLINE_BASE_PATH` and `NEXT_PUBLIC_*` from `.env` files beside
+`markline.json`; anything else comes from the shell. See the
+[CLI docs](https://markline.dev/cli).
 
 ## Hosting
 
@@ -86,7 +103,8 @@ docker build -t my-docs . && docker run -p 3000:3000 my-docs
 ## Configuration (`markline.json`)
 
 Config is read from `markline.json` (a `docs.json` is also accepted, for
-Mintlify-style projects). `theme.appearance` sets the default color scheme —
+Mintlify-style projects). The [configuration reference](https://markline.dev/configuration)
+lists every key; the highlights are below. `theme.appearance` sets the default color scheme —
 `"dark"`, `"light"`, or `"system"` (follows the OS; the default).
 
 ```jsonc
@@ -101,7 +119,7 @@ Mintlify-style projects). `theme.appearance` sets the default color scheme —
     "links": [{ "label": "GitHub ↗", "href": "https://github.com/me/repo" }],
     "cta": { "label": "Get started", "href": "/quickstart" },
     "width": "full",        // docs + API reference topbar: "full" (edge-to-edge) | "contained" (centered max-width)
-    "homeWidth": "contained" // homepage topbar — independent (defaults to "contained")
+    "homeWidth": "contained" // homepage topbar — independent (defaults to "full")
   },
   "navigation": {
     "tabs": [
@@ -125,8 +143,8 @@ Mintlify-style projects). `theme.appearance` sets the default color scheme —
 - **`topbar.width`** / **`topbar.homeWidth`** — topbar layout: `"full"` spans
   edge-to-edge; `"contained"` centers it to the content max-width. `width`
   governs docs + the API reference (default `"full"`); `homeWidth` governs the
-  homepage independently (default `"contained"`, so the marketing nav aligns
-  with the hero).
+  homepage independently (default `"full"`; `"contained"` lines the marketing
+  nav up with a centered hero).
 - **`api.playground.mode`** — the "Try it" experience: `"full"` (inline param
   inputs + live console + API Explorer modal), `"inline"` (Mintlify-style, no
   modal), `"explorer"` (read-only docs + console + Explorer modal, Stripe-style),
@@ -187,7 +205,8 @@ api/
 - **`analytics`** — opt-in `plausible`, `googleAnalytics` (`measurementId`), or
   `posthog` (`apiKey`, `apiHost`).
 - **`feedback.endpoint`** — the "Was this page helpful?" widget POSTs
-  `{ answer, reason, comment, path }` here (logs to console when unset).
+  `{ answer, reason, comment, path }` here. The widget only shows once this is
+  set, or with `feedback.enabled: true`. See [Feedback](https://markline.dev/feedback).
 
 ### Versioning
 
@@ -239,20 +258,38 @@ my-docs/
 ## Features
 
 - Config-driven navigation, theming, and branding — no code to fork.
+  Nested sidebars with icons, a topbar with dropdowns, banner and buttons, and a footer.
+- **[Templates](https://markline.dev/templates)** — `classic`, `paper`,
+  `product-docs` and `help-center`, or your own as a folder or npm package.
+- Page layouts: docs, full-width **landing** pages and a help-center **hub** with a search hero.
 - MDX content with server-side syntax highlighting (Shiki).
 - First-class OpenAPI: operation pages, schema tables, sample requests/responses.
 - **Interactive API playground** ("Try it") on every endpoint.
 - Static full-text search (Pagefind) — zero search infrastructure.
+- **[Ask AI](https://markline.dev/ai)** on your own LLM key (BYOK), off by default.
+- **[LLM files](https://markline.dev/llm-files)** — `llms.txt`, `llms-full.txt` and a `.md` copy of every page.
+- **[Changelog](https://markline.dev/configuration#changelog)** pages from a `changelog/` folder, with RSS.
+- **[Versions and languages](https://markline.dev/versions)** with a switcher.
+- **[Reader feedback](https://markline.dev/feedback)** ("Was this helpful?") to your own endpoint.
+- SEO metadata, `sitemap.xml`, `robots.txt` and analytics (Plausible, Google Analytics, PostHog).
 - Dark mode, table of contents, responsive layout.
 
 ## Authoring components
 
 Available in any MDX page without an import:
 
-- **Callouts** — `<Note>`, `<Info>`, `<Tip>`, `<Check>`, `<Warning>`, `<Danger>`
-- **Layout** — `<Card>`, `<CardGroup cols={2}>`, `<Steps>` / `<Step title>`
-- **Interactive** — `<Tabs>` / `<Tab title>`, `<AccordionGroup>` / `<Accordion title>`
-- **API** — `<ParamField path|query|header|body type required>`, `<ResponseField>`
+- **Callouts** — `<Note>`, `<Info>`, `<Tip>`, `<Check>`, `<Warning>`, `<Danger>`, `<Callout tone>`
+- **Layout** — `<Card>` / `<CardGroup>` (also `variant="tile"`), `<LinkList>` / `<LinkItem>`,
+  `<Steps>` / `<Step title>`, `<Paths>` / `<Path>`
+- **Media** — `<Image>` (captions, zoom, light/dark), `<Video>`, `<Audio>` / `<AudioGroup>`
+- **Interactive** — `<Tabs>` / `<Tab title>`, `<AccordionGroup>` / `<Accordion title>`,
+  `<CodeGroup>` (synced code tabs)
+- **Text** — `<MenuPath>` for UI routes like **Settings → API keys**
+- **API** — `<ParamField path|query|header|body type required>`, `<ResponseField>`, `<EndpointList>`
+- **Landing pages** — `<Hero>`, `<CTAButton>`, `<FeatureGrid>` / `<Feature>`, `<CTASection>`,
+  `<SectionHead>`, `<StatStrip>` / `<Stat>`, `<Bento>` / `<BentoCard>`, `<CodeShowcase>`
+
+See [Components](https://markline.dev/components) for examples.
 
 ```mdx
 <Note>Heads up — this is worth knowing.</Note>

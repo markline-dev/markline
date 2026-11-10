@@ -29,6 +29,8 @@ jobs:
         run: npm run typecheck
       - name: Test
         run: npm test
+      - name: Test built output
+        run: npm run test:built
       - name: Build (static export of the site)
         run: npm run build
         env:

@@ -218,6 +218,15 @@ rewritten either, so check those yourself.</Note>
 Deprecated operations are shown with a badge. Set `"api": { "showDeprecated": false }`
 to leave them out.
 
+## Large specs
+
+Each resource is one page, so a tag with a hundred operations is a long page.
+Markline keeps what it sends lean: the Try it endpoint switcher's list of every
+operation is sent once per page (not once per operation), and docs pages carry
+one link per API resource rather than the whole spec, unless the API tab is also
+where docs pages live. If a resource is still too heavy, split its tag into
+smaller ones in the spec.
+
 ## Sidebar order
 
 Within a resource, operations render in the order Markline reads them from the

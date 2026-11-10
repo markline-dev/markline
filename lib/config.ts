@@ -1,6 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { contentRoot } from "./paths";
+import { limitOf, MAX_LIMIT } from "./ai/rate-limit";
 import type { TagOverride } from "./openapi-tag-config";
 import { checkTemplateVersions, deepMerge, loadTemplateChain, templateCss, templateOptions } from "./templates";
 
@@ -310,7 +311,12 @@ export type AiConfig = {
    */
   suggestions?: boolean;
   maxTokens?: number;
-  /** Per-IP abuse limits for the proxy route. */
+  /**
+   * Per-IP limits for the proxy route: requests in any 60 seconds (default 10),
+   * and per UTC day (unset: none). Each server instance counts on its own, so
+   * they limit one caller's rate, not total spending; set spending limits with
+   * the AI provider.
+   */
   rateLimit?: { perMinute?: number; perDay?: number };
 };
 
@@ -645,6 +651,17 @@ export function normalizeNavHrefs<T>(node: T): T {
   return Object.fromEntries(entries) as T;
 }
 
+/** A limit that isn't a whole number from 1 to MAX_LIMIT is ignored; say so. */
+export function warnRateLimits(limits: unknown, warn: (msg: string) => void = console.warn): void {
+  if (!limits || typeof limits !== "object") return;
+  for (const name of ["perMinute", "perDay"] as const) {
+    const value = (limits as Record<string, unknown>)[name];
+    if (value !== undefined && limitOf(value) === undefined) {
+      warn(`[markline] ai.rateLimit.${name} must be a whole number from 1 to ${MAX_LIMIT}; ignoring ${JSON.stringify(value)}.`);
+    }
+  }
+}
+
 export function loadConfig(): MarklineConfig {
   if (_cache) return _cache;
   const file = resolveConfigPath();
@@ -660,6 +677,7 @@ export function loadConfig(): MarklineConfig {
   config.navigation = normalizeNavHrefs(config.navigation);
   config.versions = normalizeNavHrefs(config.versions);
   if (config.i18n) config.i18n = normalizeNavHrefs(config.i18n);
+  warnRateLimits(config.ai?.rateLimit);
   _cache = config;
   return _cache;
 }

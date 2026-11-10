@@ -37,6 +37,11 @@ All notable changes to `@markline/markline` and `@markline/create`.
   largest resource page drops from 13.2 MB to 4.4 MB. Docs pages list API
   resources, not every operation, in their navigation data, unless the API tab
   also holds docs pages.
+- **`ai.rateLimit.perDay` is enforced.** It's a per-IP limit on each server
+  instance, not a spending cap; set spending limits with your AI provider. The
+  Ask AI Worker reads `MARKLINE_RATE_PER_DAY`. Both limits count each valid
+  request, and one over either now gets a `Retry-After` header with its 429. A
+  limit that isn't a whole number from 1 to 1,000,000 is reported and ignored.
 
 ### Fixed
 - **The Markline home page shows only real numbers.** The GitHub card no longer

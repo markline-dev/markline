@@ -156,3 +156,14 @@ test("a parameter is deprecated by itself or by its schema", () => {
   assert.equal(isDeprecatedParam(undefined, { anyOf: [] }, { deprecated: true }), true);
   assert.equal(isDeprecatedParam(false, { type: "string" }, { type: "string" }), false);
 });
+
+test("a field is deprecated by its own schema, under a nullable wrapper", () => {
+  const [field] = schemaFields({ type: "object", properties: { old: { anyOf: [{ type: "string", deprecated: true }, { type: "null" }] } } });
+  assert.equal(field.deprecated, true);
+  assert.equal(field.nullable, true);
+});
+
+test("a null property is skipped, not a crash", () => {
+  const fields = schemaFields({ type: "object", properties: { gone: null as unknown as JSONSchema, kept: { type: "string" } } });
+  assert.deepEqual(fields.map((f) => f.name), ["kept"]);
+});

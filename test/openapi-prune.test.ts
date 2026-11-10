@@ -297,3 +297,18 @@ test("odd specs neither crash nor loop", () => {
   assert.deepEqual(doc.tags.map((t) => t.name), ["Default"]);
   assert.deepEqual(resolveSchema(ref("LoopA"), pruned), { type: "object", description: "(recursive)" });
 });
+
+test("a hidden path parameter in components stays, since the URL needs it", () => {
+  const raw = {
+    paths: { "/items/{id}": { get: op("item", { parameters: [{ $ref: "#/components/parameters/Id" }, { $ref: "#/components/parameters/Q" }] }) } },
+    components: {
+      parameters: {
+        Id: { name: "id", in: "path", required: true, "x-internal": true, schema: { type: "string" } },
+        Q: { name: "q", in: "query", "x-internal": true, schema: { type: "string" } },
+      },
+    },
+  };
+  const out = pruneSpec(raw, EXTS) as any;
+  assert.deepEqual(out.paths["/items/{id}"].get.parameters, [{ $ref: "#/components/parameters/Id" }]);
+  assert.ok(out.components.parameters.Id);
+});

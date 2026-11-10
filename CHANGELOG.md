@@ -42,6 +42,9 @@ All notable changes to `@markline/markline` and `@markline/create`.
   Ask AI Worker reads `MARKLINE_RATE_PER_DAY`. Both limits count each valid
   request, and one over either now gets a `Retry-After` header with its 429. A
   limit that isn't a whole number from 1 to 1,000,000 is reported and ignored.
+- **Ask AI gets its own button in the menu style.** With
+  `layout.pageActions: "menu"`, Ask AI is its own button beside Copy for LLM,
+  and the menu holds only View as Markdown and Open Markdown file.
 
 ### Fixed
 - **The Markline home page shows only real numbers.** The GitHub card no longer

@@ -299,10 +299,15 @@
 .docs-shell .doc-ai .copied { color: var(--ok); }
 .docs-shell .doc-ai .ico { width: 15px; height: 15px; }
 
-/* layout.pageActions: "menu": date on the left, a split "Copy for LLM" button
-   on the right. */
+/* layout.pageActions: "menu": date on the left; on the right, Ask AI (when
+   it's set up) and a split "Copy for LLM" button. */
 .docs-shell .doc-ai--menu { justify-content: space-between; border-top: 0; padding-top: 0; margin-top: 24px; padding-bottom: 20px; border-bottom: 1px solid var(--line); }
 .docs-shell .doc-ai--menu .date { font-size: 13.5px; color: var(--ink-4); }
+.docs-shell .doc-ai-actions { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.docs-shell .doc-ai-actions > .doc-ai-ask {
+  padding: 7px 12px; border: 1px solid var(--line-2); border-radius: var(--btn-radius, 8px);
+  background: var(--panel); color: var(--accent-ink); font-weight: 500;
+}
 .docs-shell .doc-ai-split {
   position: relative; display: inline-flex; border: 1px solid var(--line-2); border-radius: var(--btn-radius, 8px);
   background: var(--panel);

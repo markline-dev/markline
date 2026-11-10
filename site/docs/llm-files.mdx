@@ -72,7 +72,7 @@ LLM. They're on by default, with no setting needed.
 - **View as Markdown** shows that Markdown in a window over the page, with
   its own copy button.
 - **Ask AI about this page** opens the [Ask AI](/ai) panel about this page.
-  It only appears when Ask AI is set up.
+  It only appears when [Ask AI is set up](/ai).
 
 `layout.pageActions` picks how they look, for the whole site.
 
@@ -84,19 +84,19 @@ The default. The actions are links in a row under the page's lede.
 
 ### Menu
 
-`"layout": { "pageActions": "menu" }` shows one **Copy for LLM** button. Its
-arrow opens the rest: **View as Markdown**, **Open Markdown file** (the page's
-`.md` in a new tab) and, with Ask AI set up, **Ask AI about this page**. The
-page's [`last_updated`](/frontmatter#page-text) date moves beside the button.
-The `help-center` template uses this style.
+`"layout": { "pageActions": "menu" }` shows a **Copy for LLM** button, with
+**Ask AI** beside it when Ask AI is set up. Copy for LLM's arrow opens the
+Markdown actions: **View as Markdown** and **Open Markdown file** (the page's
+`.md` in a new tab). The page's [`last_updated`](/frontmatter#page-text) date
+moves to the left of the buttons. The `help-center` template uses this style.
 
-![The page's date on the left, and a Copy for LLM button with an arrow on the right](/shots/page-actions-menu.webp)
+![The page's date on the left; an Ask AI button and a Copy for LLM button with an arrow on the right](/shots/page-actions-menu.webp)
 
-![The open menu under the button: View as Markdown, Open Markdown file and Ask AI about this page](/shots/page-actions-menu-open.webp)
+![The open menu under Copy for LLM: View as Markdown and Open Markdown file](/shots/page-actions-menu-open.webp)
 
 These two were taken with `layout.pageActions: "menu"` and a `last_updated`
-date on the page. The site has Ask AI set up; without it, the menu has no Ask
-AI entry, and the inline row starts at Copy for LLM.
+date on the page. The site has Ask AI set up; without it, there's no Ask AI
+button, and the inline row starts at Copy for LLM.
 
 ### Where the Markdown comes from
 

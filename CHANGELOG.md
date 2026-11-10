@@ -15,6 +15,13 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **Steps in "On this page".** `<Steps toc>`, or `toc: steps` in frontmatter,
   lists step titles in the table of contents.
 
+### Changed
+- **Lighter API reference pages.** The Try it endpoint list is sent once per
+  page instead of once per operation. On ElevenLabs' spec (478 operations) the
+  largest resource page drops from 13.2 MB to 4.4 MB. Docs pages list API
+  resources, not every operation, in their navigation data, unless the API tab
+  also holds docs pages.
+
 ### Fixed
 - `llms-full.txt` no longer drops `import`/`export` lines inside code blocks
   (such as Python's `import requests`).

@@ -3,6 +3,7 @@ import { eventAnchor, resolveSchema } from "./openapi";
 import { allResponses, codeSamples, colorizeJson, successResponse, type CodeRail } from "./openapi-codegen";
 import { buildPlaygroundSpec } from "./playground-spec";
 import { mdToHtml } from "./md-desc";
+import { hoistEndpoints } from "./apiref-payload";
 import type { PlaygroundSpec } from "@/components/docs/api/playground";
 import { loadConfig, playgroundMode } from "./config";
 import { tagSlug, parseOpenApiTag, buildTagTree, segmentDisplayName, type TagTreeNode } from "./openapi-tags";
@@ -157,6 +158,9 @@ export type ApiRefView = {
   resource: ResourceView;
   /** Command-palette index across all resources. */
   search: SearchEntry[];
+  /** Every operation, for the Try it endpoint switcher. Sent once per page;
+   *  the sections' playground specs leave it out. */
+  endpoints: NonNullable<PlaygroundSpec["endpoints"]>;
   /** Version selector entries (spec version, or config versions when present). */
   versions: VersionEntry[];
   /** How to color event status dots (status / palette / none). */
@@ -419,8 +423,10 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
     })),
     events,
     object,
-    sections: (activeTag?.operations ?? []).map((op) => buildEndpoint(op, doc, root, baseUrl, langs, interactive, base)),
+    sections: [],
   };
+  const hoisted = hoistEndpoints<ApiRefView["endpoints"][number], EndpointView>((activeTag?.operations ?? []).map((op) => buildEndpoint(op, doc, root, baseUrl, langs, interactive, base)));
+  resource.sections = hoisted.sections;
 
   return {
     title: doc.info.title || "API reference",
@@ -431,6 +437,7 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
     nav,
     resource,
     search: buildSearchIndex(doc, base),
+    endpoints: hoisted.endpoints,
     versions: buildVersions(doc, variantId),
     eventColors: ((): EventColors => {
       const mode = api.events?.dots ?? "palette";

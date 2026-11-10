@@ -9,6 +9,8 @@ toc:
     label: What they include
   - id: serving-the-files
     label: Serving the files
+  - id: page-actions
+    label: Page actions
 ---
 
 Every site gets these, with no setting to turn on and no `ai` block needed.
@@ -28,8 +30,8 @@ the index can find the rest.
 Links in `llms.txt` are absolute when [`seo.metadataBase`](/configuration#seo)
 or `MARKLINE_SITE_URL` is set, and paths otherwise.
 
-The page's **Copy for LLM** and **View as Markdown** actions use the `.md`
-text too. With `layout.pageActions: "menu"` the menu links the file.
+Readers can also copy a page's Markdown from the page itself, with its
+[page actions](#page-actions).
 
 ## What they include
 
@@ -60,3 +62,55 @@ until its first build.
 A `.md` or folder `llms.txt` in your own `public/` folder is kept, and the
 build doesn't write that one. `llms.txt` and `llms-full.txt` are always
 generated.
+
+## Page actions
+
+Every docs page has actions under its title for getting the page into an
+LLM. They're on by default, with no setting needed.
+
+- **Copy for LLM** copies the page as Markdown.
+- **View as Markdown** shows that Markdown in a window over the page, with
+  its own copy button.
+- **Ask AI about this page** opens the [Ask AI](/ai) panel about this page.
+  It only appears when Ask AI is set up.
+
+`layout.pageActions` picks how they look, for the whole site.
+
+### Inline
+
+The default. The actions are links in a row under the page's lede.
+
+![Ask AI about this page, Copy for LLM and View as Markdown as links in a row](/shots/page-actions-inline.webp)
+
+### Menu
+
+`"layout": { "pageActions": "menu" }` shows one **Copy for LLM** button. Its
+arrow opens the rest: **View as Markdown**, **Open Markdown file** (the page's
+`.md` in a new tab) and, with Ask AI set up, **Ask AI about this page**. The
+page's [`last_updated`](/frontmatter#page-text) date moves beside the button.
+The `help-center` template uses this style.
+
+![The page's date on the left, and a Copy for LLM button with an arrow on the right](/shots/page-actions-menu.webp)
+
+![The open menu under the button: View as Markdown, Open Markdown file and Ask AI about this page](/shots/page-actions-menu-open.webp)
+
+These two were taken with `layout.pageActions: "menu"` and a `last_updated`
+date on the page. The site has Ask AI set up; without it, the menu has no Ask
+AI entry, and the inline row starts at Copy for LLM.
+
+### Where the Markdown comes from
+
+Both styles use the page's own `.md` file, fetched when the pointer or
+keyboard focus first reaches the actions, so they work on a static export.
+Until it has loaded, or if there's no `.md` file, they use the text of the
+page as rendered.
+
+### Where they show
+
+On docs pages only: not on landing pages, hub pages or changelog pages. The
+[API reference](/openapi#ai-page-actions) has its own actions on each
+resource section, the same in either style.
+
+The setting applies to the whole site. A page can't change it, and the
+actions can't be added to, removed or reordered.
+

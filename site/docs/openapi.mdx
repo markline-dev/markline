@@ -105,7 +105,7 @@ admin/api/keys       Admin
 
 <Note>This is automatic for any spec using slash tags — you don't flatten your
 `@ApiTags` to get clean resource boundaries. Per-resource
-[MDX overlays](#overlays) still key off the full slug (`store-orders.mdx`).</Note>
+[MDX overlays](#mdx-overlays) still key off the full slug (`store-orders.mdx`).</Note>
 
 ### Custom labels with `x-displayName`
 
@@ -486,7 +486,9 @@ api/
 Every resource section carries the same affordances as the docs: **Copy for
 LLM** (copies the section as Markdown), **View as Markdown**, and — when
 [Ask AI](/ai) is enabled — **Ask about this section**, which opens the docked
-assistant with that section as context.
+assistant with that section as context. They look the same whatever
+`layout.pageActions` is set to; see [Page actions](/llm-files#page-actions)
+for docs pages.
 
 ## Versions
 

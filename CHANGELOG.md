@@ -18,6 +18,18 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **A warning for a `toc:` link that misses.** When a page's frontmatter lists
   its own "On this page" entries, Markline warns, at build and in dev, about any
   `#id` that no heading or element on the page has.
+- **Tag overrides.** `api.tags` in markline.json renames (`label`), hides,
+  merges (`mergeInto`) and re-describes API tags without editing the spec, and
+  `api.tagOrder` puts chosen tags first in the sidebar.
+- **Hidden and deprecated operations.** Anything with `x-hidden` / `x-internal`,
+  or the extensions listed in `api.hideExtensions` (e.g. `x-fern-ignore`), is
+  left out everywhere: operations, path items, webhooks, parameters and fields,
+  from tables, samples, Try it, search and `llms.txt`. Deprecated operations,
+  parameters and fields get a *Deprecated* badge; `api.showDeprecated: false`
+  hides deprecated operations.
+- **`api.auth`** names the auth a spec doesn't declare (e.g. an `xi-api-key`
+  header), so Try it and the cURL samples send it. The key is masked in the code
+  Try it shows.
 
 ### Changed
 - **Lighter API reference pages.** The Try it endpoint list is sent once per
@@ -25,6 +37,11 @@ All notable changes to `@markline/markline` and `@markline/create`.
   largest resource page drops from 13.2 MB to 4.4 MB. Docs pages list API
   resources, not every operation, in their navigation data, unless the API tab
   also holds docs pages.
+- **`ai.rateLimit.perDay` is enforced.** It's a per-IP limit on each server
+  instance, not a spending cap; set spending limits with your AI provider. The
+  Ask AI Worker reads `MARKLINE_RATE_PER_DAY`. Both limits count each valid
+  request, and one over either now gets a `Retry-After` header with its 429. A
+  limit that isn't a whole number from 1 to 1,000,000 is reported and ignored.
 - **Ask AI gets its own button in the menu style.** With
   `layout.pageActions: "menu"`, Ask AI is its own button beside Copy for LLM,
   and the menu holds only View as Markdown and Open Markdown file.
@@ -46,6 +63,14 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **A changelog heading with no letters or digits no longer repeats its date's
   id.** A heading such as `## 🚀` in an entry got the entry's date as its id,
   the same as the entry itself. It now gets no id.
+- Tags that differ only by case (`dubbing` / `Dubbing`) shared one URL, and one
+  tag's operations vanished. They now merge into one page, with a build
+  warning naming them.
+- Nullable fields (`anyOf: [X, null]`, `type: [X, "null"]`) showed as a bare
+  "oneOf". They now show their type, a `nullable` label and their nested
+  fields; real unions list their members.
+- Text beside a `$ref` (`description`, `deprecated`) was dropped. It now applies
+  to that use of the schema.
 
 ## 0.1.8
 

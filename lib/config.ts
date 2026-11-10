@@ -1,6 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { contentRoot } from "./paths";
+import { limitOf, MAX_LIMIT } from "./ai/rate-limit";
+import type { TagOverride } from "./openapi-tag-config";
 import { checkTemplateVersions, deepMerge, loadTemplateChain, templateCss, templateOptions } from "./templates";
 
 /**
@@ -182,6 +184,29 @@ export type ApiConfig = {
    * extension (which override the generated ones).
    */
   codeSamples?: ("curl" | "node" | "python" | "go")[];
+  /**
+   * Per-tag overrides, keyed by the tag's name in the spec: `label` (sidebar
+   * name, URL unchanged), `description`, `hidden` (the operations file under
+   * their next tag, or drop out), and `mergeInto` (file the operations under
+   * another tag; a name the spec doesn't declare renames the page and URL).
+   */
+  tags?: Record<string, TagOverride>;
+  /** Tags shown first, in this order; the rest keep spec order. */
+  tagOrder?: string[];
+  /**
+   * Operation extensions that hide an operation when truthy. Replaces the
+   * default `["x-hidden", "x-internal"]`; e.g. add `"x-fern-ignore"`.
+   */
+  hideExtensions?: string[];
+  /** `false` leaves deprecated operations out. Default true (shown, badged). */
+  showDeprecated?: boolean;
+  /**
+   * Auth for a spec that doesn't declare it (or declares it wrongly). Replaces
+   * the spec's security schemes, so Try it and the cURL samples send it:
+   * `{ "header": "xi-api-key" }` for an API-key header, `{ "type": "bearer" }`
+   * for `Authorization: Bearer`.
+   */
+  auth?: { type?: "apiKey" | "bearer"; header?: string; description?: string };
   playground?: {
     /**
      * Which "Try it" surfaces to render:
@@ -286,7 +311,12 @@ export type AiConfig = {
    */
   suggestions?: boolean;
   maxTokens?: number;
-  /** Per-IP abuse limits for the proxy route. */
+  /**
+   * Per-IP limits for the proxy route: requests in any 60 seconds (default 10),
+   * and per UTC day (unset: none). Each server instance counts on its own, so
+   * they limit one caller's rate, not total spending; set spending limits with
+   * the AI provider.
+   */
   rateLimit?: { perMinute?: number; perDay?: number };
 };
 
@@ -621,6 +651,17 @@ export function normalizeNavHrefs<T>(node: T): T {
   return Object.fromEntries(entries) as T;
 }
 
+/** A limit that isn't a whole number from 1 to MAX_LIMIT is ignored; say so. */
+export function warnRateLimits(limits: unknown, warn: (msg: string) => void = console.warn): void {
+  if (!limits || typeof limits !== "object") return;
+  for (const name of ["perMinute", "perDay"] as const) {
+    const value = (limits as Record<string, unknown>)[name];
+    if (value !== undefined && limitOf(value) === undefined) {
+      warn(`[markline] ai.rateLimit.${name} must be a whole number from 1 to ${MAX_LIMIT}; ignoring ${JSON.stringify(value)}.`);
+    }
+  }
+}
+
 export function loadConfig(): MarklineConfig {
   if (_cache) return _cache;
   const file = resolveConfigPath();
@@ -636,6 +677,7 @@ export function loadConfig(): MarklineConfig {
   config.navigation = normalizeNavHrefs(config.navigation);
   config.versions = normalizeNavHrefs(config.versions);
   if (config.i18n) config.i18n = normalizeNavHrefs(config.i18n);
+  warnRateLimits(config.ai?.rateLimit);
   _cache = config;
   return _cache;
 }

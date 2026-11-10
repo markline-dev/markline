@@ -10,7 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
 import * as pagefind from "pagefind";
-import { orderedResourceTags } from "./openapi-order.mjs";
+import { apiSearchRecords, resourcePages, specWarnings } from "./openapi-order.mjs";
 import { searchGroups, searchTrails } from "./search-groups.mjs";
 import { markdownPath, mdxToMarkdown, pageMarkdown, sectionIds, sectionIndex } from "./llms.mjs";
 import { removeGeneratedFiles, writeManifest } from "./generated-files.mjs";
@@ -113,31 +113,19 @@ function contentPrefixIds(root) {
   }
 }
 
-function slugifyOpId(method, pathStr) {
-  return `${method}_${pathStr.replace(/[^a-zA-Z0-9]+/g, "_")}`.replace(/^_+|_+$/g, "");
-}
-
 function apiRecords(root) {
   const specFile = path.join(root, "api", "openapi.json");
   if (!fs.existsSync(specFile)) return [];
   const spec = JSON.parse(fs.readFileSync(specFile, "utf8"));
-  const records = [];
-  const methods = ["get", "post", "put", "patch", "delete", "options", "head"];
-  for (const [pathStr, item] of Object.entries(spec.paths ?? {})) {
-    for (const method of methods) {
-      const op = item[method];
-      if (!op) continue;
-      const operationId = op.operationId ?? slugifyOpId(method, pathStr);
-      const title = op.summary ?? operationId;
-      const content = toPlainText(
-        [op.summary, op.description, `${method.toUpperCase()} ${pathStr}`, (op.tags ?? []).join(" ")]
-          .filter(Boolean)
-          .join(" "),
-      );
-      records.push({ url: `/api-reference/${operationId}`, title, content, meta: "API reference" });
-    }
-  }
-  return records;
+  const cfg = loadJsonConfig(root);
+  const api = cfg.api;
+  // The one place a build prints these; page workers would each repeat them.
+  const readVersion = (id) => {
+    const file = path.join(root, id, "api", "openapi.json");
+    return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : null;
+  };
+  for (const w of specWarnings(spec, cfg, readVersion)) console.warn(w);
+  return apiSearchRecords(spec, api, toPlainText);
 }
 
 /* ── Changelog ──────────────────────────────────────────────────────────────
@@ -284,23 +272,10 @@ function apiResources(root) {
   const specFile = path.join(root, "api", "openapi.json");
   if (!fs.existsSync(specFile)) return [];
   const spec = JSON.parse(fs.readFileSync(specFile, "utf8"));
-  const descriptions = new Map();
-  const labels = new Map(); // `x-displayName` (Redoc convention) wins over the derived title
-  for (const t of spec.tags ?? []) {
-    descriptions.set(t.name, t.description ? String(t.description).split("\n")[0].trim() : "");
-    const label = typeof t["x-displayName"] === "string" ? t["x-displayName"].trim() : "";
-    if (label) labels.set(t.name, label);
-  }
-  const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
-  const pretty = (s) =>
-    String(s).split("/").pop()
-      .replace(/[-_]/g, " ").replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-      .split(/\s+/).filter(Boolean)
-      .map((w) => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(" ");
-  return orderedResourceTags(spec).map((name) => ({
-    url: `/api-reference/${slug(name)}`,
-    title: labels.get(name) ?? pretty(name),
-    desc: descriptions.get(name) ?? "",
+  return resourcePages(spec, loadJsonConfig(root).api).map((page) => ({
+    url: `/api-reference/${page.slug}`,
+    title: page.title,
+    desc: page.description ? String(page.description).split("\n")[0].trim() : "",
   }));
 }
 

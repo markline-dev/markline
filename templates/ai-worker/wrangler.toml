@@ -23,6 +23,8 @@ MARKLINE_AI_MAX_TOKENS = "1024"
 # Pin this to your site(s); "*" allows any origin (not recommended).
 MARKLINE_ALLOWED_ORIGIN = "https://markline.dev"
 MARKLINE_RATE_PER_MIN = "10"
+# Per-IP requests per UTC day; unset means no daily limit.
+# MARKLINE_RATE_PER_DAY = "200"
 MARKLINE_SITE_NAME = "Markline"
 # For "openai-compatible" providers, also set:
 # MARKLINE_AI_BASE_URL = "https://your-endpoint/v1"

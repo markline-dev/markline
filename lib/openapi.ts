@@ -3,6 +3,21 @@ import path from "node:path";
 import { contentRoot } from "./paths";
 import { mergeTagEvents, parseOperationEvents, parseWebhooks, parseXEvents } from "./openapi-events";
 import { tagLabels, type TagLabels } from "./openapi-tags";
+import {
+  collisionWarning,
+  describeTags,
+  isHiddenOperation,
+  knownTags,
+  planTags,
+  primaryTag,
+  resolveTag,
+  tagConfigWarnings,
+  DEFAULT_HIDE_EXTENSIONS,
+  type TagOptions,
+} from "./openapi-tag-config";
+import { pruneSpec } from "./openapi-prune";
+import { loadConfig } from "./config";
+import { sampleMember } from "./openapi-schema";
 
 export { eventAnchor } from "./openapi-events";
 
@@ -32,6 +47,7 @@ export type OpenAPIParameter = {
   name: string;
   in: "path" | "query" | "header" | "cookie";
   required?: boolean;
+  deprecated?: boolean;
   description?: string;
   schema?: JSONSchema;
 };
@@ -50,6 +66,10 @@ export type OpenAPIOperation = {
   tag: string;
   summary?: string;
   description?: string;
+  /** `deprecated: true` in the spec. */
+  deprecated?: boolean;
+  /** Marked public with an explicit `security: []`: Try it offers no key field. */
+  public?: boolean;
   /** Explicit position within the tag (`x-nav-order`); unordered ops keep spec order after ordered ones. */
   navOrder?: number;
   parameters: {
@@ -114,12 +134,25 @@ export type OpenAPIDoc = {
   securitySchemes: Record<string, SecurityScheme>;
   /** Root-level events (OpenAPI 3.1 `webhooks` / Redoc `x-webhooks`). */
   webhooks: OpenAPIEvent[];
+  /** Problems found while normalizing (e.g. tag slug collisions). */
+  warnings: string[];
+};
+
+/** markline.json `api` settings that shape the normalized reference. */
+export type NormalizeOptions = TagOptions & {
+  /** Extensions that hide an operation (default `x-hidden`, `x-internal`). */
+  hideExtensions?: string[];
+  /** `false` leaves deprecated operations out. Default true. */
+  showDeprecated?: boolean;
+  /** Auth the spec doesn't declare: replaces its security schemes. */
+  auth?: { type?: "apiKey" | "bearer"; header?: string; description?: string };
 };
 
 const METHODS = ["get", "post", "put", "patch", "delete", "options", "head"] as const;
 
 // Parsed-spec cache, keyed by version id ("" = the default/unprefixed version).
 const _cache = new Map<string, OpenAPIDoc>();
+const _roots = new Map<string, unknown>();
 
 const EMPTY_DOC: OpenAPIDoc = {
   info: { title: "", version: "" },
@@ -129,6 +162,7 @@ const EMPTY_DOC: OpenAPIDoc = {
   operationsById: {},
   securitySchemes: {},
   webhooks: [],
+  warnings: [],
 };
 
 /**
@@ -159,23 +193,71 @@ export function loadOpenApi(variantId?: string): OpenAPIDoc {
     return EMPTY_DOC;
   }
   const raw = JSON.parse(fs.readFileSync(file, "utf8"));
-  const doc = normalize(raw);
+  const api = loadConfig().api;
+  const doc = normalize(raw, {
+    tags: api.tags,
+    tagOrder: api.tagOrder,
+    hideExtensions: api.hideExtensions,
+    showDeprecated: api.showDeprecated,
+    auth: api.auth,
+  });
+  // A build prints these once, from scripts/build-search.mjs; its page workers
+  // would each repeat them.
+  if (process.env.NODE_ENV !== "production") warnOnce(doc.warnings);
   _cache.set(key, doc);
   return doc;
 }
 
-export function normalize(raw: any): OpenAPIDoc {
-  const components = raw.components ?? {};
-  const securitySchemes: Record<string, SecurityScheme> = components.securitySchemes ?? {};
+/** The security scheme `api.auth` stands for. */
+function configuredScheme(auth: NonNullable<NormalizeOptions["auth"]>): SecurityScheme {
+  if (auth.type === "bearer") return { type: "http", scheme: "bearer", description: auth.description };
+  return { type: "apiKey", in: "header", name: auth.header?.trim() || "Authorization", description: auth.description };
+}
 
-  const tagMeta: Record<string, { displayName?: string; description?: string; events?: OpenAPIEvent[] }> = {};
-  for (const t of raw.tags ?? []) {
-    const label = typeof t["x-displayName"] === "string" ? t["x-displayName"].trim() : "";
-    tagMeta[t.name] = {
-      displayName: label || undefined,
-      description: t.description,
-      events: parseXEvents(t["x-events"]),
-    };
+// Next evaluates this module once per route bundle, so remember what was
+// already said for the life of the process.
+const g = globalThis as { __marklineSpecWarnings?: Set<string> };
+function warnOnce(warnings: string[]) {
+  const said = (g.__marklineSpecWarnings ??= new Set());
+  for (const w of warnings) {
+    if (said.has(w)) continue;
+    said.add(w);
+    console.warn(w);
+  }
+}
+
+/**
+ * The raw spec `$ref`s resolve against, with everything `api.hideExtensions`
+ * hides already removed. Pass this, not the file on disk, as `root`.
+ */
+export function loadOpenApiRoot(variantId?: string): any {
+  const key = variantId ?? "";
+  if (_roots.has(key)) return _roots.get(key);
+  const file = apiSpecPath(variantId);
+  const root = fs.existsSync(file)
+    ? pruneSpec(JSON.parse(fs.readFileSync(file, "utf8")), loadConfig().api.hideExtensions ?? DEFAULT_HIDE_EXTENSIONS)
+    : {};
+  _roots.set(key, root);
+  return root;
+}
+
+export function normalize(input: any, opts: NormalizeOptions = {}): OpenAPIDoc {
+  const raw = pruneSpec(input, opts.hideExtensions ?? DEFAULT_HIDE_EXTENSIONS);
+  // A spec's tag list can hold anything; only named entries mean a tag.
+  const specTags: any[] = (Array.isArray(raw.tags) ? raw.tags : []).filter((t: any) => typeof t?.name === "string");
+  const components = raw.components ?? {};
+  const authScheme = opts.auth ? configuredScheme(opts.auth) : undefined;
+  const securitySchemes: Record<string, SecurityScheme> = authScheme
+    ? { markline: authScheme }
+    : (components.securitySchemes ?? {});
+  const hideExtensions = opts.hideExtensions ?? DEFAULT_HIDE_EXTENSIONS;
+  const warnings: string[] = [];
+
+  // Events declared on a spec tag, folded onto the tag it resolves to.
+  const tagEvents: Record<string, OpenAPIEvent[]> = Object.create(null);
+  for (const t of specTags) {
+    const name = resolveTag(t.name, opts);
+    if (name) tagEvents[name] = [...(tagEvents[name] ?? []), ...parseXEvents(t["x-events"])];
   }
 
   const tagsMap = new Map<string, OpenAPIOperation[]>();
@@ -183,15 +265,18 @@ export function normalize(raw: any): OpenAPIDoc {
 
   for (const [pathStr, pathItem] of Object.entries<any>(raw.paths ?? {})) {
     for (const method of METHODS) {
-      const op = pathItem[method];
+      const op = pathItem?.[method];
       if (!op) continue;
+      if (isHiddenOperation(op, hideExtensions, opts.showDeprecated ?? true)) continue;
+      const tag = primaryTag(op.tags, opts);
+      if (!tag) continue;
       const operationId =
         op.operationId ?? slugifyOpId(method, pathStr);
-      const tag = op.tags?.[0] ?? "Default";
 
       const params: OpenAPIOperation["parameters"] = { path: [], query: [], header: [] };
       for (const p of [...(pathItem.parameters ?? []), ...(op.parameters ?? [])]) {
-        const resolved = resolveRef(p, raw) as OpenAPIParameter;
+        const resolved = resolveRef(p, raw) as OpenAPIParameter | undefined;
+        if (!resolved) continue;
         if (resolved.in === "path") params.path.push(resolved);
         else if (resolved.in === "query") params.query.push(resolved);
         else if (resolved.in === "header") params.header.push(resolved);
@@ -207,10 +292,10 @@ export function normalize(raw: any): OpenAPIDoc {
 
       const responses: OpenAPIResponse[] = [];
       for (const [status, resp] of Object.entries<any>(op.responses ?? {})) {
-        const json = resp.content?.["application/json"];
+        const json = resp?.content?.["application/json"];
         responses.push({
           status,
-          description: resp.description,
+          description: resp?.description,
           schema: json?.schema,
           example: json?.example ?? json?.examples?.default?.value,
         });
@@ -218,12 +303,27 @@ export function normalize(raw: any): OpenAPIDoc {
 
       const security: OpenAPIOperation["security"] = [];
       const secList = op.security ?? raw.security ?? [];
-      for (const s of secList) {
+      // `api.auth` covers every operation, except one the spec marks public
+      // with an explicit empty `security: []`.
+      const isPublic = Array.isArray(op.security) && op.security.length === 0;
+      if (authScheme && !isPublic) {
+        security.push({ name: "markline", scheme: authScheme });
+      } else for (const s of secList) {
         for (const name of Object.keys(s)) {
           const scheme = securitySchemes[name];
           if (scheme) security.push({ name, scheme });
         }
       }
+
+      // A header the auth scheme already sends isn't a parameter of its own
+      // (specs often declare the API-key header on every operation too).
+      const authHeaders = new Set(
+        security.flatMap((x) => {
+          if (x.scheme.type === "http") return ["authorization"];
+          return x.scheme.type === "apiKey" && x.scheme.in === "header" && x.scheme.name ? [x.scheme.name.toLowerCase()] : [];
+        }),
+      );
+      if (authHeaders.size) params.header = params.header.filter((p) => !authHeaders.has(p.name.toLowerCase()));
 
       const operation: OpenAPIOperation = {
         operationId,
@@ -232,6 +332,8 @@ export function normalize(raw: any): OpenAPIDoc {
         tag,
         summary: op.summary,
         description: op.description,
+        deprecated: op.deprecated === true || undefined,
+        public: isPublic || undefined,
         navOrder: typeof op["x-nav-order"] === "number" ? op["x-nav-order"] : undefined,
         parameters: params,
         requestBody,
@@ -246,38 +348,59 @@ export function normalize(raw: any): OpenAPIDoc {
     }
   }
 
-  const tagOrder = (raw.tags ?? []).map((t: any) => t.name as string);
-  const tags: OpenAPITag[] = [...tagsMap.keys()]
-    .sort((a, b) => {
-      const ia = tagOrder.indexOf(a);
-      const ib = tagOrder.indexOf(b);
-      if (ia === -1 && ib === -1) return a.localeCompare(b);
-      if (ia === -1) return 1;
-      if (ib === -1) return -1;
-      return ia - ib;
-    })
-    .map((name) => {
-      // Stable sort: `x-nav-order` ops first (ascending), the rest keep spec order.
-      const operations = [...tagsMap.get(name)!].sort(
-        (a, b) => (a.navOrder ?? Infinity) - (b.navOrder ?? Infinity),
-      );
-      return {
-        name,
-        displayName: tagMeta[name]?.displayName,
-        description: tagMeta[name]?.description,
-        operations,
-        events: mergeTagEvents(operations, tagMeta[name]?.events),
-      };
-    });
+  // Order the pages and fold tags whose slugs collide ("dubbing" / "Dubbing")
+  // into one, so neither page silently loses its operations.
+  const plan = planTags([...tagsMap.keys()], specTags.map((t) => t.name as string), opts);
+  for (const c of plan.collisions) warnings.push(collisionWarning(c));
+  warnings.push(...tagConfigWarnings(knownTags(input), plan, opts));
+  for (const [from, into] of plan.alias) {
+    for (const op of tagsMap.get(from)!) op.tag = into;
+    tagsMap.get(into)!.push(...tagsMap.get(from)!);
+    tagsMap.delete(from);
+    tagEvents[into] = [...(tagEvents[into] ?? []), ...(tagEvents[from] ?? [])];
+  }
+
+  const specLabel = (t: any) => (typeof t["x-displayName"] === "string" ? t["x-displayName"].trim() : "");
+  const described = describeTags(
+    specTags.map((t) => ({ name: t.name, displayName: specLabel(t), description: t.description })),
+    plan,
+    opts,
+  );
+
+  const tags: OpenAPITag[] = plan.order.map((name) => {
+    // Stable sort: `x-nav-order` ops first (ascending), the rest keep spec order.
+    const operations = [...tagsMap.get(name)!].sort(
+      (a, b) => (a.navOrder ?? Infinity) - (b.navOrder ?? Infinity),
+    );
+    return {
+      name,
+      displayName: described.get(name)?.label,
+      description: described.get(name)?.description,
+      operations,
+      events: mergeTagEvents(operations, tagEvents[name]),
+    };
+  });
+
+  // Labels for every tag path: spec `x-displayName`s (incl. nav-only group
+  // tags) and config labels on group paths ("Workspace"), then each page's own.
+  const labelEntries: { name: string; displayName?: string }[] = [
+    ...specTags.map((t) => ({ name: t.name as string, displayName: specLabel(t) || undefined })),
+    ...Object.entries(opts.tags ?? {}).map(([name, o]) => ({ name, displayName: o?.mergeInto ? undefined : o?.label?.trim() })),
+    ...tags.map((t) => ({ name: t.name, displayName: t.displayName })),
+  ];
 
   return {
     info: raw.info ?? { title: "", version: "" },
     servers: raw.servers ?? [],
     tags,
-    tagLabels: tagLabels((raw.tags ?? []).map((t: any) => ({ name: t.name, displayName: tagMeta[t.name]?.displayName }))),
+    tagLabels: tagLabels(labelEntries),
     operationsById: byId,
     securitySchemes,
-    webhooks: parseWebhooks(raw),
+    webhooks: parseWebhooks(raw).map((wh) => ({
+      ...wh,
+      tags: wh.tags.map((t) => resolveTag(t, opts)).map((t) => (t && plan.alias.get(t)) ?? t).filter((t): t is string => !!t),
+    })),
+    warnings,
   };
 }
 
@@ -302,10 +425,18 @@ export function resolveRef(node: any, root: any, seen = new Set<string>()): any 
 export function resolveSchema(schema: JSONSchema | undefined, root: any, seen = new Set<string>()): JSONSchema | undefined {
   if (!schema) return schema;
   if (schema.$ref) {
-    if (seen.has(schema.$ref)) return { type: "object", description: "(recursive)" };
+    // Keys beside a `$ref` (description, deprecated…) describe this use of it.
+    const { $ref, ...siblings } = schema;
+    const local = Object.keys(siblings).length ? resolveSchema(siblings, root, seen) : undefined;
+    if (seen.has($ref)) return { type: "object", description: "(recursive)", ...local };
     const next = new Set(seen);
-    next.add(schema.$ref);
-    return resolveSchema(resolveRef(schema, root) as JSONSchema, root, next);
+    next.add($ref);
+    const target = resolveSchema(resolveRef({ $ref }, root) as JSONSchema, root, next);
+    const merged: JSONSchema = { ...target, ...local };
+    // Fields beside a `$ref` add to the target's, rather than replacing them.
+    if (target?.properties && local?.properties) merged.properties = { ...target.properties, ...local.properties };
+    if (target?.required && local?.required) merged.required = [...new Set([...target.required, ...local.required])];
+    return merged;
   }
   const out: JSONSchema = { ...schema };
   if (schema.properties) {
@@ -332,7 +463,7 @@ export function sampleFromSchema(schema: JSONSchema | undefined, root?: any): un
   if (resolved.enum && resolved.enum.length) return resolved.enum[0];
   if (resolved.default !== undefined) return resolved.default;
 
-  const type = Array.isArray(resolved.type) ? resolved.type[0] : resolved.type;
+  const type = Array.isArray(resolved.type) ? (resolved.type.find((t) => t !== "null") ?? "null") : resolved.type;
   if (resolved.allOf?.length) {
     const merged: JSONSchema = { type: "object", properties: {}, required: [] };
     for (const s of resolved.allOf) {
@@ -342,8 +473,9 @@ export function sampleFromSchema(schema: JSONSchema | undefined, root?: any): un
     }
     return sampleFromSchema(merged, root);
   }
-  if (resolved.oneOf?.[0]) return sampleFromSchema(resolved.oneOf[0], root);
-  if (resolved.anyOf?.[0]) return sampleFromSchema(resolved.anyOf[0], root);
+  // Skip a `{type: "null"}` member: `anyOf: [X, null]` should sample as X.
+  if (resolved.oneOf?.length) return sampleFromSchema(sampleMember(resolved.oneOf), root);
+  if (resolved.anyOf?.length) return sampleFromSchema(sampleMember(resolved.anyOf), root);
 
   switch (type) {
     case "object": {

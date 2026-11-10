@@ -10,16 +10,16 @@ import {
   MAX_PROXY_UPLOAD_BYTES,
   OVER_BUDGET,
   parsePayload,
+  PROXY_BUFFERED,
   readCappedBytes,
 } from "../lib/playground-proxy";
-import { loadRoute, startStub } from "./proxy-harness";
+import { loadRoute, startStub, until } from "./proxy-harness";
 
 // Binary responses and uploads through app/api/playground/route.ts.
 
 const MB = 1024 * 1024;
 const closed = new Map<string, boolean>();
 let uploadArrived = () => {};
-let textWritten = () => {};
 let release = Promise.resolve();
 let received: { method?: string; type?: string; size: number; sha: string } = { size: 0, sha: "" };
 
@@ -67,9 +67,9 @@ const api = await startStub((req, res) => {
   }
   if (url === "/untyped") return res.end(Buffer.from([0x68, 0x69]));
   if (url === "/text-held") {
-    // Written (so read by the proxy, give or take a socket buffer), then held.
+    // Written, then held until the test releases it.
     res.writeHead(200, { "content-type": "text/plain" });
-    res.write(Buffer.alloc(22 * MB, 97), () => textWritten());
+    res.write(Buffer.alloc(22 * MB, 97));
     release.then(() => res.end());
     return;
   }
@@ -132,8 +132,7 @@ test("a binary response over the cap is a 413 and the upstream is dropped", { ti
     assert.match(String(data.error), /25 MB/);
     assert.equal(data.bodyBase64, undefined);
     if (path !== "/audio-chunked-big") {
-      await new Promise((r) => setTimeout(r, 100));
-      assert.equal(closed.get(path), true, `${path} was dropped`);
+      await until(() => closed.get(path) === true, `${path} was dropped`);
     }
   }
 });
@@ -143,12 +142,16 @@ test("the base64 counts against the shared budget, which recovers", { timeout: 6
   // (47 MB in all), but not with its 33 MB of base64.
   let done = () => {};
   release = new Promise<void>((r) => (done = r));
-  const written = new Promise<void>((r) => (textWritten = r));
   const text = route.send({ url: at("/text-held") });
-  await written;
-  assert.equal((await route.send({ url: at("/audio-at-cap") })).status, 503);
-  done();
+  try {
+    // The proxy itself holds the 22 MB, not just the socket.
+    await until(() => PROXY_BUFFERED.bytes >= 22 * MB, "the proxy to hold 22 MB");
+    assert.equal((await route.send({ url: at("/audio-at-cap") })).status, 503);
+  } finally {
+    done();
+  }
   assert.equal((await text).status, 200);
+  assert.equal(PROXY_BUFFERED.bytes, 0);
   assert.equal((await route.send({ url: at("/audio-at-cap") })).status, 200);
 });
 
@@ -191,9 +194,12 @@ test("a decoded upload counts against the shared budget", { timeout: 60_000 }, a
   release = new Promise<void>((r) => (done = r));
   const arrived = new Promise<void>((r) => (uploadArrived = r));
   const held = route.send({ url: at("/upload-hold"), method: "POST", bodyBase64: pattern(MAX_PROXY_UPLOAD_BYTES).toString("base64") });
-  await arrived;
-  assert.equal((await route.send({ url: at("/five-mb") })).status, 503);
-  done();
+  try {
+    await arrived;
+    assert.equal((await route.send({ url: at("/five-mb") })).status, 503);
+  } finally {
+    done();
+  }
   assert.equal((await held).status, 200);
   assert.equal((await route.send({ url: at("/five-mb") })).status, 200);
 });

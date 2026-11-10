@@ -9,6 +9,7 @@ import {
   MAX_PROXY_RESPONSE_BYTES,
   OVER_BUDGET,
   parsePayload,
+  PROXY_BUFFERED,
   readCapped,
   readCappedBytes,
   REQUEST_READ_TIMEOUT_MS,
@@ -28,8 +29,6 @@ import { readProxySettings, type ProxySettings } from "@/scripts/proxy-settings.
 
 export const dynamic = "force-dynamic";
 
-/** Bytes held by requests in progress, across this server. */
-const buffered = { bytes: 0 };
 
 const refuse = (status: number, error: string) => NextResponse.json({ error }, { status });
 
@@ -51,7 +50,7 @@ export async function POST(req: Request) {
   if (mode === "never") return refuse(403, 'The proxy is turned off (api.playground.proxy is "never").');
   if (problem) return refuse(500, `The proxy can't tell which API it may call: ${problem} when the site was built.`);
 
-  const budget = new BufferBudget(buffered);
+  const budget = new BufferBudget(PROXY_BUFFERED);
   try {
     return await forward(req, origins, found, budget);
   } finally {

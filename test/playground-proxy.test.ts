@@ -14,7 +14,7 @@ import {
   UPSTREAM_TIMEOUT_MS,
 } from "../lib/playground-proxy";
 import { originsOf } from "../scripts/proxy-settings.mjs";
-import { loadRoute, startStub } from "./proxy-harness";
+import { loadRoute, startStub, until } from "./proxy-harness";
 
 const MB = 1024 * 1024;
 const closed = new Map<string, boolean>();
@@ -272,8 +272,7 @@ test("over the cap is a 413 and the upstream is dropped", { timeout: 30_000 }, a
     assert.match(String(data.error), /25 MB/);
     assert.equal(data.body, undefined);
     if (path !== "/chunked-big") {
-      await new Promise((r) => setTimeout(r, 100));
-      assert.equal(closed.get(path), true, `${path} was dropped`);
+      await until(() => closed.get(path) === true, `${path} was dropped`);
     }
   }
 });
@@ -294,8 +293,7 @@ test("over the cap still drops the upstream when the body has been cloned", { ti
   closed.delete("/drip");
   const { status } = await route.send({ url: at("/drip") });
   assert.equal(status, 413);
-  await new Promise((r) => setTimeout(r, 100));
-  assert.equal(closed.get("/drip"), true);
+  await until(() => closed.get("/drip") === true, `/drip was dropped`);
 });
 
 test("an upstream that takes too long is a 504 and is dropped", { timeout: 30_000 }, async (t) => {
@@ -312,8 +310,7 @@ test("an upstream that takes too long is a 504 and is dropped", { timeout: 30_00
     const { status, data } = await route.send({ url: at(path) });
     assert.equal(status, 504, path);
     assert.match(String(data.error), /120 s/);
-    await new Promise((r) => setTimeout(r, 100));
-    assert.equal(closed.get(path), true, `${path} was dropped`);
+    await until(() => closed.get(path) === true, `${path} was dropped`);
   }
   assert.ok(asked.includes(UPSTREAM_TIMEOUT_MS));
   assert.equal(UPSTREAM_TIMEOUT_MS, 120_000);
@@ -327,8 +324,7 @@ test("the upstream is dropped when the client leaves", { timeout: 30_000 }, asyn
   await new Promise((r) => setTimeout(r, 50));
   client.abort();
   await sent;
-  await new Promise((r) => setTimeout(r, 100));
-  assert.equal(closed.get("/stall"), true);
+  await until(() => closed.get("/stall") === true, `/stall was dropped`);
 });
 
 const streamOf = (total: number, chunk = 4 * 1024 * 1024) => {

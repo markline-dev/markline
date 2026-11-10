@@ -151,6 +151,9 @@ export class BufferBudget {
   }
 }
 
+/** Bytes held by the proxy's requests in progress, across this server. */
+export const PROXY_BUFFERED = { bytes: 0 };
+
 export const OVER_BUDGET = Symbol("over budget");
 
 /**

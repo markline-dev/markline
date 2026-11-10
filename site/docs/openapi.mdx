@@ -105,7 +105,7 @@ admin/api/keys       Admin
 
 <Note>This is automatic for any spec using slash tags — you don't flatten your
 `@ApiTags` to get clean resource boundaries. Per-resource
-[MDX overlays](#overlays) still key off the full slug (`store-orders.mdx`).</Note>
+[MDX overlays](#mdx-overlays) still key off the full slug (`store-orders.mdx`).</Note>
 
 ### Custom labels with `x-displayName`
 
@@ -127,6 +127,15 @@ shows that label exactly:
 - It names one node. `tools/WhatsApp` relabels the leaf and leaves the `Tools`
   group derived; to relabel a group, give its own path a `tags` entry.
 - **URLs are unchanged** — the slug still comes from `name`.
+
+## Large specs
+
+Each resource is one page, so a tag with a hundred operations is a long page.
+Markline keeps what it sends lean: the Try it endpoint switcher's list of every
+operation is sent once per page (not once per operation), and docs pages carry
+one link per API resource rather than the whole spec, unless the API tab is also
+where docs pages live. If a resource is still too heavy, split its tag into
+smaller ones in the spec.
 
 ## Sidebar order
 
@@ -546,7 +555,9 @@ api/
 Every resource section carries the same affordances as the docs: **Copy for
 LLM** (copies the section as Markdown), **View as Markdown**, and — when
 [Ask AI](/ai) is enabled — **Ask about this section**, which opens the docked
-assistant with that section as context.
+assistant with that section as context. They look the same whatever
+`layout.pageActions` is set to; see [Page actions](/llm-files#page-actions)
+for docs pages.
 
 ## Versions
 

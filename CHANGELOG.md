@@ -13,7 +13,11 @@ All notable changes to `@markline/markline` and `@markline/create`.
   site-wide `llms.txt`. They're files in a build or static export, and served
   by `markline dev`. Copy for LLM and View as Markdown use the same text.
 - **Steps in "On this page".** `<Steps toc>`, or `toc: steps` in frontmatter,
-  lists step titles in the table of contents.
+  lists step titles in the table of contents, as each step shows them. A
+  step's link is `#step-<title>`, with `-1`, `-2` added when it repeats.
+- **A warning for a `toc:` link that misses.** When a page's frontmatter lists
+  its own "On this page" entries, Markline warns, at build and in dev, about any
+  `#id` that no heading or element on the page has.
 - **SDK names from Fern extensions.** Generated Node, Python and Go samples
   use an operation's `x-fern-sdk-group-name` and `x-fern-sdk-method-name`
   when present (`client.text_to_speech.convert(...)`,
@@ -27,6 +31,11 @@ All notable changes to `@markline/markline` and `@markline/create`.
   as form data, directly or through the proxy.
 
 ### Changed
+- **Lighter API reference pages.** The Try it endpoint list is sent once per
+  page instead of once per operation. On ElevenLabs' spec (478 operations) the
+  largest resource page drops from 13.2 MB to 4.4 MB. Docs pages list API
+  resources, not every operation, in their navigation data, unless the API tab
+  also holds docs pages.
 - **Uploads through the Try it proxy are limited to 25 MB.** Try it says so
   before sending a larger one, and the proxy refuses it too.
 
@@ -36,6 +45,14 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **"On this page" keeps `<placeholders>` in code.** A heading like
   ``### `create <volume>` `` now links to its own id. The TOC stripped `<volume>`
   as HTML before unwrapping the code, so the link missed the heading.
+- **Headings with the same text get their own ids.** The second "Verify" on a
+  page is `#verify-1`, and its "On this page" link goes to it, not to the first.
+  A heading's own text wins over a number added to a repeat, so a heading named
+  "Verify 1" keeps `#verify-1`. Changelog entries and the API reference intro
+  get the same ids.
+- **A changelog heading with no letters or digits no longer repeats its date's
+  id.** A heading such as `## 🚀` in an entry got the entry's date as its id,
+  the same as the entry itself. It now gets no id.
 - Generated cURL sends JSON bodies as JSON (`Content-Type` header and
   `-d '{…}'`) instead of `-d field=value`, multipart bodies as `-F` with
   `-F file=@…` for files, and urlencoded bodies with `--data-urlencode`. Values

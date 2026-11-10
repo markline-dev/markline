@@ -1,0 +1,141 @@
+---
+title: Landing pages
+lede: Components for full-width marketing pages, such as a product's home page.
+toc:
+  - id: hero
+    label: Hero
+  - id: features
+    label: Features
+  - id: call-to-action
+    label: Call to action
+  - id: section-headings
+    label: Section headings
+  - id: stats
+    label: Stats
+  - id: bento
+    label: Bento
+  - id: code-showcase
+    label: Code showcase
+---
+
+Set `layout: landing` in a page's frontmatter and it renders full width,
+with no sidebar. `<Hero>`, `<FeatureGrid>`, `<CTASection>`, `<StatStrip>` and
+`<Bento>` each fill a full-width band. Everything else between them, including
+Markdown, `<SectionHead>`, `<Eyebrow>` and `<CodeShowcase>`, sits in a
+centred column at docs reading width. See
+[Page layouts](/configuration#page-layouts).
+
+```mdx
+---
+title: Acme API
+description: Payments for developers.
+layout: landing
+---
+
+<Hero
+  eyebrow="ACME API"
+  title="Payments in five lines"
+  subtitle="One API for cards, wallets and bank transfers."
+  actions={<>
+    <CTAButton href="/quickstart" size="lg">Get started</CTAButton>
+    <CTAButton href="/api-reference" variant="secondary" size="lg">API reference</CTAButton>
+  </>}
+  grid
+/>
+```
+
+## Hero
+
+The page's opening band, with its only `<h1>`.
+
+<ParamField path="title" type="string" required>The headline.</ParamField>
+<ParamField path="eyebrow" type="string">A short label above the title, shown in brackets in the monospace font.</ParamField>
+<ParamField path="subtitle" type="string">A line or two under the title.</ParamField>
+<ParamField path="actions" type="MDX">Buttons under the subtitle, usually one or two `<CTAButton>`s wrapped in `<>…</>`.</ParamField>
+<ParamField path="media" type="MDX">Anything below the buttons, such as a `<CodeShowcase>` or an image.</ParamField>
+<ParamField path="grid" type="boolean">A faint grid behind the hero.</ParamField>
+<ParamField path="gradient" type="boolean">A soft glow in your primary colour behind the hero.</ParamField>
+
+`<CTAButton href="…">` is a button link. `variant` is `primary` (default),
+`secondary` or `ghost`; `size` is `md` (default) or `lg`; `external` opens
+the link in a new tab.
+
+## Features
+
+`<FeatureGrid>` lays out `<Feature>` cards in `cols` columns (2, 3 or 4;
+default 3), with an optional `title` and `subtitle` above them.
+
+```mdx
+<FeatureGrid title="Why Acme" cols={3}>
+  <Feature icon="⚡" title="Fast" accent="amber">Payouts in seconds.</Feature>
+  <Feature icon="🔒" title="Secure" accent="green" href="/security">PCI DSS level 1.</Feature>
+  <Feature icon="🌍" title="Global" accent="blue">135 currencies.</Feature>
+</FeatureGrid>
+```
+
+A `<Feature>` takes a `title`, an optional `href` that makes the card a link,
+and an `icon` shown in a tinted square. `accent` colours the square: `brand`
+(default, your primary colour), `blue`, `green`, `amber`, `violet`, `red`, or
+any CSS colour.
+
+## Call to action
+
+A closing band with a heading and buttons.
+
+```mdx
+<CTASection
+  title="Start building"
+  subtitle="Free while you test."
+  actions={<CTAButton href="/quickstart">Get started</CTAButton>}
+  gradient
+/>
+```
+
+It takes `title`, `subtitle`, `actions`, and the same `grid` and `gradient`
+backgrounds as `<Hero>`.
+
+## Section headings
+
+`<SectionHead>` introduces a section: a `title`, an optional `kicker` above it
+and `subtitle` below it. `align` is `center` (default) or `left`.
+`<Eyebrow>` is the bracketed label on its own.
+
+```mdx
+<SectionHead kicker="HOW IT WORKS" title="Three steps to your first payment" />
+
+<Eyebrow>NEW</Eyebrow>
+```
+
+## Stats
+
+A band of large figures, split into equal columns, one per `<Stat>`.
+
+```mdx
+<StatStrip>
+  <Stat value="99.99%" label="Uptime" />
+  <Stat value="135" label="Currencies" />
+  <Stat value="40ms" label="Median latency" />
+</StatStrip>
+```
+
+## Bento
+
+A grid of bordered cells of different widths. Each `<BentoCard>` takes a
+`kicker`, a `title`, its text, and an optional `href`. `span` is its width out
+of six columns (default 3, half the row).
+
+```mdx
+<Bento>
+  <BentoCard span={4} kicker="API" title="One API for every method">Cards, wallets and transfers.</BentoCard>
+  <BentoCard span={2} kicker="SDKs" title="Five languages" href="/sdks" />
+</Bento>
+```
+
+## Code showcase
+
+A highlighted snippet in a window frame, for a hero's `media` or beside a
+feature. `lang` defaults to `bash`; `title` shows in the frame's top bar.
+
+```mdx
+<CodeShowcase title="Terminal" code="npm create @markline@latest my-docs" />
+```

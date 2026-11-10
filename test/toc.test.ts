@@ -1,6 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { extractToc, remarkStepIds, headingText, slugify } from "../lib/toc";
+import { extractToc, missingTocIds, remarkTocIds } from "../lib/toc";
+
+/** The label "On this page" gives a ## heading. */
+const labelOf = (md: string) => extractToc(`## ${md}\n`)[0]?.label;
 
 test("extractToc lists ## and ### headings with depth", () => {
   const body = "Intro\n\n## Set up\n\ntext\n\n### Install it\n\n#### Too deep\n\n## Next steps\n";
@@ -17,9 +20,9 @@ test("extractToc skips headings inside code fences", () => {
 });
 
 test("headings with inline markdown use their visible text", () => {
-  assert.equal(headingText("The `init` command"), "The init command");
-  assert.equal(headingText("**Bold** and [a link](/x) ##"), "Bold and a link");
-  assert.equal(slugify(headingText("Tabs & `accordions`")), "tabs-accordions");
+  assert.equal(labelOf("The `init` command"), "The init command");
+  assert.equal(labelOf("**Bold** and [a link](/x) ##"), "Bold and a link");
+  assert.equal(extractToc("## Tabs & `accordions`\n")[0].id, "tabs-accordions");
 });
 
 const STEPS = [
@@ -44,7 +47,7 @@ const STEPS = [
 test("extractToc lists step titles inside <Steps toc>", () => {
   assert.deepEqual(extractToc(STEPS), [
     { id: "step-install-the-sdk", label: "Install the SDK", depth: 2 },
-    { id: "step-set-api-key-env", label: "Set API_KEY > env", depth: 2 },
+    { id: "step-set-api-key-env", label: "Set `API_KEY` > env", depth: 2 },
     { id: "example-response", label: "Example response", depth: 2 },
   ]);
 });
@@ -53,7 +56,7 @@ test("toc: steps lists every <Steps>, nested under the ## before it", () => {
   const items = extractToc(STEPS, { steps: true });
   assert.deepEqual(items.map((i) => [i.label, i.depth]), [
     ["Install the SDK", 2],
-    ["Set API_KEY > env", 2],
+    ["Set `API_KEY` > env", 2],
     ["Example response", 2],
     ["Unlisted", 3],
   ]);
@@ -68,7 +71,7 @@ async function stepIdsIn(mdx: string, opts?: { steps?: boolean }): Promise<strin
   const parser = ["unified", "remark-parse", "remark-mdx"];
   const [{ unified }, { default: remarkParse }, { default: remarkMdx }] = await Promise.all(parser.map((m) => import(m)));
   const tree = unified().use(remarkParse).use(remarkMdx).parse(mdx);
-  remarkStepIds(opts)(tree);
+  remarkTocIds(opts)(tree);
   const ids: string[] = [];
   const walk = (n: { name?: string; attributes?: { name: string; value: string }[]; children?: [] }) => {
     if (n.name === "Step") {
@@ -100,7 +103,7 @@ const COLLIDING = [
 
 test("step ids don't collide with headings or each other", () => {
   const ids = extractToc(COLLIDING).map((i) => i.id);
-  assert.deepEqual(ids, ["step-install", "step-run", "install", "step-install-2"]);
+  assert.deepEqual(ids, ["step-install", "step-run", "install", "step-install-1"]);
   assert.equal(new Set(ids).size, ids.length);
 });
 
@@ -139,7 +142,7 @@ test("only a matching fence closes a code block", () => {
 test("step ids avoid a heading that reads the same, and each other", () => {
   const steps = (titles: string[]) => `<Steps toc>\n${titles.map((t) => `<Step title="${t}">x</Step>`).join("\n")}\n</Steps>`;
   const clash = extractToc(`${steps(["Install"])}\n\n## Step Install\n`).map((i) => i.id);
-  assert.deepEqual(clash, ["step-install-2", "step-install"]);
+  assert.deepEqual(clash, ["step-install-1", "step-install"]);
   const numbered = extractToc(steps(["Install", "Install", "Install 2"])).map((i) => i.id);
   assert.equal(new Set(numbered).size, 3);
 });
@@ -211,14 +214,85 @@ test("a comment or space before the first tab doesn't hide it from the toc", () 
 test("angle brackets inside inline code are kept, not stripped as HTML", () => {
   // The heading renders as <code>create &lt;volume&gt;</code>, so its id is
   // create-volume; the TOC link has to match.
-  assert.equal(headingText("`create <volume>`"), "create <volume>");
-  assert.equal(headingText("`get <name>` / `delete <name>`"), "get <name> / delete <name>");
+  assert.equal(labelOf("`create <volume>`"), "create <volume>");
+  assert.equal(labelOf("`get <name>` / `delete <name>`"), "get <name> / delete <name>");
   assert.deepEqual(extractToc("### `create <volume>`\n"), [
     { id: "create-volume", label: "create <volume>", depth: 3 },
   ]);
   // Code is literal: emphasis markers inside it stay.
-  assert.equal(headingText("`a*b*c`"), "a*b*c");
-  assert.equal(headingText("`snake_case_name`"), "snake_case_name");
+  assert.equal(labelOf("`a*b*c`"), "a*b*c");
+  assert.equal(labelOf("`snake_case_name`"), "snake_case_name");
   // Real inline HTML outside code is still dropped.
-  assert.equal(headingText("Hello <b>world</b> and `<x>`"), "Hello world and <x>");
+  assert.equal(labelOf("Hello <b>world</b> and `<x>`"), "Hello world and <x>");
+});
+
+test("a step's title is listed as the page shows it", () => {
+  // <Step> prints its title as given, so "On this page" does too.
+  assert.deepEqual(extractToc('<Steps toc>\n<Step title="Run **now**">x</Step>\n</Steps>').map((i) => i.label), ["Run **now**"]);
+});
+
+const ids = (mdx: string, opts?: { steps?: boolean }) => extractToc(mdx, opts).map((i) => i.id);
+
+test("headings that read the same get their own ids", () => {
+  assert.deepEqual(ids("## Verify\n\n## Verify\n\n### Verify\n"), ["verify", "verify-1", "verify-2"]);
+});
+
+test("a repeat's id skips any heading's own slug", () => {
+  assert.deepEqual(ids("## Verify\n\n## Verify\n\n## Verify 1\n"), ["verify", "verify-2", "verify-1"]);
+  assert.deepEqual(ids("## A\n\n## A\n\n## A-1\n\n## A\n"), ["a", "a-2", "a-1", "a-3"]);
+});
+
+test("a heading with no slug gets no id and isn't listed", () => {
+  assert.deepEqual(extractToc("## 🚀\n\n## ???\n\n## 🚀\n\n## Real\n"), [{ id: "real", label: "Real", depth: 2 }]);
+});
+
+test("a hidden heading still takes its id, so a shown repeat moves on", () => {
+  const mdx = ['<Tabs>', '<Tab title="A">', "## Setup", "</Tab>", '<Tab title="B">', "## Setup", "</Tab>", "</Tabs>", "", "## Setup"].join("\n");
+  assert.deepEqual(ids(mdx), ["setup", "setup-2"]);
+});
+
+test("an id written on an element is kept, and headings move round it", () => {
+  assert.deepEqual(ids('<div id="intro" />\n\n## Intro\n'), ["intro-1"]);
+});
+
+test("a step and a heading that read the same get different ids", () => {
+  assert.deepEqual(ids('## Step one\n\n<Steps toc>\n<Step title="One">x</Step>\n<Step title="One">y</Step>\n</Steps>\n'), ["step-one", "step-one-1", "step-one-2"]);
+});
+
+async function headingIdsIn(mdx: string, opts?: { steps?: boolean }): Promise<string[]> {
+  const parser = ["unified", "remark-parse", "remark-mdx"];
+  const [{ unified }, { default: remarkParse }, { default: remarkMdx }] = await Promise.all(parser.map((m) => import(m)));
+  const tree = unified().use(remarkParse).use(remarkMdx).parse(mdx);
+  remarkTocIds(opts)(tree);
+  const out: string[] = [];
+  const walk = (n: { type: string; name?: string; data?: { hProperties?: { id?: string } }; attributes?: { name: string; value: string }[]; children?: [] }) => {
+    const id = n.type === "heading" ? n.data?.hProperties?.id : n.name === "Step" ? n.attributes?.find((a) => a.name === "id")?.value : undefined;
+    if (id) out.push(id);
+    (n.children ?? []).forEach(walk);
+  };
+  walk(tree);
+  return out;
+}
+
+test("the page gets the ids the toc links to", async () => {
+  const mdx = ["## A", "", "<Steps toc>", '<Step title="A">x</Step>', "</Steps>", "", "## A", "", "## 🚀", "", "## A-1", "", "### A"].join("\n");
+  const listed = ids(mdx);
+  assert.deepEqual(listed, ["a", "step-a", "a-2", "a-1", "a-3"]);
+  assert.deepEqual((await headingIdsIn(mdx)).sort(), [...listed].sort());
+});
+
+test("a hand-written toc entry that matches nothing on the page is reported", () => {
+  const body = '## Where they\'re served\n\n<div id="custom" />\n\n<Steps toc>\n<Step title="Go">x</Step>\n</Steps>\n';
+  const toc = [
+    { id: "where-they-re-served", label: "a" },
+    { id: "where-theyre-served", label: "b" },
+    { id: "custom", label: "c" },
+    { id: "step-go", label: "d" },
+  ];
+  assert.deepEqual(missingTocIds(body, toc), ["where-theyre-served"]);
+});
+
+test("a repeated heading's id skips a step's own id", () => {
+  const mdx = '## Step X\n\n## Step X\n\n<Steps toc>\n<Step title="X 1">y</Step>\n</Steps>\n';
+  assert.deepEqual(ids(mdx), ["step-x", "step-x-2", "step-x-1"]);
 });

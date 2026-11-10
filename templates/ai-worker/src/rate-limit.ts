@@ -32,8 +32,8 @@ export const MAX_CALLERS = 50_000;
 /**
  * A limiter: call it once per valid request, just before the provider is
  * called. It returns undefined when the request may go ahead, or how many
- * seconds to wait (for a Retry-After header). Every request counts toward the
- * minute; only those let through count toward the day. (A clock that steps back
+ * seconds to wait (for a Retry-After header). Every valid request counts toward
+ * the minute; only those let through count toward the day. (A clock that steps back
  * across midnight starts a fresh day; that's allowed.)
  */
 export function createRateLimiter(now: () => number = Date.now) {
@@ -59,9 +59,11 @@ export function createRateLimiter(now: () => number = Date.now) {
     if (h) hits.delete(ip);
     else h = { times: [], day, dayCount: 0 };
     hits.set(ip, h);
-    for (const key of hits.keys()) {
-      if (hits.size <= MAX_CALLERS) break;
-      hits.delete(key);
+    if (hits.size > MAX_CALLERS) {
+      for (const key of hits.keys()) {
+        if (hits.size <= MAX_CALLERS) break;
+        hits.delete(key);
+      }
     }
 
     if (h.day !== day) {

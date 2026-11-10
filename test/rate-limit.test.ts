@@ -136,6 +136,18 @@ for (const [name, mod] of [["route", route], ["Worker", worker]] as const) {
     assert.ok(!hits.has("ip0"), "and the next oldest makes room");
   });
 
+  test(`${name}: a caller that keeps coming outlives ones gone quiet`, () => {
+    const c = clock(Date.UTC(2026, 10, 8, 12));
+    const { limit, hits } = watched(c.now);
+    const lim = { perMinute: 5, perDay: 100 };
+    limit("active", lim);
+    for (let i = 0; i < mod.MAX_CALLERS - 1; i++) limit(`ip${i}`, lim);
+    limit("active", lim);
+    limit("new", lim);
+    assert.ok(hits.has("active"), "seen recently, so kept");
+    assert.ok(!hits.has("ip0"), "the one seen longest ago goes");
+  });
+
   test(`${name}: Retry-After is at least a second, even just before midnight`, () => {
     const c = clock(Date.UTC(2026, 10, 11) - 1);
     const limit = mod.createRateLimiter(c.now);
@@ -197,4 +209,25 @@ test("a rate limit that isn't a whole number from 1 to MAX_LIMIT is reported", a
   warnRateLimits(undefined, (m) => said.push(m));
   assert.deepEqual(said.map((m) => m.match(/ai\.rateLimit\.(\w+)/)?.[1]), ["perDay", "perMinute", "perDay"]);
   assert.match(said[0], /ignoring "10abc"/);
+});
+
+test("the Worker counts valid requests, and answers 429 once its day is used up", async (t) => {
+  const realFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = (async () => {
+    calls++;
+    return Response.json({ choices: [{ message: { content: "answer" } }] });
+  }) as typeof fetch;
+  t.after(() => {
+    globalThis.fetch = realFetch;
+  });
+  const { default: worker } = await import("../templates/ai-worker/src/worker");
+  const env = { MARKLINE_AI_KEY: "test-key", MARKLINE_RATE_PER_MIN: "100", MARKLINE_RATE_PER_DAY: "2" };
+  const ask = (body: string) => worker.fetch(new Request("http://worker.test/", { method: "POST", headers: { "cf-connecting-ip": "1.1.1.1" }, body }), env);
+  const statuses = [];
+  for (const body of ["not json", JSON.stringify({ question: " " }), ...Array(3).fill(JSON.stringify({ question: "hi" }))]) {
+    statuses.push((await ask(body)).status);
+  }
+  assert.deepEqual(statuses, [400, 400, 200, 200, 429]);
+  assert.equal(calls, 2);
 });

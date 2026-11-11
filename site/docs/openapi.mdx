@@ -487,6 +487,13 @@ Responses over 25 MB, requests over 35 MB and calls that take longer than 120
 seconds return an error, as do large responses while the server is already holding
 a lot of data.
 
+The proxy sends your API the request's own headers, including `Authorization`
+and API key headers. It drops `Cookie` and the headers about the connection, its
+route and the reader's address (`Host`, `Forwarded`, `X-Forwarded-*`,
+`X-Real-IP` and similar), so your API never sees the reader's docs-site session
+or IP. Redirects aren't followed: a `3xx` comes back with its status and no
+body, since the body often names where it points.
+
 ## Events & webhooks
 
 If your API emits webhooks or async events, Markline documents them alongside
@@ -632,6 +639,30 @@ The [NestJS guide](/guides/nestjs) walks the whole setup end to end — emitting
 the document, tags, ordering, events and code samples. There are matching guides
 for [FastAPI](/guides/fastapi), [Spring Boot](/guides/spring-boot) and
 [Hono](/guides/hono-zod-openapi).
+
+### Event colours
+
+Each event has a coloured dot beside its name: in the resource's endpoint
+list, on the event's own section and on an endpoint's Triggers chips. `api.events` sets how they're coloured:
+
+```json title="markline.json"
+{ "api": { "events": { "dots": "palette", "palette": ["#7c3aed", "#0891b2", "#db2777"] } } }
+```
+
+<ParamField path="api.events.dots" type='"palette" | "status" | "none"'>
+  `palette` (default) gives each of a resource's events its own colour, in
+  order, so neighbouring events always differ. The colours say which event it
+  is, not whether it's good or bad. `status` guesses from the name: green for
+  success words (`created`, `completed`, `paid`), orange for failure words
+  (`failed`, `cancelled`, `expired`, `deleted`), checked first, and grey for
+  the rest. `none` makes every dot grey.
+</ParamField>
+
+<ParamField path="api.events.palette" type="string[]">
+  The colours `palette` uses, in order: any CSS colour, or a variable such as
+  `var(--c-cyan)`. They repeat once a resource has more events than colours.
+  Unset, Markline's own purple, cyan, pink, tan, green, orange, yellow and red.
+</ParamField>
 
 ## MDX overlays
 

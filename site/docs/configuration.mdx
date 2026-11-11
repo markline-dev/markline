@@ -75,7 +75,9 @@ toc:
   `<GitHubStars>` follows the same setting. The build may set `GITHUB_TOKEN`,
   in the shell or CI (not an env file), for GitHub's higher rate limit; it's
   used only for the build's requests to the GitHub API. For GitHub Enterprise,
-  `GITHUB_API_URL` points the build at your API instead.
+  `GITHUB_API_URL` points the build at your API instead. In GitHub Actions,
+  `GITHUB_API_URL` is set for you; on an Enterprise runner building docs for
+  a github.com repo, set it to `https://api.github.com`.
 </ParamField>
 
 ```jsonc

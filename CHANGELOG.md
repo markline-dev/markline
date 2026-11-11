@@ -67,6 +67,9 @@ All notable changes to `@markline/markline` and `@markline/create`.
   before sending a larger one, and the proxy refuses it too.
 
 ### Fixed
+- **`last_updated` shows a date, not a timestamp.** Unquoted, as in
+  `last_updated: 2026-11-08`, it showed as "Sun Nov 08 2026 00:00:00 GMT…"; it
+  now shows "November 8, 2026". A quoted value still shows as written.
 - **The Markline home page shows only real numbers.** The GitHub card no longer
   shows invented stars, contributors or a version, and the showcase links to
   real sites built with Markline instead of placeholder tiles.

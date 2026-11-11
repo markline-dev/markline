@@ -238,17 +238,19 @@ export type ApiConfig = {
   events?: {
     /**
      * How event status dots are colored:
-     * - "palette" (default): a distinct, stable color per event drawn from
-     *   `palette` — colors by identity, not status, so every event is separable.
-     * - "status": green/amber/neutral inferred from the event name
-     *   (success / failure-or-terminal / neutral).
+     * - "palette" (default): a color per event from `palette`, by identity,
+     *   not status, so neighbouring events are told apart.
+     * - "status": inferred from the event name (lib/apiref-view.ts eventTone):
+     *   green for success-like names, orange for failure-or-terminal ones,
+     *   neutral otherwise.
      * - "none": no color (all neutral).
      */
     dots?: "status" | "palette" | "none";
     /**
-     * Colors for `dots: "palette"`, any CSS color or `var(--token)`. An event is
-     * mapped to one entry by a stable hash of its name. Defaults to the brand
-     * palette (`--c-purple`, `--c-cyan`, …).
+     * Colors for `dots: "palette"`, any CSS color or `var(--token)`. They're
+     * given out in order along each resource's event list (lib/apiref-view.ts);
+     * a hash of the name picks one only in the browser, for an event outside
+     * that list. Defaults to the brand palette (`--c-purple`, `--c-cyan`, …).
      */
     palette?: string[];
   };

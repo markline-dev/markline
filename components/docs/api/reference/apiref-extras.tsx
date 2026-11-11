@@ -373,6 +373,110 @@ export function MarkdownModal() {
   );
 }
 
+/* ═══════════════════════ Expanded code (a card's Expand) ═══════════════════════ */
+type CodeOpen = { html: string; label: string };
+let codeOpener: HTMLElement | null = null;
+
+/** Open the code dialog on a card's showing code; focus returns to `opener` on close. */
+export function openCodeDialog({ html, label, opener }: CodeOpen & { opener: HTMLElement }) {
+  codeOpener = opener;
+  window.dispatchEvent(new CustomEvent<CodeOpen>("ml-code-open", { detail: { html, label } }));
+}
+
+/**
+ * A card's code at full height, in a modal `<dialog>`: Escape and the close button
+ * shut it, Tab stays inside, and focus goes back to the Expand button. The HTML is
+ * the card's own rendered code, so a body too big to colour stays uncoloured.
+ */
+export function CodeDialog() {
+  const ref = useRef<HTMLDialogElement>(null);
+  const pre = useRef<HTMLPreElement>(null);
+  const [code, setCode] = useState<CodeOpen | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    const onOpen = (e: Event) => setCode((e as CustomEvent<CodeOpen>).detail);
+    window.addEventListener("ml-code-open", onOpen);
+    return () => window.removeEventListener("ml-code-open", onOpen);
+  }, []);
+
+  useEffect(() => {
+    const d = ref.current;
+    if (code && d && !d.open) d.showModal();
+  }, [code]);
+
+  const onClose = () => {
+    setCode(null);
+    setCopied(false);
+    codeOpener?.focus();
+    codeOpener = null;
+  };
+  const copy = () => {
+    navigator.clipboard?.writeText(pre.current?.textContent ?? "").then(
+      () => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1300);
+      },
+      () => {},
+    );
+  };
+  // A modal dialog makes the page inert; this keeps Tab from leaving for the browser's UI too.
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDialogElement>) => {
+    if (e.key !== "Tab" || !ref.current) return;
+    const items = [...ref.current.querySelectorAll<HTMLElement>("button, [tabindex]:not([tabindex='-1'])")];
+    if (!items.length) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
+
+  return (
+    <dialog
+      ref={ref}
+      className="code-dlg"
+      aria-label={code?.label}
+      onClose={onClose}
+      onKeyDown={onKeyDown}
+      onClick={(e) => e.target === ref.current && ref.current.close()}
+    >
+      {code && (
+        <div className="code-card code-dlg-card">
+          <div className="cc-head">
+            <span className="cc-title code-dlg-title">{code.label}</span>
+            <span className="cc-tools">
+              <button type="button" className={`cc-copy${copied ? " copied" : ""}`} onClick={copy} aria-label="Copy" title="Copy">
+                <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden>
+                  {copied ? (
+                    <path d="M20 6 9 17l-5-5" />
+                  ) : (
+                    <>
+                      <rect x="9" y="9" width="11" height="11" rx="2" />
+                      <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+                    </>
+                  )}
+                </svg>
+              </button>
+              <button type="button" className="cc-copy" onClick={() => ref.current?.close()} aria-label="Close" title="Close" autoFocus>
+                <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                  <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </span>
+          </div>
+          {/* Our own rendered, escaped code, taken from the card. */}
+          <pre ref={pre} tabIndex={0} dangerouslySetInnerHTML={{ __html: code.html }} />
+        </div>
+      )}
+    </dialog>
+  );
+}
+
 export { apiSecToMarkdown } from "@/lib/apiref-markdown";
 
 /* ── icons ── */

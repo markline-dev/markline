@@ -467,6 +467,7 @@ export function mediaResponseHtml(contentType: string): string {
 
 function responseHtml(r: OpenAPIOperation["responses"][number], root: unknown): string {
   if (isMediaOnly(r)) return mediaResponseHtml(r.contentType!);
+  if (!r.schema && r.example == null) return C("// No response body");
   return colorizeJson(r.example ?? sampleFromSchema(r.schema!, root));
 }
 
@@ -488,18 +489,16 @@ export function successResponse(
 }
 
 /**
- * Every documented response with a renderable body — success first, then errors —
- * for the code card's status-code switcher. Each carries a tone (2xx → green,
- * anything else → red) and a colorized sample, or a "Returns audio/mpeg (binary)"
- * note for non-JSON bodies. Responses without any body are dropped; if none
- * qualify, returns an empty list.
+ * Every documented response — success first, then errors — for the code card's
+ * status-code switcher. Each carries a tone (2xx → green, anything else → red)
+ * and a colorized sample, a "Returns audio/mpeg (binary)" note for non-JSON
+ * bodies, or "No response body".
  */
 export function allResponses(
   op: OpenAPIOperation,
   root: unknown,
 ): { status: string; label: string; tone: "g" | "r"; html: string }[] {
   return op.responses
-    .filter((r) => r.schema || r.example != null || isMediaOnly(r))
     .map((r) => ({
       status: r.status,
       label: `${r.status} ${r.description ?? statusText(r.status)}`.trim(),

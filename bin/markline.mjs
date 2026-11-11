@@ -26,6 +26,7 @@ const CONFIG_PATH = fs.existsSync(path.join(CONTENT_DIR, "markline.json"))
 // into a working dir in the consumer's project and run Next from there.
 const WORK_DIR = path.join(CONTENT_DIR, ".markline");
 const SEARCH_SCRIPT = path.join(WORK_DIR, "scripts", "build-search.mjs");
+const STATS_SCRIPT = path.join(WORK_DIR, "scripts", "github-stats.mjs");
 const TEMPLATE_DIR = path.join(APP_DIR, "templates", "init");
 
 // App source to stage into WORK_DIR (everything Next needs except node_modules).
@@ -183,6 +184,8 @@ const COMMANDS = {
     refusePositional("dev", args);
     requireConfig();
     syncApp();
+    // GitHub stars for the first paint; never stops dev starting.
+    await run(process.execPath, [STATS_SCRIPT], { env: baseEnv(), cwd: WORK_DIR }).catch(() => {});
     await runNext(["dev", ...args], { env: baseEnv() });
   },
 

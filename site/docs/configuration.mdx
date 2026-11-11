@@ -57,6 +57,28 @@ toc:
 <ParamField path="topbar.badge" type="string">A small label pill next to the logo (e.g. `docs · v1`).</ParamField>
 <ParamField path="topbar.width" type='"full" | "contained"'>Topbar layout on docs + the API reference. `"full"` (default) spans edge-to-edge; `"contained"` centers it to the content max-width.</ParamField>
 <ParamField path="topbar.homeWidth" type='"full" | "contained"'>The homepage topbar, independent of `width`. `"full"` (default) spans edge-to-edge; `"contained"` lines the nav up with a centered hero.</ParamField>
+<ParamField path="topbar.githubStars" type='"live" | "build" | false'>
+  The star count in the GitHub badge, for the repo its link points at, such as
+  "★ 1.2k". The build fetches the count and puts it in the page, so it shows
+  on a static export and to readers whose network blocks GitHub. A build that
+  can't reach GitHub keeps the count from the last build that could, or shows
+  none if there wasn't one.
+
+  - `"live"` (default): the browser also fetches the current count, at most
+    once an hour per reader, even when that fails, and keeps the newest one
+    it has seen. Each reader's browser contacts `api.github.com`, which sees
+    their IP address.
+  - `"build"`: only the count from the build. Readers' browsers never contact
+    GitHub, so use this where that matters for privacy or GDPR.
+  - `false`: no count.
+
+  `<GitHubStars>` follows the same setting. The build may set `GITHUB_TOKEN`,
+  in the shell or CI (not an env file), for GitHub's higher rate limit; it's
+  used only for the build's requests to the GitHub API. For GitHub Enterprise,
+  `GITHUB_API_URL` points the build at your API instead. In GitHub Actions,
+  `GITHUB_API_URL` is set for you; on an Enterprise runner building docs for
+  a github.com repo, set it to `https://api.github.com`.
+</ParamField>
 
 ```jsonc
 "topbar": {

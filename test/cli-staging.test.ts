@@ -191,6 +191,14 @@ test("env files in the staging folder are kept", (t) => {
   assert.equal(r.stderr, "");
 });
 
+test("the GitHub stats cache in the staging folder survives runs", (t) => {
+  const { work, run } = setup(t);
+  fs.mkdirSync(work);
+  fs.writeFileSync(path.join(work, ".markline-github.json"), '{"stars:o/r":{"value":5,"fetchedAt":1}}');
+  for (let i = 0; i < 2; i++) assert.equal(run().status, 0);
+  assert.equal(fs.readFileSync(path.join(work, ".markline-github.json"), "utf8"), '{"stars:o/r":{"value":5,"fetchedAt":1}}');
+});
+
 test("a configured output folder survives between runs, and its build's own links stay", (t) => {
   const { work, run } = setup(t);
   const env = { MARKLINE_DIST: ".next-x" };
@@ -281,6 +289,8 @@ test("env files can't change how Markline or Node runs", (t) => {
     __NEXT_PROCESSED_ENV: "",
     DYLD_INSERT_LIBRARIES: "/evil",
     LD_PRELOAD: "/evil",
+    GITHUB_TOKEN: "/evil-token",
+    GITHUB_API_URL: "http://evil.test",
   };
   const text = Object.entries(dangerous).map(([k, v]) => `${k}=${v}`).join("\n");
   fs.writeFileSync(path.join(site, ".env"), text);
@@ -295,6 +305,11 @@ test("env files can't change how Markline or Node runs", (t) => {
   }
   assert.doesNotMatch(r.stderr, /--require|\/evil/, "values aren't printed");
   assert.match(r.stderr, /NODE_OPTIONS/, "the names are");
+  // GitHub's too, unless the shell already sets them (as GitHub Actions does
+  // GITHUB_API_URL), when Next's loader leaves the file's value out.
+  for (const name of ["GITHUB_TOKEN", "GITHUB_API_URL"]) {
+    if (before[name] === undefined) assert.match(r.stderr, new RegExp(`\\b${name}\\b`), name);
+  }
 });
 
 test("env files left in the staging folder still work, and the project's win", (t) => {

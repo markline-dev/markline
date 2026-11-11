@@ -48,6 +48,9 @@ All notable changes to `@markline/markline` and `@markline/create`.
   the proxy they arrive intact, as base64, within its 25 MB response limit.
 - **File uploads in "Try it".** Multipart bodies get file pickers and are sent
   as form data, directly or through the proxy.
+- **Expand for code and responses.** Each code card in the API reference has
+  an Expand button beside Copy, opening the code shown at full size. Escape
+  closes it, and focus returns to the button.
 
 ### Changed
 - **Lighter API reference pages.** The Try it endpoint list is sent once per
@@ -65,6 +68,11 @@ All notable changes to `@markline/markline` and `@markline/create`.
   and the menu holds only View as Markdown and Open Markdown file.
 - **Uploads through the Try it proxy are limited to 25 MB.** Try it says so
   before sending a larger one, and the proxy refuses it too.
+- **The response card matches the request card.** In light mode it was pale
+  blue beside a dark request card; both are now the same dark surface.
+- **Every documented response is listed.** A response without a body (such
+  as a 204) shows "No response body" instead of being left out. With more than
+  three statuses, the card offers a dropdown instead of tabs.
 
 ### Fixed
 - **The Markline home page shows only real numbers.** The GitHub card no longer
@@ -103,6 +111,13 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **Large bodies no longer crash Try it.** A request or response body over
   1 MB shows as plain text, without colouring, and Copy still copies all of
   it. Colouring a body of about 10 MB overflowed the browser's stack.
+- **The API reference's right panel no longer slides under the header.** It
+  stuck 80 px from the top, which a banner or stacked header covers. It now
+  sits below the header at any height, and scrolls by itself when it's taller
+  than the window.
+- **Copy copies the tab that's showing.** In the API reference, Copy always
+  copied the first tab: cURL when Node was picked, the 200 when 422 was. It
+  also no longer stores a second copy of every sample in the page.
 
 ## 0.1.8
 

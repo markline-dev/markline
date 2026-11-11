@@ -206,8 +206,10 @@ test("binary 2xx responses get a panel naming their media type", () => {
   assert.match(body, /Returns audio\/mpeg \(binary\)/);
   assert.match(body, /Content-Type: audio\/mpeg/);
   assert.equal(successResponse(tts, raw)?.status, "200");
-  // A 204 with no body still has no panel.
-  assert.deepEqual(allResponses(opById("submit_form"), raw), []);
+  // A response without a body is still listed, and says so.
+  const empty = allResponses(opById("submit_form"), raw);
+  assert.deepEqual(empty.map((r) => [r.status, r.label, r.tone]), [["204", "204 No Content", "g"]]);
+  assert.equal(empty[0].html.replace(/<[^>]+>/g, ""), "// No response body");
 });
 
 /* ── SDK samples stay valid code ──────────────────────────────────────── */

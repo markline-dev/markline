@@ -49,6 +49,14 @@ const MARKED = {
   },
 };
 
+// More statuses than fit as tabs, one of them without a body.
+const MANY_RESPONSES = {
+  "200": { description: "Done", content: { "application/json": { schema: { type: "object", properties: { okfield: { type: "string" } } } } } },
+  "204": { description: "Nothing to send" },
+  "404": { description: "Missing", content: { "application/json": { schema: { type: "object", properties: { missingfield: { type: "string" } } } } } },
+  "422": { description: "Invalid", content: { "application/json": { schema: { type: "object", properties: { invalidfield: { type: "string" } } } } } },
+};
+
 const op = (i: number, tag: string) => ({
   operationId: `${tag}Op${i}`,
   summary: `${tag} operation ${i}`,
@@ -56,7 +64,7 @@ const op = (i: number, tag: string) => ({
   description: `${"Describes the operation at some length. ".repeat(10)}${tag === "others" && i === 0 ? NEEDLE : ""}`,
   tags: [tag],
   ...(tag === "others" && i === 1 ? MARKED : {}),
-  responses: { "200": { description: "OK" } },
+  responses: tag === "others" && i === 2 ? MANY_RESPONSES : { "200": { description: "OK" } },
 });
 
 const spec = {
@@ -209,4 +217,32 @@ test("hidden parameters and fields stay out of every page that shows the operati
       assert.equal(html.includes(hidden), false, `${hidden} on ${route}`);
     }
   }
+});
+
+/** The card of one operation's section on a resource page. */
+function section(html: string, opId: string): string {
+  const at = html.indexOf(`data-label="POST /others/${opId.replace("othersOp", "")}"`);
+  assert.ok(at >= 0, `${opId} has a code card`);
+  return html.slice(at, html.indexOf("api-sec", at + 1));
+}
+
+test("many statuses get a dropdown, a few get tabs, and a body-less one says so", { skip }, () => {
+  const html = page(reference, "api-reference/others");
+  const many = section(html, "othersOp2");
+  assert.match(many, /<select class="cc-select"/);
+  const options = [...many.matchAll(/<option value="(\d+)"[^>]*>([^<]*)</g)].map((m) => `${m[1]} ${m[2]}`);
+  assert.deepEqual(options, ["200 200 Done", "204 204 Nothing to send", "404 404 Missing", "422 422 Invalid"]);
+  assert.match(many, /No response body/);
+  const one = section(html, "othersOp0");
+  assert.doesNotMatch(one, /cc-select/);
+  assert.match(one, /200 OK/);
+});
+
+test("code cards copy what they show, without a second copy of the code in the page", { skip }, () => {
+  const html = page(reference, "api-reference/things");
+  const cards = count(html, 'class="code-card');
+  assert.ok(cards >= THINGS, `${cards} code cards`);
+  assert.equal(count(html, "data-copy-card"), count(html, "data-expand"));
+  assert.ok(count(html, "data-copy-card") >= cards, "every card has Copy and Expand");
+  assert.equal(count(html, "data-copy="), 0, "no card carries its code in an attribute");
 });

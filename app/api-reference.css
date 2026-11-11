@@ -149,7 +149,11 @@
 .ml-apiref .api-sec { display: grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap: 52px; padding: 46px 0; border-top: 1px solid var(--line); scroll-margin-top: calc(var(--nav-h) + 20px); }
 .ml-apiref .api-sec:first-child { border-top: 0; }
 .ml-apiref .api-l { min-width: 0; }
-.ml-apiref .api-r { min-width: 0; position: sticky; top: 80px; align-self: start; }
+/* Sticks below the header, whatever its height (banner, stacked tabs), and scrolls
+   itself when it's taller than the room left. */
+.ml-apiref .api-r { min-width: 0; position: sticky; top: calc(var(--nav-h) + 20px); align-self: start; max-height: calc(100vh - var(--nav-h) - 40px); overflow-y: auto; scrollbar-width: thin; }
+/* A resource's endpoint list keeps its full height, as before. */
+.ml-apiref .api-r:has(> .ep-card) { max-height: none; overflow: visible; }
 
 /* AI affordance row */
 .ml-apiref .ai-actions { display: flex; gap: 18px; justify-content: flex-end; margin-bottom: 14px; flex-wrap: wrap; }
@@ -375,26 +379,24 @@
 .ml-apiref .cc-head .cc-play + .cc-copy { margin-left: 8px; }
 .ml-apiref .cc-langs + .cc-play { margin-left: auto; }
 
-/* In light mode the inline RESPONSE card softens to a contrasting surface. */
-/* light response panels — soft-blue surface + light syntax (dark request vs. light response) */
-[data-theme="light"] .ml-apiref .code-card.resp { background: #eef2fb; border-color: var(--line-2); box-shadow: var(--shadow); }
-html[data-accent="purple"][data-theme="light"] .ml-apiref .code-card.resp { background: #f1edfc; }
-[data-theme="light"] .ml-apiref .code-card.resp .cc-head { background: transparent; border-bottom-color: var(--line); }
-[data-theme="light"] .ml-apiref .code-card.resp .cc-title { color: var(--ink-3); }
-[data-theme="light"] .ml-apiref .code-card.resp .cc-status { color: var(--ink-3); }
-[data-theme="light"] .ml-apiref .code-card.resp .cc-code { color: var(--ink-3); }
-[data-theme="light"] .ml-apiref .code-card.resp .cc-code:hover { color: var(--ink); }
-[data-theme="light"] .ml-apiref .code-card.resp .cc-code.active { color: var(--ink); background: rgba(20,18,32,0.08); }
-[data-theme="light"] .ml-apiref .code-card.resp .cc-copy { color: var(--ink-3); }
-[data-theme="light"] .ml-apiref .code-card.resp .cc-copy:hover { color: var(--ink); background: rgba(20,18,32,0.06); }
-[data-theme="light"] .ml-apiref .code-card.resp pre { color: var(--ink); }
-[data-theme="light"] .ml-apiref .code-card.resp pre::-webkit-scrollbar-thumb { background: rgba(20,18,32,0.2); border: 3px solid transparent; background-clip: padding-box; }
-[data-theme="light"] .ml-apiref .code-card.resp pre::-webkit-scrollbar-thumb:hover { background: rgba(20,18,32,0.32); border: 3px solid transparent; background-clip: padding-box; }
-[data-theme="light"] .ml-apiref .code-card.resp .key { color: #0a4fa6; }
-[data-theme="light"] .ml-apiref .code-card.resp .s   { color: #18794e; }
-[data-theme="light"] .ml-apiref .code-card.resp .n   { color: #bd4b00; }
-[data-theme="light"] .ml-apiref .code-card.resp .k   { color: #5b3fe0; }
-[data-theme="light"] .ml-apiref .code-card.resp .pun { color: var(--ink-4); }
+/* Expand and Copy, together at the right of a card's head. */
+.ml-apiref .cc-tools { margin-left: auto; display: flex; align-items: center; gap: 2px; flex: none; }
+.ml-apiref .cc-tools .cc-copy { margin-left: 0; }
+.ml-apiref .cc-codes ~ .cc-tools, .ml-apiref .cc-status ~ .cc-tools, .ml-apiref .cc-select ~ .cc-tools, .ml-apiref .cc-play ~ .cc-tools { margin-left: 6px; }
+.ml-apiref .cc-tools .ico { width: 14px; height: 14px; }
+
+/* Response status, when there are too many for tabs. */
+.ml-apiref .cc-select { margin-left: auto; max-width: 62%; font-family: var(--mono); font-size: 11px; color: #c9c9d2; background: rgba(255,255,255,0.06); border: 1px solid var(--code-line); border-radius: 6px; padding: 3px 6px; text-overflow: ellipsis; cursor: pointer; }
+.ml-apiref .cc-select:hover { color: #fff; }
+.ml-apiref .cc-select option { color: initial; background: initial; }
+
+/* A card's code, expanded. */
+.ml-apiref .code-dlg { padding: 0; border: 0; background: transparent; width: min(1100px, calc(100vw - 32px)); max-width: none; max-height: calc(100vh - 64px); overflow: visible; }
+.ml-apiref .code-dlg::backdrop { background: rgb(0 0 0 / .45); backdrop-filter: blur(2px); }
+.ml-apiref .code-dlg-card { display: flex; flex-direction: column; max-height: calc(100vh - 64px); box-shadow: 0 40px 120px -30px rgb(0 0 0 / .6); }
+.ml-apiref .code-dlg-card pre { flex: 1; max-height: none; font-size: 13px; }
+.ml-apiref .code-dlg-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: none; letter-spacing: 0; }
+
 .ml-apiref [data-panel] { display: none; }
 .ml-apiref [data-panel].active { display: block; }
 
@@ -433,7 +435,7 @@ html[data-accent="purple"][data-theme="light"] .ml-apiref .code-card.resp { back
   .ml-apiref .api { grid-template-columns: 240px minmax(0,1fr); }
   .ml-apiref .api-doc { padding: 0 32px; }
   .ml-apiref .api-sec { grid-template-columns: 1fr; gap: 26px; }
-  .ml-apiref .api-r { position: static; }
+  .ml-apiref .api-r { position: static; max-height: none; overflow: visible; }
 }
 @media (max-width: 880px) {
   .ml-apiref .api { grid-template-columns: 1fr; }

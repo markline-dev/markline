@@ -30,6 +30,17 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **`api.auth`** names the auth a spec doesn't declare (e.g. an `xi-api-key`
   header), so Try it and the cURL samples send it. The key is masked in the code
   Try it shows.
+- **SDK names from Fern extensions.** Generated Node, Python and Go samples
+  use an operation's `x-fern-sdk-group-name` and `x-fern-sdk-method-name`
+  when present (`client.text_to_speech.convert(...)`,
+  `client.textToSpeech.convert(...)`). `api.sdkNaming: "off"` keeps the
+  tag + verb naming.
+- **Binary responses.** Non-JSON success responses (`audio/mpeg`, zip, CSV)
+  get a response panel naming their media type, and in "Try it" audio
+  responses play inline while other binary ones get a download link. Through
+  the proxy they arrive intact, as base64, within its 25 MB response limit.
+- **File uploads in "Try it".** Multipart bodies get file pickers and are sent
+  as form data, directly or through the proxy.
 
 ### Changed
 - **Lighter API reference pages.** The Try it endpoint list is sent once per
@@ -45,6 +56,8 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **Ask AI gets its own button in the menu style.** With
   `layout.pageActions: "menu"`, Ask AI is its own button beside Copy for LLM,
   and the menu holds only View as Markdown and Open Markdown file.
+- **Uploads through the Try it proxy are limited to 25 MB.** Try it says so
+  before sending a larger one, and the proxy refuses it too.
 
 ### Fixed
 - **The Markline home page shows only real numbers.** The GitHub card no longer
@@ -71,6 +84,18 @@ All notable changes to `@markline/markline` and `@markline/create`.
   fields; real unions list their members.
 - Text beside a `$ref` (`description`, `deprecated`) was dropped. It now applies
   to that use of the schema.
+- Generated cURL sends JSON bodies as JSON (`Content-Type` header and
+  `-d '{…}'`) instead of `-d field=value`, multipart bodies as `-F` with
+  `-F file=@…` for files, and urlencoded bodies with `--data-urlencode`. Values
+  are quoted so a pasted sample runs nothing, and form fields use
+  `--form-string` so a value is never read as a local file.
+  It also sends `apiKey` header auth from the operation's security, and
+  keeps `-X POST` when a POST has no body.
+- Request bodies and responses that aren't `application/json` keep their
+  media type and schema, so multipart fields are documented.
+- **Large bodies no longer crash Try it.** A request or response body over
+  1 MB shows as plain text, without colouring, and Copy still copies all of
+  it. Colouring a body of about 10 MB overflowed the browser's stack.
 
 ## 0.1.8
 

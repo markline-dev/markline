@@ -54,3 +54,13 @@ export async function loadRoute(content: { config: object | string | null; spec?
     cleanup: () => fs.rmSync(dir, { recursive: true, force: true }),
   };
 }
+
+/** Resolves once `ok()` holds, checking every 10 ms; fails naming `what` after `ms`.
+ *  For what happens on its own time, such as a dropped connection closing. */
+export async function until(ok: () => boolean, what: string, ms = 10_000) {
+  const end = Date.now() + ms;
+  while (!ok()) {
+    if (Date.now() > end) throw new Error(`timed out waiting: ${what}`);
+    await new Promise((r) => setTimeout(r, 10));
+  }
+}

@@ -8,9 +8,10 @@ import { MethodBadge } from "./method-badge";
 import { EndpointPath } from "./endpoint-path";
 import { SchemaTable, ParamRow } from "./schema-table";
 import { mdToHtml } from "@/lib/md-desc";
+import { describeMediaType, isJsonMediaType } from "@/lib/openapi-media";
 import { RequestPanel, ResponsePanel } from "./code-panel";
 import {
-  PlaygroundProvider, RequestConsole, ParamInput, AuthInput, BodyEditor,
+  PlaygroundProvider, RequestConsole, ParamInput, AuthInput, BodyEditor, FileInput,
 } from "./playground";
 
 type Crumb = { label: string; href?: string };
@@ -47,7 +48,9 @@ export function ApiOperationPage({
       ? JSON.stringify(r.example, null, 2)
       : r.schema
         ? responseSampleJson(resolveSchema(r.schema, root), root)
-        : "",
+        : r.contentType && !isJsonMediaType(r.contentType)
+          ? describeMediaType(r.contentType)
+          : "",
   }));
 
   const page = (
@@ -172,8 +175,15 @@ export function ApiOperationPage({
 
         {reqSchema && (
           <Section id="body" title="Body">
-            <p className="api-body-type">application/json</p>
+            <p className="api-body-type">{op.requestBody?.contentType ?? "application/json"}</p>
             {showInline && <BodyEditor />}
+            {showInline &&
+              playgroundSpec?.bodyFiles?.map((f) => (
+                <label key={f.name} className="ml-pg-field">
+                  <span className="ml-pg-field-label">{f.name}</span>
+                  <FileInput name={f.name} />
+                </label>
+              ))}
             <SchemaTable schema={reqSchema} />
           </Section>
         )}
@@ -188,6 +198,9 @@ export function ApiOperationPage({
                   <div className="desc" dangerouslySetInnerHTML={{ __html: mdToHtml(r.description || "") }} />
                 </div>
                 {resolved && <SchemaTable schema={resolved} />}
+                {!resolved && r.contentType && !isJsonMediaType(r.contentType) && (
+                  <p className="api-body-type">{describeMediaType(r.contentType)}</p>
+                )}
               </div>
             );
           })}

@@ -207,6 +207,14 @@ export type ApiConfig = {
    * for `Authorization: Bearer`.
    */
   auth?: { type?: "apiKey" | "bearer"; header?: string; description?: string };
+  /**
+   * How the generated Node/Python/Go samples name SDK calls:
+   * - "auto" (default): use the operation's `x-fern-sdk-group-name` and
+   *   `x-fern-sdk-method-name` when present (`client.text_to_speech.convert`),
+   *   else the tag + HTTP-verb naming.
+   * - "off": always the tag + HTTP-verb naming.
+   */
+  sdkNaming?: "auto" | "off";
   playground?: {
     /**
      * Which "Try it" surfaces to render:

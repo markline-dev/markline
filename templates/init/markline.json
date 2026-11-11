@@ -37,7 +37,7 @@
   },
   "api": {
     "baseUrl": "https://api.example.com",
-    "playground": { "enabled": true, "proxy": "auto" }
+    "playground": { "mode": "full", "proxy": "auto" }
   },
   "editUrl": "https://github.com/me/my-docs/edit/main",
   "seo": {

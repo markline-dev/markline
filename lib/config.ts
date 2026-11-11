@@ -238,17 +238,19 @@ export type ApiConfig = {
   events?: {
     /**
      * How event status dots are colored:
-     * - "palette" (default): a distinct, stable color per event drawn from
-     *   `palette` — colors by identity, not status, so every event is separable.
-     * - "status": green/amber/neutral inferred from the event name
-     *   (success / failure-or-terminal / neutral).
+     * - "palette" (default): a color per event from `palette`, by identity,
+     *   not status, so neighbouring events are told apart.
+     * - "status": inferred from the event name (lib/apiref-view.ts eventTone):
+     *   green for success-like names, orange for failure-or-terminal ones,
+     *   neutral otherwise.
      * - "none": no color (all neutral).
      */
     dots?: "status" | "palette" | "none";
     /**
-     * Colors for `dots: "palette"`, any CSS color or `var(--token)`. An event is
-     * mapped to one entry by a stable hash of its name. Defaults to the brand
-     * palette (`--c-purple`, `--c-cyan`, …).
+     * Colors for `dots: "palette"`, any CSS color or `var(--token)`. They're
+     * given out in order along each resource's event list (lib/apiref-view.ts);
+     * a hash of the name picks one only in the browser, for an event outside
+     * that list. Defaults to the brand palette (`--c-purple`, `--c-cyan`, …).
      */
     palette?: string[];
   };
@@ -487,6 +489,12 @@ export type MarklineConfig = {
      *  to "full" (edge-to-edge); set "contained" for a centered marketing nav
      *  that aligns with a hero. */
     homeWidth?: "full" | "contained";
+    /** The GitHub badge's star count, for the repo the GitHub link points at.
+     *  "live" (default): the count from the build, then refreshed in the
+     *  browser, at most hourly per reader (each reader's browser asks
+     *  api.github.com). "build": only the count from the build, so readers'
+     *  browsers never contact GitHub. false: no count. */
+    githubStars?: "live" | "build" | false;
   };
   navigation: { tabs: NavTab[] };
   footer?: FooterConfig;
@@ -545,6 +553,7 @@ function mergeConfig(base: MarklineConfig, user: Partial<MarklineConfig>): Markl
       badge: user.topbar?.badge ?? base.topbar.badge,
       width: user.topbar?.width ?? base.topbar.width ?? "full",
       homeWidth: user.topbar?.homeWidth ?? base.topbar.homeWidth ?? "full",
+      githubStars: starsMode(user.topbar?.githubStars ?? base.topbar.githubStars),
     },
     navigation: {
       tabs: user.navigation?.tabs ?? base.navigation.tabs,
@@ -657,6 +666,19 @@ export function normalizeNavHrefs<T>(node: T): T {
     key === "href" && typeof value === "string" ? value.replace(/(^|\/)index$/, "") || "/" : normalizeNavHrefs(value),
   ]);
   return Object.fromEntries(entries) as T;
+}
+
+/** `topbar.githubStars`: "live" unless it's "build" or false. Anything else is
+ *  reported once and read as "live". */
+let starsWarned = false;
+function starsMode(v: unknown): "live" | "build" | false {
+  if (v === undefined || v === "live") return "live";
+  if (v === "build" || v === false) return v;
+  if (!starsWarned) {
+    starsWarned = true;
+    console.warn(`[markline] topbar.githubStars must be "live", "build" or false; using "live" for ${JSON.stringify(v)}.`);
+  }
+  return "live";
 }
 
 /** A limit that isn't a whole number from 1 to MAX_LIMIT is ignored; say so. */

@@ -14,6 +14,8 @@ import { bannerExpired, bannerId, bannerScript } from "@/lib/banner";
 import { onColor } from "@/lib/contrast";
 import { fontLinks } from "@/lib/font-urls";
 import { escapeStyleText } from "@/lib/templates";
+import { repoOf, statKey } from "@/lib/github-stars";
+import { bakedStat } from "@/lib/github-stars-baked";
 import { Analytics } from "@/components/docs/analytics";
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" });
@@ -123,6 +125,14 @@ function githubUrl(): string | undefined {
   return config.topbar.links?.find(isGithub)?.href;
 }
 
+/** The GitHub badge's star count: the repo's stat key, the build's value, and
+ *  topbar.githubStars. */
+function githubStars() {
+  const repo = repoOf(githubUrl() ?? "");
+  const key = repo ? statKey("stars", repo) : undefined;
+  return { key, baked: bakedStat(key), mode: config.topbar.githubStars ?? "live" };
+}
+
 /** `topbar.banner`, unless its last day had passed when the site was built. */
 const banner = (() => {
   const b = config.topbar.banner;
@@ -185,6 +195,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           navLinks={config.topbar.navLinks}
           links={config.topbar.links?.filter((l) => !isGithub(l))}
           githubUrl={githubUrl()}
+          stars={githubStars()}
           badge={config.topbar.badge}
           cta={config.topbar.cta}
           secondaryCta={config.topbar.secondaryCta}

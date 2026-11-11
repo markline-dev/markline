@@ -41,6 +41,19 @@ test("the contributor count comes from the Link header's last page", () => {
   assert.equal(lastPage(null), undefined);
 });
 
+/** A request that never answers, until it's aborted. It holds a timer of its
+ *  own, as a real open connection holds the event loop: the abort's timer
+ *  doesn't, and Node 22 would otherwise end the test before it fires. */
+function hanging(init?: RequestInit): Promise<Response> {
+  return new Promise((_, reject) => {
+    const keep = setInterval(() => {}, 1000);
+    init?.signal?.addEventListener("abort", () => {
+      clearInterval(keep);
+      reject(init.signal?.reason);
+    });
+  });
+}
+
 /** A fetch that answers from a table, counting calls. */
 function fakeFetch(answer: (url: string, init?: RequestInit) => Response | Promise<Response>) {
   const calls: { url: string; init?: RequestInit }[] = [];
@@ -112,7 +125,7 @@ test("a failed fetch keeps the newest known value: rate limits, errors, timeouts
     ["429", fakeFetch(() => new Response("{}", { status: 429 })).f],
     ["network", fakeFetch(() => Promise.reject(new TypeError("offline"))).f],
     ["bad body", fakeFetch(() => Response.json({ message: "x" })).f],
-    ["timeout", fakeFetch((_, init) => new Promise((_, reject) => init?.signal?.addEventListener("abort", () => reject(init.signal?.reason)))).f],
+    ["timeout", fakeFetch((_, init) => hanging(init)).f],
   ];
   for (const [name, f] of failures) {
     const seen = await shownFor(stat(5, 2 * HOUR), { fetchImpl: f, store: fakeStore(cached(stat(6, 3 * HOUR))) });
@@ -125,7 +138,7 @@ test("a failed fetch keeps the newest known value: rate limits, errors, timeouts
 });
 
 test("a fetch gives up after its timeout", { timeout: 10_000 }, async () => {
-  const hang = fakeFetch((_, init) => new Promise((_, reject) => init?.signal?.addEventListener("abort", () => reject(init.signal?.reason))));
+  const hang = fakeFetch((_, init) => hanging(init));
   const start = Date.now();
   assert.equal(await fetchStat(KEY, { fetchImpl: hang.f, timeoutMs: 50 }), undefined);
   assert.ok(Date.now() - start < 2000);

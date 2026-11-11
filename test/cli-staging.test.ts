@@ -305,7 +305,11 @@ test("env files can't change how Markline or Node runs", (t) => {
   }
   assert.doesNotMatch(r.stderr, /--require|\/evil/, "values aren't printed");
   assert.match(r.stderr, /NODE_OPTIONS/, "the names are");
-  assert.match(r.stderr, /GITHUB_API_URL, GITHUB_TOKEN/, "including GitHub's");
+  // GitHub's too, unless the shell already sets them (as GitHub Actions does
+  // GITHUB_API_URL), when Next's loader leaves the file's value out.
+  for (const name of ["GITHUB_TOKEN", "GITHUB_API_URL"]) {
+    if (before[name] === undefined) assert.match(r.stderr, new RegExp(`\\b${name}\\b`), name);
+  }
 });
 
 test("env files left in the staging folder still work, and the project's win", (t) => {

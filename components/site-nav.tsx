@@ -72,7 +72,7 @@ export function SiteNav({
   secondaryCta,
   banner,
   width = "full",
-  homeWidth = "contained",
+  homeWidth = "full",
   header = "single",
   search = "sidebar",
 }: {

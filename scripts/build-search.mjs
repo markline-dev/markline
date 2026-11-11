@@ -15,6 +15,7 @@ import { searchGroups, searchTrails } from "./search-groups.mjs";
 import { markdownPath, mdxToMarkdown, pageMarkdown, sectionIds, sectionIndex } from "./llms.mjs";
 import { removeGeneratedFiles, writeManifest } from "./generated-files.mjs";
 import { writeGithubStats } from "./github-stats.mjs";
+import { contentRootFrom } from "./content-root.mjs";
 import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
@@ -43,9 +44,7 @@ function resolveContentEnv() {
 }
 
 function contentRoot() {
-  const c = resolveContentEnv();
-  if (c && c.length > 0) return path.isAbsolute(c) ? c : path.join(process.cwd(), c);
-  return path.join(process.cwd(), "content");
+  return contentRootFrom(resolveContentEnv());
 }
 
 /** Strip MDX/markdown down to indexable plain text. */

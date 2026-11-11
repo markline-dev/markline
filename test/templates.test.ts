@@ -151,3 +151,9 @@ test("every built-in template loads cleanly and sets only allowed keys", () => {
     assert.equal(chain[chain.length - 1].manifest.name, name, `${name}/template.json "name" should match its folder`);
   }
 });
+
+test("the project `markline init` writes uses current settings, not deprecated ones", async () => {
+  const fs = await import("node:fs");
+  const init = JSON.parse(fs.readFileSync(new URL("../templates/init/markline.json", import.meta.url), "utf8"));
+  assert.deepEqual(init.api.playground, { mode: "full", proxy: "auto" });
+});

@@ -487,11 +487,12 @@ Responses over 25 MB, requests over 35 MB and calls that take longer than 120
 seconds return an error, as do large responses while the server is already holding
 a lot of data.
 
-The proxy sends your API the request's own headers, including `Authorization`
-and API key headers. It drops `Cookie` and the headers about the connection, its
-route and the reader's address (`Host`, `Forwarded`, `X-Forwarded-*`,
-`X-Real-IP` and similar), so your API never sees the reader's docs-site session
-or IP. Redirects aren't followed: a `3xx` comes back with its status and no
+The proxy sends your API the headers set in Try it, including `Authorization`
+and API key headers; the browser's own headers to the docs site aren't passed
+on. Of those set in Try it, it drops `Cookie` and headers about the connection,
+its route or the reader's address (`Host`, `Forwarded`, `X-Forwarded-*`,
+`X-Real-IP` and similar). Since the proxy makes its own connection, your API
+sees the docs server's address, not the reader's. Redirects aren't followed: a `3xx` comes back with its status and no
 body, since the body often names where it points.
 
 ## Events & webhooks

@@ -234,6 +234,24 @@ Without a `docs/index.mdx`, `/` redirects to the first page in the
 navigation, so the logo still lands somewhere. A static export has no
 redirects, so there `/` needs a `docs/index.mdx` or a `public/index.html`.
 
+### Previous and next links
+
+At the foot of every docs page are links to the pages before and after it in
+the sidebar. Next is a card naming the next page, and Previous a small link
+beside it; on the last page, Previous becomes the card.
+
+- **Order** is the current tab's sidebar, top to bottom, nested pages
+  included. A folder with no `href` is skipped; its pages aren't.
+- **They stay in one tab.** The first page of a tab has no Previous link and
+  the last has no Next.
+- **Titles** are the sidebar labels, not the pages' own titles.
+- **A page that isn't in the sidebar** has neither. Landing, hub and changelog
+  pages and the API reference don't have them.
+- **Other versions and languages** follow their own navigation.
+
+No setting or frontmatter field hides or changes them: reorder the sidebar to
+change them.
+
 ## Layout
 
 `layout` changes the structure of the page, where `theme` changes its colours

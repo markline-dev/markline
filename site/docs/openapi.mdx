@@ -662,11 +662,14 @@ for docs pages.
 
 ## Versions
 
-The reference header shows a version selector. With a single spec it surfaces
-the spec's `info.version` (a semver `1.4.2` → `v1 · 1.4.2`; a date `2025-06-01`
-→ shown once, verbatim).
-
-With multiple [versions](/versions) configured, each version ships its **own**
-`<id>/api/openapi.json`, served at `/api-reference/<id>` — the selector switches
-the spec in place and every link stays under that version's prefix. See
+A version belongs to the whole site: its docs and its API reference switch
+together. With two or more [versions](/versions) configured, each version ships
+its **own** `<id>/api/openapi.json`, served at `/api-reference/<id>`, and the
+reference sidebar gets a version picker beside the header's. Each entry shows
+the version's `label` from `markline.json`. Picking one opens the same resource
+or operation in that version, or that version's reference when the page doesn't
+exist there, and every link stays under that version's prefix. See
 [Versions & i18n](/versions#api-reference-per-version) for the folder layout.
+
+With one version, or none, there's no picker. The spec's `info.version`
+describes the spec, not a version of the site, so it isn't shown as one.

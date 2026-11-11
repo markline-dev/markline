@@ -100,15 +100,16 @@ content/
     └── api/openapi.json     # v1      → /api-reference/v1
 ```
 
-- The **version selector** in the API-reference header lists every version and
-  switches the spec in place (the default is marked `Default`).
+- The **version picker** in the API-reference sidebar lists every version by
+  its `label`. Like the header's, it opens the same resource or operation in the
+  version you pick, or that version's reference when it isn't there.
 - Within a version, every link — resource pages, search results, the explorer's
   endpoint switcher — stays under that version's `/api-reference/<id>` prefix, so
   you never fall back to the default spec mid-navigation.
 - Per-resource and per-operation **MDX overlays** are version-scoped too:
   `<id>/api/sections/<tag>.mdx` and `<id>/api/operations/<operationId>.mdx`.
-- The pill label follows the spec's `info.version` — a semver like `1.4.2` shows
-  as `v1 · 1.4.2`; a date like `2025-06-01` shows once, verbatim.
+- With fewer than two versions there's no picker. The spec's `info.version`
+  isn't shown as a version.
 
 <Note>A version that has no `api/openapi.json` simply has no API reference (its
 selector entry won't resolve a spec) — versions can be docs-only, reference-only,

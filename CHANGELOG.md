@@ -66,6 +66,11 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **Every documented response is listed.** A response without a body (such
   as a 204) shows "No response body" instead of being left out. With more than
   three statuses, the card offers a dropdown instead of tabs.
+- **The API reference's version picker only shows real versions.** With one
+  version it's gone; it used to show the spec's `info.version` as "v1 · 1.0",
+  and picking it did nothing. With two or more it shows each version's `label`
+  from config, and opens the same page in the version you pick, like the
+  header's picker.
 
 ### Fixed
 - **The Markline home page shows only real numbers.** The GitHub card no longer

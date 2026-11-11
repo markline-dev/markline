@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { SearchEntry, VersionEntry } from "@/lib/apiref-view";
+import { variantPath, type Variants } from "@/lib/variant-path";
 import { openAskPanel } from "../../ai/ask-dock";
 
 /* ── event helpers (let the toolrow / doc-action buttons drive these) ── */
@@ -214,92 +215,99 @@ function highlight(s: string, q: string): string {
 }
 
 /* ═══════════════════════ version selector ═══════════════════════ */
-export function VersionSelector({ versions, buttonLabel }: { versions: VersionEntry[]; buttonLabel: string }) {
+/**
+ * The reference's version picker, shown only with two or more configured
+ * versions. Like the header's picker, it goes to the same page in the other
+ * version, or to that version's reference when the page doesn't exist there.
+ */
+export function VersionSelector({ versions }: { versions: VersionEntry[] }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const [label, setLabel] = useState(buttonLabel);
-  const [toast, setToast] = useState<string | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const current = versions.find((v) => v.current) ?? versions[0];
+  const variants: Variants = { kind: "versions", entries: versions, defaultId: versions[0]?.id ?? "" };
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("markline-apiver");
-      if (saved) setLabel(saved);
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  useEffect(() => {
-    const onDoc = (e: MouseEvent) => {
-      if (open && wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    if (!open) return;
+    // Start on the version shown, so arrows move from there.
+    menuRef.current?.querySelector<HTMLElement>('[aria-current="true"]')?.focus();
+    const onDown = (e: MouseEvent) => {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("click", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("click", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
 
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 2200);
-    return () => clearTimeout(t);
-  }, [toast]);
+  if (versions.length < 2) return null;
 
-  function pick(v: VersionEntry) {
+  const pick = async (id: string) => {
     setOpen(false);
-    const next = v.sub ? `${v.label} · ${v.sub}` : v.label;
-    if (v.href && v.href !== location.pathname) {
-      router.push(v.href);
+    if (id === current.id) return;
+    const target = variantPath(pathname, id, variants);
+    let dest = target;
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_MARKLINE_BASE_PATH ?? ""}${target}`, { method: "HEAD" });
+      if (!res.ok) dest = variantPath("/api-reference", id, variants);
+    } catch {
+      // Offline or blocked: try the page anyway.
+    }
+    // The anchor only means something on the same page.
+    router.push(dest === target ? dest + location.hash : dest);
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Escape" && open) {
+      setOpen(false);
+      wrapRef.current?.querySelector<HTMLElement>(".api-ver")?.focus();
       return;
     }
-    setLabel(next);
-    try {
-      localStorage.setItem("markline-apiver", next);
-    } catch {
-      /* ignore */
-    }
-    setToast(`Now viewing ${next}`);
-  }
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    e.preventDefault();
+    if (!open) return setOpen(true);
+    const items = [...(menuRef.current?.querySelectorAll<HTMLElement>(".api-vi") ?? [])];
+    const at = items.indexOf(document.activeElement as HTMLElement);
+    const next = (at + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+    items[next]?.focus();
+  };
 
   return (
-    <div className="api-vwrap" ref={wrapRef}>
-      <button className={`api-ver${open ? " on" : ""}`} onClick={() => setOpen((o) => !o)} aria-label="API version">
-        <span className="vlabel">{label}</span>
-        <svg className="vchev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <div className="api-vwrap" ref={wrapRef} onKeyDown={onKeyDown}>
+      <button
+        type="button"
+        className={`api-ver${open ? " on" : ""}`}
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`Version: ${current.label}`}
+      >
+        <span className="vlabel">{current.label}</span>
+        <svg className="vchev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
           <path d="m6 9 6 6 6-6" />
         </svg>
-        <span className="dot g" />
       </button>
       {open && (
-        <div className="api-ver-menu">
-          <div className="api-vlbl">API version</div>
-          {versions.map((v, i) => {
-            const text = v.sub ? `${v.label} · ${v.sub}` : v.label;
-            const isCur = (v.sub ? `${v.label} · ${v.sub}` : v.label) === label || (i === 0 && label === buttonLabel && v.current);
-            return (
-              <button key={i} className="api-vi" onClick={() => pick(v)}>
-                <span className="vmain">
-                  <span className="vd">{text}</span>
-                  {(v.current || v.sub) && <span className="vt">{v.current ? "Current spec version" : "Stable"}</span>}
-                </span>
-                {v.latest && <span className="badge">LATEST</span>}
-                {isCur && (
-                  <svg className="ck" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
-                    <path d="M20 6 9 17l-5-5" />
-                  </svg>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      )}
-      {toast && (
-        <div className="ml-toast show">
-          <span className="dot g" /> {toast}
+        <div className="api-ver-menu" role="menu" ref={menuRef}>
+          {versions.map((v) => (
+            <button
+              key={v.id}
+              type="button"
+              role="menuitem"
+              className="api-vi"
+              aria-current={v.current ? "true" : undefined}
+              onClick={() => pick(v.id)}
+            >
+              <span className="vmain">
+                <span className="vd">{v.label}</span>
+              </span>
+              {v.current && (
+                <svg className="ck" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden>
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+              )}
+            </button>
+          ))}
         </div>
       )}
     </div>
@@ -402,7 +410,10 @@ export function CodeDialog() {
 
   useEffect(() => {
     const d = ref.current;
-    if (code && d && !d.open) d.showModal();
+    if (!code || !d || d.open) return;
+    d.showModal();
+    // showModal focuses the first control (Copy); start on Close instead.
+    d.querySelector<HTMLElement>("[data-dlg-close]")?.focus();
   }, [code]);
 
   const onClose = () => {
@@ -462,7 +473,7 @@ export function CodeDialog() {
                   )}
                 </svg>
               </button>
-              <button type="button" className="cc-copy" onClick={() => ref.current?.close()} aria-label="Close" title="Close" autoFocus>
+              <button type="button" className="cc-copy" onClick={() => ref.current?.close()} aria-label="Close" title="Close" data-dlg-close>
                 <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                   <path d="M18 6 6 18M6 6l12 12" />
                 </svg>

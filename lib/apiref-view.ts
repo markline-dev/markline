@@ -117,12 +117,11 @@ export type SearchEntry = {
   href: string;
 };
 
+/** A configured version, for the reference's version picker. The first is the default. */
 export type VersionEntry = {
+  id: string;
   label: string;
-  sub?: string;
-  href?: string;
-  current?: boolean;
-  latest?: boolean;
+  current: boolean;
 };
 
 /** Resolved event-dot coloring strategy, passed to the client for rendering.
@@ -145,8 +144,6 @@ export const DEFAULT_EVENT_PALETTE = [
 
 export type ApiRefView = {
   title: string;
-  version: string;
-  versionLabel: string;
   /** Route base for all api-reference links: "/api-reference" for the default
    *  version, "/api-reference/<id>" for a non-default version. */
   base: string;
@@ -158,7 +155,7 @@ export type ApiRefView = {
   /** Every operation, for the Try it endpoint switcher. Sent once per page;
    *  the sections' playground specs leave it out. */
   endpoints: NonNullable<PlaygroundSpec["endpoints"]>;
-  /** Version selector entries (spec version, or config versions when present). */
+  /** The configured versions, when there are two or more; else empty and no picker. */
   versions: VersionEntry[];
   /** How to color event status dots (status / palette / none). */
   eventColors: EventColors;
@@ -400,15 +397,13 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
 
   return {
     title: doc.info.title || "API reference",
-    version: doc.info.version,
-    versionLabel: versionPillLabel(doc.info.version),
     base,
     servers: doc.servers.map((s) => s.url),
     nav,
     resource,
     search: buildSearchIndex(doc, base),
     endpoints: hoisted.endpoints,
-    versions: buildVersions(doc, variantId),
+    versions: versionEntries(loadConfig().versions, variantId),
     eventColors: ((): EventColors => {
       const mode = api.events?.dots ?? "palette";
       const palette = api.events?.palette?.length ? api.events.palette : DEFAULT_EVENT_PALETTE;
@@ -524,36 +519,17 @@ function buildResourceEvents(activeTag: OpenAPITag | undefined, doc: OpenAPIDoc,
 }
 
 /**
- * Version-pill label. For numeric-major semver ("1.4.2") it shows the major as
- * "v1"; for anything else — notably a date-style version like "2025-06-01" — it
- * uses the version verbatim, so we never render the redundant "v2025-06-01".
+ * The version picker's entries: the configured versions, labelled from config,
+ * with the one this page is in marked. Fewer than two means nothing to pick, so
+ * no picker; the spec's own `info.version` isn't a version of the site.
  */
-export function versionPillLabel(version?: string): string {
-  if (!version) return "v1";
-  const major = version.split(".")[0];
-  return /^\d+$/.test(major) ? `v${major}` : version;
-}
-
-function buildVersions(doc: OpenAPIDoc, variantId?: string): VersionEntry[] {
-  const cfg = loadConfig();
-  if (cfg.versions && cfg.versions.length > 1) {
-    return cfg.versions.map((v, i) => {
-      const isDefault = i === 0;
-      const active = isDefault ? !variantId : v.id === variantId;
-      return {
-        label: v.label ?? v.id,
-        sub: isDefault ? "Default" : undefined,
-        href: isDefault ? "/api-reference" : `/api-reference/${v.id}`,
-        current: active,
-        latest: isDefault,
-      };
-    });
-  }
-  const label = versionPillLabel(doc.info.version);
-  // Only carry a sub-line when it adds information (semver → "v1 · 1.4.2"); a
-  // date version is shown once, never as "2025-06-01 · 2025-06-01".
-  const sub = doc.info.version && doc.info.version !== label ? doc.info.version : undefined;
-  return [{ label, sub, current: true, latest: true }];
+export function versionEntries(versions: { id: string; label?: string }[] | undefined, variantId?: string): VersionEntry[] {
+  if (!versions || versions.length < 2) return [];
+  return versions.map((v, i) => ({
+    id: v.id,
+    label: v.label || v.id,
+    current: i === 0 ? !variantId : v.id === variantId,
+  }));
 }
 
 function singularDisplay(tag: string): string {

@@ -6,6 +6,8 @@ import path from "node:path";
 import { NOT_FOUND_SEGMENT } from "../lib/not-found-segment";
 import { createSite, filesUnder } from "./site-server";
 
+const REPO = path.resolve(import.meta.dirname, "..");
+
 // The docs page route in production, where Next's caching applies: `markline
 // build` then `markline start`, which dev can't show.
 
@@ -116,6 +118,22 @@ test("the 404 page has the site's header", { skip }, async () => {
   const body = await (await fetch(`${base}/nope`)).text();
   assert.match(body, /Cache Test Site/);
   assert.match(body, /<html/);
+});
+
+// On Next 15.5 a page rendered at request time isn't written to the cache
+// anyway (the test below passes without the handler), so this is what notices
+// the handler going: the built app is set to use it, and a standalone deploy
+// has the file where its server loads it from.
+test("the build uses the read-only cache handler, and a standalone deploy has it", { skip }, () => {
+  const next = path.join(site.dir, ".markline", ".next");
+  const handler = JSON.parse(fs.readFileSync(path.join(next, "required-server-files.json"), "utf8")).config.cacheHandler;
+  assert.match(handler ?? "", /(^|[/\\])scripts[/\\]read-only-cache\.cjs$/);
+  const standalone = path.join(next, "standalone");
+  const server = filesUnder(standalone).find((f) => path.basename(f) === "server.js" && !f.includes("node_modules"));
+  assert.ok(server, "a standalone server");
+  const loaded = path.resolve(path.dirname(server), ".next", handler);
+  assert.ok(fs.existsSync(loaded), `the handler isn't at ${path.relative(standalone, loaded)}`);
+  assert.equal(fs.readFileSync(loaded, "utf8"), fs.readFileSync(path.join(REPO, "scripts", "read-only-cache.cjs"), "utf8"));
 });
 
 test("a page added after the build is served fresh, stores nothing, and goes when deleted", { skip }, async () => {

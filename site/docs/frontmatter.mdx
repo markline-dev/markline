@@ -23,7 +23,7 @@ Every page in `docs/` starts with a frontmatter block. Only `title` is needed:
 title: Rotate an API key
 lede: Replace a key without downtime.
 description: How to rotate an Acme API key without breaking live traffic.
-last_updated: "2026-11-08"
+last_updated: 2026-11-08
 ---
 ```
 
@@ -48,9 +48,9 @@ show no breadcrumbs or related pages.
 </ParamField>
 <ParamField path="last_updated" type="string">
   Shown as "Last updated …" at the foot of the page, or beside the page
-  actions with `layout.pageActions: "menu"`. Written exactly as given. Quote
-  a date (`"2026-11-08"`): unquoted, YAML reads it as a date and the page
-  shows it in a long timestamp format.
+  actions with `layout.pageActions: "menu"`. A date written as
+  `2026-11-08` shows as "November 8, 2026". Put it in quotes, or write any
+  other text, to show it exactly as written.
 </ParamField>
 
 ## On this page

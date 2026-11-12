@@ -114,10 +114,14 @@ All notable changes to `@markline/markline` and `@markline/create`.
 
 ### Fixed
 - **Every operation on an API reference page has its own link.** Two operations
-  with the same summary, or one named like its resource (the "Text To Speech"
-  operation on the text-to-speech page), shared an id, so a link to the second
-  landed on the first. A repeat now gets `-1`, `-2` and so on; the first keeps
-  its link. The sidebar, endpoint list, events and search use the same ids.
+  with the same summary shared an id, so a link to the second landed on the
+  first. A repeat now gets `-1`, `-2` and so on, and the first keeps its link.
+  The sidebar, endpoint list, events and search use the same ids.
+- **An operation named like its resource moves to `#<slug>-1`.** The "Text To
+  Speech" operation on `/api-reference/text-to-speech` was `#text-to-speech`, the
+  resource's own id. It's now `#text-to-speech-1`, and `#text-to-speech` lands on
+  the resource's intro, as it already did in practice. Update links that meant
+  the operation.
 - **Link previews name the site on every page.** Doc pages, changelog entries
   and API reference pages set their own Open Graph and Twitter tags, which
   replaced the site's: they lost `og:site_name`, the `summary_large_image`

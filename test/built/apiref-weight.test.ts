@@ -80,8 +80,16 @@ const spec = {
 };
 const OPERATIONS = THINGS + 3;
 
-function site(dir: string, apiMatch: string[]) {
+/** v1's spec: only the "others" resource, so "things" exists in the default version alone. */
+const v1Spec = { ...spec, paths: Object.fromEntries(Object.entries(spec.paths).filter(([p]) => p.startsWith("/others/"))) };
+
+/** `versioned`: v2 (the default) and v1 with specs, and v0 with docs only. `single`: one version. */
+function site(dir: string, apiMatch: string[], versioned = false, single = false) {
   fs.mkdirSync(path.join(dir, "api"), { recursive: true });
+  if (versioned) {
+    fs.mkdirSync(path.join(dir, "v1", "api"), { recursive: true });
+    fs.writeFileSync(path.join(dir, "v1", "api", "openapi.json"), JSON.stringify(v1Spec));
+  }
   fs.mkdirSync(path.join(dir, "docs", "sdk"), { recursive: true });
   fs.writeFileSync(path.join(dir, "api", "openapi.json"), JSON.stringify(spec));
   fs.writeFileSync(path.join(dir, "docs", "index.mdx"), "---\ntitle: Home\n---\n\nHome.\n");
@@ -91,6 +99,11 @@ function site(dir: string, apiMatch: string[]) {
     path.join(dir, "markline.json"),
     JSON.stringify({
       name: "Weight",
+      ...(versioned
+        ? { versions: [{ id: "v2", label: "2.0 (latest)" }, { id: "v1", label: "1.0" }, { id: "v0", label: "0.9 docs only" }] }
+        : single
+          ? { versions: [{ id: "only", label: "The only one" }] }
+          : {}),
       navigation: {
         tabs: [
           {
@@ -143,8 +156,8 @@ before(() => {
   const parent = path.join(ROOT, ".test-tmp");
   fs.mkdirSync(parent, { recursive: true });
   tmp = fs.mkdtempSync(path.join(parent, "weight-"));
-  site(path.join(tmp, "reference"), ["/api-reference"]);
-  site(path.join(tmp, "holding"), ["/api-reference", "/sdk"]);
+  site(path.join(tmp, "reference"), ["/api-reference"], true);
+  site(path.join(tmp, "holding"), ["/api-reference", "/sdk"], false, true);
   reference = build("reference", path.join(tmp, "reference"));
   holding = build("holding", path.join(tmp, "holding"));
 }, { timeout: 600_000 });
@@ -245,4 +258,40 @@ test("code cards copy what they show, without a second copy of the code in the p
   assert.equal(count(html, "data-copy-card"), count(html, "data-expand"));
   assert.ok(count(html, "data-copy-card") >= cards, "every card has Copy and Expand");
   assert.equal(count(html, "data-copy="), 0, "no card carries its code in an attribute");
+});
+
+test("one version has no picker; two show their configured labels", { skip }, () => {
+  // Exactly one configured version.
+  const single = page(holding, "api-reference/others");
+  assert.doesNotMatch(single, /api-vwrap|aria-label="Version:/);
+  assert.doesNotMatch(single, /v1 · 1|>v1</, "the spec's info.version isn't shown as a version");
+  // The sidebar chip, not the header's own version switcher.
+  const chip = (html: string) => html.match(/class="api-ver"[^>]*>/)?.[0] ?? "";
+  assert.match(chip(page(reference, "api-reference/others")), /aria-label="Version: 2.0 \(latest\)"/);
+  assert.match(chip(page(reference, "api-reference/v1/others")), /aria-label="Version: 1.0"/);
+});
+
+test("switching versions has the same page to go to, or the reference to fall back on", { skip }, () => {
+  // The picker goes to /api-reference/v1/<same page> when it exists, else /api-reference/v1.
+  assert.ok(fs.existsSync(path.join(reference, "api-reference/v1/others.html")));
+  assert.ok(fs.existsSync(path.join(reference, "api-reference/v1/othersOp1.html")));
+  assert.equal(fs.existsSync(path.join(reference, "api-reference/v1/things.html")), false);
+  assert.ok(fs.existsSync(path.join(reference, "api-reference/v1.html")));
+});
+
+test("the right rail sticks below the header, whatever its height", { skip }, () => {
+  const dir = path.join(reference, "_next", "static", "css");
+  const css = fs.readdirSync(dir).map((f) => fs.readFileSync(path.join(dir, f), "utf8")).join("\n");
+  const rule = css.match(/\.ml-apiref \.api-r\s*\{[^}]*position:\s*sticky[^}]*\}/)?.[0];
+  assert.ok(rule, "the sticky rail rule is in the built CSS");
+  assert.match(rule, /top:\s*calc\(var\(--nav-h\)\s*\+\s*20px\)/);
+});
+
+test("a version with docs only isn't offered in the reference's picker", { skip }, () => {
+  // The picker's entries travel in the page's data as "versions"; the header's
+  // switcher, which lists every version for its docs, has its own "entries".
+  const html = page(reference, "api-reference/others");
+  const picker = html.match(/\\"versions\\":\[[^\]]*\]/)?.[0] ?? "";
+  assert.match(picker, /\\"label\\":\\"1\.0\\"/);
+  assert.doesNotMatch(picker, /v0|0\.9 docs only/);
 });

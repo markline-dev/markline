@@ -364,7 +364,9 @@ export function MarklineApiRef({
       <div className="api">
         {/* ============ LEFT NAV ============ */}
         <aside className="api-side">
+          {(searchInSidebar || aiOn || view.versions.length > 1) && (
           <div className="api-tools">
+            {(searchInSidebar || aiOn) && (
             <div className="api-toolrow">
               {searchInSidebar && (
                 <div className="api-search" onClick={() => openSearch()} role="button" tabIndex={0}>
@@ -380,11 +382,10 @@ export function MarklineApiRef({
                 </button>
               )}
             </div>
-            <VersionSelector
-              versions={view.versions}
-              buttonLabel={view.version && view.version !== view.versionLabel ? `${view.versionLabel} · ${view.version}` : view.versionLabel}
-            />
+            )}
+            <VersionSelector versions={view.versions} />
           </div>
+          )}
 
           {view.nav.map((n) => (
             <NavNodeView key={n.slug} node={n} base={view.base} />
@@ -752,7 +753,7 @@ function ResponseCard({ ep }: { ep: EndpointView }) {
   if (rs.length === 1) {
     const r = rs[0];
     return (
-      <div className="code-card resp" data-label={`${label} ${r.status}`}>
+      <div className="code-card resp" data-label={`${label} · ${r.status}`}>
         <div className="cc-head">
           <span className="cc-title">Response</span>
           <span className="cc-status">
@@ -851,7 +852,7 @@ function TryItCards({ ep }: { ep: EndpointView }) {
       </div>
 
       {live ? (
-        <div className="code-card resp" data-label={`${opLabel(ep)} · Response ${live.status}`}>
+        <div className="code-card resp" data-label={`${opLabel(ep)} · Response · ${live.status}`}>
           <div className="cc-head">
             <span className="cc-title">Response</span>
             <span className="cc-status">

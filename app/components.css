@@ -778,9 +778,15 @@ textarea.ml-pg-input { height: auto; padding: 8px 10px; line-height: 1.55; resiz
   border-radius: 4px;
   font-weight: 600;
 }
-.ml-apiref-verb.verb-POST { background: #D6F0E1; color: #15A66B; }
-.ml-apiref-verb.verb-GET { background: #DDE8FB; color: #2A6FDB; }
-.ml-apiref-verb.verb-DELETE { background: #F8D8D2; color: #D43A2C; }
+/* The API reference's method colours (app/api-reference.css .verb). */
+.ml-apiref-verb.verb-GET    { color: var(--c-cyan);   background: color-mix(in srgb, var(--c-cyan) 15%, transparent); }
+.ml-apiref-verb.verb-POST   { color: var(--c-green);  background: color-mix(in srgb, var(--c-green) 16%, transparent); }
+.ml-apiref-verb.verb-PUT    { color: var(--c-tan);    background: color-mix(in srgb, var(--c-tan) 16%, transparent); }
+.ml-apiref-verb.verb-PATCH  { color: var(--c-purple); background: color-mix(in srgb, var(--c-purple) 16%, transparent); }
+.ml-apiref-verb.verb-DELETE { color: var(--c-red);    background: color-mix(in srgb, var(--c-red) 15%, transparent); }
+[data-theme="light"] .ml-apiref-verb.verb-GET   { color: #0b7fa8; }
+[data-theme="light"] .ml-apiref-verb.verb-PUT   { color: #a5631f; }
+[data-theme="light"] .ml-apiref-verb.verb-PATCH { color: #5b3fe0; }
 .ml-apiref-ep { font-family: var(--mono); font-size: 13px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ml-apiref-desc { font-size: 12px; color: var(--ink-4); }
 
@@ -871,7 +877,7 @@ textarea.ml-pg-input { height: auto; padding: 8px 10px; line-height: 1.55; resiz
   gap: 8px;
   font-weight: 500;
   text-decoration: none;
-  border-radius: 10px;
+  border-radius: var(--btn-radius, 10px);
   transition: background .15s, border-color .15s, color .15s, opacity .15s;
   white-space: nowrap;
 }

@@ -45,7 +45,8 @@ export function wantedStats(config, docsDir) {
 
 
 function mdxFiles(dir, out = []) {
-  for (const e of fs.readdirSync(dir, { withFileTypes: true, throwIfNoEntry: false }) ?? []) {
+  if (!fs.existsSync(dir)) return out; // a site with no docs/ yet
+  for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
     const p = path.join(dir, e.name);
     if (e.isDirectory()) mdxFiles(p, out);
     else if (e.isFile() && e.name.endsWith(".mdx")) out.push(p);

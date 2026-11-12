@@ -534,12 +534,13 @@ See [API reference](/openapi) for the full guide — generating the reference, t
 
 <ParamField path="seo.title" type="string">
   The title of pages that have none of their own, such as the 404 page, and
-  the default for link previews. Unset, `name` is used. Setting it also turns
-  on `titleTemplate`; without it, a page's tab shows just its own `title`.
+  the default for link previews. Unset, `name` is used.
 </ParamField>
 <ParamField path="seo.titleTemplate" type="string">
   How pages' tab titles are written, with `%s` for the page's `title`.
-  Default `%s · <name>`. Only used when `seo.title` is set.
+  Default `%s · <site name>`, where the site name is `seo.siteName`, else
+  `name`. A page whose title is already the site name or `seo.title`, such as
+  a home page called "Acme", shows that title alone.
 </ParamField>
 <ParamField path="seo.description" type="string">
   The site's meta description. A page uses its own `description`, then its

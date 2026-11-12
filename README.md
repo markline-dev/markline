@@ -286,7 +286,7 @@ Available in any MDX page without an import:
 - **Interactive** — `<Tabs>` / `<Tab title>`, `<AccordionGroup>` / `<Accordion title>`,
   `<CodeGroup>` (synced code tabs)
 - **Text** — `<MenuPath>` for UI routes like **Settings → API keys**
-- **API** — `<ParamField path|query|header|body type required>`, `<ResponseField>`, `<EndpointList>`
+- **API** — `<ParamField path|query|header|body type required>`, `<ResponseField>`, `<EndpointList>`, `<ApiRefs>`
 - **Landing pages** — `<Hero>`, `<CTAButton>`, `<FeatureGrid>` / `<Feature>`, `<CTASection>`,
   `<SectionHead>`, `<StatStrip>` / `<Stat>`, `<Bento>` / `<BentoCard>`, `<CodeShowcase>`
 

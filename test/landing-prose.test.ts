@@ -36,3 +36,8 @@ test("the wrapper carries the classes templates style", () => {
   remarkLandingProse()(tree);
   assert.equal(tree.children[0].attributes[0].value, "docs-prose ml-landing-prose");
 });
+
+test("a code showcase is a section of its own, not part of the prose column", async () => {
+  const { LANDING_SECTIONS } = await import("../lib/landing-prose");
+  assert.ok(LANDING_SECTIONS.has("CodeShowcase"));
+});

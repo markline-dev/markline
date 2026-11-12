@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Wordmark } from "./landing/home/wordmark";
-import { variantOf, variantPath, type Variants } from "@/lib/variant-path";
+import { switchVariant, variantOf, type Variants } from "@/lib/variant-path";
 import { BANNER_KEY } from "@/lib/banner";
 import { BrandIcon, type LogoIcon } from "./brand-icon";
 import { useStat } from "./github-stars";
@@ -392,15 +392,7 @@ function VariantSwitcher({ variants, pathname }: { variants: Variants; pathname:
   const pick = async (id: string) => {
     setOpen(false);
     if (id === current) return;
-    const target = variantPath(pathname, id, variants);
-    let dest = target;
-    try {
-      const res = await fetch(target, { method: "HEAD" });
-      if (!res.ok) dest = variantPath("/", id, variants);
-    } catch {
-      // Offline or blocked: try the page anyway.
-    }
-    router.push(dest);
+    router.push(await switchVariant(pathname, id, variants, { base: process.env.NEXT_PUBLIC_MARKLINE_BASE_PATH ?? "" }));
   };
 
   return (

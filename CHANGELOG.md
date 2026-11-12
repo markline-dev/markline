@@ -60,6 +60,25 @@ All notable changes to `@markline/markline` and `@markline/create`.
   on, search and `llms.txt`. URLs don't change.
 
 ### Changed
+- **`markline export` refuses pages that would replace a served `.txt`
+  file.** An export writes each page's data as `<page>.txt`, so a page at
+  `/llms` replaced `llms.txt` (likewise `/llms-full`, `/robots`, a section's
+  `/<section>/llms` and any page matching a `.txt` in `public/`). The export now
+  stops and lists every such page, ignoring case; rename the page to export.
+  Server builds aren't affected.
+- **Every tab title names the site.** Without `seo.title`, a page's tab
+  read only its own title ("Quickstart"); it now reads "Quickstart · <site>",
+  as it did with `seo.title`. The site is `seo.siteName`, else `name`, and
+  `seo.titleTemplate` still overrides it. A page named after the site, such as
+  a home page, isn't repeated ("Acme", not "Acme · Acme").
+- **`<ApiRefs>` takes PUT and PATCH**, and its method chips use the API
+  reference's colours instead of their own pastels.
+- **Landing page buttons follow `theme.buttonRadius`.** `<CTAButton>` was
+  always 10px; with no `buttonRadius` it still is, and the `paper` and
+  `help-center` templates' landing buttons are now 8px, like their others.
+- **`<CodeShowcase>` is a landing section of its own**, outside the prose
+  column, as `<Hero>` and `<FeatureGrid>` are. Its width is unchanged; it
+  sits closer to the section above it.
 - **Specs with `x-tagGroups` now show them as sidebar sections,** which also
   sets the order of the reference's resources. Set `api.sections: []` to turn
   them off.
@@ -94,6 +113,13 @@ All notable changes to `@markline/markline` and `@markline/create`.
   header's picker.
 
 ### Fixed
+- **Link previews name the site on every page.** Doc pages, changelog entries
+  and API reference pages set their own Open Graph and Twitter tags, which
+  replaced the site's: they lost `og:site_name`, the `summary_large_image`
+  card type and, on changelog entries, `seo.ogImage`. They keep them now.
+- **The version and language switcher keeps the page under a base path.**
+  With `MARKLINE_BASE_PATH` set, it checked for the page without the base path,
+  never found it, and always went to the other version's home page.
 - **A site's own `llms.txt`, `llms-full.txt`, `robots.txt` and `sitemap.xml`
   are kept.** A build wrote over them, so a hand-made `robots.txt` (blocking
   some crawlers, say) was lost on every build. Now a file in the site's

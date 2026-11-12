@@ -28,6 +28,8 @@ toc:
     label: Paths
   - id: endpoint-lists
     label: Endpoint lists
+  - id: endpoint-cards
+    label: Endpoint cards
   - id: code-blocks-from-data
     label: Code blocks from data
   - id: github-stars
@@ -279,6 +281,25 @@ the spec:
 
 ```mdx
 <EndpointList tags={["users", "billing"]} />
+```
+
+## Endpoint cards
+
+`<ApiRefs>` shows a hand-picked set of endpoints as cards, two to a row: the
+method, the path and an optional description, each linking where you choose.
+`verb` is `GET`, `POST`, `PUT`, `PATCH` or `DELETE`, coloured as in the API
+reference.
+
+<ApiRefs items={[
+  { verb: "POST", ep: "/v1/projects", desc: "Create a project", href: "/openapi" },
+  { verb: "GET", ep: "/v1/projects/{id}", desc: "Get a project", href: "/openapi" },
+]} />
+
+```mdx
+<ApiRefs items={[
+  { verb: "POST", ep: "/v1/projects", desc: "Create a project", href: "/api-reference/createProject" },
+  { verb: "GET", ep: "/v1/projects/{id}", desc: "Get a project", href: "/api-reference/getProject" },
+]} />
 ```
 
 ## Code blocks from data

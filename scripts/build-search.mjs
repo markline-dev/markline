@@ -421,7 +421,7 @@ function generatedFiles(name) {
     written,
     /** `say`: log it when the site's own file is kept. */
     write(rel, text, { say = false } = {}) {
-      if (owned(rel)) {
+      if (owned(rel, text)) {
         if (say) console.log(`[markline] public/${rel} is the site's own; not generating it.`);
         return;
       }

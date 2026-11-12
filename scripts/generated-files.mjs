@@ -30,26 +30,30 @@ function realPublic(appDir) {
   return fs.lstatSync(pub).isDirectory() ? pub : null;
 }
 
-function removeEntry(pub, entry) {
+function removeEntry(pub, entry, sitePublic) {
   const { file, hash } = entry ?? {};
   if (typeof file !== "string" || !(file.endsWith(".md") || path.basename(file) === "llms.txt" || TOP_LEVEL.has(file))) return;
+  // The site has put a file there since (perhaps a copy of ours, to edit):
+  // the copy in public/ is its own now.
+  if (sitePublic && inside(sitePublic, path.resolve(sitePublic, file)) && fs.existsSync(path.resolve(sitePublic, file))) return;
   const abs = path.resolve(pub, file);
   if (abs === pub || !inside(pub, abs) || !inside(pub, fs.realpathSync(path.dirname(abs)))) return;
   if (hashOf(fs.readFileSync(abs)) === hash) fs.rmSync(abs, { force: true });
 }
 
 /**
- * Delete the files the last build generated in `appDir`/public. Never throws:
- * at worst, as in a read-only folder, the files stay.
+ * Delete the files the last build generated in `appDir`/public, except where
+ * the project's own public/ (`sitePublic`, which the CLI gives) now has that
+ * file. Never throws: at worst, as in a read-only folder, the files stay.
  */
-export function removeGeneratedFiles(appDir) {
+export function removeGeneratedFiles(appDir, sitePublic = process.env.MARKLINE_SITE_PUBLIC || undefined) {
   try {
     const manifest = path.join(appDir, MANIFEST);
     const entries = JSON.parse(fs.readFileSync(manifest, "utf8"));
     const pub = realPublic(appDir);
     for (const entry of pub && Array.isArray(entries) ? entries : []) {
       try {
-        removeEntry(pub, entry);
+        removeEntry(pub, entry, sitePublic && path.resolve(sitePublic));
       } catch {
         // already gone, or not a file
       }

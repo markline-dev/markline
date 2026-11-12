@@ -72,3 +72,33 @@ test("markline dev serves the site's own files", { skip }, async () => {
     assert.equal(await (await fetch(`${base}/${name}`)).text(), OWN[name], name);
   }
 });
+
+test("copying a generated file into public/ to edit it keeps it, then and on later builds", { skip }, () => {
+  const site = siteWith([]);
+  sites.push(site);
+  site.export();
+  // "Start customising": take our files as the starting point.
+  for (const f of ["robots.txt", "sitemap.xml", path.join("guides", "a.md")]) {
+    fs.mkdirSync(path.dirname(path.join(site.dir, "public", f)), { recursive: true });
+    fs.copyFileSync(path.join(site.dir, "out", f), path.join(site.dir, "public", f));
+  }
+  const copies = Object.fromEntries(["robots.txt", "sitemap.xml", path.join("guides", "a.md")].map((f) => [f, fs.readFileSync(path.join(site.dir, "public", f), "utf8")]));
+  for (let i = 0; i < 2; i++) {
+    site.export();
+    for (const [f, text] of Object.entries(copies)) {
+      assert.equal(fs.readFileSync(path.join(site.dir, "out", f), "utf8"), text, `${f}, export ${i + 2}`);
+    }
+  }
+});
+
+test("a generated sitemap goes once there's no site URL to make one", { skip }, () => {
+  const site = siteWith([]);
+  sites.push(site);
+  site.export();
+  assert.ok(fs.existsSync(path.join(site.dir, "out", "sitemap.xml")));
+  fs.writeFileSync(path.join(site.dir, "markline.json"), JSON.stringify({ name: "t" }));
+  site.export();
+  assert.ok(!fs.existsSync(path.join(site.dir, "out", "sitemap.xml")), "not in the export");
+  assert.ok(!fs.existsSync(path.join(site.dir, ".markline", "public", "sitemap.xml")), "nor left in the staged public/");
+  assert.equal(fs.readFileSync(path.join(site.dir, "out", "robots.txt"), "utf8"), "User-agent: *\nAllow: /\n", "robots.txt no longer names it");
+});

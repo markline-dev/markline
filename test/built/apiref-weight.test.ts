@@ -62,7 +62,8 @@ const MANY_RESPONSES = {
 
 const op = (i: number, tag: string) => ({
   operationId: `${tag}Op${i}`,
-  summary: `${tag} operation ${i}`,
+  // others 2 repeats others 1's summary: two operations, one slug.
+  summary: `${tag} operation ${tag === "others" && i === 2 ? 1 : i}`,
   // Long enough that clipping it for the palette would cut off the needle.
   description: `${"Describes the operation at some length. ".repeat(10)}${tag === "others" && i === 0 ? NEEDLE : ""}`,
   tags: [tag],
@@ -320,6 +321,22 @@ test("sections caption the sidebar, lead the order, and leave every URL where it
       .sort();
   assert.ok(pages(reference).length >= OPERATIONS);
   assert.deepEqual(pages(holding), pages(reference));
+});
+
+test("no id repeats on any API page, even where two operations share a summary", { skip }, () => {
+  for (const dist of [reference, holding]) {
+    const dir = path.join(dist, "api-reference");
+    for (const f of fs.readdirSync(dir).filter((n) => n.endsWith(".html"))) {
+      const html = fs.readFileSync(path.join(dir, f), "utf8");
+      const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]);
+      const repeated = ids.filter((id, i) => ids.indexOf(id) !== i);
+      assert.deepEqual(repeated, [], `${path.basename(dist)}/${f}`);
+    }
+  }
+  // The repeat is numbered, and the first keeps its id.
+  const others = page(reference, "api-reference/others");
+  assert.match(others, /id="others-operation-1"/);
+  assert.match(others, /id="others-operation-1-1"/);
 });
 
 test("a streamed operation is badged, its {parameters} set apart, and its path text unchanged", { skip }, () => {

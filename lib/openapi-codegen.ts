@@ -158,6 +158,9 @@ const RESERVED_WORDS = new Set([
   "long", "native", "new", "null", "package", "private", "protected", "public",
   "return", "short", "static", "super", "synchronized", "this", "throw",
   "throws", "transient", "typeof", "var", "void", "volatile", "with", "yield",
+  // Not keywords, but syntax errors as a `const` name in a module, which the
+  // samples are (they use top-level await).
+  "eval", "arguments",
 ]);
 
 /** Valid result-variable name for a tag ("tools/fx" → "fx", "payment-methods" → "paymentMethod").

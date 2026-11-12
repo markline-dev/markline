@@ -52,6 +52,8 @@ test("hyphenated tag is camelCased", () => {
 
 test("reserved word gets a Result suffix", () => {
   assert.match(nodeSample("types"), /const typeResult = await/);
+  // Not keywords, but invalid as a `const` name in a module.
+  assert.match(nodeSample("evals"), /const evalResult = await/);
 });
 
 test("trailing slash keeps the last segment", () => {

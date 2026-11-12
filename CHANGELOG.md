@@ -172,11 +172,11 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **Copy copies the tab that's showing.** In the API reference, Copy always
   copied the first tab: cURL when Node was picked, the 200 when 422 was. It
   also no longer stores a second copy of every sample in the page.
-- **API samples.** Generated SDK result variables take the last path segment
-  of the OpenAPI tag, singularize and camelCase it, and append `Result` when
-  the name collides with a reserved word in JS, Python or Go (`types` →
-  `typeResult`). Tags with a trailing slash keep their last segment instead of
-  degrading to `result`.
+- **Generated SDK samples use valid variable names.** The result variable comes
+  from the last part of the tag, camelCased (`tools/fx` → `fx`,
+  `payment-methods` → `paymentMethod`), and gets a `Result` suffix when it's a
+  reserved word in JS, Python or Go (`types` → `typeResult`). Before, a tag like
+  `text-to-speech` gave `const text-to-speech = …`, which doesn't run.
 
 ## 0.1.8
 

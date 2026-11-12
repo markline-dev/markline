@@ -73,6 +73,9 @@ function baseEnv(extra = {}) {
     ...process.env,
     MARKLINE_CONTENT: CONTENT_DIR,
     MARKLINE_CONFIG: CONFIG_PATH,
+    // The project's own public/, so the build never writes over a file there
+    // (scripts/site-files.mjs). Only ever set here, not from an env file.
+    MARKLINE_SITE_PUBLIC: path.join(CONTENT_DIR, "public"),
     ...extra,
   };
 }

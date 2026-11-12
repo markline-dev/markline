@@ -78,7 +78,7 @@ export function Path({
   );
 }
 
-type Verb = "POST" | "GET" | "DELETE";
+type Verb = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 export function ApiRefs({ items }: { items: { verb: Verb; ep: string; desc?: string; href: string }[] }) {
   return (

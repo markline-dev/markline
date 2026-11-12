@@ -9,7 +9,7 @@ import "./api-explorer.css";
 import "./docs.css";
 import "./components.css";
 import { SiteNav } from "@/components/site-nav";
-import { loadConfig, loadTemplateCss, hexToRgbTriple, type MarklineConfig, type TopbarItem, type TopbarLink } from "@/lib/config";
+import { loadConfig, loadTemplateCss, hexToRgbTriple, siteName, type MarklineConfig, type TopbarItem, type TopbarLink } from "@/lib/config";
 import { bannerExpired, bannerId, bannerScript } from "@/lib/banner";
 import { onColor } from "@/lib/contrast";
 import { fontLinks } from "@/lib/font-urls";
@@ -36,9 +36,8 @@ const config = loadConfig();
 
 export const metadata: Metadata = {
   ...(config.seo.metadataBase ? { metadataBase: new URL(config.seo.metadataBase) } : {}),
-  title: config.seo.title
-    ? { default: config.seo.title, template: config.seo.titleTemplate ?? `%s · ${config.name}` }
-    : config.name,
+  // Every page's tab reads "Page · Site", whether or not seo.title is set.
+  title: { default: config.seo.title ?? config.name, template: config.seo.titleTemplate ?? `%s · ${siteName(config)}` },
   description: config.seo.description,
   ...(config.theme.favicon ? { icons: { icon: config.theme.favicon } } : {}),
   openGraph: {

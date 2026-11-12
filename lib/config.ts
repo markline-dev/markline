@@ -256,6 +256,21 @@ export type ApiConfig = {
   };
 };
 
+/** The site's name in tab titles and link previews: seo.siteName, else name. */
+export function siteName(config: Pick<MarklineConfig, "name" | "seo">): string {
+  return config.seo.siteName ?? config.name;
+}
+
+/**
+ * A page's title for its tab. The layout adds " · <site>" to it, except when
+ * the page is named after the site already (a home page called "Markline"),
+ * which would read "Markline · Markline".
+ */
+export function pageTitle(title: string | undefined, config: Pick<MarklineConfig, "name" | "seo">) {
+  if (!title) return undefined;
+  return title === siteName(config) || title === config.seo.title ? { absolute: title } : title;
+}
+
 /** Resolve the effective playground mode (honors the deprecated `enabled` flag). */
 export function playgroundMode(api: ApiConfig): "full" | "inline" | "explorer" | "off" {
   const pg = api.playground;

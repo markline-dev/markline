@@ -136,6 +136,14 @@ test("the build uses the read-only cache handler, and a standalone deploy has it
   assert.equal(fs.readFileSync(loaded, "utf8"), fs.readFileSync(path.join(REPO, "scripts", "read-only-cache.cjs"), "utf8"));
 });
 
+test("doc, changelog entry and API reference pages keep the site's Open Graph fields", { skip }, async () => {
+  for (const p of ["/guides/a", "/changelog/2026/10/15", "/api-reference/things"]) {
+    const html = await (await fetch(`${base}${p}`)).text();
+    assert.match(html, /<meta property="og:site_name" content="Cache Test Site"\/>/, `og:site_name on ${p}`);
+    assert.match(html, /<meta name="twitter:card" content="summary_large_image"\/>/, `twitter:card on ${p}`);
+  }
+});
+
 test("a page added after the build is served fresh, stores nothing, and goes when deleted", { skip }, async () => {
   const cache = path.join(site.dir, ".markline", ".next", "server", "app");
   const before = filesUnder(cache);

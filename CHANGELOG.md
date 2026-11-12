@@ -87,6 +87,13 @@ All notable changes to `@markline/markline` and `@markline/create`.
   header's picker.
 
 ### Fixed
+- **Link previews name the site on every page.** Doc pages, changelog entries
+  and API reference pages set their own Open Graph and Twitter tags, which
+  replaced the site's: they lost `og:site_name`, the `summary_large_image`
+  card type and, on changelog entries, `seo.ogImage`. They keep them now.
+- **The version and language switcher keeps the page under a base path.**
+  With `MARKLINE_BASE_PATH` set, it checked for the page without the base path,
+  never found it, and always went to the other version's home page.
 - **A site's own `llms.txt`, `llms-full.txt`, `robots.txt` and `sitemap.xml`
   are kept.** A build wrote over them, so a hand-made `robots.txt` (blocking
   some crawlers, say) was lost on every build. Now a file in the site's

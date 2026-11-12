@@ -71,6 +71,8 @@ test("every id on the page is unique, and every link to an operation lands on it
   const active = view.nav.find((n) => n.kind === "resource" && n.active);
   assert.ok(active && active.kind === "resource");
   assert.deepEqual(active.ops.filter((o) => o.verb).map((o) => o.id), sectionIds);
+  // The sidebar heading jumps to the intro (#<slug>); no operation takes that id from it.
+  assert.equal(active.ops.some((o) => o.id === r.slug), false);
   // "Emitted by" points at the section of the operation that emits it.
   const done = r.events.find((ev) => ev.name === "event.done");
   assert.deepEqual(done?.emittedBy.map((e) => e.id), [r.sections.find((sec) => sec.opId === "eventful")!.id]);

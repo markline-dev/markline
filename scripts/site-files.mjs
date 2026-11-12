@@ -20,6 +20,7 @@ const INDEX_LINE = [
   /^This index lists the documentation\. The full text of every page concatenated into one file is available at \[llms-full\.txt\]\([^)\s]*\)\.$/,
   /^Add `\.md` to any page's URL for its Markdown/,
   /^## \S.*$/,
+  /^### \S.*$/, // API reference sections
   /^- \[[^\]\n]*\]\([^)\s]*\)(?:: .*)?$/,
 ];
 

@@ -154,6 +154,22 @@ export class BufferBudget {
 /** Bytes held by the proxy's requests in progress, across this server. */
 export const PROXY_BUFFERED = { bytes: 0 };
 
+/** Methods the proxy sends a second time when the first attempt's connection was
+ *  reset before any reply: safe to repeat, and with no body to replay. */
+export const RETRIED_METHODS = new Set(["GET", "HEAD"]);
+
+const RESET_CODES = new Set(["ECONNRESET", "UND_ERR_SOCKET", "EPIPE"]);
+
+/**
+ * Whether fetch failed because the connection was dropped under it, as when it
+ * reuses an idle connection the API has just closed. `fetch` only rejects before
+ * the reply's headers, so this is always before any of the reply arrived.
+ */
+export function isConnectionReset(e: unknown): boolean {
+  const code = (e as { cause?: { code?: unknown } })?.cause?.code;
+  return typeof code === "string" && RESET_CODES.has(code);
+}
+
 export const OVER_BUDGET = Symbol("over budget");
 
 /**

@@ -22,6 +22,7 @@ const doc: OpenAPIDoc = {
   info: { title: "Acme Payments API", version: "1.0.0" },
   servers: [{ url: "https://api.example.com" }],
   tags: [],
+  sections: [],
   tagLabels: {},
   operationsById: {},
   securitySchemes: {},

@@ -46,7 +46,8 @@ const spec = {
 
 test("operationAnchors: one id each, the first keeps its own, and the page's ids are skipped", () => {
   const doc = normalize(spec, {});
-  const anchors = operationAnchors(doc.tags[0], doc);
+  const byOp = operationAnchors(doc.tags[0], doc);
+  const anchors = { get: (id: string) => byOp.get(doc.operationsById[id]), values: () => byOp.values(), size: byOp.size };
   assert.equal(anchors.get("docDependents"), "get-dependent-agents-list", "the first keeps its id");
   assert.equal(anchors.get("toolDependents"), "get-dependent-agents-list-1");
   // The resource itself is #text-to-speech, so the operation of that name moves.
@@ -87,4 +88,22 @@ test("a spec with no repeats keeps every id it had", () => {
   };
   const doc = normalize(plain, {});
   assert.deepEqual([...operationAnchors(doc.tags[0], doc).values()], ["get-agent", "create-agent"]);
+});
+
+test("two operations with one operationId: a warning, and still two anchors on the page", () => {
+  const dup = {
+    ...spec,
+    paths: {
+      "/a": { get: op("same", "Get Thing") },
+      "/b": { post: op("same", "Get Thing", "post") },
+    },
+  };
+  const doc = normalize(dup, {});
+  assert.ok(doc.warnings.some((w) => w.includes('operationId "same" is used by both GET /a and POST /b')));
+  const ops = doc.tags[0].operations;
+  assert.equal(ops.length, 2, "the resource page shows both");
+  const ids = [...operationAnchors(doc.tags[0], doc).values()];
+  assert.deepEqual(ids, ["get-thing", "get-thing-1"]);
+  const view = buildApiRefView(doc, dup, "text-to-speech");
+  assert.deepEqual(view.resource.sections.map((s) => s.id), ids);
 });

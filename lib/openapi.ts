@@ -369,6 +369,14 @@ export function normalize(input: any, opts: NormalizeOptions = {}): OpenAPIDoc {
         events: parseOperationEvents(op, raw),
       };
 
+      // Two operations with one operationId: the per-operation page (and anything
+      // looked up by id) gets the last; the resource page still shows both.
+      const earlier = byId[operationId];
+      if (earlier) {
+        warnings.push(
+          `[markline] operationId "${operationId}" is used by both ${earlier.method.toUpperCase()} ${earlier.path} and ${method.toUpperCase()} ${pathStr}. Its page, /api-reference/${operationId}, shows the second; give each operation its own operationId.`,
+        );
+      }
       byId[operationId] = operation;
       if (!tagsMap.has(tag)) tagsMap.set(tag, []);
       tagsMap.get(tag)!.push(operation);

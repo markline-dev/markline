@@ -179,6 +179,24 @@ export function base64ToBytes(s: string): Uint8Array {
 }
 
 /** Image types a browser shows as an image, never as a page or a script. */
+/** Audio types a browser plays: a known list, not all of `audio/*`. */
+const SAFE_AUDIO_TYPES = new Set([
+  "audio/mpeg",
+  "audio/mp3",
+  "audio/mp4",
+  "audio/aac",
+  "audio/x-aac",
+  "audio/wav",
+  "audio/x-wav",
+  "audio/wave",
+  "audio/vnd.wave",
+  "audio/ogg",
+  "audio/opus",
+  "audio/webm",
+  "audio/flac",
+  "audio/x-flac",
+  "audio/x-m4a",
+]);
 const SAFE_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/gif", "image/webp", "image/avif", "image/bmp"]);
 const SAFE_OTHER_TYPES = new Set([
   "application/pdf",
@@ -199,7 +217,7 @@ const SAFE_OTHER_TYPES = new Set([
 export function safeBlobType(ct: string | undefined | null): string {
   const b = base(ct ?? undefined);
   if (!/^[a-z0-9][a-z0-9!#$&^_.+-]*\/[a-z0-9][a-z0-9!#$&^_.+-]*$/.test(b)) return "application/octet-stream";
-  if (/^audio\//.test(b) || SAFE_IMAGE_TYPES.has(b) || SAFE_OTHER_TYPES.has(b)) return b;
+  if (SAFE_AUDIO_TYPES.has(b) || SAFE_IMAGE_TYPES.has(b) || SAFE_OTHER_TYPES.has(b)) return b;
   return "application/octet-stream";
 }
 

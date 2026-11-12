@@ -93,11 +93,12 @@ button text in dark mode without any setting. To choose it yourself:
 ## Buttons
 
 <ParamField path="theme.buttonRadius" type="string">
-  Corner radius of buttons: the topbar buttons, buttons on landing pages, and
-  the smaller buttons on docs pages such as Copy for LLM. Any CSS length, like
-  `"8px"` or `"0.5rem"`. Unset, the topbar and landing buttons are pills and
-  the smaller ones have slightly rounded corners, unless your template sets
-  it: `paper` and `help-center` use `8px`.
+  Corner radius of buttons: the topbar buttons, [`<CTAButton>`](/landing-pages#hero)
+  on landing pages, and the smaller buttons on docs pages such as Copy for
+  LLM. Any CSS length, like `"8px"` or `"0.5rem"`. Unset, the topbar buttons
+  are pills, `<CTAButton>` has `10px` corners and the smaller ones slightly
+  rounded corners, unless your template sets it: `paper` and `help-center`
+  use `8px`.
 </ParamField>
 
 ## Icons

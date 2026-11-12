@@ -14,6 +14,7 @@ import { apiSearchRecords, resourcePages, specWarnings } from "./openapi-order.m
 import { searchGroups, searchTrails } from "./search-groups.mjs";
 import { markdownPath, mdxToMarkdown, pageMarkdown, sectionIds, sectionIndex } from "./llms.mjs";
 import { removeGeneratedFiles, writeManifest } from "./generated-files.mjs";
+import { siteFiles } from "./site-files.mjs";
 import { writeGithubStats } from "./github-stats.mjs";
 import { contentRootFrom } from "./content-root.mjs";
 import { unified } from "unified";
@@ -297,6 +298,7 @@ function writeLlms(root) {
   const abs = (u) => (base ? base + u : u);
 
   const docMap = docPagesForLlms(root);
+  const out = generatedFiles(name);
 
   // Order docs by the nav groups of every content tab (an OpenAPI tab has no
   // groups of its own). Walking only the first one dropped the pages of any
@@ -368,10 +370,8 @@ function writeLlms(root) {
     full += `${d.body}\n`;
   }
 
-  const pub = path.join(process.cwd(), "public");
-  fs.mkdirSync(pub, { recursive: true });
-  fs.writeFileSync(path.join(pub, "llms.txt"), `${idx.trim()}\n`);
-  fs.writeFileSync(path.join(pub, "llms-full.txt"), `${full.trim().replace(/\n{3,}/g, "\n\n")}\n`);
+  out.write("llms.txt", `${idx.trim()}\n`, { say: true });
+  out.write("llms-full.txt", `${full.trim().replace(/\n{3,}/g, "\n\n")}\n`, { say: true });
 
   // ---- sitemap.xml + robots.txt ----
   // Written as static files (like llms.txt) so they survive `output: export`,
@@ -392,52 +392,69 @@ function writeLlms(root) {
     const urls = [...pages]
       .map((u) => `  <url>\n    <loc>${xmlEsc(base + u)}</loc>\n    <changefreq>weekly</changefreq>\n  </url>`)
       .join("\n");
-    fs.writeFileSync(
-      path.join(pub, "sitemap.xml"),
+    out.write(
+      "sitemap.xml",
       `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls}\n</urlset>\n`,
+      { say: true },
     );
   }
-  fs.writeFileSync(
-    path.join(pub, "robots.txt"),
-    `User-agent: *\nAllow: /\n${base ? `\nSitemap: ${base}/sitemap.xml\n` : ""}`,
-  );
+  out.write("robots.txt", `User-agent: *\nAllow: /\n${base ? `\nSitemap: ${base}/sitemap.xml\n` : ""}`, { say: true });
   const docCount = sections.reduce((n, s) => n + s.pages.length, 0) + leftover.length;
   console.log(`[markline] llms.txt (${docCount} docs, ${apis.length} API resources) + llms-full.txt -> public/`);
 
-  writeMarkdownFiles(root, cfg, { name, abs }, sectionList);
+  writeMarkdownFiles(root, cfg, { name, abs }, sectionList, out);
+  out.finish();
+}
+
+/**
+ * Writes the files the build generates into public/, never over the site's own
+ * (scripts/site-files.mjs). The last build's are removed first, by the manifest
+ * that lists them, which `finish` writes for this build's.
+ */
+function generatedFiles(name) {
+  const appPublic = path.join(process.cwd(), "public");
+  removeGeneratedFiles(process.cwd());
+  const site = process.env.MARKLINE_SITE_PUBLIC;
+  const owned = siteFiles({ appPublic, sitePublic: site ? path.resolve(site) : undefined, name });
+  const written = [];
+  return {
+    written,
+    /** `say`: log it when the site's own file is kept. */
+    write(rel, text, { say = false } = {}) {
+      if (owned(rel)) {
+        if (say) console.log(`[markline] public/${rel} is the site's own; not generating it.`);
+        return;
+      }
+      const file = path.join(appPublic, rel);
+      fs.mkdirSync(path.dirname(file), { recursive: true });
+      fs.writeFileSync(file, text);
+      written.push(rel);
+    },
+    finish() {
+      writeManifest(process.cwd(), written);
+    },
+  };
 }
 
 /* ── <page>.md and <section>/llms.txt ──────────────────────────────────────
    Each page's Markdown at its URL plus `.md`, and an llms.txt per top-level
    folder, written into public/ so they're plain files on any host. Their
-   paths depend on the content, so the list is kept in a manifest and the
-   previous build's files are removed first. A file the site's own public/
-   already has is never overwritten. */
+   paths depend on the content; generatedFiles keeps them in its manifest and
+   never writes over the site's own. */
 
-function writeMarkdownFiles(root, cfg, opts, sectionList) {
-  const pub = path.join(process.cwd(), "public");
-  removeGeneratedFiles(process.cwd());
-
-  const written = [];
-  const write = (rel, text) => {
-    const file = path.join(pub, rel);
-    if (fs.existsSync(file)) return; // the site's own file
-    fs.mkdirSync(path.dirname(file), { recursive: true });
-    fs.writeFileSync(file, text);
-    written.push(rel);
-  };
-
+function writeMarkdownFiles(root, cfg, opts, sectionList, out) {
+  const before = out.written.length;
   const docs = [...docPagesForLlms(root).values()];
   const variants = contentPrefixIds(root).flatMap((id) => [...docPagesForLlms(root, id).values()]);
   for (const d of [...docs, ...variants]) {
     if (d.layout === "landing") continue;
     // With entries, /changelog is them; its .mdx is only the intro.
     if (d.url === "/changelog" && changelogEntries(root).length) continue;
-    write(markdownPath(d.url).slice(1), pageMarkdown(d));
+    out.write(markdownPath(d.url).slice(1), pageMarkdown(d));
   }
-  for (const id of sectionList) write(`${id}/llms.txt`, sectionIndex(cfg, docs, id, opts));
+  for (const id of sectionList) out.write(`${id}/llms.txt`, sectionIndex(cfg, docs, id, opts));
 
-  writeManifest(process.cwd(), written);
+  const written = out.written.slice(before);
   const pages = written.filter((f) => f.endsWith(".md")).length;
   console.log(`[markline] ${pages} page .md files + ${written.length - pages} section llms.txt -> public/`);
 }

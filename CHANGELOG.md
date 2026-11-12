@@ -75,6 +75,12 @@ All notable changes to `@markline/markline` and `@markline/create`.
   three statuses, the card offers a dropdown instead of tabs.
 
 ### Fixed
+- **A site's own `llms.txt`, `llms-full.txt`, `robots.txt` and `sitemap.xml`
+  are kept.** A build wrote over them, so a hand-made `robots.txt` (blocking
+  some crawlers, say) was lost on every build. Now a file in the site's
+  `public/` wins, in `markline build`, `export`, `start` and `dev`, and the build
+  says it kept it. A copy an earlier build left in `.markline/` isn't mistaken
+  for the site's.
 - **`last_updated` shows a date, not a timestamp.** Unquoted, as in
   `last_updated: 2026-11-08`, it showed as "Sun Nov 08 2026 00:00:00 GMT…"; it
   now shows "November 8, 2026". A quoted value still shows as written.

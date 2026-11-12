@@ -1,5 +1,6 @@
-// The files build-search.mjs generates into public/ whose paths depend on the
-// content (<page>.md, <section>/llms.txt). A manifest beside public/ lists them
+// The files build-search.mjs generates into public/: <page>.md and
+// <section>/llms.txt, whose paths depend on the content, and llms.txt,
+// llms-full.txt, robots.txt and sitemap.xml. A manifest beside public/ lists them
 // so they can be removed: by the next build, and by `next dev`, where a leftover
 // file would beat the route handler and serve text from before the last edit.
 // It's kept out of public/ because that folder comes from the docs project and
@@ -11,6 +12,9 @@ import fs from "node:fs";
 import path from "node:path";
 
 const MANIFEST = ".markline-generated.json";
+
+/** The files at the top of public/ the build generates, besides llms.txt. */
+const TOP_LEVEL = new Set(["llms-full.txt", "robots.txt", "sitemap.xml"]);
 
 const hashOf = (text) => crypto.createHash("sha256").update(text).digest("hex");
 
@@ -28,7 +32,7 @@ function realPublic(appDir) {
 
 function removeEntry(pub, entry) {
   const { file, hash } = entry ?? {};
-  if (typeof file !== "string" || !(file.endsWith(".md") || path.basename(file) === "llms.txt")) return;
+  if (typeof file !== "string" || !(file.endsWith(".md") || path.basename(file) === "llms.txt" || TOP_LEVEL.has(file))) return;
   const abs = path.resolve(pub, file);
   if (abs === pub || !inside(pub, abs) || !inside(pub, fs.realpathSync(path.dirname(abs)))) return;
   if (hashOf(fs.readFileSync(abs)) === hash) fs.rmSync(abs, { force: true });

@@ -187,11 +187,11 @@ function anchorBase(op: OpenAPIOperation): string {
 }
 
 /**
- * Each operation's id on its resource's page, by operationId: its own slug, with
+ * Each operation's id on its resource's page: its own slug, with
  * repeats numbered and the page's own ids (the resource, its object, its endpoint
  * list and its events) left alone. Everything that links to an operation uses it.
  */
-export function operationAnchors(tag: OpenAPITag, doc: Pick<OpenAPIDoc, "webhooks">): Map<string, string> {
+export function operationAnchors(tag: OpenAPITag, doc: Pick<OpenAPIDoc, "webhooks">): Map<OpenAPIOperation, string> {
   const slug = tagSlug(tag.name);
   const events = [
     ...(tag.events ?? []).map((e) => e.name),
@@ -199,7 +199,7 @@ export function operationAnchors(tag: OpenAPITag, doc: Pick<OpenAPIDoc, "webhook
   ];
   const reserved = [slug, `${slug}-object`, `ep-panels-${slug}`, ...events.map(eventAnchor)];
   const ids = uniqueAnchors(tag.operations.map(anchorBase), reserved);
-  return new Map(tag.operations.map((op, i) => [op.operationId, ids[i]]));
+  return new Map(tag.operations.map((op, i) => [op, ids[i]]));
 }
 
 export function displayName(s: string): string {
@@ -362,13 +362,13 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
   // webhooks, with emittedBy). Shared by the nav jumps and the Events tab.
   const events = buildResourceEvents(activeTag, doc, root);
   // One id per operation on this page; every link to an operation uses it.
-  const anchors = activeTag ? operationAnchors(activeTag, doc) : new Map<string, string>();
+  const anchors = activeTag ? operationAnchors(activeTag, doc) : new Map<OpenAPIOperation, string>();
   const activeOps: NavOp[] = activeTag
     ? [
         // No jump to the resource's intro here: its heading above is that jump,
         // so the resource's name isn't listed twice.
         ...activeTag.operations.map((op) => ({
-          id: anchors.get(op.operationId)!,
+          id: anchors.get(op)!,
           verb: VERB[op.method] ?? op.method.toUpperCase(),
           name: op.summary ?? op.operationId,
           opId: op.operationId,
@@ -429,7 +429,7 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
       title: op.summary ?? op.operationId,
       verb: VERB[op.method] ?? op.method.toUpperCase(),
       path: op.path,
-      id: anchors.get(op.operationId)!,
+      id: anchors.get(op)!,
       deprecated: op.deprecated,
       streaming: op.streaming,
     })),
@@ -437,7 +437,7 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
     object,
     sections: [],
   };
-  const hoisted = hoistEndpoints<ApiRefView["endpoints"][number], EndpointView>((activeTag?.operations ?? []).map((op) => buildEndpoint(op, doc, root, baseUrl, langs, interactive, base, anchors.get(op.operationId)!)));
+  const hoisted = hoistEndpoints<ApiRefView["endpoints"][number], EndpointView>((activeTag?.operations ?? []).map((op) => buildEndpoint(op, doc, root, baseUrl, langs, interactive, base, anchors.get(op)!)));
   resource.sections = hoisted.sections;
 
   return {
@@ -486,7 +486,7 @@ function buildSearchIndex(doc: OpenAPIDoc, base = "/api-reference"): SearchEntry
         crumbs: [...groupCrumbs, name],
         snippet: op.description || `${op.method.toUpperCase()} ${op.path}`,
         verb: (VERB[op.method] ?? op.method.toUpperCase()).toLowerCase(),
-        href: `${base}/${slug}#${anchors.get(op.operationId)}`,
+        href: `${base}/${slug}#${anchors.get(op)}`,
       });
     }
     for (const ev of tag.events ?? []) {
@@ -552,7 +552,7 @@ function buildResourceEvents(activeTag: OpenAPITag | undefined, doc: OpenAPIDoc,
   const emittedBy = new Map<string, { title: string; id: string; verb: string }[]>();
   for (const op of activeTag.operations) {
     for (const ev of op.events) {
-      const id = anchors.get(op.operationId)!;
+      const id = anchors.get(op)!;
       const list = emittedBy.get(ev.name) ?? [];
       if (!list.some((e) => e.id === id)) {
         list.push({ title: op.summary ?? op.operationId, id, verb: VERB[op.method] ?? op.method.toUpperCase() });

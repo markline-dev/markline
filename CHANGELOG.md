@@ -123,6 +123,16 @@ All notable changes to `@markline/markline` and `@markline/create`.
   header's picker.
 
 ### Fixed
+- **Generated Node samples with Fern names camelCase nested keys too**
+  (`voiceSettings: { similarityBoost: 1 }`), as Fern's TypeScript SDK does. A
+  free-form map's keys (`additionalProperties`) stay as written.
+- **Generated Go samples no longer set objects to `nil`.** An optional object or
+  array is left out; a required one is a comment to fill in
+  (`// VoiceSettings: required; see the API reference`).
+- **Try it plays only known audio types** (MP3, WAV, Ogg, FLAC, AAC, WebM and the
+  like). Anything else under `audio/` downloads as a file.
+- **Two operations with one `operationId` each keep their own anchor.** The
+  build warns about it: the per-operation page can show only one of them.
 - **Try it masks an API key sent as a query parameter or cookie, not just as a
   header.** The cURL, Node, Python and Go code it shows, and Copy URL, showed a
   query-parameter key in full. Now every key the spec's security schemes name

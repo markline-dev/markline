@@ -212,7 +212,7 @@ function v2(raw: Node, refs: Refs, servers: Record<string, string>): AsyncChanne
         parameters,
         ...wsBinding(ch, refs),
         messages: [...operationMessages(publish, "send", address, refs), ...operationMessages(subscribe, "receive", address, refs)],
-        deprecated: ch.deprecated === true || publish?.deprecated === true || undefined,
+        deprecated: ch.deprecated === true || publish?.deprecated === true || subscribe?.deprecated === true || undefined,
       },
     ];
   });

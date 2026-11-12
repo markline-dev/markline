@@ -204,3 +204,21 @@ test("a $ref outside the document, to nothing, or in a loop is skipped with a wa
   const ok = channel(doc.channels, "/a").messages[0];
   assert.equal(ok.payload?.properties?.next.description, "(recursive)");
 });
+
+test("2.x: a channel is deprecated by itself, or by either of its operations", () => {
+  const base = { asyncapi: "2.6.0", info: { title: "t", version: "1" } };
+  const msg = { message: { name: "m", payload: { type: "string" } } };
+  const doc = normalizeAsyncApi({
+    ...base,
+    channels: {
+      "/own": { deprecated: true, publish: msg },
+      "/pub": { publish: { ...msg, deprecated: true } },
+      "/sub": { subscribe: { ...msg, deprecated: true } },
+      "/live": { publish: msg, subscribe: msg },
+    },
+  });
+  assert.deepEqual(
+    doc.channels.map((c) => [c.id, c.deprecated ?? false]),
+    [["/own", true], ["/pub", true], ["/sub", true], ["/live", false]],
+  );
+});

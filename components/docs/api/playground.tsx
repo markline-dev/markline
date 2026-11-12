@@ -17,6 +17,7 @@ import {
 import { formFieldArg, formFileArg, headerWord, shellWord } from "@/lib/openapi-curl";
 import { colorizeCurl, colorizeJsonHtml, escHtml } from "@/lib/playground-highlight";
 import { MAX_PROXY_UPLOAD_BYTES } from "@/lib/playground-proxy";
+import { CODE_MASK, maskHeaders, maskQuery, maskUrl, RAIL_MASK, secretsOf } from "@/lib/tryit-mask";
 
 export type PlaygroundParam = { name: string; required: boolean; sample: string; description?: string; type?: string; enum?: string[] };
 
@@ -32,6 +33,9 @@ export type PlaygroundSpec = {
   headerParams: PlaygroundParam[];
   bearer: boolean;
   apiKeyHeaders: { name: string }[];
+  /** API-key query parameters and cookies, masked in the code shown. */
+  apiKeyQuery?: string[];
+  apiKeyCookies?: string[];
   bodySample?: string;
   /** Request media type when it isn't plain `application/json`
    *  (`multipart/form-data`, `application/x-www-form-urlencoded`, …). For forms,
@@ -207,12 +211,11 @@ export function PlaygroundProvider({ spec, children }: { spec: PlaygroundSpec; c
   }
 
   const curl = useMemo(() => {
-    const headers = buildHeaders();
-    const lines = [`curl --request ${spec.method.toUpperCase()} \\`, `  --url ${shellQuote(targetUrl)}`];
-    for (const [k, v] of Object.entries(headers)) {
+    // Credentials never show in clear text, whichever header or query parameter carries them.
+    const secrets = secretsOf(spec);
+    const lines = [`curl --request ${spec.method.toUpperCase()} \\`, `  --url ${shellQuote(maskUrl(targetUrl, secrets, RAIL_MASK))}`];
+    for (const [k, shown] of maskHeaders(buildHeaders(), secrets, RAIL_MASK)) {
       lines[lines.length - 1] += " \\";
-      // Credentials never show in clear text, whichever header carries them.
-      const shown = k === "Authorization" ? "Bearer <token>" : isApiKeyHeader(spec, k) ? "<api-key>" : v;
       lines.push(`  --header ${shellQuote(`${k}: ${shown}`)}`);
     }
     if (hasBody) {
@@ -580,7 +583,8 @@ function ExplorerModal({ onClose }: { onClose: () => void }) {
         <div className="xp-top">
           <ExplorerEndpoint />
           <div className="xp-url"><ExplorerUrl /></div>
-          <CopyButton className="xp-url-copy" text={pg.targetUrl} label="Copy URL" />
+          {/* Like the code shown, a copied URL never carries an API key. */}
+          <CopyButton className="xp-url-copy" text={maskUrl(pg.targetUrl, secretsOf(pg.spec), RAIL_MASK)} label="Copy URL" />
           <button type="button" className="xp-clear" onClick={clearAll}>Clear</button>
           <button type="button" className={`xp-run${pg.loading ? " sending" : ""}`} onClick={pg.send} disabled={pg.loading}>
             <svg viewBox="0 0 24 24" aria-hidden><path d="M8 5v14l11-7z" /></svg>
@@ -785,7 +789,7 @@ function ParamRow({ loc, param }: { loc: Loc; param: PlaygroundParam }) {
     control = <HashEditor name={param.name} />;
   } else {
     control = (
-      <input className="xp-input" type={isApiKeyHeader(pg.spec, param.name) ? "password" : undefined} value={val} placeholder={`enter ${param.name}`} spellCheck={false} onChange={(e) => pg.setParam(loc, param.name, e.target.value)} aria-label={param.name} />
+      <input className="xp-input" type={isApiKeyHeader(pg.spec, param.name) || (loc === "query" && (pg.spec.apiKeyQuery ?? []).includes(param.name)) ? "password" : undefined} value={val} placeholder={`enter ${param.name}`} spellCheck={false} onChange={(e) => pg.setParam(loc, param.name, e.target.value)} aria-label={param.name} />
     );
   }
   return (
@@ -955,21 +959,27 @@ function genCode(lang: LangId, spec: PlaygroundSpec, pg: Ctx, bodyObj: Record<st
   const method = spec.method.toUpperCase();
   const isRead = method === "GET" || method === "DELETE" || method === "HEAD";
 
-  const headers: { k: string; v: string }[] = [];
-  if (spec.bearer) headers.push({ k: "Authorization", v: pg.token ? "Bearer ••••" : "Bearer sk_live_••••" });
-  for (const ak of spec.apiKeyHeaders) { if (pg.getParam("header", ak.name)) headers.push({ k: ak.name, v: "••••" }); }
-  for (const hp of spec.headerParams) { const v = pg.getParam("header", hp.name); if (v) headers.push({ k: hp.name, v }); }
+  // What the request sends, then masked for showing: keys and tokens never appear.
+  const secrets = secretsOf(spec);
+  const sent: Record<string, string> = {};
+  if (spec.bearer && pg.token) sent.Authorization = `Bearer ${pg.token}`;
+  for (const ak of spec.apiKeyHeaders) { const v = pg.getParam("header", ak.name); if (v) sent[ak.name] = v; }
+  for (const hp of spec.headerParams) { const v = pg.getParam("header", hp.name); if (v) sent[hp.name] = v; }
+  const headers = maskHeaders(sent, secrets, CODE_MASK).map(([k, v]) => ({ k, v }));
+  if (spec.bearer && !pg.token) headers.unshift({ k: "Authorization", v: "Bearer sk_live_••••" });
 
   const writeFields = Object.entries(bodyObj).filter(([, v]) => v !== null && typeof v !== "object" && v !== "");
-  const queryFields = spec.queryParams
-    .map((p) => [p.name, pg.getParam("query", p.name)] as [string, string])
-    .filter(([, v]) => v !== "");
+  const queryFields = maskQuery(
+    spec.queryParams.map((p) => [p.name, pg.getParam("query", p.name)] as [string, string]).filter(([, v]) => v !== ""),
+    secrets,
+    CODE_MASK,
+  );
 
   if (lang === "curl") {
     const lines: string[] = [];
     let head = `<span class="f">curl</span>`;
     if (method !== "GET" && method !== "POST") head += ` -X ${method}`;
-    head += ` <span class="s">${escHtml(shellWord(pg.targetUrl))}</span>`;
+    head += ` <span class="s">${escHtml(shellWord(maskUrl(pg.targetUrl, secrets, CODE_MASK)))}</span>`;
     lines.push(head);
     headers.forEach((h) => lines.push(`  -H <span class="s">${escHtml(headerWord(h.k, h.v))}</span>`));
     if (!isRead) {

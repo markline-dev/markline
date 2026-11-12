@@ -79,6 +79,8 @@ resource. Each page has:
 - **Deprecated** operations and fields (`deprecated: true`) carry a
   *Deprecated* badge; a deprecated operation's path and sidebar entry are struck
   through.
+- A **STREAM** badge marks an operation that streams its reply: one with a 2xx
+  `text/event-stream` response (even beside JSON), or `x-fern-streaming`.
 - One **section per endpoint** — method + path, parameters (path / query / body)
   from the schema, and a dark code rail with **cURL, Node, Python and Go**
   samples generated from the operation, plus the example response.

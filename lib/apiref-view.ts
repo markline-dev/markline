@@ -76,6 +76,9 @@ export type NavParent = {
 };
 export type NavTreeNode = NavResource | NavParent;
 
+/** A sidebar section: its caption (none for pages in no section) and its tree. */
+export type NavSection = { title: string | null; nav: NavTreeNode[] };
+
 export type ObjectView = { name: string; attrs: AttrView[]; sampleHtml: string };
 
 export type EventView = {
@@ -151,6 +154,8 @@ export type ApiRefView = {
   base: string;
   servers: string[];
   nav: NavTreeNode[];
+  /** `nav` split under section captions; one uncaptioned section when there are none. */
+  navSections: NavSection[];
   resource: ResourceView;
   /** Command-palette index across all resources. */
   search: SearchEntry[];
@@ -363,7 +368,15 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
       children,
     };
   };
-  const nav: NavTreeNode[] = buildTagTree(doc.tags.map((t) => t.name), labels).map(toNav);
+  // Each section's pages as their own tree, under its caption; the pages in no
+  // section follow, uncaptioned. Without sections it's the one uncaptioned tree.
+  const docSections = doc.sections ?? [];
+  const inSection = new Set(docSections.flatMap((s) => s.tags));
+  const navSections: NavSection[] = [
+    ...docSections.map((s) => ({ title: s.title, nav: buildTagTree(s.tags, labels).map(toNav) })),
+    { title: null, nav: buildTagTree(doc.tags.map((t) => t.name).filter((n) => !inSection.has(n)), labels).map(toNav) },
+  ].filter((s) => s.nav.length);
+  const nav: NavTreeNode[] = navSections.flatMap((s) => s.nav);
 
   const objSchema = activeTag ? pickObjectSchema(activeTag.operations, root) : undefined;
   const objAttrs = attrsFromSchema(objSchema, root);
@@ -402,6 +415,7 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
     base,
     servers: doc.servers.map((s) => s.url),
     nav,
+    navSections,
     resource,
     search: buildSearchIndex(doc, base),
     endpoints: hoisted.endpoints,

@@ -83,7 +83,8 @@ const OPERATIONS = THINGS + 3;
 /** v1's spec: only the "others" resource, so "things" exists in the default version alone. */
 const v1Spec = { ...spec, paths: Object.fromEntries(Object.entries(spec.paths).filter(([p]) => p.startsWith("/others/"))) };
 
-/** `versioned`: v2 (the default) and v1 with specs, and v0 with docs only. `single`: one version. */
+/** `versioned`: v2 (the default) and v1 with specs, and v0 with docs only. `single`: one
+ *  version, and the reference in sections, "others" first. */
 function site(dir: string, apiMatch: string[], versioned = false, single = false) {
   fs.mkdirSync(path.join(dir, "api"), { recursive: true });
   if (versioned) {
@@ -102,7 +103,7 @@ function site(dir: string, apiMatch: string[], versioned = false, single = false
       ...(versioned
         ? { versions: [{ id: "v2", label: "2.0 (latest)" }, { id: "v1", label: "1.0" }, { id: "v0", label: "0.9 docs only" }] }
         : single
-          ? { versions: [{ id: "only", label: "The only one" }] }
+          ? { versions: [{ id: "only", label: "The only one" }], api: { sections: [{ title: "Elsewhere", tags: ["others"] }] } }
           : {}),
       navigation: {
         tabs: [
@@ -294,4 +295,26 @@ test("a version with docs only isn't offered in the reference's picker", { skip 
   const picker = html.match(/\\"versions\\":\[[^\]]*\]/)?.[0] ?? "";
   assert.match(picker, /\\"label\\":\\"1\.0\\"/);
   assert.doesNotMatch(picker, /v0|0\.9 docs only/);
+});
+
+test("sections caption the sidebar, lead the order, and leave every URL where it was", { skip }, () => {
+  // "holding" has one section, "Elsewhere" holding "others"; "reference" has none. Same spec.
+  const grouped = page(holding, "api-reference/things");
+  assert.match(grouped, /class="api-section-cap">Elsewhere</);
+  const side = grouped.slice(grouped.indexOf('class="api-side"'), grouped.indexOf("</aside>"));
+  assert.ok(side.indexOf("api-section-cap") >= 0 && side.indexOf("api-section-cap") < side.indexOf(">Things<"), "the section comes first");
+  assert.doesNotMatch(page(reference, "api-reference/things"), /api-section-cap/);
+  // The landing page is the first section's first resource.
+  assert.match(page(holding, "api-reference"), /id="others"/);
+  assert.match(page(reference, "api-reference"), /id="things"/);
+  // Every page is where it was: the same files, sections or not.
+  const pages = (dist: string) =>
+    fs
+      .readdirSync(path.join(dist, "api-reference"), { withFileTypes: true })
+      // Not "reference"'s version landings (v1.html, v0.html): only it has versions.
+      .filter((e) => e.isFile() && e.name.endsWith(".html") && !/^v\d+\.html$/.test(e.name))
+      .map((e) => e.name)
+      .sort();
+  assert.ok(pages(reference).length >= OPERATIONS);
+  assert.deepEqual(pages(holding), pages(reference));
 });

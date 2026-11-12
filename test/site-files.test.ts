@@ -31,6 +31,9 @@ test("files an older build wrote are recognised, and nothing else", () => {
   assert.ok(!looksGenerated("llms.txt", "# Docs\n\nOur own index for agents.\n", "Docs"));
   assert.ok(!looksGenerated("llms.txt", `${index}\nA note we added by hand.\n`, "Docs"), "our index with a hand edit below it");
   assert.ok(!looksGenerated("llms.txt", index.replace("## Guides", "Read these first.\n\n## Guides"), "Docs"));
+  // The API reference's resources, under its sidebar sections.
+  const sectioned = `${index}\n## API reference\n\n- [API reference](/api-reference): interactive OpenAPI reference\n\n### Agents\n\n- [Agents](/api-reference/agents)\n\n### Other\n\n- [Models](/api-reference/models): List models\n`;
+  assert.ok(looksGenerated("llms.txt", sectioned, "Docs"));
   // All page text: only a file identical to what the build writes counts (siteFiles).
   assert.ok(!looksGenerated("llms-full.txt", "# My Docs\n\n---\n\n# Intro\n\nText\n", "My Docs"));
   assert.ok(!looksGenerated("guides.md", "# Guides\n", "Docs"), "only the four top-level files");

@@ -131,6 +131,91 @@ function configWarnings(known, order, alias, api) {
   return out;
 }
 
+/** Mirrors sectionSource() in lib/openapi-tag-config.ts. */
+export function sectionSource(configured, specGroups) {
+  const parse = (list, key) =>
+    (Array.isArray(list) ? list : [])
+      .filter((g) => g && typeof g[key] === "string" && g[key].trim() && Array.isArray(g.tags))
+      .map((g) => ({ title: g[key].trim(), tags: g.tags.filter((t) => typeof t === "string") }));
+  if (Array.isArray(configured)) return { sections: parse(configured, "title"), fromSpec: false };
+  return { sections: parse(specGroups, "name"), fromSpec: true };
+}
+
+/** Mirrors planSections() in lib/openapi-tag-config.ts. */
+export function planSections(sections, order, alias, known, api) {
+  const warnings = [];
+  // Two sections with one title are one section.
+  const merged = [];
+  for (const section of sections) {
+    const same = merged.find((m) => m.title === section.title);
+    if (!same) merged.push({ title: section.title, tags: [...section.tags] });
+    else {
+      same.tags.push(...section.tags);
+      warnings.push(`[markline] API sections: "${section.title}" is listed twice; its tags are shown together, where it's first listed.`);
+    }
+  }
+  const placedIn = new Map();
+  const pagesOf = new Map(merged.map((s) => [s.title, []]));
+  const place = (page, title) => {
+    placedIn.set(page, title);
+    pagesOf.get(title).push(page);
+  };
+  /** The pages above `page` in its slash group ("voices" for "voices/pvc"), outermost first. */
+  const parents = (page) =>
+    page
+      .split("/")
+      .slice(0, -1)
+      .map((_, i, segs) => segs.slice(0, i + 1).join("/"))
+      .filter((p) => order.includes(p));
+  for (const section of merged) {
+    for (const name of section.tags) {
+      const resolved = resolveTag(name, api);
+      if (resolved === null) continue; // hidden on purpose
+      const page = alias.get(resolved) ?? resolved;
+      const matches = order.filter((p) => p === page || p.startsWith(`${page}/`));
+      if (!matches.length) {
+        const near = [...known].find((k) => closeName(k, name));
+        warnings.push(
+          `[markline] API sections: "${name}" in "${section.title}" matches no tag with operations, so it has no effect.${near && near !== name ? ` Did you mean "${near}"?` : ""}`,
+        );
+        continue;
+      }
+      for (const p of matches) {
+        const already = placedIn.get(p);
+        if (already !== undefined) {
+          if (already !== section.title) {
+            warnings.push(`[markline] API sections: "${name}" is in "${already}" and "${section.title}"; it stays in "${already}".`);
+          }
+          continue;
+        }
+        // A nested page stays with the pages above it, so its group isn't split.
+        const ups = parents(p);
+        const home = ups.map((u) => placedIn.get(u)).find((t) => t !== undefined);
+        if (home !== undefined && home !== section.title) {
+          warnings.push(`[markline] API sections: "${p}" is in "${section.title}", but "${ups[0]}" is in "${home}"; it's shown under "${home}" with it.`);
+          place(p, home);
+          continue;
+        }
+        for (const u of ups) {
+          if (placedIn.has(u)) continue;
+          warnings.push(`[markline] API sections: "${p}" is in "${section.title}" without "${u}"; "${u}" is shown there too, so the group isn't split.`);
+          place(u, section.title);
+        }
+        place(p, section.title);
+      }
+    }
+  }
+  const out = [];
+  for (const section of merged) {
+    const pages = pagesOf.get(section.title);
+    if (pages.length) out.push({ title: section.title, tags: pages });
+    else warnings.push(`[markline] API sections: "${section.title}" has no tags with operations, so it isn't shown.`);
+  }
+  const placed = out.flatMap((s) => s.tags);
+  const rest = order.filter((p) => !placedIn.has(p));
+  return { sections: out, order: [...placed, ...rest], warnings };
+}
+
 /**
  * Every operation that gets a page, with the resource tag it files under —
  * mirroring normalize() in lib/openapi.ts, so llms.txt, search and the sitemap
@@ -182,7 +267,10 @@ export function resourcePlan(spec, api) {
     return `[markline] API tags ${names} share the URL /api-reference/${c.slug}; their operations are merged into "${c.into}". Use api.tags (label / mergeInto) in markline.json to rename or merge them explicitly.`;
   });
   warnings.push(...configWarnings(knownTags(spec), tags, alias, api));
-  return { tags, alias, ops, collisions: [...collisions.values()], warnings };
+  // Sections only reorder and group the pages, as in normalize().
+  const sectioned = planSections(sectionSource(api?.sections, spec["x-tagGroups"]).sections, tags, alias, knownTags(spec), api);
+  warnings.push(...sectioned.warnings);
+  return { tags: sectioned.order, sections: sectioned.sections, alias, ops, collisions: [...collisions.values()], warnings };
 }
 
 /** The resources that get a page, in sidebar order. */
@@ -219,6 +307,7 @@ export function resourcePages(spec, api) {
     const r = resolveTag(n, api);
     return r && (plan.alias.get(r) ?? r);
   };
+  const sectionOf = new Map(plan.sections.flatMap((s) => s.tags.map((t) => [t, s.title])));
   return plan.tags.map((page) => {
     const merged = names.filter((n) => n !== page && pageOf(n) === page);
     const xDisplay = specTags.get(page)?.["x-displayName"];
@@ -235,6 +324,8 @@ export function resourcePages(spec, api) {
       slug: slug(page),
       title: label || segmentDisplayName(segments[segments.length - 1] ?? page),
       description,
+      // Its sidebar section, or null when it's in none (or there are none).
+      section: sectionOf.get(page) ?? null,
     };
   });
 }
@@ -263,6 +354,26 @@ export function specWarnings(spec, cfg, readVersion) {
     const versioned = readVersion(v.id);
     if (!versioned) continue;
     for (const w of resourcePlan(versioned, cfg.api).warnings) out.push(w.replace("[markline]", `[markline] (version ${v.id})`));
+  }
+  return out;
+}
+
+/**
+ * llms.txt's list of API resources: one link each, under the sidebar's section
+ * headings when the reference has sections. Resources in no section get a heading
+ * no section of the site's own has. `abs` makes a path absolute.
+ */
+export function apiIndexLines(apis, abs = (u) => u) {
+  const sectioned = apis.some((a) => a.section);
+  const titles = new Set(apis.map((a) => a.section));
+  const rest = ["Other", "More", "Other resources"].find((t) => !titles.has(t)) ?? "Other resources (unsectioned)";
+  let out = "";
+  let current;
+  for (const a of apis) {
+    const heading = sectioned ? (a.section ?? rest) : undefined;
+    if (heading !== current) out += `\n### ${heading}\n\n`;
+    current = heading;
+    out += `- [${a.title}](${abs(a.url)})${a.desc ? `: ${a.desc}` : ""}\n`;
   }
   return out;
 }

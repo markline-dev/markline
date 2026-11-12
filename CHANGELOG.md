@@ -54,6 +54,10 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **Expand for code and responses.** Each code card in the API reference has
   an Expand button beside Copy, opening the code shown at full size. Escape
   closes it, and focus returns to the button.
+- **Sections in the API reference sidebar.** The spec's `x-tagGroups`, or
+  `api.sections` in markline.json, put a caption over each group of resources.
+  Their order is the reference's order everywhere: the sidebar, the page it opens
+  on, search and `llms.txt`. URLs don't change.
 
 ### Changed
 - **`markline export` refuses pages that would replace a served `.txt`
@@ -75,6 +79,9 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **`<CodeShowcase>` is a landing section of its own**, outside the prose
   column, as `<Hero>` and `<FeatureGrid>` are. Its width is unchanged; it
   sits closer to the section above it.
+- **Specs with `x-tagGroups` now show them as sidebar sections,** which also
+  sets the order of the reference's resources. Set `api.sections: []` to turn
+  them off.
 - **`<MigrationCallout>` is deprecated**, and will be removed in a later
   release. It now renders as an info `<Callout>` with the same title and text,
   and the build warns on each page that uses it. Use

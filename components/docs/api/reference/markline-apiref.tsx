@@ -387,8 +387,13 @@ export function MarklineApiRef({
           </div>
           )}
 
-          {view.nav.map((n) => (
-            <NavNodeView key={n.slug} node={n} base={view.base} />
+          {view.navSections.map((sec, i) => (
+            <div className="api-section" key={sec.title ?? `__rest-${i}`}>
+              {sec.title && <div className="api-section-cap">{sec.title}</div>}
+              {sec.nav.map((n) => (
+                <NavNodeView key={n.slug} node={n} base={view.base} />
+              ))}
+            </div>
           ))}
         </aside>
 

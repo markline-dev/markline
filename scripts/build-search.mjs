@@ -10,7 +10,7 @@ import fs from "node:fs";
 import path from "node:path";
 import matter from "gray-matter";
 import * as pagefind from "pagefind";
-import { apiSearchRecords, resourcePages, specWarnings } from "./openapi-order.mjs";
+import { apiIndexLines, apiSearchRecords, resourcePages, specWarnings } from "./openapi-order.mjs";
 import { searchGroups, searchTrails } from "./search-groups.mjs";
 import { markdownPath, mdxToMarkdown, pageMarkdown, sectionIds, sectionIndex } from "./llms.mjs";
 import { removeGeneratedFiles, writeManifest } from "./generated-files.mjs";
@@ -279,6 +279,7 @@ function apiResources(root) {
     url: `/api-reference/${page.slug}`,
     title: page.title,
     desc: page.description ? String(page.description).split("\n")[0].trim() : "",
+    section: page.section,
   }));
 }
 
@@ -356,7 +357,7 @@ function writeLlms(root) {
   if (apis.length) {
     idx += `## API reference\n\n`;
     idx += `- [API reference](${abs("/api-reference")}): interactive OpenAPI reference\n`;
-    for (const a of apis) idx += `- [${a.title}](${abs(a.url)})${a.desc ? `: ${a.desc}` : ""}\n`;
+    idx += apiIndexLines(apis, abs);
     idx += "\n";
   }
 

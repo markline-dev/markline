@@ -28,7 +28,10 @@ const BUDGET = 600_000;
 // Deprecated and hidden parameters and fields, on one operation: the per-operation
 // page draws parameters with ParamRow, which a unit test can't render.
 const MARKED = {
+  // A streamed reply, and a path parameter: the STREAM badge and the highlighted {id}.
+  "x-fern-streaming": true,
   parameters: [
+    { name: "otherId", in: "path", required: true, schema: { type: "string" } },
     { name: "oldparam", in: "query", deprecated: true, schema: { type: "string" } },
     { name: "currentparam", in: "query", schema: { type: "string" } },
     { name: "secretparam", in: "query", "x-internal": true, schema: { type: "string" } },
@@ -76,7 +79,7 @@ const spec = {
   components: { schemas: { Secret: { type: "object", "x-internal": true, properties: { secretinner: { type: "string" } } } } },
   paths: Object.fromEntries([
     ...Array.from({ length: THINGS }, (_, i) => [`/things/${i}`, { post: op(i, "things") }]),
-    ...Array.from({ length: 3 }, (_, i) => [`/others/${i}`, { post: op(i, "others") }]),
+    ...Array.from({ length: 3 }, (_, i) => [i === 1 ? "/others/{otherId}" : `/others/${i}`, { post: op(i, "others") }]),
   ]),
 };
 const OPERATIONS = THINGS + 3;
@@ -334,4 +337,18 @@ test("no id repeats on any API page, even where two operations share a summary",
   const others = page(reference, "api-reference/others");
   assert.match(others, /id="others-operation-1"/);
   assert.match(others, /id="others-operation-1-1"/);
+});
+
+test("a streamed operation is badged, its {parameters} set apart, and its path text unchanged", { skip }, () => {
+  const html = page(reference, "api-reference/others");
+  // Badged in the endpoint list, the sidebar and its own section; no other operation is.
+  assert.equal(count(html, 'class="stream"'), 3);
+  assert.match(html, /<span class="pp">\{otherId\}<\/span>/);
+  // The path reads as before for copy and for screen readers: tags only wrap it.
+  const segs = [...html.matchAll(/<span class="seg">((?:(?!<\/span><\/span>).)*)<\/span><\/span>/g)].map((m) => m[1].replace(/<[^>]+>/g, ""));
+  assert.ok(segs.includes("/others/{otherId}"), segs.join(", "));
+  // The breadcrumb names the section on the sectioned site, and isn't in any id.
+  const grouped = page(holding, "api-reference/others");
+  assert.match(grouped, /class="api-crumbs ep-crumbs">Elsewhere › Others</);
+  assert.doesNotMatch(grouped, /id="[^"]*elsewhere/i);
 });

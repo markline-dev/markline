@@ -79,6 +79,8 @@ export type OpenAPIOperation = {
   public?: boolean;
   /** Explicit position within the tag (`x-nav-order`); unordered ops keep spec order after ordered ones. */
   navOrder?: number;
+  /** Streams its reply: a 2xx `text/event-stream` (beside any other type), or `x-fern-streaming`. */
+  streaming?: boolean;
   parameters: {
     path: OpenAPIParameter[];
     query: OpenAPIParameter[];
@@ -359,6 +361,7 @@ export function normalize(input: any, opts: NormalizeOptions = {}): OpenAPIDoc {
         deprecated: op.deprecated === true || undefined,
         public: isPublic || undefined,
         navOrder: typeof op["x-nav-order"] === "number" ? op["x-nav-order"] : undefined,
+        streaming: isStreaming(op, raw) || undefined,
         parameters: params,
         requestBody,
         responses,
@@ -532,4 +535,15 @@ export function sampleFromSchema(schema: JSONSchema | undefined, root?: any): un
 
 export function operationHref(op: OpenAPIOperation, base = "/api-reference") {
   return `${base}/${op.operationId}`;
+}
+
+/** Whether an operation streams its reply, from the spec alone: `x-fern-streaming`,
+ *  or a 2xx response offering `text/event-stream`, even beside JSON. */
+function isStreaming(op: any, raw: any): boolean {
+  if (op?.["x-fern-streaming"]) return true;
+  return Object.entries<any>(op?.responses ?? {}).some(([status, r]) => {
+    if (!/^2/.test(status)) return false;
+    const content = resolveRef(r, raw)?.content;
+    return !!content && typeof content === "object" && Object.keys(content).some((ct) => /^text\/event-stream\b/i.test(ct.trim()));
+  });
 }

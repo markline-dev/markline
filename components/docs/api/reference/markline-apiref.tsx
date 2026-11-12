@@ -271,7 +271,7 @@ export function MarklineApiRef({
     el.addEventListener("click", onClick);
 
     /* scroll-spy: highlight the active sidebar anchor */
-    const links = Array.from(el.querySelectorAll<HTMLElement>(".api-sub-nav a[data-jump]"));
+    const links = Array.from(el.querySelectorAll<HTMLElement>(".api-grp > a.gt[data-jump], .api-sub-nav a[data-jump]"));
     const map = new Map<string, HTMLElement>();
     links.forEach((a) => map.set(a.getAttribute("data-jump")!, a));
     let spy: IntersectionObserver | null = null;
@@ -353,6 +353,8 @@ export function MarklineApiRef({
   }, []);
 
   const r = view.resource;
+  // Above each operation's title: where it sits (section, groups, resource).
+  const opCrumbs = [...(r.section ? [r.section] : []), ...r.crumbs, r.name];
 
   return (
    <EventColorsContext.Provider value={view.eventColors}>
@@ -438,7 +440,11 @@ export function MarklineApiRef({
                             {ep.deprecated && <DeprecatedPill />}
                           </div>
                           <div className="ep-path">
-                            <span className={`verb ${verbClass(ep.verb)}`}>{ep.verb}</span> {ep.path}
+                            <span className={`verb ${verbClass(ep.verb)}`}>{ep.verb}</span>
+                            {ep.streaming && <StreamBadge />}
+                            <span className="ep-pathtext">
+                              <PathText path={ep.path} />
+                            </span>
                           </div>
                         </div>
                         <Ico d="m9 6 6 6-6 6" cls="chev" w={16} />
@@ -492,7 +498,7 @@ export function MarklineApiRef({
 
           {/* 3..N · Endpoints */}
           {r.sections.map((ep) => (
-            <EndpointSection key={ep.opId} ep={ep} endpoints={view.endpoints} aiEnabled={aiOn} />
+            <EndpointSection key={ep.opId} ep={ep} endpoints={view.endpoints} aiEnabled={aiOn} crumbs={opCrumbs} />
           ))}
 
           {/* Webhook events — collapsible cards at the foot of the resource */}
@@ -541,21 +547,23 @@ function NavNodeView({ node, base }: { node: NavTreeNode; base: string }) {
   }
   return (
     <div className="api-grp">
-      <div className="gt" style={{ fontWeight: 600 }}>
+      {/* The resource's name, once: it's also the jump to its intro. */}
+      <a className="gt on" style={{ fontWeight: 600 }} data-jump={node.slug}>
         {node.name}
         <Ico d="m6 9 6 6 6-6" cls="chev" w={14} />
-      </div>
+      </a>
       <div className="api-sub-nav">
         {node.ops.map((op, i) => (
           <Fragment key={op.id + i}>
             {op.evt && !node.ops[i - 1]?.evt && <div className="nav-evt-h">Events</div>}
-            <a className={i === 0 ? "on" : undefined} data-jump={op.id}>
+            <a data-jump={op.id}>
               {op.evt ? (
                 <span className={`ndot ${op.evt}`} style={eventDot(op.name)} />
               ) : (
                 op.verb && <span className={`verb ${verbClass(op.verb)}`}>{op.verb}</span>
               )}
               <span className={op.deprecated ? "nm dep" : "nm"}>{op.name}</span>
+              {op.streaming && <StreamBadge />}
             </a>
           </Fragment>
         ))}
@@ -672,20 +680,35 @@ function EventSection({
 }
 
 /* ── endpoint section ──────────────────────────────────────────────────── */
-function EndpointSection({ ep, endpoints, aiEnabled }: { ep: EndpointView; endpoints: ApiRefView["endpoints"]; aiEnabled: boolean }) {
+function EndpointSection({
+  ep,
+  endpoints,
+  aiEnabled,
+  crumbs,
+}: {
+  ep: EndpointView;
+  endpoints: ApiRefView["endpoints"];
+  aiEnabled: boolean;
+  /** Section › groups › resource, above the title; not part of its id or text. */
+  crumbs: string[];
+}) {
   const eventDot = useEventDot();
   return (
     <section className="api-sec" id={ep.id}>
       <div className="api-l">
+        {crumbs.length > 0 && <div className="api-crumbs ep-crumbs">{crumbs.join(" › ")}</div>}
         <h2>
           {ep.summary}
           {ep.deprecated && <DeprecatedPill />}
         </h2>
         <div className={ep.deprecated ? "api-path dep" : "api-path"}>
-          <span className={`verb ${verbClass(ep.verb)}`}>{ep.verb}</span>{" "}
-          <span>
+          <span className={`verb ${verbClass(ep.verb)}`}>{ep.verb}</span>
+          {ep.streaming && <StreamBadge />}{" "}
+          <span className="api-url">
             <span className="u">{ep.baseUrl}</span>
-            <span className="seg">{ep.path}</span>
+            <span className="seg">
+              <PathText path={ep.path} />
+            </span>
           </span>
         </div>
         {ep.lead && <div className="sec-lead" data-md={ep.leadMd} dangerouslySetInnerHTML={{ __html: ep.lead }} />}
@@ -1055,6 +1078,32 @@ function cardLabel(card: HTMLElement): string {
   const pick = select ? select.selectedOptions[0]?.value : tab;
   return pick ? `${base} · ${pick}` : base;
 }
+/** A path with its `{parameters}` set apart. Its text is the path, unchanged. */
+function PathText({ path }: { path: string }) {
+  return (
+    <>
+      {path.split(/(\{[^}]+\})/).map((part, i) =>
+        /^\{[^}]+\}$/.test(part) ? (
+          <span className="pp" key={i}>
+            {part}
+          </span>
+        ) : (
+          part
+        ),
+      )}
+    </>
+  );
+}
+
+/** Marks an operation that streams its reply. */
+function StreamBadge() {
+  return (
+    <span className="stream" title="Streams its response">
+      STREAM
+    </span>
+  );
+}
+
 function verbClass(verb: string): string {
   const v = verb.toLowerCase();
   if (v === "del") return "del";

@@ -151,7 +151,16 @@ export function ApiOperationPage({
                 deprecated={p.deprecated}
                 required={p.required}
                 description={p.description}
-                control={showInline ? <ParamInput location="query" name={p.name} sample={sampleParam(normalizeField(resolved(p.schema)).schema)} /> : undefined}
+                control={
+                  showInline ? (
+                    <ParamInput
+                      location="query"
+                      name={p.name}
+                      sample={sampleParam(normalizeField(resolved(p.schema)).schema)}
+                      secret={playgroundSpec?.apiKeyQuery?.includes(p.name)}
+                    />
+                  ) : undefined
+                }
               />
             ))}
           </Section>

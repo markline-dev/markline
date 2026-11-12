@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   BufferBudget,
   forwardableHeaders,
+  isConnectionReset,
   isCrossSite,
   jsonFits,
   MAX_PROXY_REPLY_BYTES,
@@ -12,6 +13,7 @@ import {
   PROXY_BUFFERED,
   readCapped,
   readCappedBytes,
+  RETRIED_METHODS,
   REQUEST_READ_TIMEOUT_MS,
   untilAborted,
   UPSTREAM_TIMEOUT_MS,
@@ -109,17 +111,26 @@ async function forward(req: Request, origins: string[], found: boolean, budget: 
   const start = Date.now();
   const request = new AbortController();
   try {
-    const upstream = await fetch(target.toString(), {
+    const init: RequestInit = {
       method,
       headers: forwardableHeaders(headers),
       body: sendBody,
       redirect: "manual",
-      // Over the cap, out of time, or the reader has gone.
+      // Over the cap, out of time, or the reader has gone. One timeout covers a retry too.
       signal: AbortSignal.any([request.signal, AbortSignal.timeout(UPSTREAM_TIMEOUT_MS), req.signal]),
       // Never Next's data cache: these are one reader's calls, and caching one would
       // buffer the whole response first, whatever the cap below says.
       cache: "no-store",
-    });
+    };
+    let upstream: Response;
+    try {
+      upstream = await fetch(target.toString(), init);
+    } catch (e) {
+      // A reused connection the API closed just as this was sent: try once more on a
+      // new one. Only GET and HEAD, which have no body and are safe to repeat.
+      if (!RETRIED_METHODS.has(method) || !isConnectionReset(e) || init.signal!.aborted) throw e;
+      upstream = await fetch(target.toString(), init);
+    }
     const reply = { status: upstream.status, statusText: upstream.statusText };
     // A redirect isn't followed, so its body, which often names the target, isn't shown.
     if (upstream.status >= 300 && upstream.status < 400) {

@@ -191,6 +191,53 @@ entry with no such tag, a `mergeInto` that looks like a typo of a real tag, a
 merge cycle, and a merge into a hidden tag. A `mergeInto` that names a new page
 is a rename, and stays silent.
 
+## Group tags into sections
+
+A large reference reads better in sections, each with a small caption over its
+resources. If your spec has `x-tagGroups`, the sidebar uses them:
+
+```json title="openapi.json"
+{
+  "x-tagGroups": [
+    { "name": "Agents", "tags": ["agents", "conversations"] },
+    { "name": "Creative", "tags": ["text-to-speech", "voices"] }
+  ]
+}
+```
+
+For a spec you don't edit, set `api.sections` in `markline.json` instead. It
+replaces the spec's `x-tagGroups`, and an empty list (`"sections": []`) turns
+them off:
+
+```json title="markline.json"
+{
+  "api": {
+    "sections": [
+      { "title": "Agents", "tags": ["Agents Platform", "Flows"] },
+      { "title": "Creative", "tags": ["text-to-speech", "voices", "dubbing"] }
+    ]
+  }
+}
+```
+
+A section lists the spec's tag names, the same names `api.tags` uses, so a tag
+that's renamed, merged or nested lands where you'd expect. A name that's a
+nesting prefix (`Voices` for `Voices/Professional cloning`) brings every tag
+under it. A nested tag listed without its parent brings the parent with it, so a
+group is never split across sections, and two sections with the same title are
+shown as one.
+
+- **Order:** sections appear in the order listed, and their tags in the order
+  given. That order is used everywhere: the sidebar, the page the reference opens
+  on, search and `llms.txt`.
+- **Tags in no section** follow at the end, without a caption. Hide one with
+  `api.tags` if you don't want it.
+- **URLs don't change:** sections only order and group the resources.
+
+The build warns about a tag a section names that doesn't exist (with a
+suggestion when it looks like a typo), a tag listed in two sections (it stays
+in the first), and a section left with no tags.
+
 ## Hide operations
 
 Anything carrying `x-hidden` or `x-internal` (truthy) is left out everywhere:
@@ -311,9 +358,9 @@ or author your own per-operation samples with `x-codeSamples` below.</Note>
 
 ### How generated samples are named
 
-There's no separate "SDK name" setting — the generated snippets build their
-identifiers from your spec. A sample like `acme.payments.create({ … })` is
-assembled from four derived tokens:
+The generated snippets build their identifiers from your spec. Unless the
+operation carries [Fern's SDK names](#sdk-names-from-fern-extensions), a sample
+like `acme.payments.create({ … })` is assembled from four derived tokens:
 
 | Token | Derived from | Example |
 | --- | --- | --- |
@@ -326,6 +373,61 @@ So the two levers on the generated rails are **`info.title`** (the client name)
 and **your tag names** (the resource accessors). To match a real SDK exactly —
 custom client name, hand-written method signatures, a language Markline doesn't
 generate — reach for `x-codeSamples`.
+
+### SDK names from Fern extensions
+
+Specs generated for [Fern](https://buildwithfern.com) SDKs name the real call on
+each operation with `x-fern-sdk-group-name` (a string, or an array for nested
+groups) and `x-fern-sdk-method-name`. When an operation has them, the generated
+samples use them, cased the way each language's SDK does:
+
+```jsonc
+"post": {
+  "operationId": "text_to_speech_full",
+  "x-fern-sdk-group-name": ["text_to_speech"],
+  "x-fern-sdk-method-name": "convert"
+}
+```
+
+| Language | Call |
+| --- | --- |
+| Node | `client.textToSpeech.convert("voice_id", { text: "…", modelId: "…" })` (camelCase keys) |
+| Python | `client.text_to_speech.convert(voice_id="…", text="…")` (keyword arguments) |
+| Go | `client.TextToSpeech.Convert(ctx, "voice_id", &…)` |
+
+Nested groups chain: `["conversational_ai", "agents"]` → `client.conversationalAi.agents.…`.
+Operations without the extensions keep the derived naming above, and names that
+would start with a digit get a `_` prefix so they stay valid identifiers.
+
+<ParamField path="api.sdkNaming" type='"auto" | "off"'>
+  `auto` (default) uses the Fern extensions when an operation has them. `off`
+  always uses the tag + HTTP-verb naming.
+</ParamField>
+
+### Request bodies and file uploads
+
+The generated cURL follows the request body's media type:
+
+| Body | cURL |
+| --- | --- |
+| `application/json` | `-H "Content-Type: application/json"` and `-d '{ … }'` |
+| `multipart/form-data` | one `--form-string field=value` per field, so a value is never read as a file; `format: binary` fields as `-F file=@path/to/file` |
+| `application/x-www-form-urlencoded` | `--data-urlencode field=value` |
+| other, binary (e.g. `application/octet-stream`) | its `Content-Type` and `--data-binary @path/to/file` |
+| other, text (e.g. `text/plain`, `application/xml`) | its `Content-Type` and `--data-raw` with the example |
+
+Samples show the body's required fields and its file fields, then optional
+fields up to four in total, using each field's `example`/`examples`. In the
+Node and Python samples a file is a stream (`fs.createReadStream(…)`,
+`open(…, "rb")`). If an operation's security uses an `apiKey` scheme in a
+header, the cURL sends it (`-H "X-Api-Key: $API_KEY"`); the SDK samples leave
+the key to the client's setup.
+
+### Binary responses
+
+A success response that isn't JSON (`audio/mpeg`, `application/zip`,
+`text/csv`, …) gets its own panel, e.g. *Returns `audio/mpeg` (binary)* with its
+`Content-Type`, instead of being left out.
 
 ### Bring your own with `x-codeSamples`
 
@@ -413,6 +515,11 @@ response with status + latency. It's the same engine on every surface.
   the proxy; `never` is direct-only — **required for static export**.
 </ParamField>
 
+Multipart bodies get a file picker for each `format: binary` field. When a live
+response is audio (`audio/*`), it plays inline; any other binary response
+(an archive, a video) gets a download link with its size. Both work through
+the direct fetch and the server proxy.
+
 <Warning>The server proxy (`/api/playground`) only runs on a Node/Vercel
 deployment and is dropped in static export. On a static host, set
 `proxy: "never"` and enable CORS on your API, or the explorer can't reach it.</Warning>
@@ -426,6 +533,14 @@ older browsers or a plain-HTTP site, have the proxy send `X-Forwarded-Host`.
 Responses over 25 MB, requests over 35 MB and calls that take longer than 120
 seconds return an error, as do large responses while the server is already holding
 a lot of data.
+
+The proxy sends your API the headers set in Try it, including `Authorization`
+and API key headers; the browser's own headers to the docs site aren't passed
+on. Of those set in Try it, it drops `Cookie` and headers about the connection,
+its route or the reader's address (`Host`, `Forwarded`, `X-Forwarded-*`,
+`X-Real-IP` and similar). Since the proxy makes its own connection, your API
+sees the docs server's address, not the reader's. Redirects aren't followed: a `3xx` comes back with its status and no
+body, since the body often names where it points.
 
 ## Events & webhooks
 
@@ -573,6 +688,30 @@ the document, tags, ordering, events and code samples. There are matching guides
 for [FastAPI](/guides/fastapi), [Spring Boot](/guides/spring-boot) and
 [Hono](/guides/hono-zod-openapi).
 
+### Event colours
+
+Each event has a coloured dot beside its name: in the resource's endpoint
+list, on the event's own section and on an endpoint's Triggers chips. `api.events` sets how they're coloured:
+
+```json title="markline.json"
+{ "api": { "events": { "dots": "palette", "palette": ["#7c3aed", "#0891b2", "#db2777"] } } }
+```
+
+<ParamField path="api.events.dots" type='"palette" | "status" | "none"'>
+  `palette` (default) gives each of a resource's events its own colour, in
+  order, so neighbouring events always differ. The colours say which event it
+  is, not whether it's good or bad. `status` guesses from the name: green for
+  success words (`created`, `completed`, `paid`), orange for failure words
+  (`failed`, `cancelled`, `expired`, `deleted`), checked first, and grey for
+  the rest. `none` makes every dot grey.
+</ParamField>
+
+<ParamField path="api.events.palette" type="string[]">
+  The colours `palette` uses, in order: any CSS colour, or a variable such as
+  `var(--c-cyan)`. They repeat once a resource has more events than colours.
+  Unset, Markline's own purple, cyan, pink, tan, green, orange, yellow and red.
+</ParamField>
+
 ## MDX overlays
 
 Layer authored MDX on top of the generated reference — full components
@@ -602,11 +741,14 @@ for docs pages.
 
 ## Versions
 
-The reference header shows a version selector. With a single spec it surfaces
-the spec's `info.version` (a semver `1.4.2` → `v1 · 1.4.2`; a date `2025-06-01`
-→ shown once, verbatim).
-
-With multiple [versions](/versions) configured, each version ships its **own**
-`<id>/api/openapi.json`, served at `/api-reference/<id>` — the selector switches
-the spec in place and every link stays under that version's prefix. See
+A version belongs to the whole site: its docs and its API reference switch
+together. With two or more [versions](/versions) configured, each version ships
+its **own** `<id>/api/openapi.json`, served at `/api-reference/<id>`, and the
+reference sidebar gets a version picker beside the header's. Each entry shows
+the version's `label` from `markline.json`. Picking one opens the same resource
+or operation in that version, or that version's reference when the page doesn't
+exist there, and every link stays under that version's prefix. See
 [Versions & i18n](/versions#api-reference-per-version) for the folder layout.
+
+With one version, or none, there's no picker. The spec's `info.version`
+describes the spec, not a version of the site, so it isn't shown as one.

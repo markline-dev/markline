@@ -6,6 +6,8 @@ import path from "node:path";
 import { NOT_FOUND_SEGMENT } from "../lib/not-found-segment";
 import { createSite, filesUnder } from "./site-server";
 
+const REPO = path.resolve(import.meta.dirname, "..");
+
 // The docs page route in production, where Next's caching applies: `markline
 // build` then `markline start`, which dev can't show.
 
@@ -34,6 +36,7 @@ before(async () => {
     JSON.stringify({ openapi: "3.0.3", info: { title: "T", version: "1" }, tags: [{ name: "Things" }], paths: { "/things": { get: { tags: ["Things"], operationId: "listThings", summary: "List", responses: { "200": { description: "ok" } } } } } }),
   );
   fs.writeFileSync(path.join(site.dir, "docs", `${NOT_FOUND_SEGMENT}.mdx`), "---\ntitle: Hidden page\n---\n\nHidden page\n");
+  fs.writeFileSync(path.join(site.dir, "docs", "named.mdx"), "---\ntitle: Cache Test Site\n---\n\nnamed after the site\n");
   fs.writeFileSync(
     path.join(site.dir, "docs", "commands.mdx"),
     [
@@ -116,6 +119,37 @@ test("the 404 page has the site's header", { skip }, async () => {
   const body = await (await fetch(`${base}/nope`)).text();
   assert.match(body, /Cache Test Site/);
   assert.match(body, /<html/);
+});
+
+// On Next 15.5 a page rendered at request time isn't written to the cache
+// anyway (the test below passes without the handler), so this is what notices
+// the handler going: the built app is set to use it, and a standalone deploy
+// has the file where its server loads it from.
+test("the build uses the read-only cache handler, and a standalone deploy has it", { skip }, () => {
+  const next = path.join(site.dir, ".markline", ".next");
+  const handler = JSON.parse(fs.readFileSync(path.join(next, "required-server-files.json"), "utf8")).config.cacheHandler;
+  assert.match(handler ?? "", /(^|[/\\])scripts[/\\]read-only-cache\.cjs$/);
+  const standalone = path.join(next, "standalone");
+  const server = filesUnder(standalone).find((f) => path.basename(f) === "server.js" && !f.includes("node_modules"));
+  assert.ok(server, "a standalone server");
+  const loaded = path.resolve(path.dirname(server), ".next", handler);
+  assert.ok(fs.existsSync(loaded), `the handler isn't at ${path.relative(standalone, loaded)}`);
+  assert.equal(fs.readFileSync(loaded, "utf8"), fs.readFileSync(path.join(REPO, "scripts", "read-only-cache.cjs"), "utf8"));
+});
+
+test("doc, changelog entry and API reference pages keep the site's Open Graph fields", { skip }, async () => {
+  for (const p of ["/guides/a", "/changelog/2026/10/15", "/api-reference/things"]) {
+    const html = await (await fetch(`${base}${p}`)).text();
+    assert.match(html, /<meta property="og:site_name" content="Cache Test Site"\/>/, `og:site_name on ${p}`);
+    assert.match(html, /<meta name="twitter:card" content="summary_large_image"\/>/, `twitter:card on ${p}`);
+  }
+});
+
+test("every tab title names the site, without seo.title, and never twice", { skip }, async () => {
+  const titleOf = async (p: string) => (await (await fetch(`${base}${p}`)).text()).match(/<title>([^<]*)<\/title>/)?.[1];
+  assert.equal(await titleOf("/guides/a"), "Guide · Cache Test Site");
+  assert.equal(await titleOf("/"), "Home · Cache Test Site");
+  assert.equal(await titleOf("/named"), "Cache Test Site", "a page named after the site isn't named twice");
 });
 
 test("a page added after the build is served fresh, stores nothing, and goes when deleted", { skip }, async () => {

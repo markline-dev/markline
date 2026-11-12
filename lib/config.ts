@@ -194,6 +194,11 @@ export type ApiConfig = {
   /** Tags shown first, in this order; the rest keep spec order. */
   tagOrder?: string[];
   /**
+   * Sidebar sections: a caption over the tags listed under it, in this order.
+   * Replaces the spec's `x-tagGroups`; `[]` turns those off.
+   */
+  sections?: { title: string; tags: string[] }[];
+  /**
    * Operation extensions that hide an operation when truthy. Replaces the
    * default `["x-hidden", "x-internal"]`; e.g. add `"x-fern-ignore"`.
    */
@@ -207,6 +212,14 @@ export type ApiConfig = {
    * for `Authorization: Bearer`.
    */
   auth?: { type?: "apiKey" | "bearer"; header?: string; description?: string };
+  /**
+   * How the generated Node/Python/Go samples name SDK calls:
+   * - "auto" (default): use the operation's `x-fern-sdk-group-name` and
+   *   `x-fern-sdk-method-name` when present (`client.text_to_speech.convert`),
+   *   else the tag + HTTP-verb naming.
+   * - "off": always the tag + HTTP-verb naming.
+   */
+  sdkNaming?: "auto" | "off";
   playground?: {
     /**
      * Which "Try it" surfaces to render:
@@ -230,21 +243,38 @@ export type ApiConfig = {
   events?: {
     /**
      * How event status dots are colored:
-     * - "palette" (default): a distinct, stable color per event drawn from
-     *   `palette` — colors by identity, not status, so every event is separable.
-     * - "status": green/amber/neutral inferred from the event name
-     *   (success / failure-or-terminal / neutral).
+     * - "palette" (default): a color per event from `palette`, by identity,
+     *   not status, so neighbouring events are told apart.
+     * - "status": inferred from the event name (lib/apiref-view.ts eventTone):
+     *   green for success-like names, orange for failure-or-terminal ones,
+     *   neutral otherwise.
      * - "none": no color (all neutral).
      */
     dots?: "status" | "palette" | "none";
     /**
-     * Colors for `dots: "palette"`, any CSS color or `var(--token)`. An event is
-     * mapped to one entry by a stable hash of its name. Defaults to the brand
-     * palette (`--c-purple`, `--c-cyan`, …).
+     * Colors for `dots: "palette"`, any CSS color or `var(--token)`. They're
+     * given out in order along each resource's event list (lib/apiref-view.ts);
+     * a hash of the name picks one only in the browser, for an event outside
+     * that list. Defaults to the brand palette (`--c-purple`, `--c-cyan`, …).
      */
     palette?: string[];
   };
 };
+
+/** The site's name in tab titles and link previews: seo.siteName, else name. */
+export function siteName(config: Pick<MarklineConfig, "name" | "seo">): string {
+  return config.seo.siteName ?? config.name;
+}
+
+/**
+ * A page's title for its tab. The layout adds " · <site>" to it, except when
+ * the page is named after the site already (a home page called "Markline"),
+ * which would read "Markline · Markline".
+ */
+export function pageTitle(title: string | undefined, config: Pick<MarklineConfig, "name" | "seo">) {
+  if (!title) return undefined;
+  return title === siteName(config) || title === config.seo.title ? { absolute: title } : title;
+}
 
 /** Resolve the effective playground mode (honors the deprecated `enabled` flag). */
 export function playgroundMode(api: ApiConfig): "full" | "inline" | "explorer" | "off" {
@@ -479,6 +509,12 @@ export type MarklineConfig = {
      *  to "full" (edge-to-edge); set "contained" for a centered marketing nav
      *  that aligns with a hero. */
     homeWidth?: "full" | "contained";
+    /** The GitHub badge's star count, for the repo the GitHub link points at.
+     *  "live" (default): the count from the build, then refreshed in the
+     *  browser, at most hourly per reader (each reader's browser asks
+     *  api.github.com). "build": only the count from the build, so readers'
+     *  browsers never contact GitHub. false: no count. */
+    githubStars?: "live" | "build" | false;
   };
   navigation: { tabs: NavTab[] };
   footer?: FooterConfig;
@@ -537,6 +573,7 @@ function mergeConfig(base: MarklineConfig, user: Partial<MarklineConfig>): Markl
       badge: user.topbar?.badge ?? base.topbar.badge,
       width: user.topbar?.width ?? base.topbar.width ?? "full",
       homeWidth: user.topbar?.homeWidth ?? base.topbar.homeWidth ?? "full",
+      githubStars: starsMode(user.topbar?.githubStars ?? base.topbar.githubStars),
     },
     navigation: {
       tabs: user.navigation?.tabs ?? base.navigation.tabs,
@@ -649,6 +686,19 @@ export function normalizeNavHrefs<T>(node: T): T {
     key === "href" && typeof value === "string" ? value.replace(/(^|\/)index$/, "") || "/" : normalizeNavHrefs(value),
   ]);
   return Object.fromEntries(entries) as T;
+}
+
+/** `topbar.githubStars`: "live" unless it's "build" or false. Anything else is
+ *  reported once and read as "live". */
+let starsWarned = false;
+function starsMode(v: unknown): "live" | "build" | false {
+  if (v === undefined || v === "live") return "live";
+  if (v === "build" || v === false) return v;
+  if (!starsWarned) {
+    starsWarned = true;
+    console.warn(`[markline] topbar.githubStars must be "live", "build" or false; using "live" for ${JSON.stringify(v)}.`);
+  }
+  return "live";
 }
 
 /** A limit that isn't a whole number from 1 to MAX_LIMIT is ignored; say so. */

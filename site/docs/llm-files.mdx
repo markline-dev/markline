@@ -59,9 +59,18 @@ export serves them from any host. `markline dev` serves the `.md` and folder
 or `/llms-full.txt`: those are from the last build, and a new project has none
 until its first build.
 
-A `.md` or folder `llms.txt` in your own `public/` folder is kept, and the
-build doesn't write that one. `llms.txt` and `llms-full.txt` are always
-generated.
+To write one yourself, put it in your own `public/` folder: `llms.txt`,
+`llms-full.txt`, a page's `.md` or a folder's `llms.txt`. Markline keeps your
+copy and doesn't generate that file. The same goes for `robots.txt` and
+`sitemap.xml`. For `llms.txt`, `llms-full.txt`, `robots.txt` and `sitemap.xml`
+the build also says so. To start from Markline's version, copy the
+generated file into `public/` and edit it; delete your copy to go back to the
+generated one.
+
+Don't name a page after one of these files: a page called `llms`, `llms-full`
+or `robots` at the top, or `llms` in a folder, would replace the file in a
+static export, so `markline export` stops and lists it. See
+[Static hosting](/deployment#static-hosting).
 
 ## Page actions
 
@@ -109,7 +118,7 @@ page as rendered.
 
 On docs pages only: not on landing pages, hub pages or changelog pages. The
 [API reference](/openapi#ai-page-actions) has its own actions on each
-resource section, the same in either style.
+section, the same in either style.
 
 The setting applies to the whole site. A page can't change it, and the
 actions can't be added to, removed or reordered.

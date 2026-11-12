@@ -8,16 +8,20 @@ import {
   MAX_PROXY_REQUEST_BYTES,
   MAX_PROXY_RESPONSE_BYTES,
   OVER_BUDGET,
+  MAX_PROXY_BUFFERED_BYTES,
   parsePayload,
+  PROXY_BUFFERED,
   readCapped,
   REQUEST_READ_TIMEOUT_MS,
   UPSTREAM_TIMEOUT_MS,
 } from "../lib/playground-proxy";
 import { originsOf } from "../scripts/proxy-settings.mjs";
-import { loadRoute, startStub } from "./proxy-harness";
+import { loadRoute, startStub, until } from "./proxy-harness";
 
 const MB = 1024 * 1024;
 const closed = new Map<string, boolean>();
+/** /at-cap-held's responses wait on this. */
+const held = { all: Promise.resolve() };
 let seen: Record<string, string | string[] | undefined> = {};
 
 const api = await startStub((req, res) => {
@@ -53,6 +57,13 @@ const api = await startStub((req, res) => {
   }
   if (url === "/control-bytes") return res.end(Buffer.alloc(MAX_PROXY_RESPONSE_BYTES, 1));
   if (url === "/at-cap") return res.end(Buffer.alloc(MAX_PROXY_RESPONSE_BYTES, 97));
+  if (url === "/at-cap-held") {
+    // Half now, the rest when the test releases it: none can finish, and free its
+    // share of the budget, until then.
+    res.write(Buffer.alloc(MAX_PROXY_RESPONSE_BYTES / 2, 97));
+    held.all.then(() => res.end(Buffer.alloc(MAX_PROXY_RESPONSE_BYTES / 2, 97)));
+    return;
+  }
   if (url === "/chunked-big") {
     res.write(Buffer.alloc(MAX_PROXY_RESPONSE_BYTES, 97));
     return res.end(Buffer.alloc(MB, 97));
@@ -261,8 +272,7 @@ test("over the cap is a 413 and the upstream is dropped", { timeout: 30_000 }, a
     assert.match(String(data.error), /25 MB/);
     assert.equal(data.body, undefined);
     if (path !== "/chunked-big") {
-      await new Promise((r) => setTimeout(r, 100));
-      assert.equal(closed.get(path), true, `${path} was dropped`);
+      await until(() => closed.get(path) === true, `${path} was dropped`);
     }
   }
 });
@@ -283,8 +293,7 @@ test("over the cap still drops the upstream when the body has been cloned", { ti
   closed.delete("/drip");
   const { status } = await route.send({ url: at("/drip") });
   assert.equal(status, 413);
-  await new Promise((r) => setTimeout(r, 100));
-  assert.equal(closed.get("/drip"), true);
+  await until(() => closed.get("/drip") === true, `/drip was dropped`);
 });
 
 test("an upstream that takes too long is a 504 and is dropped", { timeout: 30_000 }, async (t) => {
@@ -301,8 +310,7 @@ test("an upstream that takes too long is a 504 and is dropped", { timeout: 30_00
     const { status, data } = await route.send({ url: at(path) });
     assert.equal(status, 504, path);
     assert.match(String(data.error), /120 s/);
-    await new Promise((r) => setTimeout(r, 100));
-    assert.equal(closed.get(path), true, `${path} was dropped`);
+    await until(() => closed.get(path) === true, `${path} was dropped`);
   }
   assert.ok(asked.includes(UPSTREAM_TIMEOUT_MS));
   assert.equal(UPSTREAM_TIMEOUT_MS, 120_000);
@@ -316,8 +324,7 @@ test("the upstream is dropped when the client leaves", { timeout: 30_000 }, asyn
   await new Promise((r) => setTimeout(r, 50));
   client.abort();
   await sent;
-  await new Promise((r) => setTimeout(r, 100));
-  assert.equal(closed.get("/stall"), true);
+  await until(() => closed.get("/stall") === true, `/stall was dropped`);
 });
 
 const streamOf = (total: number, chunk = 4 * 1024 * 1024) => {
@@ -402,11 +409,29 @@ test("a reply that JSON would blow up is a 413, and doesn't hold memory for long
 });
 
 test("large responses at once are limited with a 503, and the limit recovers", { timeout: 60_000 }, async () => {
-  const results = await Promise.all(Array.from({ length: 5 }, () => route.send({ url: at("/at-cap") })));
-  const statuses = results.map((r) => r.status);
-  assert.ok(statuses.includes(503), statuses.join());
+  // Five at the cap, held half-sent. Their first halves alone come to 62.5 MB, over
+  // the 60 MB budget, and none can finish before they're released, so a 503 must
+  // come back first, whatever order the proxy reads them in. If it never does,
+  // the budget isn't being enforced.
+  let release = () => {};
+  held.all = new Promise<void>((r) => (release = r));
+  let peak = 0;
+  const watch = setInterval(() => (peak = Math.max(peak, PROXY_BUFFERED.bytes)), 1);
+  const statuses: number[] = [];
+  const sent = Array.from({ length: 5 }, () => route.send({ url: at("/at-cap-held") }).then((r) => (statuses.push(r.status), r)));
+  try {
+    await until(() => statuses.includes(503), "a request refused for the budget", 30_000);
+    assert.deepEqual([...new Set(statuses)], [503], "nothing finishes while held");
+  } finally {
+    release();
+    await Promise.allSettled(sent);
+    clearInterval(watch);
+  }
   assert.ok(statuses.includes(200), statuses.join());
-  assert.equal((await route.send({ url: at("/at-cap") })).status, 200);
+  assert.ok(peak <= MAX_PROXY_BUFFERED_BYTES, `the pool peaked at ${peak} bytes`);
+  assert.equal(PROXY_BUFFERED.bytes, 0, "every request gave back what it held");
+  const after = await route.send({ url: at("/at-cap") });
+  assert.equal(after.status, 200, String(after.data.error));
 });
 
 test("BufferBudget shares a limit, and releases what it held", () => {

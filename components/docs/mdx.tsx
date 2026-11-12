@@ -16,6 +16,9 @@ import {
   Eyebrow, SectionHead, StatStrip, Stat, Bento, BentoCard,
 } from "@/components/landing/landing";
 import { MarklineHome } from "@/components/landing/home/markline-home";
+import { GitHubStarsLink } from "@/components/github-stars";
+import { statKey } from "@/lib/github-stars";
+import { bakedStat, homeStats, starsMode } from "@/lib/github-stars-baked";
 
 /** An element's visible text, however it's nested (code, bold, links). */
 function textOf(node: React.ReactNode): string {
@@ -75,7 +78,7 @@ export function Path({
   );
 }
 
-type Verb = "POST" | "GET" | "DELETE";
+type Verb = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 export function ApiRefs({ items }: { items: { verb: Verb; ep: string; desc?: string; href: string }[] }) {
   return (
@@ -91,21 +94,27 @@ export function ApiRefs({ items }: { items: { verb: Verb; ep: string; desc?: str
   );
 }
 
+/** Deprecated, and going in a later release: `<Callout title="…" icon="…">`
+ *  does the same. The docs page warns where it's still used. */
 export function MigrationCallout({ children }: { children?: React.ReactNode }) {
   return (
-    <div className="ml-migrate">
-      <span className="ml-migrate-badge">↗</span>
-      <div>
-        <strong>Migrating from OpenAI?</strong>
-        <div className="ml-migrate-body">{children}</div>
-      </div>
-    </div>
+    <Callout title="Migrating from OpenAI?" icon="↗">
+      {children}
+    </Callout>
   );
 }
 
 /* Re-export so MDX can use these without importing. */
 export { Callout, CodeBlock };
 export type { CodeSnippet };
+
+/** `<GitHubStars repo="owner/name" />`: the repo's star count, as the topbar
+ *  badge shows it (topbar.githubStars). Nothing for a repo it can't read. */
+function GitHubStars({ repo }: { repo?: string }) {
+  const key = repo ? statKey("stars", repo) : undefined;
+  if (!repo || !key) return null;
+  return <GitHubStarsLink repo={repo} statKey={key} baked={bakedStat(key)} mode={starsMode()} />;
+}
 
 /* ── MDX components map (passed to <MDXRemote components={…} />) ── */
 
@@ -214,5 +223,7 @@ export const mdxComponents: MDXComponents = {
   Stat,
   Bento,
   BentoCard,
-  MarklineHome,
+  // Markline's own home page, with the build's GitHub and npm numbers.
+  MarklineHome: () => <MarklineHome stats={homeStats()} />,
+  GitHubStars,
 };

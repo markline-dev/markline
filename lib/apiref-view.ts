@@ -1,5 +1,5 @@
 import type { JSONSchema, OpenAPIDoc, OpenAPIEvent, OpenAPIOperation, OpenAPIParameter, OpenAPITag } from "./openapi";
-import { eventAnchor, resolveSchema } from "./openapi";
+import { eventAnchor, hasOpenApiSpec, resolveSchema } from "./openapi";
 import { allResponses, codeSamples, colorizeJson, successResponse, type CodeRail } from "./openapi-codegen";
 import { buildPlaygroundSpec } from "./playground-spec";
 import { mdToHtml } from "./md-desc";
@@ -76,6 +76,9 @@ export type NavParent = {
 };
 export type NavTreeNode = NavResource | NavParent;
 
+/** A sidebar section: its caption (none for pages in no section) and its tree. */
+export type NavSection = { title: string | null; nav: NavTreeNode[] };
+
 export type ObjectView = { name: string; attrs: AttrView[]; sampleHtml: string };
 
 export type EventView = {
@@ -117,12 +120,13 @@ export type SearchEntry = {
   href: string;
 };
 
+/** A configured version, for the reference's version picker. The first is the default. */
 export type VersionEntry = {
+  id: string;
   label: string;
-  sub?: string;
-  href?: string;
-  current?: boolean;
-  latest?: boolean;
+  current: boolean;
+  /** The first configured version, served without a prefix. */
+  default: boolean;
 };
 
 /** Resolved event-dot coloring strategy, passed to the client for rendering.
@@ -145,20 +149,20 @@ export const DEFAULT_EVENT_PALETTE = [
 
 export type ApiRefView = {
   title: string;
-  version: string;
-  versionLabel: string;
   /** Route base for all api-reference links: "/api-reference" for the default
    *  version, "/api-reference/<id>" for a non-default version. */
   base: string;
   servers: string[];
   nav: NavTreeNode[];
+  /** `nav` split under section captions; one uncaptioned section when there are none. */
+  navSections: NavSection[];
   resource: ResourceView;
   /** Command-palette index across all resources. */
   search: SearchEntry[];
   /** Every operation, for the Try it endpoint switcher. Sent once per page;
    *  the sections' playground specs leave it out. */
   endpoints: NonNullable<PlaygroundSpec["endpoints"]>;
-  /** Version selector entries (spec version, or config versions when present). */
+  /** The configured versions, when there are two or more; else empty and no picker. */
   versions: VersionEntry[];
   /** How to color event status dots (status / palette / none). */
   eventColors: EventColors;
@@ -254,7 +258,7 @@ function buildEndpoint(
   base = "/api-reference",
 ): EndpointView {
   const groups = paramGroups(op, root);
-  const code = codeSamples(op, doc, root, baseUrl, langs);
+  const code = codeSamples(op, doc, root, baseUrl, langs, { sdkNaming: loadConfig().api.sdkNaming });
   const response = successResponse(op, root) ?? undefined;
   const responses = allResponses(op, root);
   const hasBearer = op.security.some((s) => s.scheme.type === "http" && s.scheme.scheme === "bearer");
@@ -364,7 +368,15 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
       children,
     };
   };
-  const nav: NavTreeNode[] = buildTagTree(doc.tags.map((t) => t.name), labels).map(toNav);
+  // Each section's pages as their own tree, under its caption; the pages in no
+  // section follow, uncaptioned. Without sections it's the one uncaptioned tree.
+  const docSections = doc.sections ?? [];
+  const inSection = new Set(docSections.flatMap((s) => s.tags));
+  const navSections: NavSection[] = [
+    ...docSections.map((s) => ({ title: s.title, nav: buildTagTree(s.tags, labels).map(toNav) })),
+    { title: null, nav: buildTagTree(doc.tags.map((t) => t.name).filter((n) => !inSection.has(n)), labels).map(toNav) },
+  ].filter((s) => s.nav.length);
+  const nav: NavTreeNode[] = navSections.flatMap((s) => s.nav);
 
   const objSchema = activeTag ? pickObjectSchema(activeTag.operations, root) : undefined;
   const objAttrs = attrsFromSchema(objSchema, root);
@@ -400,15 +412,14 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
 
   return {
     title: doc.info.title || "API reference",
-    version: doc.info.version,
-    versionLabel: versionPillLabel(doc.info.version),
     base,
     servers: doc.servers.map((s) => s.url),
     nav,
+    navSections,
     resource,
     search: buildSearchIndex(doc, base),
     endpoints: hoisted.endpoints,
-    versions: buildVersions(doc, variantId),
+    versions: versionEntries(loadConfig().versions, variantId, (id, i) => hasOpenApiSpec(i === 0 ? undefined : id)),
     eventColors: ((): EventColors => {
       const mode = api.events?.dots ?? "palette";
       const palette = api.events?.palette?.length ? api.events.palette : DEFAULT_EVENT_PALETTE;
@@ -524,36 +535,21 @@ function buildResourceEvents(activeTag: OpenAPITag | undefined, doc: OpenAPIDoc,
 }
 
 /**
- * Version-pill label. For numeric-major semver ("1.4.2") it shows the major as
- * "v1"; for anything else — notably a date-style version like "2025-06-01" — it
- * uses the version verbatim, so we never render the redundant "v2025-06-01".
+ * The version picker's entries: the configured versions that have an API
+ * reference (`hasSpec`), labelled from config, with the one this page is in
+ * marked. Fewer than two means nothing to pick, so no picker; the spec's own
+ * `info.version` isn't a version of the site.
  */
-export function versionPillLabel(version?: string): string {
-  if (!version) return "v1";
-  const major = version.split(".")[0];
-  return /^\d+$/.test(major) ? `v${major}` : version;
-}
-
-function buildVersions(doc: OpenAPIDoc, variantId?: string): VersionEntry[] {
-  const cfg = loadConfig();
-  if (cfg.versions && cfg.versions.length > 1) {
-    return cfg.versions.map((v, i) => {
-      const isDefault = i === 0;
-      const active = isDefault ? !variantId : v.id === variantId;
-      return {
-        label: v.label ?? v.id,
-        sub: isDefault ? "Default" : undefined,
-        href: isDefault ? "/api-reference" : `/api-reference/${v.id}`,
-        current: active,
-        latest: isDefault,
-      };
-    });
-  }
-  const label = versionPillLabel(doc.info.version);
-  // Only carry a sub-line when it adds information (semver → "v1 · 1.4.2"); a
-  // date version is shown once, never as "2025-06-01 · 2025-06-01".
-  const sub = doc.info.version && doc.info.version !== label ? doc.info.version : undefined;
-  return [{ label, sub, current: true, latest: true }];
+export function versionEntries(
+  versions: { id: string; label?: string }[] | undefined,
+  variantId?: string,
+  hasSpec: (id: string, index: number) => boolean = () => true,
+): VersionEntry[] {
+  const entries = (versions ?? [])
+    .map((v, i) => ({ v, i }))
+    .filter(({ v, i }) => hasSpec(v.id, i))
+    .map(({ v, i }) => ({ id: v.id, label: v.label || v.id, current: i === 0 ? !variantId : v.id === variantId, default: i === 0 }));
+  return entries.length < 2 ? [] : entries;
 }
 
 function singularDisplay(tag: string): string {

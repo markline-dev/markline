@@ -380,7 +380,7 @@ html:not([data-banner]) .site-banner { display: none; }
 
 @media (max-width: 880px) {
   .nav .wrap { padding-inline: 20px; }
-  .nav-links, .ghbadge .lbl, .nav-extra, .nav-cta2 { display: none; }
+  .nav-links, .ghbadge .lbl, .ghbadge .star, .nav-extra, .nav-cta2 { display: none; }
   .site-banner { padding: 0 44px 0 16px; justify-content: flex-start; font-size: 13px; }
   .nav-burger { display: grid; flex: none; }
   /* Fit brand + actions on narrow screens: tighter gaps/padding, smaller logo,

@@ -28,8 +28,12 @@ toc:
     label: Paths
   - id: endpoint-lists
     label: Endpoint lists
+  - id: endpoint-cards
+    label: Endpoint cards
   - id: code-blocks-from-data
     label: Code blocks from data
+  - id: github-stars
+    label: GitHub stars
   - id: landing-pages
     label: Landing pages
 ---
@@ -46,6 +50,22 @@ toc:
 Each takes an optional `title`, shown in bold before the text.
 `<Callout tone="info|ok|warn" title="…">` is the same box with the tone
 chosen by a prop, which helps when converting docs from another tool.
+
+Each also takes an `icon` in place of its own: a
+[Phosphor](https://phosphoricons.com) icon name, as `<Card>` takes it, or one
+or two characters such as `↗` or an emoji. Text icons are symbols or emoji:
+letters, such as `A` or `OK`, are read as an icon name. It's shown in the
+callout's colour. Paths and URLs aren't accepted, so a callout never loads an image.
+
+```mdx
+<Callout title="Migrating from OpenAI?" icon="↗">
+  Point your SDK at our endpoint and swap the key.
+</Callout>
+<Tip icon="rocket-launch">Ship it.</Tip>
+```
+
+`<MigrationCallout>` is deprecated, and will be removed in a later release;
+use `<Callout title="…" icon="…">` as above.
 
 ## Cards
 
@@ -263,6 +283,25 @@ the spec:
 <EndpointList tags={["users", "billing"]} />
 ```
 
+## Endpoint cards
+
+`<ApiRefs>` shows a hand-picked set of endpoints as cards, two to a row: the
+method, the path and an optional description, each linking where you choose.
+`verb` is `GET`, `POST`, `PUT`, `PATCH` or `DELETE`, coloured as in the API
+reference.
+
+<ApiRefs items={[
+  { verb: "POST", ep: "/v1/projects", desc: "Create a project", href: "/openapi" },
+  { verb: "GET", ep: "/v1/projects/{id}", desc: "Get a project", href: "/openapi" },
+]} />
+
+```mdx
+<ApiRefs items={[
+  { verb: "POST", ep: "/v1/projects", desc: "Create a project", href: "/api-reference/createProject" },
+  { verb: "GET", ep: "/v1/projects/{id}", desc: "Get a project", href: "/api-reference/getProject" },
+]} />
+```
+
 ## Code blocks from data
 
 For code written as fenced blocks, use a [code group](#code-groups).
@@ -276,6 +315,19 @@ named by its `label` or else its `lang`:
     { lang: "js", label: "Node", code: "await client.users.list();" },
   ]}
 />
+```
+
+## GitHub stars
+
+`<GitHubStars repo="owner/name" />` shows a repo's star count, such as
+"★ 1.2k", as a link to the repo. It shows nothing until there's a count. The
+build fetches the counts of the repos your pages name (up to 20), and
+[`topbar.githubStars`](/configuration) decides whether readers' browsers
+refresh them. With `"live"`, each repo shown is its own request from the
+reader's browser, at most hourly, so a page naming many repos makes many:
+
+```mdx
+Markline is open source <GitHubStars repo="markline-dev/markline" />.
 ```
 
 ## Landing pages

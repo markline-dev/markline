@@ -76,9 +76,11 @@ export function createSite() {
       output = "";
       return out;
     },
-    build() {
-      const r = spawnSync(process.execPath, [CLI, "build"], { cwd: dir, encoding: "utf8", env: cliEnv() });
+    /** Runs `markline build`, with `env` added; returns what it printed. */
+    build(env: Record<string, string> = {}) {
+      const r = spawnSync(process.execPath, [CLI, "build"], { cwd: dir, encoding: "utf8", env: cliEnv(env) });
       if (r.status !== 0) throw new Error(`markline build failed (${r.status}, ${r.signal}):\n${r.stdout}\n${r.stderr}`);
+      return r.stdout + r.stderr;
     },
     /** Starts `markline <command>` and returns its base URL once it answers. */
     async serve(command: "dev" | "start", probe: string) {

@@ -12,6 +12,10 @@ export async function startStub(handler: RequestListener) {
     hits.push(req.url ?? "");
     handler(req, res);
   });
+  // Never close an idle connection first: the proxy's fetch keeps them for reuse, and
+  // if the server drops one (after its default 5 s) just as fetch reuses it, the call
+  // fails with a reset. A slow, loaded runner makes that more likely, not the proxy.
+  server.keepAliveTimeout = 120_000;
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   return {
     hits,
@@ -53,4 +57,14 @@ export async function loadRoute(content: { config: object | string | null; spec?
     },
     cleanup: () => fs.rmSync(dir, { recursive: true, force: true }),
   };
+}
+
+/** Resolves once `ok()` holds, checking every 10 ms; fails naming `what` after `ms`.
+ *  For what happens on its own time, such as a dropped connection closing. */
+export async function until(ok: () => boolean, what: string, ms = 10_000) {
+  const end = Date.now() + ms;
+  while (!ok()) {
+    if (Date.now() > end) throw new Error(`timed out waiting: ${what}`);
+    await new Promise((r) => setTimeout(r, 10));
+  }
 }

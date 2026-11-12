@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import type { SearchEntry, VersionEntry } from "@/lib/apiref-view";
+import { versionTarget } from "@/lib/apiref-version";
 import { openAskPanel } from "../../ai/ask-dock";
 
 /* ── event helpers (let the toolrow / doc-action buttons drive these) ── */
@@ -214,92 +215,98 @@ function highlight(s: string, q: string): string {
 }
 
 /* ═══════════════════════ version selector ═══════════════════════ */
-export function VersionSelector({ versions, buttonLabel }: { versions: VersionEntry[]; buttonLabel: string }) {
+/**
+ * The reference's version picker, shown only with two or more configured
+ * versions. Like the header's picker, it goes to the same page in the other
+ * version, or to that version's reference when the page doesn't exist there.
+ */
+export function VersionSelector({ versions }: { versions: VersionEntry[] }) {
   const router = useRouter();
+  const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const [label, setLabel] = useState(buttonLabel);
-  const [toast, setToast] = useState<string | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const current = versions.find((v) => v.current) ?? versions[0];
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("markline-apiver");
-      if (saved) setLabel(saved);
-    } catch {
-      /* ignore */
-    }
-  }, []);
-
-  useEffect(() => {
-    const onDoc = (e: MouseEvent) => {
-      if (open && wrapRef.current && !wrapRef.current.contains(e.target as Node)) setOpen(false);
+    if (!open) return;
+    // Start on the version shown, so arrows move from there.
+    menuRef.current?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus();
+    const onDown = (e: MouseEvent) => {
+      if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
     };
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
-    document.addEventListener("click", onDoc);
-    document.addEventListener("keydown", onKey);
-    return () => {
-      document.removeEventListener("click", onDoc);
-      document.removeEventListener("keydown", onKey);
-    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
   }, [open]);
 
-  useEffect(() => {
-    if (!toast) return;
-    const t = setTimeout(() => setToast(null), 2200);
-    return () => clearTimeout(t);
-  }, [toast]);
+  if (versions.length < 2) return null;
 
-  function pick(v: VersionEntry) {
+  const pick = async (id: string) => {
     setOpen(false);
-    const next = v.sub ? `${v.label} · ${v.sub}` : v.label;
-    if (v.href && v.href !== location.pathname) {
-      router.push(v.href);
+    if (id === current.id) return;
+    const base = process.env.NEXT_PUBLIC_MARKLINE_BASE_PATH ?? "";
+    const exists = async (path: string) => (await fetch(`${base}${path}`, { method: "HEAD" })).ok;
+    const dest = await versionTarget(pathname, id, versions, exists);
+    // The anchor only means something on the same page.
+    router.push(dest.same ? dest.path + location.hash : dest.path);
+  };
+
+  const onKeyDown = (e: React.KeyboardEvent) => {
+    // Tabbing out of the menu closes it, as clicking elsewhere does.
+    if (e.key === "Tab" && open) {
+      setOpen(false);
       return;
     }
-    setLabel(next);
-    try {
-      localStorage.setItem("markline-apiver", next);
-    } catch {
-      /* ignore */
+    if (e.key === "Escape" && open) {
+      setOpen(false);
+      wrapRef.current?.querySelector<HTMLElement>(".api-ver")?.focus();
+      return;
     }
-    setToast(`Now viewing ${next}`);
-  }
+    if (e.key !== "ArrowDown" && e.key !== "ArrowUp") return;
+    e.preventDefault();
+    if (!open) return setOpen(true);
+    const items = [...(menuRef.current?.querySelectorAll<HTMLElement>(".api-vi") ?? [])];
+    const at = items.indexOf(document.activeElement as HTMLElement);
+    const next = (at + (e.key === "ArrowDown" ? 1 : -1) + items.length) % items.length;
+    items[next]?.focus();
+  };
 
   return (
-    <div className="api-vwrap" ref={wrapRef}>
-      <button className={`api-ver${open ? " on" : ""}`} onClick={() => setOpen((o) => !o)} aria-label="API version">
-        <span className="vlabel">{label}</span>
-        <svg className="vchev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+    <div className="api-vwrap" ref={wrapRef} onKeyDown={onKeyDown}>
+      <button
+        type="button"
+        className={`api-ver${open ? " on" : ""}`}
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        aria-label={`Version: ${current.label}`}
+      >
+        <span className="vlabel">{current.label}</span>
+        <svg className="vchev" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
           <path d="m6 9 6 6 6-6" />
         </svg>
-        <span className="dot g" />
       </button>
       {open && (
-        <div className="api-ver-menu">
-          <div className="api-vlbl">API version</div>
-          {versions.map((v, i) => {
-            const text = v.sub ? `${v.label} · ${v.sub}` : v.label;
-            const isCur = (v.sub ? `${v.label} · ${v.sub}` : v.label) === label || (i === 0 && label === buttonLabel && v.current);
-            return (
-              <button key={i} className="api-vi" onClick={() => pick(v)}>
-                <span className="vmain">
-                  <span className="vd">{text}</span>
-                  {(v.current || v.sub) && <span className="vt">{v.current ? "Current spec version" : "Stable"}</span>}
-                </span>
-                {v.latest && <span className="badge">LATEST</span>}
-                {isCur && (
-                  <svg className="ck" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4">
-                    <path d="M20 6 9 17l-5-5" />
-                  </svg>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      )}
-      {toast && (
-        <div className="ml-toast show">
-          <span className="dot g" /> {toast}
+        <div className="api-ver-menu" role="menu" ref={menuRef}>
+          {versions.map((v) => (
+            <button
+              key={v.id}
+              type="button"
+              role="menuitemradio"
+              className="api-vi"
+              aria-checked={v.current}
+              onClick={() => pick(v.id)}
+            >
+              <span className="vmain">
+                <span className="vd">{v.label}</span>
+              </span>
+              {v.current && (
+                <svg className="ck" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" aria-hidden>
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+              )}
+            </button>
+          ))}
         </div>
       )}
     </div>
@@ -370,6 +377,113 @@ export function MarkdownModal() {
         </div>
       </div>
     </div>
+  );
+}
+
+/* ═══════════════════════ Expanded code (a card's Expand) ═══════════════════════ */
+type CodeOpen = { html: string; label: string };
+let codeOpener: HTMLElement | null = null;
+
+/** Open the code dialog on a card's showing code; focus returns to `opener` on close. */
+export function openCodeDialog({ html, label, opener }: CodeOpen & { opener: HTMLElement }) {
+  codeOpener = opener;
+  window.dispatchEvent(new CustomEvent<CodeOpen>("ml-code-open", { detail: { html, label } }));
+}
+
+/**
+ * A card's code at full height, in a modal `<dialog>`: Escape and the close button
+ * shut it, Tab stays inside, and focus goes back to the Expand button. The HTML is
+ * the card's own rendered code, so a body too big to colour stays uncoloured.
+ */
+export function CodeDialog() {
+  const ref = useRef<HTMLDialogElement>(null);
+  const pre = useRef<HTMLPreElement>(null);
+  const [code, setCode] = useState<CodeOpen | null>(null);
+  const [copied, setCopied] = useState(false);
+
+  useEffect(() => {
+    const onOpen = (e: Event) => setCode((e as CustomEvent<CodeOpen>).detail);
+    window.addEventListener("ml-code-open", onOpen);
+    return () => window.removeEventListener("ml-code-open", onOpen);
+  }, []);
+
+  useEffect(() => {
+    const d = ref.current;
+    if (!code || !d || d.open) return;
+    d.showModal();
+    // showModal focuses the first control (Copy); start on Close instead.
+    d.querySelector<HTMLElement>("[data-dlg-close]")?.focus();
+  }, [code]);
+
+  const onClose = () => {
+    setCode(null);
+    setCopied(false);
+    codeOpener?.focus();
+    codeOpener = null;
+  };
+  const copy = () => {
+    navigator.clipboard?.writeText(pre.current?.textContent ?? "").then(
+      () => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1300);
+      },
+      () => {},
+    );
+  };
+  // A modal dialog makes the page inert; this keeps Tab from leaving for the browser's UI too.
+  const onKeyDown = (e: React.KeyboardEvent<HTMLDialogElement>) => {
+    if (e.key !== "Tab" || !ref.current) return;
+    const items = [...ref.current.querySelectorAll<HTMLElement>("button, [tabindex]:not([tabindex='-1'])")];
+    if (!items.length) return;
+    const first = items[0];
+    const last = items[items.length - 1];
+    if (e.shiftKey && document.activeElement === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  };
+
+  return (
+    <dialog
+      ref={ref}
+      className="code-dlg"
+      aria-label={code?.label}
+      onClose={onClose}
+      onKeyDown={onKeyDown}
+      onClick={(e) => e.target === ref.current && ref.current.close()}
+    >
+      {code && (
+        <div className="code-card code-dlg-card">
+          <div className="cc-head">
+            <span className="cc-title code-dlg-title">{code.label}</span>
+            <span className="cc-tools">
+              <button type="button" className={`cc-copy${copied ? " copied" : ""}`} onClick={copy} aria-label="Copy" title="Copy">
+                <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" aria-hidden>
+                  {copied ? (
+                    <path d="M20 6 9 17l-5-5" />
+                  ) : (
+                    <>
+                      <rect x="9" y="9" width="11" height="11" rx="2" />
+                      <path d="M5 15V5a2 2 0 0 1 2-2h10" />
+                    </>
+                  )}
+                </svg>
+              </button>
+              <button type="button" className="cc-copy" onClick={() => ref.current?.close()} aria-label="Close" title="Close" data-dlg-close>
+                <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                  <path d="M18 6 6 18M6 6l12 12" />
+                </svg>
+              </button>
+            </span>
+          </div>
+          {/* Our own rendered, escaped code, taken from the card. */}
+          <pre ref={pre} tabIndex={0} dangerouslySetInnerHTML={{ __html: code.html }} />
+        </div>
+      )}
+    </dialog>
   );
 }
 

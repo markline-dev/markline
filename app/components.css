@@ -379,6 +379,14 @@ textarea.ml-pg-input { height: auto; padding: 8px 10px; line-height: 1.55; resiz
   background: rgb(var(--c-panel-bg));
   color: rgb(var(--c-panel-fg));
 }
+/* Live binary response: an audio player, or a download link with the size. */
+.ml-pg-binary { padding: 12px 16px; }
+.ml-pg-binary .ml-audio { margin: 0; }
+.ml-pg-binary p { margin: 0; font-size: 13px; }
+.ml-pg-binary a { color: var(--accent-ink); text-decoration: underline; text-underline-offset: 2px; }
+.ml-pg-binary .meta, .ml-pg-file .meta { margin-left: 8px; font-family: var(--mono); font-size: 11px; color: var(--ink-4); }
+.ml-pg-file { display: inline-flex; align-items: center; min-width: 0; font-size: 12px; }
+.ml-pg-file input[type="file"] { min-width: 0; max-width: 100%; font-size: 12px; }
 
 .ml-pg-codepreview { background: rgb(var(--c-panel-bg)); }
 .ml-pg-codepreview-head {
@@ -770,38 +778,17 @@ textarea.ml-pg-input { height: auto; padding: 8px 10px; line-height: 1.55; resiz
   border-radius: 4px;
   font-weight: 600;
 }
-.ml-apiref-verb.verb-POST { background: #D6F0E1; color: #15A66B; }
-.ml-apiref-verb.verb-GET { background: #DDE8FB; color: #2A6FDB; }
-.ml-apiref-verb.verb-DELETE { background: #F8D8D2; color: #D43A2C; }
+/* The API reference's method colours (app/api-reference.css .verb). */
+.ml-apiref-verb.verb-GET    { color: var(--c-cyan);   background: color-mix(in srgb, var(--c-cyan) 15%, transparent); }
+.ml-apiref-verb.verb-POST   { color: var(--c-green);  background: color-mix(in srgb, var(--c-green) 16%, transparent); }
+.ml-apiref-verb.verb-PUT    { color: var(--c-tan);    background: color-mix(in srgb, var(--c-tan) 16%, transparent); }
+.ml-apiref-verb.verb-PATCH  { color: var(--c-purple); background: color-mix(in srgb, var(--c-purple) 16%, transparent); }
+.ml-apiref-verb.verb-DELETE { color: var(--c-red);    background: color-mix(in srgb, var(--c-red) 15%, transparent); }
+[data-theme="light"] .ml-apiref-verb.verb-GET   { color: #0b7fa8; }
+[data-theme="light"] .ml-apiref-verb.verb-PUT   { color: #a5631f; }
+[data-theme="light"] .ml-apiref-verb.verb-PATCH { color: #5b3fe0; }
 .ml-apiref-ep { font-family: var(--mono); font-size: 13px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ml-apiref-desc { font-size: 12px; color: var(--ink-4); }
-
-.ml-migrate {
-  margin: 24px 0;
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  padding: 16px 20px;
-  border-radius: 16px;
-  border: 1px solid var(--accent-line);
-  background: color-mix(in oklab, var(--accent) 12%, var(--panel));
-}
-.ml-migrate-badge {
-  font-family: var(--mono);
-  font-weight: 700;
-  font-size: 12px;
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  background: var(--accent);
-  color: var(--on-accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.ml-migrate strong { color: var(--ink); }
-.ml-migrate-body { font-size: 14px; color: var(--ink-3); line-height: 1.55; margin-top: 2px; }
 
 /* MDX fenced <pre> (the bare pre fallback in mdxComponents) */
 .ml-mdx-pre {
@@ -890,7 +877,7 @@ textarea.ml-pg-input { height: auto; padding: 8px 10px; line-height: 1.55; resiz
   gap: 8px;
   font-weight: 500;
   text-decoration: none;
-  border-radius: 10px;
+  border-radius: var(--btn-radius, 10px);
   transition: background .15s, border-color .15s, color .15s, opacity .15s;
   white-space: nowrap;
 }
@@ -1009,3 +996,12 @@ textarea.ml-pg-input { height: auto; padding: 8px 10px; line-height: 1.55; resiz
 .api-desc a:hover, .ml-param-desc a:hover, .ml-eplist-desc a:hover, .api-resp-head .desc a:hover { border-color: var(--accent-ink); }
 .api-resp-head .desc p { margin: 0; }
 .api-resp-head .desc ul, .api-resp-head .desc ol { margin: 0.2em 0 0 1.25em; padding: 0; }
+
+/* <GitHubStars repo="owner/name" />: a repo's star count, as a link. */
+.gh-stars {
+  display: inline-flex; align-items: center; gap: 5px; font-family: var(--mono); font-size: 12.5px;
+  color: var(--ink-2); border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px;
+  text-decoration: none; vertical-align: middle;
+}
+.gh-stars:hover { border-color: var(--ink-4); color: var(--ink); }
+.gh-stars .star { color: var(--warn); }

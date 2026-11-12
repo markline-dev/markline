@@ -5,7 +5,8 @@ import Link from "next/link";
 import { withEndpoints } from "@/lib/apiref-payload";
 import type { ApiRefView, AttrView, EndpointView, EventColors, EventView, NavTreeNode, NavParent } from "@/lib/apiref-view";
 import type { AiPublicConfig } from "@/lib/config";
-import { ApiExplorer, PlaygroundProvider, usePlayground } from "../playground";
+import { ApiExplorer, BinaryBody, PlaygroundProvider, usePlayground } from "../playground";
+import { colorizeJsonText } from "@/lib/playground-highlight";
 import { AskDock, openAskPanel } from "../../ai/ask-dock";
 import { SectionRate } from "../../feedback";
 import { SiteCredit } from "@/components/site-credit";
@@ -13,6 +14,8 @@ import {
   SearchPalette,
   VersionSelector,
   MarkdownModal,
+  CodeDialog,
+  openCodeDialog,
   openSearch,
   openMarkdown,
   apiSecToMarkdown,
@@ -188,9 +191,20 @@ export function MarklineApiRef({
       }
 
       /* copy buttons */
-      const copy = target.closest<HTMLElement>("[data-copy]");
+      /* expand a code card's active code into the dialog */
+      const expand = target.closest<HTMLElement>("[data-expand]");
+      if (expand) {
+        const card = expand.closest<HTMLElement>(".code-card");
+        const pre = card && activePre(card);
+        if (pre) openCodeDialog({ html: pre.innerHTML, label: cardLabel(card!), opener: expand });
+        return;
+      }
+
+      const copy = target.closest<HTMLElement>("[data-copy], [data-copy-card]");
       if (copy) {
-        const text = copy.getAttribute("data-copy") || "";
+        // A code card's Copy reads whichever tab or status is showing, when clicked.
+        const card = copy.hasAttribute("data-copy-card") ? copy.closest<HTMLElement>(".code-card") : null;
+        const text = card ? (activePre(card)?.textContent ?? "") : copy.getAttribute("data-copy") || "";
         const restore = copy.getAttribute("data-label-html") ?? copy.innerHTML;
         copy.setAttribute("data-label-html", restore);
         const done = () => {
@@ -350,7 +364,9 @@ export function MarklineApiRef({
       <div className="api">
         {/* ============ LEFT NAV ============ */}
         <aside className="api-side">
+          {(searchInSidebar || aiOn || view.versions.length > 1) && (
           <div className="api-tools">
+            {(searchInSidebar || aiOn) && (
             <div className="api-toolrow">
               {searchInSidebar && (
                 <div className="api-search" onClick={() => openSearch()} role="button" tabIndex={0}>
@@ -366,14 +382,18 @@ export function MarklineApiRef({
                 </button>
               )}
             </div>
-            <VersionSelector
-              versions={view.versions}
-              buttonLabel={view.version && view.version !== view.versionLabel ? `${view.versionLabel} · ${view.version}` : view.versionLabel}
-            />
+            )}
+            <VersionSelector versions={view.versions} />
           </div>
+          )}
 
-          {view.nav.map((n) => (
-            <NavNodeView key={n.slug} node={n} base={view.base} />
+          {view.navSections.map((sec, i) => (
+            <div className="api-section" key={sec.title ?? `__rest-${i}`}>
+              {sec.title && <div className="api-section-cap">{sec.title}</div>}
+              {sec.nav.map((n) => (
+                <NavNodeView key={n.slug} node={n} base={view.base} />
+              ))}
+            </div>
           ))}
         </aside>
 
@@ -459,12 +479,10 @@ export function MarklineApiRef({
               </div>
               <div className="api-r">
                 <AiActions resource={r.object.name} aiEnabled={aiOn} />
-                <div className="code-card">
+                <div className="code-card" data-label={r.object.name}>
                   <div className="cc-head">
                     <span className="cc-title">{r.object.name}</span>
-                    <button className="cc-copy" data-copy={textFromHtml(r.object.sampleHtml)} data-copy-icon aria-label="Copy">
-                      <CopyIco />
-                    </button>
+                    <CardTools />
                   </div>
                   <pre dangerouslySetInnerHTML={{ __html: r.object.sampleHtml }} />
                 </div>
@@ -488,6 +506,7 @@ export function MarklineApiRef({
 
       <SearchPalette index={view.search} aiEnabled={aiOn} />
       <MarkdownModal />
+      <CodeDialog />
       {ai && (
         <AskDock
           ai={ai}
@@ -636,12 +655,10 @@ function EventSection({
               </div>
               <div className="evt-col-r">
                 <AiActions resource={`${resourceName} ${ev.name}`} aiEnabled={aiEnabled} />
-                <div className="code-card">
+                <div className="code-card" data-label={`${ev.name} · Example payload`}>
                   <div className="cc-head">
                     <span className="cc-title">Example payload</span>
-                    <button className="cc-copy" data-copy={textFromHtml(ev.sampleHtml)} data-copy-icon aria-label="Copy">
-                      <CopyIco />
-                    </button>
+                    <CardTools />
                   </div>
                   <pre dangerouslySetInnerHTML={{ __html: ev.sampleHtml }} />
                 </div>
@@ -709,7 +726,7 @@ function EndpointSection({ ep, endpoints, aiEnabled }: { ep: EndpointView; endpo
 function ReadCards({ ep }: { ep: EndpointView }) {
   return (
     <>
-      <div className="code-card">
+      <div className="code-card" data-label={opLabel(ep)}>
         <div className="cc-langs-head cc-head">
           <div className="cc-langs" data-tabs data-tabs-scope={`#code-${ep.opId}`}>
             {ep.code.tabs.map((t, i) => (
@@ -718,9 +735,7 @@ function ReadCards({ ep }: { ep: EndpointView }) {
               </button>
             ))}
           </div>
-          <button className="cc-copy" data-copy={textFromHtml(ep.code.tabs[0]?.html ?? "")} data-copy-icon aria-label="Copy">
-            <CopyIco />
-          </button>
+          <CardTools />
         </div>
         <CodePanels code={ep.code} id={`code-${ep.opId}`} />
       </div>
@@ -729,26 +744,27 @@ function ReadCards({ ep }: { ep: EndpointView }) {
   );
 }
 
+/** Statuses beyond this many switch from tabs to a dropdown. */
+const STATUS_TABS_MAX = 3;
+
 /**
- * The Response card. With one documented response it shows a single status pill;
- * with several (success + errors) it shows a status-code switcher whose tabs swap
- * the body in place. Always sits on the light "response" surface (`.resp`).
+ * The Response card: one status shown plainly; a few as tabs; more as a dropdown.
+ * Each swaps the body in place, and the first 2xx (they're sorted first) is shown.
  */
 function ResponseCard({ ep }: { ep: EndpointView }) {
   const rs = ep.responses;
   if (rs.length === 0) return null;
+  const label = `${opLabel(ep)} · Response`;
   if (rs.length === 1) {
     const r = rs[0];
     return (
-      <div className="code-card resp">
+      <div className="code-card resp" data-label={`${label} · ${r.status}`}>
         <div className="cc-head">
           <span className="cc-title">Response</span>
           <span className="cc-status">
             <span className={`dot ${r.tone}`} /> {r.label}
           </span>
-          <button className="cc-copy" data-copy={textFromHtml(r.html)} data-copy-icon aria-label="Copy">
-            <CopyIco />
-          </button>
+          <CardTools />
         </div>
         <pre dangerouslySetInnerHTML={{ __html: r.html }} />
       </div>
@@ -756,20 +772,38 @@ function ResponseCard({ ep }: { ep: EndpointView }) {
   }
   const scope = `resp-${ep.opId}`;
   return (
-    <div className="code-card resp">
+    <div className="code-card resp" data-label={label}>
       <div className="cc-head">
         <span className="cc-title">Response</span>
-        <div className="cc-codes" data-tabs data-tabs-scope={`#${scope}`}>
-          {rs.map((r, i) => (
-            <button key={r.status} className={`cc-code${i === 0 ? " active" : ""}`} data-tab={r.status}>
-              <span className={`dot ${r.tone}`} />
-              {r.status}
-            </button>
-          ))}
-        </div>
-        <button className="cc-copy" data-copy={textFromHtml(rs[0].html)} data-copy-icon aria-label="Copy">
-          <CopyIco />
-        </button>
+        {rs.length > STATUS_TABS_MAX ? (
+          <select
+            className="cc-select"
+            aria-label="Response status"
+            defaultValue={rs[0].status}
+            onChange={(e) => {
+              const key = e.currentTarget.value;
+              document.getElementById(scope)?.querySelectorAll<HTMLElement>("[data-panel]").forEach((p) => {
+                p.classList.toggle("active", p.getAttribute("data-panel") === key);
+              });
+            }}
+          >
+            {rs.map((r) => (
+              <option key={r.status} value={r.status}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <div className="cc-codes" data-tabs data-tabs-scope={`#${scope}`}>
+            {rs.map((r, i) => (
+              <button key={r.status} className={`cc-code${i === 0 ? " active" : ""}`} data-tab={r.status} title={r.label}>
+                <span className={`dot ${r.tone}`} />
+                {r.status}
+              </button>
+            ))}
+          </div>
+        )}
+        <CardTools />
       </div>
       <div id={scope}>
         {rs.map((r, i) => (
@@ -801,7 +835,7 @@ function TryItCards({ ep }: { ep: EndpointView }) {
   const tabs = ep.code.tabs;
   return (
     <>
-      <div className="code-card">
+      <div className="code-card" data-label={opLabel(ep)}>
         <div className="cc-langs-head cc-head">
           <div className="cc-langs" data-tabs data-tabs-scope={`#code-${ep.opId}`}>
             {tabs.map((t, i) => (
@@ -817,22 +851,25 @@ function TryItCards({ ep }: { ep: EndpointView }) {
               </button>
             )}
           />
-          <button className="cc-copy" data-copy={textFromHtml(tabs[0]?.html ?? "")} data-copy-icon aria-label="Copy">
-            <CopyIco />
-          </button>
+          <CardTools />
         </div>
         <CodePanels code={ep.code} id={`code-${ep.opId}`} />
       </div>
 
       {live ? (
-        <div className="code-card resp">
+        <div className="code-card resp" data-label={`${opLabel(ep)} · Response · ${live.status}`}>
           <div className="cc-head">
             <span className="cc-title">Response</span>
             <span className="cc-status">
               <span className={`dot ${live.status < 400 ? "g" : "r"}`} /> {live.status} {live.statusText} · {live.durationMs} ms
             </span>
+            {!live.blob && <CardTools />}
           </div>
-          <pre dangerouslySetInnerHTML={{ __html: colorizeJsonString(live.body) }} />
+          {live.blob ? (
+            <BinaryBody blob={live.blob} contentType={live.contentType} />
+          ) : (
+            <pre dangerouslySetInnerHTML={{ __html: colorizeJsonText(live.body) }} />
+          )}
         </div>
       ) : pg.error ? (
         <div className="code-card resp">
@@ -857,20 +894,6 @@ function CodePanels({ code, id }: { code: EndpointView["code"]; id: string }) {
         </div>
       ))}
     </div>
-  );
-}
-
-/** Colorize a JSON string into the design's code-rail span classes. */
-function colorizeJsonString(s: string): string {
-  const esc = s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-  return esc.replace(
-    /("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|(-?\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)/g,
-    (m, str, colon, kw, num) => {
-      if (str) return colon ? `<span class="key">${str}</span>${colon}` : `<span class="s">${str}</span>`;
-      if (kw) return `<span class="k">${kw}</span>`;
-      if (num) return `<span class="n">${num}</span>`;
-      return m;
-    },
   );
 }
 
@@ -994,18 +1017,47 @@ function CopyIco() {
     </svg>
   );
 }
+function ExpandIco() {
+  return (
+    <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9">
+      <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" />
+    </svg>
+  );
+}
+
+/** Expand and Copy for a code card. Both act on the tab or status showing. */
+function CardTools() {
+  return (
+    <span className="cc-tools">
+      <button type="button" className="cc-copy" data-expand aria-label="Expand" title="Expand">
+        <ExpandIco />
+      </button>
+      <button type="button" className="cc-copy" data-copy-card data-copy-icon aria-label="Copy" title="Copy">
+        <CopyIco />
+      </button>
+    </span>
+  );
+}
+
 /* ── helpers ───────────────────────────────────────────────────────────── */
+const opLabel = (ep: EndpointView) => `${ep.method.toUpperCase()} ${ep.path}`;
+
+/** The code a card is showing: its active tab's or status's, else its only one. */
+function activePre(card: HTMLElement): HTMLElement | null {
+  return card.querySelector<HTMLElement>("[data-panel].active pre") ?? card.querySelector<HTMLElement>("pre");
+}
+
+/** "POST /v1/… · Python": the card's own label, then the tab or status showing. */
+function cardLabel(card: HTMLElement): string {
+  const base = card.getAttribute("data-label") ?? "Code";
+  const tab = card.querySelector<HTMLElement>("[data-tab].active")?.textContent?.trim();
+  const select = card.querySelector<HTMLSelectElement>(".cc-select");
+  const pick = select ? select.selectedOptions[0]?.value : tab;
+  return pick ? `${base} · ${pick}` : base;
+}
 function verbClass(verb: string): string {
   const v = verb.toLowerCase();
   if (v === "del") return "del";
   return v;
 }
 
-/** Strip the colorizing spans back to plain text for the copy payload. */
-function textFromHtml(html: string): string {
-  return html
-    .replace(/<[^>]+>/g, "")
-    .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">");
-}

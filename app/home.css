@@ -323,6 +323,10 @@
 .ml-home .proof-grid { display: grid; grid-template-columns: 360px 1fr; gap: 18px; margin-top: 44px; }
 .ml-home .gh-card { border: 1px solid var(--line); border-radius: 14px; padding: 24px; background: var(--panel); display: flex; flex-direction: column; }
 .ml-home .gh-top { display: flex; align-items: center; gap: 11px; font-family: var(--mono); font-size: 13px; color: var(--ink-2); }
+.ml-home .gh-star { display: flex; align-items: baseline; gap: 10px; margin: 20px 0 0; }
+.ml-home .gh-star .v { font-size: 46px; font-weight: 700; letter-spacing: -0.03em; }
+.ml-home .gh-star .star { color: var(--warn); font-size: 22px; }
+.ml-home .gh-star .u { font-size: 12.5px; color: var(--ink-3); }
 .ml-home .gh-meta { display: flex; gap: 18px; margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line); }
 .ml-home .gh-meta div { font-size: 12.5px; color: var(--ink-3); }
 .ml-home .gh-meta b { display: block; font-size: 17px; color: var(--ink); font-weight: 600; }
@@ -355,7 +359,7 @@
 }
 @media (max-width: 880px) {
   .ml-home .wrap { padding-inline: 20px; }
-  .ml-home .nav-links, .ml-home .ghbadge .lbl { display: none; }
+  .ml-home .nav-links, .ml-home .ghbadge .lbl, .ml-home .ghbadge .star { display: none; }
   .ml-home .footer-in { grid-template-columns: 1fr 1fr; }
 }
 @media (max-width: 760px) {

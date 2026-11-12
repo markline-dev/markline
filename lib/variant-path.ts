@@ -41,3 +41,25 @@ function splitSuffix(path: string): [string, string?] {
   const i = path.search(/[?#]/);
   return i < 0 ? [path] : [path.slice(0, i), path.slice(i)];
 }
+
+/**
+ * Where switching to version or locale `to` lands: the same page there if it
+ * exists, else that one's home. `base` is the site's base path: the request
+ * needs it, while router.push adds it itself. Offline or blocked, it tries the
+ * page anyway.
+ */
+export async function switchVariant(
+  path: string,
+  to: string,
+  v: Variants,
+  { base = "", fetchImpl = fetch }: { base?: string; fetchImpl?: typeof fetch } = {},
+): Promise<string> {
+  const target = variantPath(path, to, v);
+  try {
+    const res = await fetchImpl(`${base}${target}`, { method: "HEAD" });
+    if (!res.ok) return variantPath("/", to, v);
+  } catch {
+    // try the page anyway
+  }
+  return target;
+}

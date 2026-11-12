@@ -1,5 +1,7 @@
 import type { OpenAPIDoc, OpenAPIOperation } from "./openapi";
-import { sampleFromSchema } from "./openapi";
+import { resolveSchema, sampleFromSchema } from "./openapi";
+import { bodyKind, flattenObject, isBinarySchema } from "./openapi-media";
+import { formFieldArg, formFileArg, formText, sampleUrl } from "./openapi-curl";
 import { loadConfig } from "./config";
 
 /** Header names the operation authenticates with through an API key. */
@@ -11,51 +13,73 @@ export function apiKeyHeaders(op: OpenAPIOperation): string[] {
 /** Build a cURL example for an operation. */
 export function curlSample(op: OpenAPIOperation, doc: OpenAPIDoc, root: any): string {
   const baseUrl = loadConfig().api.baseUrl ?? doc.servers[0]?.url ?? "https://api.example.com";
-  const url = baseUrl + fillPath(op.path, op.parameters.path);
-  const queryStr = op.parameters.query.length
-    ? "?" +
-      op.parameters.query
-        .filter((q) => q.required)
-        .map((q) => `${q.name}=${samplePrimitive(q.schema, root)}`)
-        .join("&")
-    : "";
+  const url = sampleUrl(
+    baseUrl,
+    op.path,
+    (name) => samplePrimitive(op.parameters.path.find((x) => x.name === name)?.schema, undefined),
+    op.parameters.query.filter((q) => q.required).map((q) => ({ name: q.name, value: samplePrimitive(q.schema, root) })),
+  );
 
   const lines: string[] = [];
   // Long flags (--request / --url / --header / --data) get a distinct token
   // scope from the bash grammar (string.unquoted.shell), which Shiki paints
   // differently from default text — so they stand out from URLs and values.
   lines.push(`curl --request ${op.method.toUpperCase()} \\`);
-  lines.push(`  --url ${shellQuote(url + queryStr)}`);
+  lines.push(`  --url ${shellQuote(url)}`);
 
   const hasBearer = op.security.some((s) => s.scheme.type === "http" && s.scheme.scheme === "bearer");
   if (hasBearer) {
     lines[lines.length - 1] += " \\";
     lines.push(`  --header 'Authorization: Bearer <token>'`);
   }
-  for (const name of apiKeyHeaders(op)) {
+  const keyHeaders = apiKeyHeaders(op);
+  for (const name of keyHeaders) {
     lines[lines.length - 1] += " \\";
-    lines.push(`  --header '${name}: <api-key>'`);
+    lines.push(`  --header ${shellQuote(`${name}: <api-key>`)}`);
   }
-  for (const h of op.parameters.header) {
+  for (const h of op.parameters.header ?? []) {
+    if (keyHeaders.some((k) => k.toLowerCase() === h.name.toLowerCase())) continue;
     lines[lines.length - 1] += " \\";
-    lines.push(`  --header '${h.name}: <${h.name.toLowerCase()}>'`);
+    lines.push(`  --header ${shellQuote(`${h.name}: <${h.name.toLowerCase()}>`)}`);
   }
 
   if (op.requestBody?.schema) {
-    lines[lines.length - 1] += " \\";
-    lines.push(`  --header 'Content-Type: application/json' \\`);
-    const sample = sampleFromSchema(op.requestBody.schema, root);
-    const json = JSON.stringify(sample, null, 2);
-    lines.push(`  --data ${shellQuote(json)}`);
+    const ct = op.requestBody.contentType ?? "application/json";
+    const kind = bodyKind(ct);
+    const schema = resolveSchema(op.requestBody.schema, root);
+    const push = (l: string) => {
+      lines[lines.length - 1] += " \\";
+      lines.push(l);
+    };
+    if (kind === "multipart" || kind === "form") {
+      // curl writes the Content-Type itself (with the multipart boundary).
+      const flat = flattenObject(schema);
+      const required = new Set(flat?.required ?? []);
+      const props = Object.entries(flat?.properties ?? {});
+      let wrote = false;
+      for (const [name, prop] of props) {
+        const file = isBinarySchema(prop);
+        if (!required.has(name) && !file) continue;
+        const arg = file ? formFileArg(name, `path/to/${name}`) : formFieldArg(kind, name, sampleFromSchema(prop, root));
+        push(`  --${arg.flag} ${arg.word}`);
+        wrote = true;
+      }
+      // Always send a body: without one curl would make this a GET's shape.
+      if (!wrote) {
+        const arg = formFieldArg(kind, props[0]?.[0] ?? "field", "value");
+        push(`  --${arg.flag} ${arg.word}`);
+      }
+    } else if (kind === "other" && isBinarySchema(schema)) {
+      push(`  --header ${shellQuote(`Content-Type: ${ct}`)}`);
+      push(`  --data-binary @path/to/file`);
+    } else {
+      push(`  --header ${shellQuote(`Content-Type: ${ct}`)}`);
+      const sample = sampleFromSchema(op.requestBody.schema, root);
+      if (kind === "json") push(`  --data ${shellQuote(JSON.stringify(sample, null, 2))}`);
+      else push(`  --data-raw ${shellQuote(typeof sample === "string" ? sample : /[/+]xml\b/i.test(ct) ? "<example/>" : formText(sample))}`);
+    }
   }
   return lines.join("\n");
-}
-
-function fillPath(p: string, pathParams: { name: string; schema?: any }[]) {
-  return p.replace(/\{([^}]+)\}/g, (_, name) => {
-    const param = pathParams.find((x) => x.name === name);
-    return String(samplePrimitive(param?.schema, undefined) ?? `<${name}>`);
-  });
 }
 
 function samplePrimitive(schema: any, root: any): unknown {

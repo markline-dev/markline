@@ -3,6 +3,7 @@ import path from "node:path";
 import matter from "gray-matter";
 import { contentRoot, isSafeSlug } from "./paths";
 import { loadConfig, contentPrefixIds } from "./config";
+import { formatDate } from "./changelog-core";
 
 import type { TocItem } from "./toc";
 
@@ -62,6 +63,17 @@ function docsRoot(variantId?: string): string {
     : path.join(contentRoot(), "docs");
 }
 
+/**
+ * `last_updated` as shown. An unquoted `2026-11-08` reaches us as a Date (YAML
+ * reads it as one), so it's written out as that day, in UTC so no timezone can
+ * move it. Anything else is shown as the author wrote it.
+ */
+export function lastUpdated(value: unknown): string | undefined {
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? undefined : formatDate(value.toISOString().slice(0, 10));
+  if (value === undefined || value === null || value === "") return undefined;
+  return String(value);
+}
+
 function readMdx(filePath: string): { fm: DocFrontmatter; body: string } {
   const raw = fs.readFileSync(filePath, "utf8");
   const { data, content } = matter(raw);
@@ -72,7 +84,7 @@ function readMdx(filePath: string): { fm: DocFrontmatter; body: string } {
     // A list replaces the automatic "On this page"; `toc: false` hides it.
     toc: Array.isArray(data.toc) ? (data.toc as TocItem[]) : data.toc === false ? [] : undefined,
     tocSteps: data.toc === "steps" ? true : undefined,
-    last_updated: data.last_updated ? String(data.last_updated) : undefined,
+    last_updated: lastUpdated(data.last_updated),
     crumbs: Array.isArray(data.crumbs) ? data.crumbs : undefined,
     related: Array.isArray(data.related) ? data.related.filter((r: unknown) => typeof r === "string") : undefined,
     layout: data.layout === "landing" || data.layout === "hub" ? data.layout : undefined,

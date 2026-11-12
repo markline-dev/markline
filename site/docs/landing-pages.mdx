@@ -19,9 +19,9 @@ toc:
 ---
 
 Set `layout: landing` in a page's frontmatter and it renders full width,
-with no sidebar. `<Hero>`, `<FeatureGrid>`, `<CTASection>`, `<StatStrip>` and
-`<Bento>` each fill a full-width band. Everything else between them, including
-Markdown, `<SectionHead>`, `<Eyebrow>` and `<CodeShowcase>`, sits in a
+with no sidebar. `<Hero>`, `<FeatureGrid>`, `<CTASection>`, `<StatStrip>`,
+`<Bento>` and `<CodeShowcase>` each fill a section of their own. Everything
+else between them, including Markdown, `<SectionHead>` and `<Eyebrow>`, sits in a
 centred column at docs reading width. See
 [Page layouts](/configuration#page-layouts).
 
@@ -58,7 +58,8 @@ The page's opening band, with its only `<h1>`.
 
 `<CTAButton href="…">` is a button link. `variant` is `primary` (default),
 `secondary` or `ghost`; `size` is `md` (default) or `lg`; `external` opens
-the link in a new tab.
+the link in a new tab. Its corners follow
+[`theme.buttonRadius`](/theming#buttons), or are `10px` without it.
 
 ## Features
 
@@ -133,8 +134,9 @@ of six columns (default 3, half the row).
 
 ## Code showcase
 
-A highlighted snippet in a window frame, for a hero's `media` or beside a
-feature. `lang` defaults to `bash`; `title` shows in the frame's top bar.
+A highlighted snippet in a window frame, up to 640px wide. On its own it's a
+section, like `<FeatureGrid>`; it also fits in a hero's `media`. `lang`
+defaults to `bash`; `title` shows in the frame's top bar.
 
 ```mdx
 <CodeShowcase title="Terminal" code="npm create @markline@latest my-docs" />

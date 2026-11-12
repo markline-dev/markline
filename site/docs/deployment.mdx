@@ -20,6 +20,11 @@ markline export   # → ./out
 
 Upload `out/` to any static host — a CDN, GitHub Pages, Netlify, or S3.
 
+An export writes each page's data beside its HTML as `<page>.txt`, so a page
+can't be named like a `.txt` file the site serves: `llms`, `llms-full` or
+`robots` at the top, `llms` in a section, or any `.txt` in `public/`. The
+export stops and lists such pages, ignoring case; rename them.
+
 <Tabs>
   <Tab title="GitHub Pages">
     The scaffolded `.github/workflows/deploy.yml` exports and deploys on push to

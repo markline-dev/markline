@@ -22,6 +22,7 @@ next-env.d.ts
 /public/ai-suggestions.json
 /public/changelog/rss.xml
 /.markline-generated.json
+/.markline-github.json
 /public/**/*.md
 /public/**/llms.txt
 

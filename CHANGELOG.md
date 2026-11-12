@@ -5,6 +5,16 @@ All notable changes to `@markline/markline` and `@markline/create`.
 ## Unreleased
 
 ### Added
+- **`icon` on callouts.** `<Callout>`, `<Note>`, `<Info>`, `<Tip>`,
+  `<Check>`, `<Warning>` and `<Danger>` take an `icon`: a Phosphor icon name,
+  or one or two characters such as `↗`. Paths and URLs aren't accepted.
+- **GitHub stars.** The topbar's GitHub badge shows the repo's star count
+  ("★ 1.2k"). The build fetches it into the page; `topbar.githubStars: "live"`
+  (default) also refreshes it in the browser, at most hourly per reader;
+  `"build"` never contacts GitHub from the browser; `false` hides it.
+  `<GitHubStars repo="owner/name" />` shows any repo's count. `GITHUB_TOKEN`
+  in the shell or CI raises the build's rate limit. Markline's own home page
+  shows its real stars, contributors and latest version the same way.
 - **`<CodeGroup>`.** Plain fenced code blocks as tabs, named by each fence's
   `title` (or language). Groups with the same tabs switch together, and the
   reader's pick is remembered across pages. `sync` joins or separates groups.
@@ -30,8 +40,52 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **`api.auth`** names the auth a spec doesn't declare (e.g. an `xi-api-key`
   header), so Try it and the cURL samples send it. The key is masked in the code
   Try it shows.
+- **SDK names from Fern extensions.** Generated Node, Python and Go samples
+  use an operation's `x-fern-sdk-group-name` and `x-fern-sdk-method-name`
+  when present (`client.text_to_speech.convert(...)`,
+  `client.textToSpeech.convert(...)`). `api.sdkNaming: "off"` keeps the
+  tag + verb naming.
+- **Binary responses.** Non-JSON success responses (`audio/mpeg`, zip, CSV)
+  get a response panel naming their media type, and in "Try it" audio
+  responses play inline while other binary ones get a download link. Through
+  the proxy they arrive intact, as base64, within its 25 MB response limit.
+- **File uploads in "Try it".** Multipart bodies get file pickers and are sent
+  as form data, directly or through the proxy.
+- **Expand for code and responses.** Each code card in the API reference has
+  an Expand button beside Copy, opening the code shown at full size. Escape
+  closes it, and focus returns to the button.
+- **Sections in the API reference sidebar.** The spec's `x-tagGroups`, or
+  `api.sections` in markline.json, put a caption over each group of resources.
+  Their order is the reference's order everywhere: the sidebar, the page it opens
+  on, search and `llms.txt`. URLs don't change.
 
 ### Changed
+- **`markline export` refuses pages that would replace a served `.txt`
+  file.** An export writes each page's data as `<page>.txt`, so a page at
+  `/llms` replaced `llms.txt` (likewise `/llms-full`, `/robots`, a section's
+  `/<section>/llms` and any page matching a `.txt` in `public/`). The export now
+  stops and lists every such page, ignoring case; rename the page to export.
+  Server builds aren't affected.
+- **Every tab title names the site.** Without `seo.title`, a page's tab
+  read only its own title ("Quickstart"); it now reads "Quickstart · <site>",
+  as it did with `seo.title`. The site is `seo.siteName`, else `name`, and
+  `seo.titleTemplate` still overrides it. A page named after the site, such as
+  a home page, isn't repeated ("Acme", not "Acme · Acme").
+- **`<ApiRefs>` takes PUT and PATCH**, and its method chips use the API
+  reference's colours instead of their own pastels.
+- **Landing page buttons follow `theme.buttonRadius`.** `<CTAButton>` was
+  always 10px; with no `buttonRadius` it still is, and the `paper` and
+  `help-center` templates' landing buttons are now 8px, like their others.
+- **`<CodeShowcase>` is a landing section of its own**, outside the prose
+  column, as `<Hero>` and `<FeatureGrid>` are. Its width is unchanged; it
+  sits closer to the section above it.
+- **Specs with `x-tagGroups` now show them as sidebar sections,** which also
+  sets the order of the reference's resources. Set `api.sections: []` to turn
+  them off.
+- **`<MigrationCallout>` is deprecated**, and will be removed in a later
+  release. It now renders as an info `<Callout>` with the same title and text,
+  and the build warns on each page that uses it. Use
+  `<Callout title="Migrating from OpenAI?" icon="↗">` instead.
 - **Lighter API reference pages.** The Try it endpoint list is sent once per
   page instead of once per operation. On ElevenLabs' spec (478 operations) the
   largest resource page drops from 13.2 MB to 4.4 MB. Docs pages list API
@@ -45,8 +99,36 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **Ask AI gets its own button in the menu style.** With
   `layout.pageActions: "menu"`, Ask AI is its own button beside Copy for LLM,
   and the menu holds only View as Markdown and Open Markdown file.
+- **Uploads through the Try it proxy are limited to 25 MB.** Try it says so
+  before sending a larger one, and the proxy refuses it too.
+- **The response card matches the request card.** In light mode it was pale
+  blue beside a dark request card; both are now the same dark surface.
+- **Every documented response is listed.** A response without a body (such
+  as a 204) shows "No response body" instead of being left out. With more than
+  three statuses, the card offers a dropdown instead of tabs.
+- **The API reference's version picker only shows real versions.** With one
+  version it's gone; it used to show the spec's `info.version` as "v1 · 1.0",
+  and picking it did nothing. With two or more it shows each version's `label`
+  from config, and opens the same page in the version you pick, like the
+  header's picker.
 
 ### Fixed
+- **Link previews name the site on every page.** Doc pages, changelog entries
+  and API reference pages set their own Open Graph and Twitter tags, which
+  replaced the site's: they lost `og:site_name`, the `summary_large_image`
+  card type and, on changelog entries, `seo.ogImage`. They keep them now.
+- **The version and language switcher keeps the page under a base path.**
+  With `MARKLINE_BASE_PATH` set, it checked for the page without the base path,
+  never found it, and always went to the other version's home page.
+- **A site's own `llms.txt`, `llms-full.txt`, `robots.txt` and `sitemap.xml`
+  are kept.** A build wrote over them, so a hand-made `robots.txt` (blocking
+  some crawlers, say) was lost on every build. Now a file in the site's
+  `public/` wins, in `markline build`, `export`, `start` and `dev`, and the build
+  says it kept it. A copy an earlier build left in `.markline/` isn't mistaken
+  for the site's.
+- **`last_updated` shows a date, not a timestamp.** Unquoted, as in
+  `last_updated: 2026-11-08`, it showed as "Sun Nov 08 2026 00:00:00 GMT…"; it
+  now shows "November 8, 2026". A quoted value still shows as written.
 - **The Markline home page shows only real numbers.** The GitHub card no longer
   shows invented stars, contributors or a version, and the showcase links to
   real sites built with Markline instead of placeholder tiles.
@@ -71,6 +153,25 @@ All notable changes to `@markline/markline` and `@markline/create`.
   fields; real unions list their members.
 - Text beside a `$ref` (`description`, `deprecated`) was dropped. It now applies
   to that use of the schema.
+- Generated cURL sends JSON bodies as JSON (`Content-Type` header and
+  `-d '{…}'`) instead of `-d field=value`, multipart bodies as `-F` with
+  `-F file=@…` for files, and urlencoded bodies with `--data-urlencode`. Values
+  are quoted so a pasted sample runs nothing, and form fields use
+  `--form-string` so a value is never read as a local file.
+  It also sends `apiKey` header auth from the operation's security, and
+  keeps `-X POST` when a POST has no body.
+- Request bodies and responses that aren't `application/json` keep their
+  media type and schema, so multipart fields are documented.
+- **Large bodies no longer crash Try it.** A request or response body over
+  1 MB shows as plain text, without colouring, and Copy still copies all of
+  it. Colouring a body of about 10 MB overflowed the browser's stack.
+- **The API reference's right panel no longer slides under the header.** It
+  stuck 80 px from the top, which a banner or stacked header covers. It now
+  sits below the header at any height, and scrolls by itself when it's taller
+  than the window.
+- **Copy copies the tab that's showing.** In the API reference, Copy always
+  copied the first tab: cURL when Node was picked, the 200 when 422 was. It
+  also no longer stores a second copy of every sample in the page.
 - **API samples.** Generated SDK result variables take the last path segment
   of the OpenAPI tag, singularize and camelCase it, and append `Result` when
   the name collides with a reserved word in JS, Python or Go (`types` →

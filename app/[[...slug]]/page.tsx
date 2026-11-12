@@ -11,13 +11,14 @@ import { DocsPage } from "@/components/docs/page";
 import { DocsShell } from "@/components/docs/nav";
 import { mdxComponents } from "@/components/docs/mdx";
 import { prettyCodeOptions } from "@/components/docs/mdx-options";
-import { loadConfig, aiConfig, feedbackConfig } from "@/lib/config";
+import { loadConfig, aiConfig, feedbackConfig, pageTitle } from "@/lib/config";
+import { siteOpenGraph, siteTwitter } from "@/lib/site-meta";
 import { getDocsTabs, pickActiveTab, getNav, flattenLinks, findNavTrail, collectionLinks, type DocsTab } from "@/components/docs/sections";
 import { HubHero } from "@/components/docs/hub-hero";
 import { LandingPage } from "@/components/landing/landing";
 import { remarkLandingProse } from "@/lib/landing-prose";
 import { remarkCodeGroupTitles } from "@/lib/code-group";
-import { extractToc, missingTocIds, remarkTocIds } from "@/lib/toc";
+import { elementsIn, extractToc, missingTocIds, remarkTocIds } from "@/lib/toc";
 import { SiteFooter } from "@/components/site-footer";
 import type { Crumb, PageNavLink } from "@/components/docs/page";
 import { ChangelogEntryView, ChangelogView } from "@/components/docs/changelog";
@@ -53,7 +54,12 @@ function changelogMetadata(slug: string[]): Metadata | undefined {
   const entry = date ? getChangelogEntry(date) : undefined;
   if (entry) {
     const title = entry.title ? `${entry.title} (${formatDate(entry.date)})` : `Changelog: ${formatDate(entry.date)}`;
-    return { title, alternates: { canonical: entryPath(entry.date), ...rss }, openGraph: { title, url: entryPath(entry.date) } };
+    return {
+      title,
+      alternates: { canonical: entryPath(entry.date), ...rss },
+      openGraph: { ...siteOpenGraph(config), title, url: entryPath(entry.date), type: "article" },
+      twitter: { ...siteTwitter(config), title },
+    };
   }
   const page = pageFromSlug(slug);
   if (!page) return undefined;
@@ -79,17 +85,17 @@ export async function generateMetadata({ params }: { params: Promise<{ slug?: st
     config.seo.description;
   const pathname = doc.slug.length ? `/${doc.slug.join("/")}` : "/";
   const title = typeof doc.fm.title === "string" ? doc.fm.title : undefined;
-  // Next replaces (not deep-merges) openGraph/twitter when set per-page, so the
-  // default image must be re-declared here or it'd be dropped.
-  const images = config.seo.ogImage ? [config.seo.ogImage] : undefined;
   return {
-    title,
+    title: pageTitle(title, config),
     description,
     alternates: { canonical: pathname },
-    openGraph: { title, description, url: pathname, type: "article", images },
-    twitter: { title, description, images },
+    openGraph: { ...siteOpenGraph(config), title, description, url: pathname, type: "article" },
+    twitter: { ...siteTwitter(config), title, description },
   };
 }
+
+/** Pages already warned about <MigrationCallout>, once each per process. */
+const warnedMigration = new Set<string>();
 
 export default async function DocsCatchAll({ params }: { params: Promise<{ slug?: string[] }> }) {
   const { slug } = await params;
@@ -130,6 +136,11 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
   // A hand-written "On this page" can drift from the headings it links to.
   for (const id of doc.fm.toc ? missingTocIds(doc.body, doc.fm.toc, { steps: doc.fm.tocSteps }) : []) {
     console.warn(`[markline] toc: entry #${id} doesn't match any heading on ${pathname}`);
+  }
+
+  if (!warnedMigration.has(pathname) && elementsIn(doc.body).has("MigrationCallout")) {
+    warnedMigration.add(pathname);
+    console.warn(`[markline] <MigrationCallout> is deprecated; use <Callout title="…" icon="…"> (on ${pathname}).`);
   }
 
   const landing = doc.fm.layout === "landing";

@@ -11,7 +11,7 @@ import { DocsPage } from "@/components/docs/page";
 import { DocsShell } from "@/components/docs/nav";
 import { mdxComponents } from "@/components/docs/mdx";
 import { prettyCodeOptions } from "@/components/docs/mdx-options";
-import { loadConfig, aiConfig, feedbackConfig } from "@/lib/config";
+import { loadConfig, aiConfig, feedbackConfig, pageTitle } from "@/lib/config";
 import { getDocsTabs, pickActiveTab, getNav, flattenLinks, findNavTrail, collectionLinks, type DocsTab } from "@/components/docs/sections";
 import { HubHero } from "@/components/docs/hub-hero";
 import { LandingPage } from "@/components/landing/landing";
@@ -83,7 +83,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug?: st
   // default image must be re-declared here or it'd be dropped.
   const images = config.seo.ogImage ? [config.seo.ogImage] : undefined;
   return {
-    title,
+    title: pageTitle(title, config),
     description,
     alternates: { canonical: pathname },
     openGraph: { title, description, url: pathname, type: "article", images },

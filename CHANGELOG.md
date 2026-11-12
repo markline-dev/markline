@@ -58,8 +58,18 @@ All notable changes to `@markline/markline` and `@markline/create`.
   `api.sections` in markline.json, put a caption over each group of resources.
   Their order is the reference's order everywhere: the sidebar, the page it opens
   on, search and `llms.txt`. URLs don't change.
+- **A STREAM badge for operations that stream their reply.** It shows beside
+  the method in the sidebar, the endpoint list and the operation's own line, for
+  a 2xx `text/event-stream` response (even beside JSON) or `x-fern-streaming`.
+- **Line numbers in the Expand dialog.** Copy still copies only the code.
 
 ### Changed
+- **The API reference reads more easily.** Path parameters (`{voice_id}`) stand
+  out in each operation's path and in the endpoint list. Each operation's title
+  has its section and resource above it. Sidebar rows are tighter. Section
+  captions have more contrast (4.9:1 in both themes, from 2.6:1). And the open
+  resource's name shows once: its heading is now the jump to its intro, rather
+  than repeating as the first item under it.
 - **`markline export` refuses pages that would replace a served `.txt`
   file.** An export writes each page's data as `<page>.txt`, so a page at
   `/llms` replaced `llms.txt` (likewise `/llms-full`, `/robots`, a section's

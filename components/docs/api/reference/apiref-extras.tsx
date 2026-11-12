@@ -390,6 +390,12 @@ export function openCodeDialog({ html, label, opener }: CodeOpen & { opener: HTM
   window.dispatchEvent(new CustomEvent<CodeOpen>("ml-code-open", { detail: { html, label } }));
 }
 
+/** "1\n2\n…" for every line of the code (its HTML keeps the code's newlines). */
+function lineNumbers(html: string): string {
+  const lines = (html.match(/\n/g)?.length ?? 0) + (html.endsWith("\n") ? 0 : 1);
+  return Array.from({ length: lines }, (_, i) => i + 1).join("\n");
+}
+
 /**
  * A card's code at full height, in a modal `<dialog>`: Escape and the close button
  * shut it, Tab stays inside, and focus goes back to the Expand button. The HTML is
@@ -479,8 +485,14 @@ export function CodeDialog() {
               </button>
             </span>
           </div>
-          {/* Our own rendered, escaped code, taken from the card. */}
-          <pre ref={pre} tabIndex={0} dangerouslySetInnerHTML={{ __html: code.html }} />
+          <div className="code-dlg-body">
+            {/* Line numbers live only here, built on the client, so pages carry none. */}
+            <pre className="code-dlg-ln" aria-hidden="true">
+              {lineNumbers(code.html)}
+            </pre>
+            {/* Our own rendered, escaped code, taken from the card. */}
+            <pre ref={pre} tabIndex={0} dangerouslySetInnerHTML={{ __html: code.html }} />
+          </div>
         </div>
       )}
     </dialog>

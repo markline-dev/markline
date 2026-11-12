@@ -37,6 +37,8 @@ export type EndpointView = {
   path: string;
   baseUrl: string;
   deprecated?: boolean;
+  /** Streams its reply (STREAM badge). */
+  streaming?: boolean;
   /** Operation description, rendered from markdown to sanitized HTML. */
   lead?: string;
   /** Raw operation description markdown, kept for the Markdown copy actions. */
@@ -58,7 +60,7 @@ export type EndpointView = {
   triggers: { name: string; id: string; tone: "g" | "r" | "n" }[];
 };
 
-export type NavOp = { id: string; verb: string | null; name: string; opId: string; evt?: "g" | "r" | "n"; deprecated?: boolean };
+export type NavOp = { id: string; verb: string | null; name: string; opId: string; evt?: "g" | "r" | "n"; deprecated?: boolean; streaming?: boolean };
 
 /** A routable resource (a leaf tag). When active, `ops` carries its in-page jumps. */
 export type NavResource = { kind: "resource"; name: string; slug: string; active: boolean; ops: NavOp[] };
@@ -100,12 +102,14 @@ export type ResourceView = {
   slug: string;
   /** Parent group display names for the header breadcrumb, e.g. ["Tools"]. */
   crumbs: string[];
+  /** The sidebar section the resource is in (x-tagGroups / api.sections), if any. */
+  section?: string;
   /** Tag description, rendered from markdown to sanitized HTML. */
   lead?: string;
   /** Raw tag description markdown, kept for the Markdown copy actions. */
   leadMd?: string;
   /** Endpoint-list card rows. */
-  endpoints: { title: string; verb: string; path: string; id: string; deprecated?: boolean }[];
+  endpoints: { title: string; verb: string; path: string; id: string; deprecated?: boolean; streaming?: boolean }[];
   /** Webhook / async events for this resource (`x-events`). */
   events: EventView[];
   object?: ObjectView;
@@ -283,6 +287,7 @@ function buildEndpoint(
     path: op.path,
     baseUrl,
     deprecated: op.deprecated,
+    streaming: op.streaming,
     lead: mdToHtml(op.description),
     leadMd: op.description,
     groups,
@@ -339,13 +344,15 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
   const events = buildResourceEvents(activeTag, doc, root);
   const activeOps: NavOp[] = activeTag
     ? [
-        { id: tagSlug(activeTag.name), verb: null, name: activeParsed!.displayName, opId: "" },
+        // No jump to the resource's intro here: its heading above is that jump,
+        // so the resource's name isn't listed twice.
         ...activeTag.operations.map((op) => ({
           id: anchorFor(op),
           verb: VERB[op.method] ?? op.method.toUpperCase(),
           name: op.summary ?? op.operationId,
           opId: op.operationId,
           deprecated: op.deprecated,
+          streaming: op.streaming,
         })),
         ...events.map((ev) => ({ id: ev.id, verb: null, name: ev.name, opId: "", evt: ev.tone })),
       ]
@@ -394,6 +401,7 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
     name: activeParsed ? activeParsed.displayName : "API",
     slug: tagSlug(activeTag?.name ?? ""),
     crumbs: activeParsed?.parentDisplayNames ?? [],
+    section: activeTag ? (doc.sections ?? []).find((sec) => sec.tags.includes(activeTag.name))?.title : undefined,
     lead: mdToHtml(activeTag?.description),
     leadMd: activeTag?.description,
     endpoints: (activeTag?.operations ?? []).map((op) => ({
@@ -402,6 +410,7 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
       path: op.path,
       id: anchorFor(op),
       deprecated: op.deprecated,
+      streaming: op.streaming,
     })),
     events,
     object,

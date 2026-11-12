@@ -12,6 +12,10 @@ export async function startStub(handler: RequestListener) {
     hits.push(req.url ?? "");
     handler(req, res);
   });
+  // Never close an idle connection first: the proxy's fetch keeps them for reuse, and
+  // if the server drops one (after its default 5 s) just as fetch reuses it, the call
+  // fails with a reset. A slow, loaded runner makes that more likely, not the proxy.
+  server.keepAliveTimeout = 120_000;
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   return {
     hits,

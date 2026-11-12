@@ -67,6 +67,11 @@ the build also says so. To start from Markline's version, copy the
 generated file into `public/` and edit it; delete your copy to go back to the
 generated one.
 
+Don't name a page after one of these files: a page called `llms`, `llms-full`
+or `robots` at the top, or `llms` in a folder, would replace the file in a
+static export, so `markline export` stops and lists it. See
+[Static hosting](/deployment#static-hosting).
+
 ## Page actions
 
 Every docs page has actions under its title for getting the page into an

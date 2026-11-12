@@ -546,7 +546,7 @@ See [API reference](/openapi) for the full guide — generating the reference, t
   The site's meta description. A page uses its own `description`, then its
   `lede`, then this.
 </ParamField>
-<ParamField path="seo.siteName" type="string">The site name in link previews (`og:site_name`), on pages such as the 404 page that have no preview data of their own. Default `name`.</ParamField>
+<ParamField path="seo.siteName" type="string">The site name in link previews (`og:site_name`) on every page, and after each page's title in its tab unless `seo.titleTemplate` says otherwise. Default `name`.</ParamField>
 <ParamField path="seo.ogImage" type="string">
   The image for link previews on every page: a path in `public/` or a URL.
 </ParamField>

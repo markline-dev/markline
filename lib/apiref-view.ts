@@ -1,5 +1,5 @@
 import type { JSONSchema, OpenAPIDoc, OpenAPIEvent, OpenAPIOperation, OpenAPIParameter, OpenAPITag } from "./openapi";
-import { eventAnchor, resolveSchema } from "./openapi";
+import { eventAnchor, hasOpenApiSpec, resolveSchema } from "./openapi";
 import { allResponses, codeSamples, colorizeJson, successResponse, type CodeRail } from "./openapi-codegen";
 import { buildPlaygroundSpec } from "./playground-spec";
 import { mdToHtml } from "./md-desc";
@@ -122,6 +122,8 @@ export type VersionEntry = {
   id: string;
   label: string;
   current: boolean;
+  /** The first configured version, served without a prefix. */
+  default: boolean;
 };
 
 /** Resolved event-dot coloring strategy, passed to the client for rendering.
@@ -403,7 +405,7 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
     resource,
     search: buildSearchIndex(doc, base),
     endpoints: hoisted.endpoints,
-    versions: versionEntries(loadConfig().versions, variantId),
+    versions: versionEntries(loadConfig().versions, variantId, (id, i) => hasOpenApiSpec(i === 0 ? undefined : id)),
     eventColors: ((): EventColors => {
       const mode = api.events?.dots ?? "palette";
       const palette = api.events?.palette?.length ? api.events.palette : DEFAULT_EVENT_PALETTE;
@@ -519,17 +521,21 @@ function buildResourceEvents(activeTag: OpenAPITag | undefined, doc: OpenAPIDoc,
 }
 
 /**
- * The version picker's entries: the configured versions, labelled from config,
- * with the one this page is in marked. Fewer than two means nothing to pick, so
- * no picker; the spec's own `info.version` isn't a version of the site.
+ * The version picker's entries: the configured versions that have an API
+ * reference (`hasSpec`), labelled from config, with the one this page is in
+ * marked. Fewer than two means nothing to pick, so no picker; the spec's own
+ * `info.version` isn't a version of the site.
  */
-export function versionEntries(versions: { id: string; label?: string }[] | undefined, variantId?: string): VersionEntry[] {
-  if (!versions || versions.length < 2) return [];
-  return versions.map((v, i) => ({
-    id: v.id,
-    label: v.label || v.id,
-    current: i === 0 ? !variantId : v.id === variantId,
-  }));
+export function versionEntries(
+  versions: { id: string; label?: string }[] | undefined,
+  variantId?: string,
+  hasSpec: (id: string, index: number) => boolean = () => true,
+): VersionEntry[] {
+  const entries = (versions ?? [])
+    .map((v, i) => ({ v, i }))
+    .filter(({ v, i }) => hasSpec(v.id, i))
+    .map(({ v, i }) => ({ id: v.id, label: v.label || v.id, current: i === 0 ? !variantId : v.id === variantId, default: i === 0 }));
+  return entries.length < 2 ? [] : entries;
 }
 
 function singularDisplay(tag: string): string {

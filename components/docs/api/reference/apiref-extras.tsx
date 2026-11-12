@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import type { SearchEntry, VersionEntry } from "@/lib/apiref-view";
-import { variantPath, type Variants } from "@/lib/variant-path";
+import { versionTarget } from "@/lib/apiref-version";
 import { openAskPanel } from "../../ai/ask-dock";
 
 /* ── event helpers (let the toolrow / doc-action buttons drive these) ── */
@@ -227,12 +227,11 @@ export function VersionSelector({ versions }: { versions: VersionEntry[] }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const current = versions.find((v) => v.current) ?? versions[0];
-  const variants: Variants = { kind: "versions", entries: versions, defaultId: versions[0]?.id ?? "" };
 
   useEffect(() => {
     if (!open) return;
     // Start on the version shown, so arrows move from there.
-    menuRef.current?.querySelector<HTMLElement>('[aria-current="true"]')?.focus();
+    menuRef.current?.querySelector<HTMLElement>('[aria-checked="true"]')?.focus();
     const onDown = (e: MouseEvent) => {
       if (!wrapRef.current?.contains(e.target as Node)) setOpen(false);
     };
@@ -245,19 +244,19 @@ export function VersionSelector({ versions }: { versions: VersionEntry[] }) {
   const pick = async (id: string) => {
     setOpen(false);
     if (id === current.id) return;
-    const target = variantPath(pathname, id, variants);
-    let dest = target;
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_MARKLINE_BASE_PATH ?? ""}${target}`, { method: "HEAD" });
-      if (!res.ok) dest = variantPath("/api-reference", id, variants);
-    } catch {
-      // Offline or blocked: try the page anyway.
-    }
+    const base = process.env.NEXT_PUBLIC_MARKLINE_BASE_PATH ?? "";
+    const exists = async (path: string) => (await fetch(`${base}${path}`, { method: "HEAD" })).ok;
+    const dest = await versionTarget(pathname, id, versions, exists);
     // The anchor only means something on the same page.
-    router.push(dest === target ? dest + location.hash : dest);
+    router.push(dest.same ? dest.path + location.hash : dest.path);
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
+    // Tabbing out of the menu closes it, as clicking elsewhere does.
+    if (e.key === "Tab" && open) {
+      setOpen(false);
+      return;
+    }
     if (e.key === "Escape" && open) {
       setOpen(false);
       wrapRef.current?.querySelector<HTMLElement>(".api-ver")?.focus();
@@ -293,9 +292,9 @@ export function VersionSelector({ versions }: { versions: VersionEntry[] }) {
             <button
               key={v.id}
               type="button"
-              role="menuitem"
+              role="menuitemradio"
               className="api-vi"
-              aria-current={v.current ? "true" : undefined}
+              aria-checked={v.current}
               onClick={() => pick(v.id)}
             >
               <span className="vmain">

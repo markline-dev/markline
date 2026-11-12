@@ -364,7 +364,9 @@ export function MarklineApiRef({
       <div className="api">
         {/* ============ LEFT NAV ============ */}
         <aside className="api-side">
+          {(searchInSidebar || aiOn || view.versions.length > 1) && (
           <div className="api-tools">
+            {(searchInSidebar || aiOn) && (
             <div className="api-toolrow">
               {searchInSidebar && (
                 <div className="api-search" onClick={() => openSearch()} role="button" tabIndex={0}>
@@ -380,8 +382,10 @@ export function MarklineApiRef({
                 </button>
               )}
             </div>
+            )}
             <VersionSelector versions={view.versions} />
           </div>
+          )}
 
           {view.nav.map((n) => (
             <NavNodeView key={n.slug} node={n} base={view.base} />

@@ -56,6 +56,19 @@ All notable changes to `@markline/markline` and `@markline/create`.
   closes it, and focus returns to the button.
 
 ### Changed
+- **Every tab title names the site.** Without `seo.title`, a page's tab
+  read only its own title ("Quickstart"); it now reads "Quickstart · <site>",
+  as it did with `seo.title`. The site is `seo.siteName`, else `name`, and
+  `seo.titleTemplate` still overrides it. A page named after the site, such as
+  a home page, isn't repeated ("Acme", not "Acme · Acme").
+- **`<ApiRefs>` takes PUT and PATCH**, and its method chips use the API
+  reference's colours instead of their own pastels.
+- **Landing page buttons follow `theme.buttonRadius`.** `<CTAButton>` was
+  always 10px; with no `buttonRadius` it still is, and the `paper` and
+  `help-center` templates' landing buttons are now 8px, like their others.
+- **`<CodeShowcase>` is a landing section of its own**, outside the prose
+  column, as `<Hero>` and `<FeatureGrid>` are. Its width is unchanged; it
+  sits closer to the section above it.
 - **`<MigrationCallout>` is deprecated**, and will be removed in a later
   release. It now renders as an info `<Callout>` with the same title and text,
   and the build warns on each page that uses it. Use

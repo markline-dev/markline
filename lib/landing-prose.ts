@@ -14,6 +14,7 @@ export const LANDING_SECTIONS = new Set([
   "CTASection",
   "StatStrip",
   "Bento",
+  "CodeShowcase",
   "MarklineHome",
 ]);
 

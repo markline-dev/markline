@@ -36,6 +36,7 @@ before(async () => {
     JSON.stringify({ openapi: "3.0.3", info: { title: "T", version: "1" }, tags: [{ name: "Things" }], paths: { "/things": { get: { tags: ["Things"], operationId: "listThings", summary: "List", responses: { "200": { description: "ok" } } } } } }),
   );
   fs.writeFileSync(path.join(site.dir, "docs", `${NOT_FOUND_SEGMENT}.mdx`), "---\ntitle: Hidden page\n---\n\nHidden page\n");
+  fs.writeFileSync(path.join(site.dir, "docs", "named.mdx"), "---\ntitle: Cache Test Site\n---\n\nnamed after the site\n");
   fs.writeFileSync(
     path.join(site.dir, "docs", "commands.mdx"),
     [
@@ -134,6 +135,13 @@ test("the build uses the read-only cache handler, and a standalone deploy has it
   const loaded = path.resolve(path.dirname(server), ".next", handler);
   assert.ok(fs.existsSync(loaded), `the handler isn't at ${path.relative(standalone, loaded)}`);
   assert.equal(fs.readFileSync(loaded, "utf8"), fs.readFileSync(path.join(REPO, "scripts", "read-only-cache.cjs"), "utf8"));
+});
+
+test("every tab title names the site, without seo.title, and never twice", { skip }, async () => {
+  const titleOf = async (p: string) => (await (await fetch(`${base}${p}`)).text()).match(/<title>([^<]*)<\/title>/)?.[1];
+  assert.equal(await titleOf("/guides/a"), "Guide · Cache Test Site");
+  assert.equal(await titleOf("/"), "Home · Cache Test Site");
+  assert.equal(await titleOf("/named"), "Cache Test Site", "a page named after the site isn't named twice");
 });
 
 test("a page added after the build is served fresh, stores nothing, and goes when deleted", { skip }, async () => {

@@ -11,7 +11,7 @@ import { DocsPage } from "@/components/docs/page";
 import { DocsShell } from "@/components/docs/nav";
 import { mdxComponents } from "@/components/docs/mdx";
 import { prettyCodeOptions } from "@/components/docs/mdx-options";
-import { loadConfig, aiConfig, feedbackConfig } from "@/lib/config";
+import { loadConfig, aiConfig, feedbackConfig, pageTitle } from "@/lib/config";
 import { siteOpenGraph, siteTwitter } from "@/lib/site-meta";
 import { getDocsTabs, pickActiveTab, getNav, flattenLinks, findNavTrail, collectionLinks, type DocsTab } from "@/components/docs/sections";
 import { HubHero } from "@/components/docs/hub-hero";
@@ -86,7 +86,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug?: st
   const pathname = doc.slug.length ? `/${doc.slug.join("/")}` : "/";
   const title = typeof doc.fm.title === "string" ? doc.fm.title : undefined;
   return {
-    title,
+    title: pageTitle(title, config),
     description,
     alternates: { canonical: pathname },
     openGraph: { ...siteOpenGraph(config), title, description, url: pathname, type: "article" },

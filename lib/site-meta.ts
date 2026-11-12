@@ -1,4 +1,4 @@
-import type { MarklineConfig } from "./config";
+import { siteName, type MarklineConfig } from "./config";
 
 /* The site-level Open Graph and Twitter fields. Next replaces the layout's
  * openGraph and twitter objects whenever a page sets its own, rather than
@@ -10,7 +10,7 @@ type Seo = Pick<MarklineConfig, "name" | "seo">;
 const images = (config: Seo) => (config.seo.ogImage ? { images: [config.seo.ogImage] } : {});
 
 export function siteOpenGraph(config: Seo) {
-  return { siteName: config.seo.siteName ?? config.name, ...images(config) };
+  return { siteName: siteName(config), ...images(config) };
 }
 
 export function siteTwitter(config: Seo) {

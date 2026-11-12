@@ -191,6 +191,51 @@ entry with no such tag, a `mergeInto` that looks like a typo of a real tag, a
 merge cycle, and a merge into a hidden tag. A `mergeInto` that names a new page
 is a rename, and stays silent.
 
+## Group tags into sections
+
+A large reference reads better in sections, each with a small caption over its
+resources. If your spec has `x-tagGroups`, the sidebar uses them:
+
+```json title="openapi.json"
+{
+  "x-tagGroups": [
+    { "name": "Agents", "tags": ["agents", "conversations"] },
+    { "name": "Creative", "tags": ["text-to-speech", "voices"] }
+  ]
+}
+```
+
+For a spec you don't edit, set `api.sections` in `markline.json` instead. It
+replaces the spec's `x-tagGroups`, and an empty list (`"sections": []`) turns
+them off:
+
+```json title="markline.json"
+{
+  "api": {
+    "sections": [
+      { "title": "Agents", "tags": ["Agents Platform", "Flows"] },
+      { "title": "Creative", "tags": ["text-to-speech", "voices", "dubbing"] }
+    ]
+  }
+}
+```
+
+A section lists the spec's tag names, the same names `api.tags` uses, so a tag
+that's renamed, merged or nested lands where you'd expect. A name that's a
+nesting prefix (`Voices` for `Voices/Professional cloning`) brings every tag
+under it.
+
+- **Order:** sections appear in the order listed, and their tags in the order
+  given. That order is used everywhere: the sidebar, the page the reference opens
+  on, search and `llms.txt`.
+- **Tags in no section** follow at the end, without a caption. Hide one with
+  `api.tags` if you don't want it.
+- **URLs don't change:** sections only order and group the resources.
+
+The build warns about a tag a section names that doesn't exist (with a
+suggestion when it looks like a typo), a tag listed in two sections (it stays
+in the first), and a section left with no tags.
+
 ## Hide operations
 
 Anything carrying `x-hidden` or `x-internal` (truthy) is left out everywhere:

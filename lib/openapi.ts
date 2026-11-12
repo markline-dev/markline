@@ -9,12 +9,15 @@ import {
   describeTags,
   isHiddenOperation,
   knownTags,
+  planSections,
   planTags,
+  sectionSource,
   primaryTag,
   resolveTag,
   tagConfigWarnings,
   DEFAULT_HIDE_EXTENSIONS,
   type TagOptions,
+  type TagSection,
 } from "./openapi-tag-config";
 import { pruneSpec } from "./openapi-prune";
 import { loadConfig } from "./config";
@@ -141,12 +144,16 @@ export type OpenAPIDoc = {
   securitySchemes: Record<string, SecurityScheme>;
   /** Root-level events (OpenAPI 3.1 `webhooks` / Redoc `x-webhooks`). */
   webhooks: OpenAPIEvent[];
+  /** Sidebar sections, each with the pages under it; empty when there are none. */
+  sections: TagSection[];
   /** Problems found while normalizing (e.g. tag slug collisions). */
   warnings: string[];
 };
 
 /** markline.json `api` settings that shape the normalized reference. */
 export type NormalizeOptions = TagOptions & {
+  /** `api.sections`; when absent, the spec's `x-tagGroups` are used. */
+  sections?: TagSection[];
   /** Extensions that hide an operation (default `x-hidden`, `x-internal`). */
   hideExtensions?: string[];
   /** `false` leaves deprecated operations out. Default true. */
@@ -165,6 +172,7 @@ const EMPTY_DOC: OpenAPIDoc = {
   info: { title: "", version: "" },
   servers: [],
   tags: [],
+  sections: [],
   tagLabels: {},
   operationsById: {},
   securitySchemes: {},
@@ -204,6 +212,7 @@ export function loadOpenApi(variantId?: string): OpenAPIDoc {
   const doc = normalize(raw, {
     tags: api.tags,
     tagOrder: api.tagOrder,
+    sections: api.sections,
     hideExtensions: api.hideExtensions,
     showDeprecated: api.showDeprecated,
     auth: api.auth,
@@ -368,6 +377,9 @@ export function normalize(input: any, opts: NormalizeOptions = {}): OpenAPIDoc {
   const plan = planTags([...tagsMap.keys()], specTags.map((t) => t.name as string), opts);
   for (const c of plan.collisions) warnings.push(collisionWarning(c));
   warnings.push(...tagConfigWarnings(knownTags(input), plan, opts));
+  // Sections only reorder and group the pages: every page keeps its URL.
+  const sectioned = planSections(sectionSource(opts.sections, raw["x-tagGroups"]).sections, plan, knownTags(input), opts);
+  warnings.push(...sectioned.warnings);
   for (const [from, into] of plan.alias) {
     for (const op of tagsMap.get(from)!) op.tag = into;
     tagsMap.get(into)!.push(...tagsMap.get(from)!);
@@ -382,7 +394,7 @@ export function normalize(input: any, opts: NormalizeOptions = {}): OpenAPIDoc {
     opts,
   );
 
-  const tags: OpenAPITag[] = plan.order.map((name) => {
+  const tags: OpenAPITag[] = sectioned.order.map((name) => {
     // Stable sort: `x-nav-order` ops first (ascending), the rest keep spec order.
     const operations = [...tagsMap.get(name)!].sort(
       (a, b) => (a.navOrder ?? Infinity) - (b.navOrder ?? Infinity),
@@ -408,6 +420,7 @@ export function normalize(input: any, opts: NormalizeOptions = {}): OpenAPIDoc {
     info: raw.info ?? { title: "", version: "" },
     servers: raw.servers ?? [],
     tags,
+    sections: sectioned.sections,
     tagLabels: tagLabels(labelEntries),
     operationsById: byId,
     securitySchemes,

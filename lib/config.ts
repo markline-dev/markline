@@ -194,6 +194,11 @@ export type ApiConfig = {
   /** Tags shown first, in this order; the rest keep spec order. */
   tagOrder?: string[];
   /**
+   * Sidebar sections: a caption over the tags listed under it, in this order.
+   * Replaces the spec's `x-tagGroups`; `[]` turns those off.
+   */
+  sections?: { title: string; tags: string[] }[];
+  /**
    * Operation extensions that hide an operation when truthy. Replaces the
    * default `["x-hidden", "x-internal"]`; e.g. add `"x-fern-ignore"`.
    */

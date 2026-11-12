@@ -276,6 +276,7 @@ function apiResources(root) {
     url: `/api-reference/${page.slug}`,
     title: page.title,
     desc: page.description ? String(page.description).split("\n")[0].trim() : "",
+    section: page.section,
   }));
 }
 
@@ -351,7 +352,15 @@ function writeLlms(root) {
   if (apis.length) {
     idx += `## API reference\n\n`;
     idx += `- [API reference](${abs("/api-reference")}): interactive OpenAPI reference\n`;
-    for (const a of apis) idx += `- [${a.title}](${abs(a.url)})${a.desc ? `: ${a.desc}` : ""}\n`;
+    // Under the sidebar's section headings, when the reference has sections.
+    const sectioned = apis.some((a) => a.section);
+    let current;
+    for (const a of apis) {
+      const heading = sectioned ? (a.section ?? "Other") : undefined;
+      if (heading !== current) idx += `\n### ${heading}\n\n`;
+      current = heading;
+      idx += `- [${a.title}](${abs(a.url)})${a.desc ? `: ${a.desc}` : ""}\n`;
+    }
     idx += "\n";
   }
 

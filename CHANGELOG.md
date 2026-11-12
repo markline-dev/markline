@@ -56,6 +56,12 @@ All notable changes to `@markline/markline` and `@markline/create`.
   closes it, and focus returns to the button.
 
 ### Changed
+- **`markline export` refuses pages that would replace a served `.txt`
+  file.** An export writes each page's data as `<page>.txt`, so a page at
+  `/llms` replaced `llms.txt` (likewise `/llms-full`, `/robots`, a section's
+  `/<section>/llms` and any page matching a `.txt` in `public/`). The export now
+  stops and lists every such page, ignoring case; rename the page to export.
+  Server builds aren't affected.
 - **Every tab title names the site.** Without `seo.title`, a page's tab
   read only its own title ("Quickstart"); it now reads "Quickstart · <site>",
   as it did with `seo.title`. The site is `seo.siteName`, else `name`, and

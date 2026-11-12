@@ -132,6 +132,10 @@ All notable changes to `@markline/markline` and `@markline/create`.
   `public/` wins, in `markline build`, `export`, `start` and `dev`, and the build
   says it kept it. A copy an earlier build left in `.markline/` isn't mistaken
   for the site's.
+- **Try it no longer fails with "couldn't be reached" when an API closes an idle
+  connection just as you send a GET.** The proxy sends a GET or HEAD once more
+  on a new connection when the first is dropped before any reply. Other methods
+  are never sent twice.
 - **`last_updated` shows a date, not a timestamp.** Unquoted, as in
   `last_updated: 2026-11-08`, it showed as "Sun Nov 08 2026 00:00:00 GMT…"; it
   now shows "November 8, 2026". A quoted value still shows as written.

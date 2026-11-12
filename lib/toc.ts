@@ -181,3 +181,17 @@ export function remarkTocIds(opts: { steps?: boolean } = {}) {
     }
   };
 }
+
+/** The names of the MDX elements a page uses, as written (`<Callout>` gives
+ *  "Callout"). One in a code block isn't one. A page that doesn't parse uses none. */
+export function elementsIn(body: string): Set<string> {
+  const names = new Set<string>();
+  const walk = (node: MdxNode) => {
+    if ((node.type === "mdxJsxFlowElement" || node.type === "mdxJsxTextElement") && node.name) names.add(node.name);
+    (node.children ?? []).forEach(walk);
+  };
+  try {
+    walk(parser.parse(body) as MdxNode);
+  } catch {}
+  return names;
+}

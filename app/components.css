@@ -784,33 +784,6 @@ textarea.ml-pg-input { height: auto; padding: 8px 10px; line-height: 1.55; resiz
 .ml-apiref-ep { font-family: var(--mono); font-size: 13px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ml-apiref-desc { font-size: 12px; color: var(--ink-4); }
 
-.ml-migrate {
-  margin: 24px 0;
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  padding: 16px 20px;
-  border-radius: 16px;
-  border: 1px solid var(--accent-line);
-  background: color-mix(in oklab, var(--accent) 12%, var(--panel));
-}
-.ml-migrate-badge {
-  font-family: var(--mono);
-  font-weight: 700;
-  font-size: 12px;
-  width: 22px;
-  height: 22px;
-  border-radius: 999px;
-  background: var(--accent);
-  color: var(--on-accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex-shrink: 0;
-}
-.ml-migrate strong { color: var(--ink); }
-.ml-migrate-body { font-size: 14px; color: var(--ink-3); line-height: 1.55; margin-top: 2px; }
-
 /* MDX fenced <pre> (the bare pre fallback in mdxComponents) */
 .ml-mdx-pre {
   margin: 24px 0;

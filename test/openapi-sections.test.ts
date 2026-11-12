@@ -16,6 +16,7 @@ const spec = {
     "/tts": { post: op("tts", ["text-to-speech"]) },
     "/voices": { get: op("listVoices", ["voices"]) },
     "/voices/pvc": { post: op("pvc", ["voices/pvc"]) },
+    "/voices/ivc": { post: op("ivc", ["voices/ivc"]) },
     "/agents": { get: op("agents", ["agents"]) },
     "/convai": { get: op("convai", ["Conversational AI"]) },
     "/dub": { post: op("dub", ["dubbing"]) },
@@ -38,9 +39,9 @@ test("sections order the pages, and pages in none follow, still listed", () => {
   assert.deepEqual(sections({ sections: SECTIONS }), [
     { title: "Agents", tags: ["agents", "Conversational AI"] },
     // "voices" takes the pages under its slash group too; "dubbing" is the page "Dubbing" folded into.
-    { title: "Creative", tags: ["text-to-speech", "voices", "voices/pvc", "dubbing"] },
+    { title: "Creative", tags: ["text-to-speech", "voices", "voices/ivc", "voices/pvc", "dubbing"] },
   ]);
-  assert.deepEqual(order({ sections: SECTIONS }), ["agents", "Conversational AI", "text-to-speech", "voices", "voices/pvc", "dubbing", "models", "secret"]);
+  assert.deepEqual(order({ sections: SECTIONS }), ["agents", "Conversational AI", "text-to-speech", "voices", "voices/ivc", "voices/pvc", "dubbing", "models", "secret"]);
 });
 
 test("sections only reorder: every page and operation, and so every URL, stays", () => {
@@ -86,7 +87,7 @@ test("x-tagGroups make sections, api.sections replaces them, and [] turns them o
   const withGroups = { ...spec, "x-tagGroups": [{ name: "Core", tags: ["models"] }, { name: "Bad" }, { tags: ["voices"] }] };
   assert.deepEqual(sections({}, withGroups), [{ title: "Core", tags: ["models"] }]);
   assert.equal(order({}, withGroups)[0], "models", "the landing page is the first section's first tag");
-  assert.deepEqual(sections({ sections: [{ title: "Mine", tags: ["voices"] }] }, withGroups), [{ title: "Mine", tags: ["voices", "voices/pvc"] }]);
+  assert.deepEqual(sections({ sections: [{ title: "Mine", tags: ["voices"] }] }, withGroups), [{ title: "Mine", tags: ["voices", "voices/ivc", "voices/pvc"] }]);
   assert.deepEqual(sections({ sections: [] }, withGroups), []);
   assert.deepEqual(order({ sections: [] }, withGroups), order({}));
   // No sections at all: nothing changes.
@@ -105,7 +106,7 @@ test("sectionSource reads the two shapes and drops malformed entries", () => {
 test("the build script orders and groups pages the same way", async () => {
   const { resourcePlan, resourcePages } = (await import("../scripts/openapi-order.mjs" as string)) as {
     resourcePlan: (spec: object, api?: object) => { tags: string[]; sections: { title: string; tags: string[] }[]; warnings: string[] };
-    resourcePages: (spec: object, api?: object) => { name: string; section: string | null }[];
+    resourcePages: (spec: object, api?: object) => { name: string; slug: string; section: string | null }[];
   };
   const withGroups = { ...spec, "x-tagGroups": [{ name: "Core", tags: ["models", "voices"] }] };
   const cases: [NormalizeOptions, object][] = [
@@ -114,6 +115,9 @@ test("the build script orders and groups pages the same way", async () => {
     [{}, withGroups],
     [{ sections: [] }, withGroups],
     [{ sections: [{ title: "A", tags: ["voice", "models"] }, { title: "B", tags: ["models"] }] }, spec],
+    [{ sections: [{ title: "A", tags: ["voices/pvc"] }, { title: "A", tags: ["models"] }] }, spec],
+    [{ sections: [{ title: "A", tags: ["voices"] }, { title: "B", tags: ["voices/pvc"] }] }, spec],
+    [{ sections: [{ title: "Pro", tags: ["voices/pvc"] }, { title: "Instant", tags: ["voices/ivc"] }] }, spec],
   ];
   for (const [api, raw] of cases) {
     const d = doc(api, raw);
@@ -127,8 +131,43 @@ test("the build script orders and groups pages the same way", async () => {
     );
     const inSection = new Map(d.sections.flatMap((s) => s.tags.map((t) => [t, s.title])));
     assert.deepEqual(
-      resourcePages(raw, api).map((p) => [p.name, p.section]),
-      d.tags.map((t) => [t.name, inSection.get(t.name) ?? null]),
+      resourcePages(raw, api).map((p) => [p.name, p.slug, p.section]),
+      d.tags.map((t) => [t.name, tagSlug(t.name), inSection.get(t.name) ?? null]),
     );
   }
+});
+
+test("a nested tag keeps its parent with it, so a group is never split", () => {
+  // Listed without its parent: the parent comes into the section too, ahead of it.
+  const pulled = doc({ sections: [{ title: "Clones", tags: ["voices/pvc"] }] });
+  assert.deepEqual(pulled.sections, [{ title: "Clones", tags: ["voices", "voices/pvc"] }]);
+  assert.ok(pulled.warnings.some((w) => w.includes('"voices/pvc" is in "Clones" without "voices"')));
+  assert.equal(pulled.tags.filter((t) => t.name === "voices").length, 1);
+  // Its parent already brought into another section by a sibling: it goes there too.
+  const moved = doc({ sections: [{ title: "Pro", tags: ["voices/pvc"] }, { title: "Instant", tags: ["voices/ivc"] }] });
+  assert.deepEqual(moved.sections, [{ title: "Pro", tags: ["voices", "voices/pvc", "voices/ivc"] }]);
+  assert.ok(moved.warnings.some((w) => w.includes('"voices/ivc" is in "Instant", but "voices" is in "Pro"')));
+});
+
+test("two sections with one title are one section", () => {
+  const d = doc({ sections: [{ title: "A", tags: ["models"] }, { title: "B", tags: ["agents"] }, { title: "A", tags: ["text-to-speech"] }] });
+  assert.deepEqual(d.sections, [
+    { title: "A", tags: ["models", "text-to-speech"] },
+    { title: "B", tags: ["agents"] },
+  ]);
+  assert.ok(d.warnings.some((w) => w.includes('"A" is listed twice')));
+});
+
+test("llms.txt lists resources under the sections, and the rest under a heading of its own", async () => {
+  const { apiIndexLines } = (await import("../scripts/openapi-order.mjs" as string)) as {
+    apiIndexLines: (apis: { title: string; url: string; desc?: string; section: string | null }[]) => string;
+  };
+  const api = (title: string, section: string | null) => ({ title, url: `/api-reference/${title}`, section });
+  assert.equal(apiIndexLines([api("a", null), api("b", null)]), "- [a](/api-reference/a)\n- [b](/api-reference/b)\n");
+  assert.equal(
+    apiIndexLines([api("a", "Agents"), api("b", null)]),
+    "\n### Agents\n\n- [a](/api-reference/a)\n\n### Other\n\n- [b](/api-reference/b)\n",
+  );
+  // A section of the site's own called "Other" keeps that heading to itself.
+  assert.match(apiIndexLines([api("a", "Other"), api("b", null)]), /### Other\n\n- \[a\][^#]*### More\n\n- \[b\]/);
 });

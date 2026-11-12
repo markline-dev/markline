@@ -223,7 +223,9 @@ them off:
 A section lists the spec's tag names, the same names `api.tags` uses, so a tag
 that's renamed, merged or nested lands where you'd expect. A name that's a
 nesting prefix (`Voices` for `Voices/Professional cloning`) brings every tag
-under it.
+under it. A nested tag listed without its parent brings the parent with it, so a
+group is never split across sections, and two sections with the same title are
+shown as one.
 
 - **Order:** sections appear in the order listed, and their tags in the order
   given. That order is used everywhere: the sidebar, the page the reference opens

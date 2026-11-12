@@ -144,13 +144,33 @@ export function sectionSource(configured, specGroups) {
 /** Mirrors planSections() in lib/openapi-tag-config.ts. */
 export function planSections(sections, order, alias, known, api) {
   const warnings = [];
-  const placedIn = new Map();
-  const out = [];
+  // Two sections with one title are one section.
+  const merged = [];
   for (const section of sections) {
-    const pages = [];
+    const same = merged.find((m) => m.title === section.title);
+    if (!same) merged.push({ title: section.title, tags: [...section.tags] });
+    else {
+      same.tags.push(...section.tags);
+      warnings.push(`[markline] API sections: "${section.title}" is listed twice; its tags are shown together, where it's first listed.`);
+    }
+  }
+  const placedIn = new Map();
+  const pagesOf = new Map(merged.map((s) => [s.title, []]));
+  const place = (page, title) => {
+    placedIn.set(page, title);
+    pagesOf.get(title).push(page);
+  };
+  /** The pages above `page` in its slash group ("voices" for "voices/pvc"), outermost first. */
+  const parents = (page) =>
+    page
+      .split("/")
+      .slice(0, -1)
+      .map((_, i, segs) => segs.slice(0, i + 1).join("/"))
+      .filter((p) => order.includes(p));
+  for (const section of merged) {
     for (const name of section.tags) {
       const resolved = resolveTag(name, api);
-      if (resolved === null) continue;
+      if (resolved === null) continue; // hidden on purpose
       const page = alias.get(resolved) ?? resolved;
       const matches = order.filter((p) => p === page || p.startsWith(`${page}/`));
       if (!matches.length) {
@@ -162,14 +182,32 @@ export function planSections(sections, order, alias, known, api) {
       }
       for (const p of matches) {
         const already = placedIn.get(p);
-        if (already === undefined) {
-          placedIn.set(p, section.title);
-          pages.push(p);
-        } else if (already !== section.title) {
-          warnings.push(`[markline] API sections: "${name}" is in "${already}" and "${section.title}"; it stays in "${already}".`);
+        if (already !== undefined) {
+          if (already !== section.title) {
+            warnings.push(`[markline] API sections: "${name}" is in "${already}" and "${section.title}"; it stays in "${already}".`);
+          }
+          continue;
         }
+        // A nested page stays with the pages above it, so its group isn't split.
+        const ups = parents(p);
+        const home = ups.map((u) => placedIn.get(u)).find((t) => t !== undefined);
+        if (home !== undefined && home !== section.title) {
+          warnings.push(`[markline] API sections: "${p}" is in "${section.title}", but "${ups[0]}" is in "${home}"; it's shown under "${home}" with it.`);
+          place(p, home);
+          continue;
+        }
+        for (const u of ups) {
+          if (placedIn.has(u)) continue;
+          warnings.push(`[markline] API sections: "${p}" is in "${section.title}" without "${u}"; "${u}" is shown there too, so the group isn't split.`);
+          place(u, section.title);
+        }
+        place(p, section.title);
       }
     }
+  }
+  const out = [];
+  for (const section of merged) {
+    const pages = pagesOf.get(section.title);
     if (pages.length) out.push({ title: section.title, tags: pages });
     else warnings.push(`[markline] API sections: "${section.title}" has no tags with operations, so it isn't shown.`);
   }
@@ -316,6 +354,26 @@ export function specWarnings(spec, cfg, readVersion) {
     const versioned = readVersion(v.id);
     if (!versioned) continue;
     for (const w of resourcePlan(versioned, cfg.api).warnings) out.push(w.replace("[markline]", `[markline] (version ${v.id})`));
+  }
+  return out;
+}
+
+/**
+ * llms.txt's list of API resources: one link each, under the sidebar's section
+ * headings when the reference has sections. Resources in no section get a heading
+ * no section of the site's own has. `abs` makes a path absolute.
+ */
+export function apiIndexLines(apis, abs = (u) => u) {
+  const sectioned = apis.some((a) => a.section);
+  const titles = new Set(apis.map((a) => a.section));
+  const rest = ["Other", "More", "Other resources"].find((t) => !titles.has(t)) ?? "Other resources (unsectioned)";
+  let out = "";
+  let current;
+  for (const a of apis) {
+    const heading = sectioned ? (a.section ?? rest) : undefined;
+    if (heading !== current) out += `\n### ${heading}\n\n`;
+    current = heading;
+    out += `- [${a.title}](${abs(a.url)})${a.desc ? `: ${a.desc}` : ""}\n`;
   }
   return out;
 }

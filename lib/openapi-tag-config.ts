@@ -292,10 +292,30 @@ export function sectionSource(configured: unknown, specGroups: unknown): { secti
  */
 export function planSections(sections: TagSection[], plan: TagPlan, known: Set<string>, opts?: TagOptions): SectionPlan {
   const warnings: string[] = [];
-  const placedIn = new Map<string, string>();
-  const out: TagSection[] = [];
+  // Two sections with one title are one section.
+  const merged: TagSection[] = [];
   for (const section of sections) {
-    const pages: string[] = [];
+    const same = merged.find((m) => m.title === section.title);
+    if (!same) merged.push({ title: section.title, tags: [...section.tags] });
+    else {
+      same.tags.push(...section.tags);
+      warnings.push(`[markline] API sections: "${section.title}" is listed twice; its tags are shown together, where it's first listed.`);
+    }
+  }
+  const placedIn = new Map<string, string>();
+  const pagesOf = new Map<string, string[]>(merged.map((s) => [s.title, []]));
+  const place = (page: string, title: string) => {
+    placedIn.set(page, title);
+    pagesOf.get(title)!.push(page);
+  };
+  /** The pages above `page` in its slash group ("voices" for "voices/pvc"), outermost first. */
+  const parents = (page: string) =>
+    page
+      .split("/")
+      .slice(0, -1)
+      .map((_, i, segs) => segs.slice(0, i + 1).join("/"))
+      .filter((p) => plan.order.includes(p));
+  for (const section of merged) {
     for (const name of section.tags) {
       const resolved = resolveTag(name, opts);
       if (resolved === null) continue; // hidden on purpose
@@ -310,14 +330,32 @@ export function planSections(sections: TagSection[], plan: TagPlan, known: Set<s
       }
       for (const p of matches) {
         const already = placedIn.get(p);
-        if (already === undefined) {
-          placedIn.set(p, section.title);
-          pages.push(p);
-        } else if (already !== section.title) {
-          warnings.push(`[markline] API sections: "${name}" is in "${already}" and "${section.title}"; it stays in "${already}".`);
+        if (already !== undefined) {
+          if (already !== section.title) {
+            warnings.push(`[markline] API sections: "${name}" is in "${already}" and "${section.title}"; it stays in "${already}".`);
+          }
+          continue;
         }
+        // A nested page stays with the pages above it, so its group isn't split.
+        const ups = parents(p);
+        const home = ups.map((u) => placedIn.get(u)).find((t) => t !== undefined);
+        if (home !== undefined && home !== section.title) {
+          warnings.push(`[markline] API sections: "${p}" is in "${section.title}", but "${ups[0]}" is in "${home}"; it's shown under "${home}" with it.`);
+          place(p, home);
+          continue;
+        }
+        for (const u of ups) {
+          if (placedIn.has(u)) continue;
+          warnings.push(`[markline] API sections: "${p}" is in "${section.title}" without "${u}"; "${u}" is shown there too, so the group isn't split.`);
+          place(u, section.title);
+        }
+        place(p, section.title);
       }
     }
+  }
+  const out: TagSection[] = [];
+  for (const section of merged) {
+    const pages = pagesOf.get(section.title)!;
     if (pages.length) out.push({ title: section.title, tags: pages });
     else warnings.push(`[markline] API sections: "${section.title}" has no tags with operations, so it isn't shown.`);
   }

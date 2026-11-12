@@ -58,8 +58,18 @@ All notable changes to `@markline/markline` and `@markline/create`.
   `api.sections` in markline.json, put a caption over each group of resources.
   Their order is the reference's order everywhere: the sidebar, the page it opens
   on, search and `llms.txt`. URLs don't change.
+- **A STREAM badge for operations that stream their reply.** It shows beside
+  the method in the sidebar, the endpoint list and the operation's own line, for
+  a 2xx `text/event-stream` response (even beside JSON) or `x-fern-streaming`.
+- **Line numbers in the Expand dialog.** Copy still copies only the code.
 
 ### Changed
+- **The API reference reads more easily.** Path parameters (`{voice_id}`) stand
+  out in each operation's path and in the endpoint list. Each operation's title
+  has its section and resource above it. Sidebar rows are tighter. Section
+  captions have more contrast (4.9:1 in both themes, from 2.6:1). And the open
+  resource's name shows once: its heading is now the jump to its intro, rather
+  than repeating as the first item under it.
 - **`markline export` refuses pages that would replace a served `.txt`
   file.** An export writes each page's data as `<page>.txt`, so a page at
   `/llms` replaced `llms.txt` (likewise `/llms-full`, `/robots`, a section's
@@ -113,6 +123,31 @@ All notable changes to `@markline/markline` and `@markline/create`.
   header's picker.
 
 ### Fixed
+- **Generated Node samples with Fern names camelCase nested keys too**
+  (`voiceSettings: { similarityBoost: 1 }`), as Fern's TypeScript SDK does. A
+  free-form map's keys (`additionalProperties`) stay as written.
+- **Generated Go samples no longer set objects to `nil`.** An optional object or
+  array is left out; a required one is a comment to fill in
+  (`// VoiceSettings: required; see the API reference`).
+- **Try it plays only known audio types** (MP3, WAV, Ogg, FLAC, AAC, WebM and the
+  like). Anything else under `audio/` downloads as a file.
+- **Two operations with one `operationId` each keep their own anchor.** The
+  build warns about it: the per-operation page can show only one of them.
+- **Try it masks an API key sent as a query parameter or cookie, not just as a
+  header.** The cURL, Node, Python and Go code it shows, and Copy URL, showed a
+  query-parameter key in full. Now every key the spec's security schemes name
+  (header, query or cookie) and a bearer token show as `••••` or `<api-key>`,
+  and a query-parameter key's field hides what's typed. The request still sends
+  the real key.
+- **Every operation on an API reference page has its own link.** Two operations
+  with the same summary shared an id, so a link to the second landed on the
+  first. A repeat now gets `-1`, `-2` and so on, and the first keeps its link.
+  The sidebar, endpoint list, events and search use the same ids.
+- **An operation named like its resource moves to `#<slug>-1`.** The "Text To
+  Speech" operation on `/api-reference/text-to-speech` was `#text-to-speech`, the
+  resource's own id. It's now `#text-to-speech-1`, and `#text-to-speech` lands on
+  the resource's intro, as it already did in practice. Update links that meant
+  the operation.
 - **Link previews name the site on every page.** Doc pages, changelog entries
   and API reference pages set their own Open Graph and Twitter tags, which
   replaced the site's: they lost `og:site_name`, the `summary_large_image`
@@ -126,6 +161,10 @@ All notable changes to `@markline/markline` and `@markline/create`.
   `public/` wins, in `markline build`, `export`, `start` and `dev`, and the build
   says it kept it. A copy an earlier build left in `.markline/` isn't mistaken
   for the site's.
+- **Try it no longer fails with "couldn't be reached" when an API closes an idle
+  connection just as you send a GET.** The proxy sends a GET or HEAD once more
+  on a new connection when the first is dropped before any reply. Other methods
+  are never sent twice.
 - **`last_updated` shows a date, not a timestamp.** Unquoted, as in
   `last_updated: 2026-11-08`, it showed as "Sun Nov 08 2026 00:00:00 GMT…"; it
   now shows "November 8, 2026". A quoted value still shows as written.

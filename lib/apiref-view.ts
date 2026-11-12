@@ -4,6 +4,7 @@ import { allResponses, codeSamples, colorizeJson, successResponse, type CodeRail
 import { buildPlaygroundSpec } from "./playground-spec";
 import { mdToHtml } from "./md-desc";
 import { hoistEndpoints } from "./apiref-payload";
+import { uniqueAnchors } from "./apiref-anchors";
 import type { PlaygroundSpec } from "@/components/docs/api/playground";
 import { loadConfig, playgroundMode } from "./config";
 import { tagSlug, parseOpenApiTag, buildTagTree, segmentDisplayName, type TagTreeNode } from "./openapi-tags";
@@ -37,6 +38,8 @@ export type EndpointView = {
   path: string;
   baseUrl: string;
   deprecated?: boolean;
+  /** Streams its reply (STREAM badge). */
+  streaming?: boolean;
   /** Operation description, rendered from markdown to sanitized HTML. */
   lead?: string;
   /** Raw operation description markdown, kept for the Markdown copy actions. */
@@ -58,7 +61,7 @@ export type EndpointView = {
   triggers: { name: string; id: string; tone: "g" | "r" | "n" }[];
 };
 
-export type NavOp = { id: string; verb: string | null; name: string; opId: string; evt?: "g" | "r" | "n"; deprecated?: boolean };
+export type NavOp = { id: string; verb: string | null; name: string; opId: string; evt?: "g" | "r" | "n"; deprecated?: boolean; streaming?: boolean };
 
 /** A routable resource (a leaf tag). When active, `ops` carries its in-page jumps. */
 export type NavResource = { kind: "resource"; name: string; slug: string; active: boolean; ops: NavOp[] };
@@ -100,12 +103,14 @@ export type ResourceView = {
   slug: string;
   /** Parent group display names for the header breadcrumb, e.g. ["Tools"]. */
   crumbs: string[];
+  /** The sidebar section the resource is in (x-tagGroups / api.sections), if any. */
+  section?: string;
   /** Tag description, rendered from markdown to sanitized HTML. */
   lead?: string;
   /** Raw tag description markdown, kept for the Markdown copy actions. */
   leadMd?: string;
   /** Endpoint-list card rows. */
-  endpoints: { title: string; verb: string; path: string; id: string; deprecated?: boolean }[];
+  endpoints: { title: string; verb: string; path: string; id: string; deprecated?: boolean; streaming?: boolean }[];
   /** Webhook / async events for this resource (`x-events`). */
   events: EventView[];
   object?: ObjectView;
@@ -176,8 +181,25 @@ const VERB: Record<string, string> = {
   delete: "DEL",
 };
 
-function anchorFor(op: OpenAPIOperation): string {
+/** An operation's own slug, before repeats on its page are numbered. */
+function anchorBase(op: OpenAPIOperation): string {
   return tagSlug(op.summary ?? op.operationId) || op.operationId;
+}
+
+/**
+ * Each operation's id on its resource's page: its own slug, with
+ * repeats numbered and the page's own ids (the resource, its object, its endpoint
+ * list and its events) left alone. Everything that links to an operation uses it.
+ */
+export function operationAnchors(tag: OpenAPITag, doc: Pick<OpenAPIDoc, "webhooks">): Map<OpenAPIOperation, string> {
+  const slug = tagSlug(tag.name);
+  const events = [
+    ...(tag.events ?? []).map((e) => e.name),
+    ...(doc.webhooks ?? []).filter((w) => w.tags.includes(tag.name)).map((w) => w.name),
+  ];
+  const reserved = [slug, `${slug}-object`, `ep-panels-${slug}`, ...events.map(eventAnchor)];
+  const ids = uniqueAnchors(tag.operations.map(anchorBase), reserved);
+  return new Map(tag.operations.map((op, i) => [op, ids[i]]));
 }
 
 export function displayName(s: string): string {
@@ -255,7 +277,8 @@ function buildEndpoint(
   baseUrl: string,
   langs: ReadonlyArray<"curl" | "node" | "python" | "go">,
   interactive: boolean,
-  base = "/api-reference",
+  base: string,
+  anchor: string,
 ): EndpointView {
   const groups = paramGroups(op, root);
   const code = codeSamples(op, doc, root, baseUrl, langs, { sdkNaming: loadConfig().api.sdkNaming });
@@ -275,7 +298,7 @@ function buildEndpoint(
   else if (op.parameters.query[0]) field = { label: `Query · ${op.parameters.query[0].name}`, value: "" };
 
   return {
-    id: anchorFor(op),
+    id: anchor,
     opId: op.operationId,
     summary: op.summary ?? op.operationId,
     method: op.method,
@@ -283,6 +306,7 @@ function buildEndpoint(
     path: op.path,
     baseUrl,
     deprecated: op.deprecated,
+    streaming: op.streaming,
     lead: mdToHtml(op.description),
     leadMd: op.description,
     groups,
@@ -337,15 +361,19 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
   // Full event catalog for the active resource (tag events + matching root
   // webhooks, with emittedBy). Shared by the nav jumps and the Events tab.
   const events = buildResourceEvents(activeTag, doc, root);
+  // One id per operation on this page; every link to an operation uses it.
+  const anchors = activeTag ? operationAnchors(activeTag, doc) : new Map<OpenAPIOperation, string>();
   const activeOps: NavOp[] = activeTag
     ? [
-        { id: tagSlug(activeTag.name), verb: null, name: activeParsed!.displayName, opId: "" },
+        // No jump to the resource's intro here: its heading above is that jump,
+        // so the resource's name isn't listed twice.
         ...activeTag.operations.map((op) => ({
-          id: anchorFor(op),
+          id: anchors.get(op)!,
           verb: VERB[op.method] ?? op.method.toUpperCase(),
           name: op.summary ?? op.operationId,
           opId: op.operationId,
           deprecated: op.deprecated,
+          streaming: op.streaming,
         })),
         ...events.map((ev) => ({ id: ev.id, verb: null, name: ev.name, opId: "", evt: ev.tone })),
       ]
@@ -394,20 +422,22 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
     name: activeParsed ? activeParsed.displayName : "API",
     slug: tagSlug(activeTag?.name ?? ""),
     crumbs: activeParsed?.parentDisplayNames ?? [],
+    section: activeTag ? (doc.sections ?? []).find((sec) => sec.tags.includes(activeTag.name))?.title : undefined,
     lead: mdToHtml(activeTag?.description),
     leadMd: activeTag?.description,
     endpoints: (activeTag?.operations ?? []).map((op) => ({
       title: op.summary ?? op.operationId,
       verb: VERB[op.method] ?? op.method.toUpperCase(),
       path: op.path,
-      id: anchorFor(op),
+      id: anchors.get(op)!,
       deprecated: op.deprecated,
+      streaming: op.streaming,
     })),
     events,
     object,
     sections: [],
   };
-  const hoisted = hoistEndpoints<ApiRefView["endpoints"][number], EndpointView>((activeTag?.operations ?? []).map((op) => buildEndpoint(op, doc, root, baseUrl, langs, interactive, base)));
+  const hoisted = hoistEndpoints<ApiRefView["endpoints"][number], EndpointView>((activeTag?.operations ?? []).map((op) => buildEndpoint(op, doc, root, baseUrl, langs, interactive, base, anchors.get(op)!)));
   resource.sections = hoisted.sections;
 
   return {
@@ -449,13 +479,14 @@ function buildSearchIndex(doc: OpenAPIDoc, base = "/api-reference"): SearchEntry
       snippet: tag.description || `${name} resource and its endpoints.`,
       href: `${base}/${slug}#${slug}`,
     });
+    const anchors = operationAnchors(tag, doc);
     for (const op of tag.operations) {
       out.push({
         title: op.summary ?? op.operationId,
         crumbs: [...groupCrumbs, name],
         snippet: op.description || `${op.method.toUpperCase()} ${op.path}`,
         verb: (VERB[op.method] ?? op.method.toUpperCase()).toLowerCase(),
-        href: `${base}/${slug}#${anchorFor(op)}`,
+        href: `${base}/${slug}#${anchors.get(op)}`,
       });
     }
     for (const ev of tag.events ?? []) {
@@ -517,10 +548,11 @@ function buildResourceEvents(activeTag: OpenAPITag | undefined, doc: OpenAPIDoc,
   }
 
   // Which operations emit each event (from per-operation events).
+  const anchors = operationAnchors(activeTag, doc);
   const emittedBy = new Map<string, { title: string; id: string; verb: string }[]>();
   for (const op of activeTag.operations) {
     for (const ev of op.events) {
-      const id = anchorFor(op);
+      const id = anchors.get(op)!;
       const list = emittedBy.get(ev.name) ?? [];
       if (!list.some((e) => e.id === id)) {
         list.push({ title: op.summary ?? op.operationId, id, verb: VERB[op.method] ?? op.method.toUpperCase() });

@@ -72,7 +72,7 @@ function primitiveSample(raw: JSONSchema | undefined, root: unknown): unknown {
 }
 
 
-type BodyField = { name: string; value: unknown; required: boolean; binary?: boolean };
+type BodyField = { name: string; value: unknown; required: boolean; binary?: boolean; schema?: JSONSchema };
 
 function schemaType(s: JSONSchema | undefined): string | undefined {
   return Array.isArray(s?.type) ? s.type[0] : s?.type;
@@ -113,6 +113,7 @@ function bodyFields(op: OpenAPIOperation, root: unknown, max = 4): BodyField[] {
       value: isBinarySchema(s) ? `path/to/${name}` : fieldSample(s, root),
       required: required.has(name),
       binary: isBinarySchema(s) || undefined,
+      schema: s,
     }));
 }
 
@@ -295,6 +296,36 @@ const isPyKeyword = (k: string) => /^[A-Za-z_][A-Za-z0-9_]*$/.test(k) && !PY_KEY
 const jsStr = (v: string) => `'${JSON.stringify(v).slice(1, -1).replace(/\\"/g, '"').replace(/'/g, "\\'")}'`;
 const jsKey = (k: string) => esc(isIdent(k) ? k : jsStr(k));
 
+/** The object or array a sample value came from: `$ref`s resolved, null and
+ *  `allOf` folded away, and a union taken as its first member, as samples are. */
+function sampledShape(s: JSONSchema | undefined, root: unknown): JSONSchema | undefined {
+  const r = flattenObject(s ? resolveSchema(s, root) : undefined);
+  const members = r?.oneOf ?? r?.anyOf;
+  if (members?.length && !r?.properties) return sampledShape(members.find((m) => m?.type !== "null") ?? members[0], root);
+  return r;
+}
+
+/**
+ * A Node literal with the keys a Fern TypeScript SDK expects: a declared
+ * property camelCased at any depth, a free-form map's keys (`additionalProperties`)
+ * as written. With no schema to tell them apart, every key is camelCased.
+ */
+function jsFernLit(v: unknown, schema: JSONSchema | undefined, root: unknown): string {
+  if (v === null || typeof v !== "object") return jsLit(v);
+  const s = sampledShape(schema, root);
+  if (Array.isArray(v)) return PUN("[") + v.map((x) => jsFernLit(x, s?.items, root)).join(PUN(", ")) + PUN("]");
+  const entries = Object.entries(v as Record<string, unknown>);
+  if (!entries.length) return PUN("{}");
+  const declared = s?.properties ?? {};
+  const map = typeof s?.additionalProperties === "object" ? (s.additionalProperties as JSONSchema) : undefined;
+  const parts = entries.map(([k, x]) => {
+    if (k in declared) return `${jsKey(camelId(k, k))}: ${jsFernLit(x, declared[k], root)}`;
+    if (s && (map || s.additionalProperties === true)) return `${jsKey(k)}: ${jsFernLit(x, map, root)}`;
+    return `${jsKey(camelId(k, k))}: ${jsFernLit(x, undefined, root)}`;
+  });
+  return `${PUN("{")} ${parts.join(PUN(", "))} ${PUN("}")}`;
+}
+
 function jsLit(v: unknown): string {
   if (v === null || v === undefined) return K("null");
   if (typeof v === "number") return N(v);
@@ -428,7 +459,8 @@ export function codeSamples(
 
   // Fern-named SDKs camelCase their Node option keys (`model_id` → `modelId`).
   const nodeKey = (k: string) => (call.fern ? camelId(k, k) : k);
-  const nodeVal = (f: BodyField) => (f.binary ? `fs.${F("createReadStream")}(${S(jsStr(placeholder(f)))})` : jsLit(f.value));
+  const nodeVal = (f: BodyField) =>
+    f.binary ? `fs.${F("createReadStream")}(${S(jsStr(placeholder(f)))})` : call.fern ? jsFernLit(f.value, f.schema, root) : jsLit(f.value);
   const pyVal = (f: BodyField) => (f.binary ? `${F("open")}(${S(JSON.stringify(placeholder(f)))}, ${S('"rb"')})` : pyLit(f.value));
 
   /* Node */
@@ -472,10 +504,17 @@ export function codeSamples(
           goPre.push(`${esc(v)}, _ := os.${F("Open")}(${S(JSON.stringify(placeholder(f)))})`);
           return `    ${esc(pascalId(f.name))}: ${esc(v)},`;
         }
+        // An object or array has an SDK type the spec doesn't name reliably, so it
+        // isn't guessed: an optional one is left out (Go's zero value), a required
+        // one is a comment the reader fills in.
+        if (f.value === null || typeof f.value === "object") {
+          return f.required ? `    ${C(`// ${pascalId(f.name)}: required; see the API reference`)}` : null;
+        }
         return `    ${esc(pascalId(f.name))}: ${goLit(f.value, cv)},`;
       })
+      .filter((line): line is string => line !== null)
       .join("\n");
-    goArgs.push(`&amp;${esc(cv)}.${esc(goParams)}{\n${body}\n}`);
+    goArgs.push(body ? `&amp;${esc(cv)}.${esc(goParams)}{\n${body}\n}` : `&amp;${esc(cv)}.${esc(goParams)}{}`);
   } else if (!pathArgs.length) {
     goArgs.push(K("nil"));
   }

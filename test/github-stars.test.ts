@@ -269,3 +269,7 @@ test("with a GITHUB_API_URL that isn't http(s), the token isn't sent", async (t)
   assert.equal(calls[0].url, "https://api.github.com/repos/o/r");
   assert.equal((calls[0].init?.headers as Record<string, string>).authorization, undefined);
 });
+
+test("a site with no docs/ folder yet asks for its topbar repo only", () => {
+  assert.deepEqual(wantedStats(topbar("https://github.com/o/r"), path.join(os.tmpdir(), "markline-no-such-docs")), ["stars:o/r"]);
+});

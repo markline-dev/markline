@@ -15,6 +15,7 @@ import { searchGroups, searchTrails } from "./search-groups.mjs";
 import { markdownPath, mdxToMarkdown, pageMarkdown, sectionIds, sectionIndex } from "./llms.mjs";
 import { removeGeneratedFiles, writeManifest } from "./generated-files.mjs";
 import { siteFiles } from "./site-files.mjs";
+import { CHANGELOG_PER_PAGE, clashMessage, exportClashes } from "./export-names.mjs";
 import { writeGithubStats } from "./github-stats.mjs";
 import { contentRootFrom } from "./content-root.mjs";
 import { unified } from "unified";
@@ -259,6 +260,7 @@ function docPagesForLlms(root, versionId) {
     const url = versionId ? `/${versionId}${rel === "/" ? "" : rel}` : rel;
     map.set(url, {
       url,
+      source: path.relative(root, file),
       title: String(data.title ?? url),
       lede: data.lede ? String(data.lede).trim() : "",
       body: mdxToMarkdown(content),
@@ -339,6 +341,7 @@ function writeLlms(root) {
   idx += `This index lists the documentation. The full text of every page concatenated into one file is available at [llms-full.txt](${abs("/llms-full.txt")}).\n\n`;
   const sectionDocs = [...docMap.values()];
   const sectionList = sectionIds(sectionDocs).filter((id) => sectionIndex(cfg, sectionDocs, id));
+  if (process.env.MARKLINE_EXPORT === "1") refuseExportClashes(root, sectionList);
   idx += `Add \`.md\` to any page's URL for its Markdown${sectionList.length ? `, and \`/llms.txt\` to a section's URL (such as [/${sectionList[0]}/llms.txt](${abs(`/${sectionList[0]}/llms.txt`)})) for an index of that section` : ""}.\n\n`;
   for (const s of sections) {
     idx += `## ${s.group}\n\n`;
@@ -404,6 +407,43 @@ function writeLlms(root) {
 
   writeMarkdownFiles(root, cfg, { name, abs }, sectionList, out);
   out.finish();
+}
+
+/**
+ * A static export writes each page's payload as <url>.txt, so a page named like
+ * a .txt file the site serves (llms.txt, robots.txt, a section's llms.txt, one
+ * in public/) would replace it. Stop the export and name every such page.
+ */
+function refuseExportClashes(root, sectionList) {
+  const docs = [
+    ...docPagesForLlms(root).values(),
+    ...contentPrefixIds(root).flatMap((id) => [...docPagesForLlms(root, id).values()]),
+  ];
+  const changelog = changelogEntries(root);
+  const pages = [
+    ...docs.map((d) => ({ url: d.url, source: d.source })),
+    ...(changelog.length ? [{ url: "/changelog" }, ...changelog.map((e) => ({ url: e.url }))] : []),
+    ...Array.from({ length: Math.max(0, Math.ceil(changelog.length / CHANGELOG_PER_PAGE) - 1) }, (_, i) => ({ url: `/changelog/page/${i + 2}` })),
+    ...apiResources(root).map((a) => ({ url: a.url })),
+  ];
+  const site = process.env.MARKLINE_SITE_PUBLIC ? path.resolve(process.env.MARKLINE_SITE_PUBLIC) : path.join(process.cwd(), "public");
+  const own = [];
+  // A Dirent doesn't follow links, so a linked folder in public/ isn't looked in.
+  const walkTxt = (dir, rel = "") => {
+    if (!fs.existsSync(dir)) return; // no public/ (or no such folder)
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const r = rel ? `${rel}/${e.name}` : e.name;
+      if (e.isDirectory()) walkTxt(path.join(dir, e.name), r);
+      else if (e.name.toLowerCase().endsWith(".txt")) own.push(r);
+    }
+  };
+  walkTxt(site);
+  const files = ["llms.txt", "llms-full.txt", "robots.txt", ...sectionList.map((id) => `${id}/llms.txt`), ...own];
+  const clashes = exportClashes(pages, files);
+  if (clashes.length) {
+    console.error(clashMessage(clashes));
+    process.exit(1);
+  }
 }
 
 /**

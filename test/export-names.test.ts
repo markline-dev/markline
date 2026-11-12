@@ -33,3 +33,9 @@ test("pages named like a served file clash, ignoring case and URL encoding", () 
 test("a bad percent-encoding is compared as written, not thrown", () => {
   assert.deepEqual(exportClashes([{ url: "/%E0%A4%A" }], ["%e0%a4%a.txt"]).length, 1);
 });
+
+test("the changelog's page size matches the app's", async () => {
+  const { CHANGELOG_PER_PAGE } = await import("../scripts/export-names.mjs");
+  const { PER_PAGE } = await import("../lib/changelog-core");
+  assert.equal(CHANGELOG_PER_PAGE, PER_PAGE);
+});

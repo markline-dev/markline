@@ -4,6 +4,10 @@
 // system that ignores case would (macOS, Windows) and after URL decoding, so
 // /LLMS and /%6C%6Cms clash too.
 
+/** Changelog entries to a page: lib/changelog-core.ts PER_PAGE, which this
+ *  plain .mjs can't import. A test checks the two are the same. */
+export const CHANGELOG_PER_PAGE = 10;
+
 /** Where an export writes a page's payload: "/" → "index.txt", "/a/b" → "a/b.txt". */
 export function payloadFile(url) {
   const p = url.replace(/^\/+|\/+$/g, "");

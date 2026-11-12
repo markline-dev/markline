@@ -15,7 +15,7 @@ import { searchGroups, searchTrails } from "./search-groups.mjs";
 import { markdownPath, mdxToMarkdown, pageMarkdown, sectionIds, sectionIndex } from "./llms.mjs";
 import { removeGeneratedFiles, writeManifest } from "./generated-files.mjs";
 import { siteFiles } from "./site-files.mjs";
-import { clashMessage, exportClashes } from "./export-names.mjs";
+import { CHANGELOG_PER_PAGE, clashMessage, exportClashes } from "./export-names.mjs";
 import { writeGithubStats } from "./github-stats.mjs";
 import { contentRootFrom } from "./content-root.mjs";
 import { unified } from "unified";
@@ -423,14 +423,15 @@ function refuseExportClashes(root, sectionList) {
   const pages = [
     ...docs.map((d) => ({ url: d.url, source: d.source })),
     ...(changelog.length ? [{ url: "/changelog" }, ...changelog.map((e) => ({ url: e.url }))] : []),
-    // Changelog pages after the first, PER_PAGE (lib/changelog-core.ts) to a page.
-    ...Array.from({ length: Math.max(0, Math.ceil(changelog.length / 10) - 1) }, (_, i) => ({ url: `/changelog/page/${i + 2}` })),
+    ...Array.from({ length: Math.max(0, Math.ceil(changelog.length / CHANGELOG_PER_PAGE) - 1) }, (_, i) => ({ url: `/changelog/page/${i + 2}` })),
     ...apiResources(root).map((a) => ({ url: a.url })),
   ];
   const site = process.env.MARKLINE_SITE_PUBLIC ? path.resolve(process.env.MARKLINE_SITE_PUBLIC) : path.join(process.cwd(), "public");
   const own = [];
+  // A Dirent doesn't follow links, so a linked folder in public/ isn't looked in.
   const walkTxt = (dir, rel = "") => {
-    for (const e of fs.readdirSync(dir, { withFileTypes: true, throwIfNoEntry: false }) ?? []) {
+    if (!fs.existsSync(dir)) return; // no public/ (or no such folder)
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
       const r = rel ? `${rel}/${e.name}` : e.name;
       if (e.isDirectory()) walkTxt(path.join(dir, e.name), r);
       else if (e.name.toLowerCase().endsWith(".txt")) own.push(r);

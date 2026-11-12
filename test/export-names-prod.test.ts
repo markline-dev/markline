@@ -10,7 +10,8 @@ import { createSite } from "./site-server";
 
 const skip = process.platform === "win32" ? "builds are slow on Windows CI" : false;
 const site = createSite();
-after(() => site.destroy());
+const bare = createSite();
+after(() => Promise.all([site.destroy(), bare.destroy()]));
 
 const page = (title: string) => `---\ntitle: ${title}\n---\n\ntext\n`;
 
@@ -34,4 +35,11 @@ test("export names every page that would replace a served .txt file; build doesn
   assert.ok(!fs.existsSync(path.join(site.dir, "out")), "nothing exported");
 
   site.build(); // the same pages are fine on a server
+});
+
+test("a site with no public/ folder exports", { skip }, () => {
+  assert.ok(!fs.existsSync(path.join(bare.dir, "public")));
+  bare.export();
+  assert.ok(fs.existsSync(path.join(bare.dir, "out", "index.html")));
+  assert.ok(fs.existsSync(path.join(bare.dir, "out", "llms.txt")));
 });

@@ -12,6 +12,7 @@ import { DocsShell } from "@/components/docs/nav";
 import { mdxComponents } from "@/components/docs/mdx";
 import { prettyCodeOptions } from "@/components/docs/mdx-options";
 import { loadConfig, aiConfig, feedbackConfig, pageTitle } from "@/lib/config";
+import { siteOpenGraph, siteTwitter } from "@/lib/site-meta";
 import { getDocsTabs, pickActiveTab, getNav, flattenLinks, findNavTrail, collectionLinks, type DocsTab } from "@/components/docs/sections";
 import { HubHero } from "@/components/docs/hub-hero";
 import { LandingPage } from "@/components/landing/landing";
@@ -53,7 +54,12 @@ function changelogMetadata(slug: string[]): Metadata | undefined {
   const entry = date ? getChangelogEntry(date) : undefined;
   if (entry) {
     const title = entry.title ? `${entry.title} (${formatDate(entry.date)})` : `Changelog: ${formatDate(entry.date)}`;
-    return { title, alternates: { canonical: entryPath(entry.date), ...rss }, openGraph: { title, url: entryPath(entry.date) } };
+    return {
+      title,
+      alternates: { canonical: entryPath(entry.date), ...rss },
+      openGraph: { ...siteOpenGraph(config), title, url: entryPath(entry.date), type: "article" },
+      twitter: { ...siteTwitter(config), title },
+    };
   }
   const page = pageFromSlug(slug);
   if (!page) return undefined;
@@ -79,15 +85,12 @@ export async function generateMetadata({ params }: { params: Promise<{ slug?: st
     config.seo.description;
   const pathname = doc.slug.length ? `/${doc.slug.join("/")}` : "/";
   const title = typeof doc.fm.title === "string" ? doc.fm.title : undefined;
-  // Next replaces (not deep-merges) openGraph/twitter when set per-page, so the
-  // default image must be re-declared here or it'd be dropped.
-  const images = config.seo.ogImage ? [config.seo.ogImage] : undefined;
   return {
     title: pageTitle(title, config),
     description,
     alternates: { canonical: pathname },
-    openGraph: { title, description, url: pathname, type: "article", images },
-    twitter: { title, description, images },
+    openGraph: { ...siteOpenGraph(config), title, description, url: pathname, type: "article" },
+    twitter: { ...siteTwitter(config), title, description },
   };
 }
 

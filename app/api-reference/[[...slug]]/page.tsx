@@ -17,6 +17,7 @@ import { getHighlighter, shellEnhancer } from "@/lib/shiki";
 import { contentRoot } from "@/lib/paths";
 import { SiteFooter } from "@/components/site-footer";
 import { aiConfig, loadConfig, nonDefaultVersionIds, feedbackConfig } from "@/lib/config";
+import { siteOpenGraph, siteTwitter } from "@/lib/site-meta";
 
 const shellTransformer = shellEnhancer();
 const prettyCodeOptions = {
@@ -127,14 +128,12 @@ export async function generateMetadata({ params }: { params: Promise<{ slug?: st
   const { variantId, rest } = parseVariant(slug);
   const doc = loadOpenApi(variantId);
   const path = "/api-reference" + (slug?.length ? `/${slug.join("/")}` : "");
-  // Next replaces openGraph/twitter per-page, so re-declare the default image.
-  const images = loadConfig().seo.ogImage ? [loadConfig().seo.ogImage!] : undefined;
   const meta = (title: string, description?: string): Metadata => ({
     title,
     description,
     alternates: { canonical: path },
-    openGraph: { title, description, url: path, type: "article", images },
-    twitter: { title, description, images },
+    openGraph: { ...siteOpenGraph(loadConfig()), title, description, url: path, type: "article" },
+    twitter: { ...siteTwitter(loadConfig()), title, description },
   });
   const first = rest[0];
   if (!first) return meta("API reference");

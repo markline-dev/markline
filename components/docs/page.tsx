@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { DocsToc } from "./nav";
 import { DocAiRow } from "./doc-actions";
+import { CalloutIconOf } from "./authoring";
 import { LinkList, LinkItem } from "./authoring";
 import { SiteCredit } from "../site-credit";
 
@@ -172,15 +173,18 @@ const CALLOUT_ICON = {
 };
 
 export function Callout({
-  tone = "info", title, children,
+  tone = "info", title, icon, children,
 }: {
   tone?: "info" | "warn" | "ok";
   title?: string;
+  /** A Phosphor icon name or a short glyph, in place of the tone's icon
+   *  (lib/callout-icon.ts). */
+  icon?: string;
   children: React.ReactNode;
 }) {
   return (
     <div className={`callout tone-${tone}`}>
-      <span className="ic">{CALLOUT_ICON[tone]}</span>
+      <CalloutIconOf icon={icon} fallback={CALLOUT_ICON[tone]} />
       <div className="callout-body">
         {title && <strong>{title}</strong>}{title && " "}
         {children}

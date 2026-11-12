@@ -17,7 +17,7 @@ import { HubHero } from "@/components/docs/hub-hero";
 import { LandingPage } from "@/components/landing/landing";
 import { remarkLandingProse } from "@/lib/landing-prose";
 import { remarkCodeGroupTitles } from "@/lib/code-group";
-import { extractToc, missingTocIds, remarkTocIds } from "@/lib/toc";
+import { elementsIn, extractToc, missingTocIds, remarkTocIds } from "@/lib/toc";
 import { SiteFooter } from "@/components/site-footer";
 import type { Crumb, PageNavLink } from "@/components/docs/page";
 import { ChangelogEntryView, ChangelogView } from "@/components/docs/changelog";
@@ -91,6 +91,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug?: st
   };
 }
 
+/** Pages already warned about <MigrationCallout>, once each per process. */
+const warnedMigration = new Set<string>();
+
 export default async function DocsCatchAll({ params }: { params: Promise<{ slug?: string[] }> }) {
   const { slug } = await params;
   if (slug?.[0] === NOT_FOUND_SEGMENT) return uncachedNotFound();
@@ -130,6 +133,11 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
   // A hand-written "On this page" can drift from the headings it links to.
   for (const id of doc.fm.toc ? missingTocIds(doc.body, doc.fm.toc, { steps: doc.fm.tocSteps }) : []) {
     console.warn(`[markline] toc: entry #${id} doesn't match any heading on ${pathname}`);
+  }
+
+  if (!warnedMigration.has(pathname) && elementsIn(doc.body).has("MigrationCallout")) {
+    warnedMigration.add(pathname);
+    console.warn(`[markline] <MigrationCallout> is deprecated; use <Callout title="…" icon="…"> (on ${pathname}).`);
   }
 
   const landing = doc.fm.layout === "landing";

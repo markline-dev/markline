@@ -94,15 +94,13 @@ export function ApiRefs({ items }: { items: { verb: Verb; ep: string; desc?: str
   );
 }
 
+/** Deprecated, and going in a later release: `<Callout title="…" icon="…">`
+ *  does the same. The docs page warns where it's still used. */
 export function MigrationCallout({ children }: { children?: React.ReactNode }) {
   return (
-    <div className="ml-migrate">
-      <span className="ml-migrate-badge">↗</span>
-      <div>
-        <strong>Migrating from OpenAI?</strong>
-        <div className="ml-migrate-body">{children}</div>
-      </div>
-    </div>
+    <Callout title="Migrating from OpenAI?" icon="↗">
+      {children}
+    </Callout>
   );
 }
 

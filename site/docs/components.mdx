@@ -49,6 +49,21 @@ Each takes an optional `title`, shown in bold before the text.
 `<Callout tone="info|ok|warn" title="…">` is the same box with the tone
 chosen by a prop, which helps when converting docs from another tool.
 
+Each also takes an `icon` in place of its own: a
+[Phosphor](https://phosphoricons.com) icon name, as `<Card>` takes it, or one
+or two characters such as `↗` or an emoji. It's shown in the callout's
+colour. Paths and URLs aren't accepted, so a callout never loads an image.
+
+```mdx
+<Callout title="Migrating from OpenAI?" icon="↗">
+  Point your SDK at our endpoint and swap the key.
+</Callout>
+<Tip icon="rocket-launch">Ship it.</Tip>
+```
+
+`<MigrationCallout>` is deprecated, and will be removed in a later release;
+use `<Callout title="…" icon="…">` as above.
+
 ## Cards
 
 <CardGroup cols={2}>

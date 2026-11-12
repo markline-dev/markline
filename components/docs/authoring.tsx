@@ -1,6 +1,7 @@
 import { Children, cloneElement, isValidElement } from "react";
 import Link from "next/link";
 import { resolveVideo } from "@/lib/video";
+import { calloutIcon } from "@/lib/callout-icon";
 import { isIconPath, navIcon } from "./nav-icons";
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -9,6 +10,19 @@ import { isIconPath, navIcon } from "./nav-icons";
  * ────────────────────────────────────────────────────────────────────────── */
 
 /* ── Admonition callouts: Note / Tip / Info / Warning / Danger / Check ── */
+
+/**
+ * A callout's `icon`, if it asked for one it may have (lib/callout-icon.ts),
+ * else its own. In the tone's colour, and hidden from screen readers: the
+ * title says what the callout is.
+ */
+export function CalloutIconOf({ icon, fallback }: { icon?: unknown; fallback: React.ReactNode }) {
+  const want = calloutIcon(icon);
+  const shown = want?.kind === "text" ? want.text : want ? (navIcon(want.name, 16) ?? fallback) : fallback;
+  return <span className="ic" aria-hidden="true">{shown}</span>;
+}
+
+type AdmonitionProps = { title?: string; icon?: string; children: React.ReactNode };
 
 /** Maps an admonition to the design's three callout tones (.callout / .tone-*). */
 function Admonition({
@@ -24,7 +38,7 @@ function Admonition({
 }) {
   return (
     <div className={`callout tone-${tone}`}>
-      <span className="ic" aria-hidden>{icon}</span>
+      {icon}
       <div className="callout-body">
         {title && <strong>{title}</strong>}
         {children}
@@ -62,23 +76,23 @@ const ICON = {
   ),
 };
 
-export function Note({ title, children }: { title?: string; children: React.ReactNode }) {
-  return <Admonition tone="info" icon={ICON.info} title={title}>{children}</Admonition>;
+export function Note({ title, icon, children }: AdmonitionProps) {
+  return <Admonition tone="info" icon={<CalloutIconOf icon={icon} fallback={ICON.info} />} title={title}>{children}</Admonition>;
 }
-export function Info({ title, children }: { title?: string; children: React.ReactNode }) {
-  return <Admonition tone="info" icon={ICON.info} title={title}>{children}</Admonition>;
+export function Info({ title, icon, children }: AdmonitionProps) {
+  return <Admonition tone="info" icon={<CalloutIconOf icon={icon} fallback={ICON.info} />} title={title}>{children}</Admonition>;
 }
-export function Tip({ title, children }: { title?: string; children: React.ReactNode }) {
-  return <Admonition tone="ok" icon={ICON.tip} title={title}>{children}</Admonition>;
+export function Tip({ title, icon, children }: AdmonitionProps) {
+  return <Admonition tone="ok" icon={<CalloutIconOf icon={icon} fallback={ICON.tip} />} title={title}>{children}</Admonition>;
 }
-export function Check({ title, children }: { title?: string; children: React.ReactNode }) {
-  return <Admonition tone="ok" icon={ICON.check} title={title}>{children}</Admonition>;
+export function Check({ title, icon, children }: AdmonitionProps) {
+  return <Admonition tone="ok" icon={<CalloutIconOf icon={icon} fallback={ICON.check} />} title={title}>{children}</Admonition>;
 }
-export function Warning({ title, children }: { title?: string; children: React.ReactNode }) {
-  return <Admonition tone="warn" icon={ICON.warning} title={title}>{children}</Admonition>;
+export function Warning({ title, icon, children }: AdmonitionProps) {
+  return <Admonition tone="warn" icon={<CalloutIconOf icon={icon} fallback={ICON.warning} />} title={title}>{children}</Admonition>;
 }
-export function Danger({ title, children }: { title?: string; children: React.ReactNode }) {
-  return <Admonition tone="warn" icon={ICON.danger} title={title}>{children}</Admonition>;
+export function Danger({ title, icon, children }: AdmonitionProps) {
+  return <Admonition tone="warn" icon={<CalloutIconOf icon={icon} fallback={ICON.danger} />} title={title}>{children}</Admonition>;
 }
 
 /* ── Cards ── */

@@ -5,6 +5,9 @@ All notable changes to `@markline/markline` and `@markline/create`.
 ## Unreleased
 
 ### Added
+- **`icon` on callouts.** `<Callout>`, `<Note>`, `<Info>`, `<Tip>`,
+  `<Check>`, `<Warning>` and `<Danger>` take an `icon`: a Phosphor icon name,
+  or one or two characters such as `↗`. Paths and URLs aren't accepted.
 - **GitHub stars.** The topbar's GitHub badge shows the repo's star count
   ("★ 1.2k"). The build fetches it into the page; `topbar.githubStars: "live"`
   (default) also refreshes it in the browser, at most hourly per reader;
@@ -53,6 +56,10 @@ All notable changes to `@markline/markline` and `@markline/create`.
   closes it, and focus returns to the button.
 
 ### Changed
+- **`<MigrationCallout>` is deprecated**, and will be removed in a later
+  release. It now renders as an info `<Callout>` with the same title and text,
+  and the build warns on each page that uses it. Use
+  `<Callout title="Migrating from OpenAI?" icon="↗">` instead.
 - **Lighter API reference pages.** The Try it endpoint list is sent once per
   page instead of once per operation. On ElevenLabs' spec (478 operations) the
   largest resource page drops from 13.2 MB to 4.4 MB. Docs pages list API

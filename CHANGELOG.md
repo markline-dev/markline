@@ -113,6 +113,12 @@ All notable changes to `@markline/markline` and `@markline/create`.
   header's picker.
 
 ### Fixed
+- **Try it masks an API key sent as a query parameter or cookie, not just as a
+  header.** The cURL, Node, Python and Go code it shows, and Copy URL, showed a
+  query-parameter key in full. Now every key the spec's security schemes name
+  (header, query or cookie) and a bearer token show as `••••` or `<api-key>`,
+  and a query-parameter key's field hides what's typed. The request still sends
+  the real key.
 - **Link previews name the site on every page.** Doc pages, changelog entries
   and API reference pages set their own Open Graph and Twitter tags, which
   replaced the site's: they lost `og:site_name`, the `summary_large_image`

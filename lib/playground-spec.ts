@@ -94,6 +94,13 @@ export function buildPlaygroundSpec(op: OpenAPIOperation, doc: OpenAPIDoc, root:
       ...allSchemes.filter((s) => s.type === "apiKey" && s.in === "header" && s.name).map((s) => s.name as string),
     ]),
   ];
+  // API keys sent elsewhere, so the code Try it shows can mask them too.
+  const keyNames = (where: "query" | "cookie") => [
+    ...new Set([
+      ...op.security.filter((s) => s.scheme.type === "apiKey" && s.scheme.in === where && s.scheme.name).map((s) => s.scheme.name as string),
+      ...allSchemes.filter((s) => s.type === "apiKey" && s.in === where && s.name).map((s) => s.name as string),
+    ]),
+  ];
   const param = (
     p: { name: string; required?: boolean; schema?: JSONSchema; description?: string },
     reqDefault: boolean,
@@ -124,6 +131,8 @@ export function buildPlaygroundSpec(op: OpenAPIOperation, doc: OpenAPIDoc, root:
     // operation under-declares its security (common in generated specs).
     bearer: schemeBearer || op.security.some((s) => s.scheme.type === "http" && s.scheme.scheme === "bearer"),
     apiKeyHeaders: apiKeyHeaderNames.map((name) => ({ name })),
+    apiKeyQuery: keyNames("query"),
+    apiKeyCookies: keyNames("cookie"),
     ...bodyForPlayground(op, root),
     sdk: sdkCalls(op, root),
     responses: op.responses.map((r) => ({

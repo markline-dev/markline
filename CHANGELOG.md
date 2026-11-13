@@ -137,6 +137,9 @@ All notable changes to `@markline/markline` and `@markline/create`.
   header's picker.
 
 ### Fixed
+- **A heading in the changelog's intro no longer takes an entry's id.** An
+  intro heading such as `## 2026 10 15` got the same id as that day's entry;
+  it now gets its own.
 - **Pages whose file names have a space or an accent load on a Node server.**
   `docs/Getting Started.mdx` or `docs/café.mdx` was a 404 on `markline start`
   (a static export was fine). Links to such pages, in the sidebar, previous and

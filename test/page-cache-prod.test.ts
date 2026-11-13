@@ -48,6 +48,8 @@ before(async () => {
       '<Steps>\n<Step title="Verify">e</Step>\n<Step title="Verify">f</Step>\n</Steps>\n',
     ].join("\n"),
   );
+  // An intro whose headings read like the first page's entries.
+  fs.writeFileSync(path.join(site.dir, "docs", "changelog.mdx"), "---\ntitle: Changelog\n---\n\nintro\n\n## 2026 10 21\n\nx\n\n## 2026 10 21 fixes\n\ny\n");
   for (let day = 10; day < 22; day++) {
     fs.writeFileSync(path.join(site.dir, "changelog", `2026-10-${day}.mdx`), `---\ntitle: Day ${day}\n---\n\nentry\n\n## Fixes\n\na\n\n## Fixes\n\nb\n\n## 🚀\n\nc\n`);
   }
@@ -201,6 +203,16 @@ test("every link in a built page's table of contents lands on its own heading", 
 test("a changelog entry's repeated headings get their own ids", { skip }, async () => {
   const links = await tocLinks(`${base}/changelog`);
   assert.ok(links.includes("2026-10-21-fixes") && links.includes("2026-10-21-fixes-1"), links.join());
+});
+
+test("the changelog intro's headings don't take an entry's id", { skip }, async () => {
+  // tocLinks fails on any repeated id, which an unreserved intro would cause.
+  await tocLinks(`${base}/changelog`);
+  const html = await (await fetch(`${base}/changelog`)).text();
+  assert.match(html, /<h2 id="2026-10-21-1">2026 10 21<\/h2>/);
+  // The entry's two "Fixes" headings take -fixes and -fixes-1, so the intro's goes to -2.
+  assert.match(html, /<h2 id="2026-10-21-fixes-2">2026 10 21 fixes<\/h2>/);
+  assert.match(html, /<article class="cl-entry" id="2026-10-21">/);
 });
 
 test("unknown URLs log nothing", { skip }, async () => {

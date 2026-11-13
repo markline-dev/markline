@@ -74,10 +74,14 @@ const isTocHeading = (node: MdxNode) => node.type === "heading" && (node.depth =
  * aren't showing when the page loads (a later <Tab>, a closed <Accordion>) are
  * still on it, so they get ids too. A step's id is `step-<slug>`. (A <Tab> and
  * its <Steps> on one line are read as text, so a step there can still be listed
- * from a tab that isn't showing.)
+ * from a tab that isn't showing.) `reserved` are ids the page already has
+ * outside this MDX, such as the changelog's entries around its intro; they're
+ * skipped like an element's id.
  */
-function planToc(tree: MdxNode, opts: { steps?: boolean }) {
-  const used = new Set<string>();
+type TocOptions = { steps?: boolean; reserved?: string[] };
+
+function planToc(tree: MdxNode, opts: TocOptions) {
+  const used = new Set<string>(opts.reserved ?? []);
   const natural = new Set<string>();
   const reserve = (node: MdxNode) => {
     if (isTocHeading(node)) natural.add(slugify(nodeText(node)));
@@ -169,7 +173,7 @@ export function missingTocIds(body: string, toc: TocItem[], opts: { steps?: bool
  * steps it lists. Other steps get none, so they can't take over a heading's
  * anchor.
  */
-export function remarkTocIds(opts: { steps?: boolean } = {}) {
+export function remarkTocIds(opts: TocOptions = {}) {
   return (tree: MdxNode) => {
     const { headings, steps } = planToc(tree, opts);
     for (const [node, id] of headings) {

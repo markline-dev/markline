@@ -86,6 +86,10 @@ test("a folder with only an AsyncAPI document reads as a spec with no operations
   assert.equal(readApiSpec(dir, { asyncapi: { file: "api/other.json" } }), null);
   write(path.join(dir, "api", "openapi.json"), spec);
   assert.deepEqual(readApiSpec(dir, {}), spec);
+  // An openapi.json that's there but broken fails loudly, as before; it isn't read as "no spec".
+  write(path.join(dir, "api", "openapi.json"), "{ broken");
+  assert.throws(() => readApiSpec(dir, {}), SyntaxError);
+  write(path.join(dir, "api", "openapi.json"), spec);
   // Its channels, joining no resource, make the WebSockets page.
   assert.deepEqual(asyncApiReport(path.join(root, "only"), { openapi: "3.0.0", paths: {} }, {}).pages.map((p) => p.slug), ["websockets"]);
 });

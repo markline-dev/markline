@@ -177,8 +177,10 @@ settings that arrange the reference arrange it too:
 - [`api.tags`](/openapi#rename-hide-and-merge-tags): `label` renames it (its URL
   stays `/api-reference/websockets`), `mergeInto` puts its channels on another
   page, and `hidden` hides it with its channels.
-- `api.tagOrder`: list `WebSockets` to move it up. Otherwise it comes after every
-  other page.
+- `api.tagOrder`: list `WebSockets` to move it up. Otherwise a WebSockets page
+  that only channels make comes after every other page. If the spec has a
+  `WebSockets` tag of its own, or `mergeInto` names a page the spec already has,
+  the channels join that page where it already is.
 - [`api.sections`](/openapi#group-tags-into-sections): list `WebSockets` in a
   section like any tag.
 
@@ -195,9 +197,12 @@ settings that arrange the reference arrange it too:
 
 Without `api.sections`, the sidebar's sections come from the OpenAPI spec's
 `x-tagGroups`, then from the AsyncAPI document's own `x-tagGroups`, in the same
-`[{ "name", "tags" }]` form. A group with the same name as one of the spec's
-joins it, and a page stays in the first group that lists it. `api.sections`, even
-an empty list, replaces both.
+`[{ "name", "tags" }]` form. A group with exactly the same name as one of the
+spec's joins it (names are matched as written, so `Core` and `core` are two
+groups), and a page stays in the first group that lists it. Sections come before
+pages in no section, so an AsyncAPI group that lists `WebSockets` moves it up to
+its group's place, even ahead of the spec's pages when the spec has no groups of
+its own. `api.sections`, even an empty list, replaces both.
 
 ## Versions
 

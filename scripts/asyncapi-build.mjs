@@ -7,6 +7,8 @@ import path from "node:path";
 import { attachChannels, readAsyncApiFile, WEBSOCKETS_TAG } from "./asyncapi-core.mjs";
 import { DEFAULT_HIDE_EXTENSIONS, NO_EXTRAS, resolveTag, resourcePages, resourcePlan } from "./openapi-order.mjs";
 
+const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+
 /** `api.asyncapi.file` under `dir` (the content root, or a version's folder), else `api/asyncapi.json`. */
 export function asyncApiFile(dir, api) {
   return path.join(dir, api?.asyncapi?.file ?? path.join("api", "asyncapi.json"));
@@ -26,12 +28,15 @@ export function channelExtras(dir, spec, api) {
   const plan = spec ? resourcePlan(spec, api) : { tags: [], ops: [] };
   const resources = plan.tags.map((name) => ({ name, paths: plan.ops.filter((o) => o.tag === name).map((o) => o.path) }));
   const { rest } = attachChannels(read.channels, resources, (tag) => resolveTag(tag, api));
-  // The WebSockets page, as api.tags has it: renamed, merged into another page, or hidden.
+  // The WebSockets page, as api.tags has it: renamed, merged into another page, or
+  // hidden. A page the spec already has (its own "WebSockets" tag, a mergeInto
+  // target, or a name of the same slug) keeps its place and just takes the channels.
   const page = rest.length ? resolveTag(WEBSOCKETS_TAG, api) : null;
+  const planned = page !== null && plan.tags.some((t) => slug(t) === slug(page));
   return {
     read,
     extras: {
-      pages: page ? [page] : [],
+      pages: page && !planned ? [page] : [],
       groups: read.tagGroups,
       known: [WEBSOCKETS_TAG, ...new Set(read.channels.flatMap((c) => c.tags))],
       labels: { [WEBSOCKETS_TAG]: WEBSOCKETS_TAG },

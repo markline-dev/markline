@@ -231,7 +231,7 @@ export function loadOpenApi(variantId?: string): OpenAPIDoc {
     auth: api.auth,
     extras,
   });
-  if (read) addChannels(doc, read, api);
+  if (read) placeChannels(doc, read, api);
   // A build prints these once, from scripts/build-search.mjs; its page workers
   // would each repeat them.
   if (process.env.NODE_ENV !== "production") warnOnce(doc.warnings);
@@ -247,7 +247,11 @@ export { WEBSOCKETS_TAG };
  * "WebSockets" resource after the rest. URLs of existing pages don't change.
  * scripts/asyncapi-build.mjs makes the same choice for the sitemap.
  */
-function addChannels(doc: OpenAPIDoc, read: NonNullable<ReturnType<typeof channelExtras>["read"]>, api: ReturnType<typeof loadConfig>["api"]) {
+export function placeChannels(
+  doc: OpenAPIDoc,
+  read: NonNullable<ReturnType<typeof channelExtras>["read"]>,
+  api: Pick<NormalizeOptions, "tags" | "hideExtensions">,
+) {
   const hideExtensions = api.hideExtensions ?? DEFAULT_HIDE_EXTENSIONS;
   doc.warnings.push(...read.warnings);
   const channels = read.channels.map((c) => hideChannelFields(c, hideExtensions));

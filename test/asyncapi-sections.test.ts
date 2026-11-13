@@ -4,12 +4,12 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 // lib/ imports resolve via test/setup.mjs, which `npm test` loads first.
-import { normalize, type NormalizeOptions } from "../lib/openapi.ts";
+import { normalize, placeChannels, type NormalizeOptions } from "../lib/openapi.ts";
 import { parseOpenApiTag, tagSlug } from "../lib/openapi-tags.ts";
 // The build's planner is plain JS without types.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const { resourcePages, resourcePlan } = (await import("../scripts/openapi-order.mjs" as string)) as any;
-import { channelExtras } from "../scripts/asyncapi-build.mjs";
+const { resourcePages, resourcePlan, specWarnings } = (await import("../scripts/openapi-order.mjs" as string)) as any;
+import { channelExtras, type ChannelExtras } from "../scripts/asyncapi-build.mjs";
 
 // The WebSockets page in the plan: ordered, labelled, sectioned, renamed, merged
 // or hidden by the same settings as any resource, identically for the pages
@@ -24,13 +24,13 @@ const spec = {
   "x-tagGroups": [{ name: "Core", tags: ["things"] }],
 };
 /** As channelExtras() gives them: `pages` already resolved through api.tags. */
-const extras = (groups?: unknown[], pages = ["WebSockets"]) => ({ pages, groups, known: ["WebSockets", "live"], labels: { WebSockets: "WebSockets" } });
+const extras = (groups?: unknown[], pages = ["WebSockets"]): ChannelExtras => ({ pages, groups, known: ["WebSockets", "live"], labels: { WebSockets: "WebSockets" } });
 
 /** The plan both sides make: page order, sections, labels and warnings. */
-function both(api: Record<string, unknown>, ex = extras()) {
-  const doc = normalize(spec, { ...(api as NormalizeOptions), extras: ex });
-  const plan = resourcePlan(spec, api, ex);
-  const pages = resourcePages(spec, api, ex);
+function both(api: Record<string, unknown>, ex: ChannelExtras = extras(), raw: object = spec) {
+  const doc = normalize(raw, { ...(api as NormalizeOptions), extras: ex });
+  const plan = resourcePlan(raw, api, ex);
+  const pages = resourcePages(raw, api, ex);
   const lib = {
     order: doc.tags.map((t) => t.name),
     sections: doc.sections.map((s) => [s.title, s.tags]),
@@ -107,4 +107,74 @@ test("channelExtras: the page only when a channel has nowhere to go, and the doc
   assert.deepEqual(channelExtras(dir, spec, { tags: { WebSockets: { mergeInto: "Realtime" } } }).extras.pages, ["Realtime"]);
   assert.deepEqual(channelExtras(dir, spec, { tags: { WebSockets: { hidden: true } } }).extras.pages, []);
   assert.equal(channelExtras(path.join(dir, "none"), spec, {}).read, null);
+});
+
+// Through the real document: channelExtras() for the plan, placeChannels() for the channels.
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "markline-asyncapi-place-"));
+after(() => fs.rmSync(tmp, { recursive: true, force: true }));
+let n = 0;
+/** A content folder holding one AsyncAPI document with a channel that joins no resource. */
+function homeless(): string {
+  const dir = path.join(tmp, String(n++));
+  fs.mkdirSync(path.join(dir, "api"), { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, "api", "asyncapi.json"),
+    JSON.stringify({ asyncapi: "2.6.0", info: { title: "t", version: "1" }, channels: { "/firehose": { subscribe: { message: { name: "all" } } } } }),
+  );
+  return dir;
+}
+/** Pages and build agree on the plan; returns the page order and which page holds the channel. */
+function place(raw: object, api: Record<string, unknown>) {
+  const { read, extras: ex } = channelExtras(homeless(), raw, api);
+  const lib = both(api, ex, raw);
+  const doc = normalize(raw, { ...(api as NormalizeOptions), extras: ex });
+  placeChannels(doc, read!, api as NormalizeOptions);
+  return { ...lib, home: doc.tags.filter((t) => t.channels?.some((c) => c.id === "/firehose")).map((t) => t.name) };
+}
+const undeclared = {
+  openapi: "3.0.0",
+  info: { title: "t", version: "1" },
+  tags: [{ name: "things" }],
+  paths: { "/things": { get: op("things", ["things"]) }, "/alpha": { get: op("alpha", ["alpha"]) }, "/zed": { get: op("zed", ["zed"]) } },
+};
+
+test("mergeInto a page the spec already has: the channels join it there, and nothing moves", () => {
+  const r = place(undeclared, { tags: { WebSockets: { mergeInto: "alpha" } } });
+  assert.deepEqual([r.order, r.home], [["things", "alpha", "zed"], ["alpha"]]);
+  assert.deepEqual(r.warnings, []);
+});
+
+test("rename, mergeInto a new name, hide: the channels follow api.tags", () => {
+  const renamed = place(undeclared, { tags: { WebSockets: { label: "Realtime" } } });
+  assert.deepEqual([renamed.order.at(-1), renamed.titles.at(-1), renamed.home], ["WebSockets", "Realtime", ["WebSockets"]]);
+  const moved = place(undeclared, { tags: { WebSockets: { mergeInto: "Live feeds" } } });
+  assert.deepEqual([moved.order.at(-1), moved.home], ["Live feeds", ["Live feeds"]]);
+  const hidden = place(undeclared, { tags: { WebSockets: { hidden: true } } });
+  assert.deepEqual([hidden.order, hidden.home], [["things", "alpha", "zed"], []]);
+});
+
+test("a spec's own WebSockets page keeps its place and takes the channels", () => {
+  // Undeclared, with operations: sorted with the other undeclared pages, not forced last.
+  const own = { ...undeclared, paths: { ...undeclared.paths, "/ws": { get: op("ws", ["WebSockets"]) } } };
+  const o = place(own, {});
+  assert.deepEqual([o.order, o.home], [["things", "alpha", "WebSockets", "zed"], ["WebSockets"]]);
+  // Same slug, other spelling: no collision warning about a name the user never wrote.
+  const lower = { ...undeclared, paths: { ...undeclared.paths, "/ws": { get: op("ws", ["websockets"]) } } };
+  const r = place(lower, {});
+  assert.deepEqual([r.order, r.home, r.warnings], [["things", "alpha", "websockets", "zed"], ["websockets"], []]);
+  // Declared without operations: where the spec declares it, with its x-displayName.
+  const declared = { ...undeclared, tags: [{ name: "WebSockets", "x-displayName": "Live" }, { name: "things" }] };
+  const d = place(declared, {});
+  assert.deepEqual([d.order, d.titles[0], d.home], [["WebSockets", "things", "alpha", "zed"], "Live", ["WebSockets"]]);
+});
+
+test("the build's warnings know the WebSockets page, for the default spec and each version", () => {
+  const cfg = { versions: [{ id: "v2" }, { id: "v1" }], api: { tags: { WebSockets: { label: "Realtime" } }, tagOrder: ["WebSockets"] } };
+  const read = () => undeclared;
+  const dirs: Record<string, string> = { default: homeless(), v1: homeless() };
+  const extrasOf = (id: string | undefined, s: object) => channelExtras(dirs[id ?? "default"], s, cfg.api).extras;
+  assert.deepEqual(specWarnings(undeclared, cfg, read, extrasOf), []);
+  // Without what the AsyncAPI document adds, both would warn about an unknown tag.
+  const bare = specWarnings(undeclared, cfg, read);
+  assert.equal(bare.filter((w: string) => /"WebSockets" matches no tag/.test(w)).length, 4, bare.join("\n"));
 });

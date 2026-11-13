@@ -13,6 +13,7 @@ function setup(t: { after: (fn: () => void) => void }) {
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const app = path.join(root, "markline");
   fs.cpSync(path.join(import.meta.dirname, "..", "bin"), path.join(app, "bin"), { recursive: true });
+  fs.cpSync(path.join(import.meta.dirname, "..", "scripts"), path.join(app, "scripts"), { recursive: true });
   fs.writeFileSync(path.join(app, "package.json"), "{}");
   fs.mkdirSync(path.join(app, "lib"));
   fs.writeFileSync(path.join(app, "lib", "framework.ts"), "framework");
@@ -233,7 +234,7 @@ test("export reads a configured output folder", (t) => {
     path.join(app, "node_modules", "next", "dist", "bin", "next"),
     `const fs = require("node:fs"); fs.mkdirSync(process.env.MARKLINE_DIST, { recursive: true }); fs.writeFileSync(process.env.MARKLINE_DIST + "/index.html", "exported");`,
   );
-  fs.mkdirSync(path.join(app, "scripts"));
+  fs.mkdirSync(path.join(app, "scripts"), { recursive: true });
   fs.writeFileSync(path.join(app, "scripts", "build-search.mjs"), "");
   const r = run("export", { MARKLINE_DIST: ".next-e" });
   assert.equal(r.status, 0, r.stderr);
@@ -242,7 +243,7 @@ test("export reads a configured output folder", (t) => {
 
 test("export fails rather than leaving an empty out/", (t) => {
   const { app, site, run } = setup(t);
-  fs.mkdirSync(path.join(app, "scripts"));
+  fs.mkdirSync(path.join(app, "scripts"), { recursive: true });
   fs.writeFileSync(path.join(app, "scripts", "build-search.mjs"), "");
   const r = run("export");
   assert.equal(r.status, 1);

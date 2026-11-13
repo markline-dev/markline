@@ -8,7 +8,9 @@ import remarkMdx from "remark-mdx";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
 
-export type TocItem = { id: string; label: string; depth?: 2 | 3 };
+/** `offTab`: in a <Tab> other than the first, so not showing until that tab
+ *  is picked; "On this page" hides it until then. */
+export type TocItem = { id: string; label: string; depth?: 2 | 3; offTab?: boolean };
 
 function slugify(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -56,8 +58,9 @@ function shownChildren(node: MdxNode): MdxNode[] {
   const children = node.children ?? [];
   if (node.name === "CodeGroup") return [];
   if (node.name === "Accordion" && !flag(node, "defaultOpen")) return [];
-  // <Tabs> takes its first element: a comment or {" "} before it renders nothing.
-  if (node.name === "Tabs") return children.filter((c) => !c.type.endsWith("Expression")).slice(0, 1);
+  // Every <Tab> is in the page; visit() marks those after the first. A comment
+  // or {" "} between them renders nothing.
+  if (node.name === "Tabs") return children.filter((c) => !c.type.endsWith("Expression"));
   return children;
 }
 
@@ -108,12 +111,13 @@ function planToc(tree: MdxNode, opts: { steps?: boolean }) {
   const items: TocItem[] = [];
   const steps = new Map<MdxNode, string>();
   let underH2 = false;
-  const visit = (node: MdxNode, listing: boolean) => {
+  const visit = (node: MdxNode, listing: boolean, offTab: boolean) => {
     let list = listing;
+    const off = offTab ? { offTab: true } : {};
     if (node.type === "heading") {
       if (node.depth === 2) underH2 = true;
       const id = ids.get(node);
-      if (id) items.push({ id, label: nodeText(node).trim(), depth: node.depth as 2 | 3 });
+      if (id) items.push({ id, label: nodeText(node).trim(), depth: node.depth as 2 | 3, ...off });
       return;
     }
     if (node.name === "Steps") list = !!opts.steps || flag(node, "toc");
@@ -123,12 +127,12 @@ function planToc(tree: MdxNode, opts: { steps?: boolean }) {
       if (slug) {
         const id = claim(`step-${slug}`);
         steps.set(node, id);
-        items.push({ id, label, depth: underH2 ? 3 : 2 });
+        items.push({ id, label, depth: underH2 ? 3 : 2, ...off });
       }
     }
-    shownChildren(node).forEach((c) => visit(c, list));
+    shownChildren(node).forEach((c, i) => visit(c, list, offTab || (node.name === "Tabs" && i > 0)));
   };
-  visit(tree, false);
+  visit(tree, false, false);
   return { items, headings: ids, steps, ids: used };
 }
 

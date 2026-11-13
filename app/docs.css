@@ -540,6 +540,7 @@
 }
 :is(.docs-shell, .ml-landing, .api-op-main) .tabs-bar button.active { color: var(--ink); background: var(--panel-hi); }
 :is(.docs-shell, .ml-landing, .api-op-main) .tabs-body { margin-top: 6px; }
+:is(.docs-shell, .ml-landing, .api-op-main) .tabs-body[hidden] { margin: 0; }
 :is(.docs-shell, .ml-landing, .api-op-main) .tabs-body > :first-child { margin-top: 0; }
 
 /* next cards. --card-bg, --card-radius, --card-shadow, --card-shadow-hover,

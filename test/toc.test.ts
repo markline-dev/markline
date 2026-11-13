@@ -192,13 +192,20 @@ test("the toc lists only what's in the page when it loads", () => {
     "  ## In a note",
     "</Note>",
   ].join("\n");
-  assert.deepEqual(extractToc(mdx).map((i) => i.label), ["In the first tab", "In an open one", "In a note"]);
+  // Every tab is in the page; those after the first are marked, for the toc to
+  // show when that tab is picked. A closed accordion's headings stay out.
+  assert.deepEqual(extractToc(mdx).map((i) => [i.label, !!i.offTab]), [
+    ["In the first tab", false],
+    ["In the second tab", true],
+    ["In an open one", false],
+    ["In a note", false],
+  ]);
 });
 
-test("a step in a hidden tab isn't listed and gets no id", async () => {
-  const mdx = '<Tabs>\n<Tab title="A">x</Tab>\n<Tab title="B">\n<Steps toc>\n<Step title="Hidden">y</Step>\n</Steps>\n</Tab>\n</Tabs>';
-  assert.deepEqual(extractToc(mdx), []);
-  assert.deepEqual(await stepIdsIn(mdx), []);
+test("a step in a later tab is listed for that tab, with its id", async () => {
+  const mdx = '<Tabs>\n<Tab title="A">x</Tab>\n<Tab title="B">\n<Steps toc>\n<Step title="Later">y</Step>\n</Steps>\n</Tab>\n</Tabs>';
+  assert.deepEqual(extractToc(mdx), [{ id: "step-later", label: "Later", depth: 2, offTab: true }]);
+  assert.deepEqual(await stepIdsIn(mdx), ["step-later"]);
 });
 
 test("struck-through text in a heading reads as the page does", () => {
@@ -207,8 +214,9 @@ test("struck-through text in a heading reads as the page does", () => {
 
 test("a comment or space before the first tab doesn't hide it from the toc", () => {
   const tabs = (before: string) => [before, "<Tabs>", before, '<Tab title="A">', "## In first", "</Tab>", '<Tab title="B">', "## In second", "</Tab>", "</Tabs>"].join("\n");
-  assert.deepEqual(extractToc(tabs("{/* note */}")).map((i) => i.label), ["In first"]);
-  assert.deepEqual(extractToc(tabs('{" "}'), { steps: true }).map((i) => i.label), ["In first"]);
+  const shown = (mdx: string, o?: { steps?: boolean }) => extractToc(mdx, o).filter((i) => !i.offTab).map((i) => i.label);
+  assert.deepEqual(shown(tabs("{/* note */}")), ["In first"]);
+  assert.deepEqual(shown(tabs('{" "}'), { steps: true }), ["In first"]);
 });
 
 test("angle brackets inside inline code are kept, not stripped as HTML", () => {
@@ -248,7 +256,7 @@ test("a heading with no slug gets no id and isn't listed", () => {
 
 test("a hidden heading still takes its id, so a shown repeat moves on", () => {
   const mdx = ['<Tabs>', '<Tab title="A">', "## Setup", "</Tab>", '<Tab title="B">', "## Setup", "</Tab>", "</Tabs>", "", "## Setup"].join("\n");
-  assert.deepEqual(ids(mdx), ["setup", "setup-2"]);
+  assert.deepEqual(ids(mdx), ["setup", "setup-1", "setup-2"], "the second tab's heading is listed, as setup-1");
 });
 
 test("an id written on an element is kept, and headings move round it", () => {

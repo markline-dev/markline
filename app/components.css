@@ -718,6 +718,8 @@ textarea.ml-pg-input { height: auto; padding: 8px 10px; line-height: 1.55; resiz
   line-height: 1.6;
   border-top: 1px solid var(--line);
 }
+/* Hidden until found: the content isn't drawn, and the box takes no room. */
+.ml-accordion-body[hidden] { padding: 0; border: 0; }
 .ml-accordion-body > :first-child { margin-top: 0; }
 .ml-accordion-body > :last-child { margin-bottom: 0; }
 .ml-accordion-group { margin: 24px 0; }

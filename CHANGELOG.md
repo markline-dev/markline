@@ -74,6 +74,9 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **Line numbers in the Expand dialog.** Copy still copies only the code.
 
 ### Changed
+- **Every tab and accordion is in the page,** hidden while it isn't showing,
+  so search engines see all of it. Tabs have tab and tabpanel roles, and the
+  arrow keys move between them.
 - **Ask AI's limits count the address the nearest proxy reports.** The
   built-in route used the first `X-Forwarded-For` entry; it now uses the
   right-most one, the one your proxy added. Set `ai.rateLimit.trustedProxies`
@@ -137,6 +140,10 @@ All notable changes to `@markline/markline` and `@markline/create`.
   header's picker.
 
 ### Fixed
+- **"On this page" follows the tab you're on.** It listed the first tab's
+  headings only, and kept them after you switched tabs. A link to a heading
+  in another tab, or in a closed accordion, now opens it, and find-in-page can
+  reach text in either.
 - **Pages whose file names have a space or an accent load on a Node server.**
   `docs/Getting Started.mdx` or `docs/café.mdx` was a 404 on `markline start`
   (a static export was fine). Links to such pages, in the sidebar, previous and

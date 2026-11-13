@@ -513,7 +513,7 @@ entries.
 <ParamField path="api.tags" type="object">Per-tag `label`, `description`, `hidden` and `mergeInto`, keyed by the spec's tag name. See [Rename, hide and merge tags](/openapi#rename-hide-and-merge-tags).</ParamField>
 <ParamField path="api.tagOrder" type="string[]">Tags that open the API sidebar, in order.</ParamField>
 <ParamField path="api.sections" type="array">Sidebar sections, `[{ "title", "tags": [...] }]`, in order. Replaces the spec's `x-tagGroups`; `[]` turns them off. See [Group tags into sections](/openapi#group-tags-into-sections).</ParamField>
-<ParamField path="api.asyncapi" type="object">An AsyncAPI document whose WebSocket channels join the reference. `file` (default `api/asyncapi.json`) and `perspective`: `"server"` (default) or `"client"`, for a 2.x document written from the client's side. See [WebSocket channels](/openapi#websocket-channels-asyncapi).</ParamField>
+<ParamField path="api.asyncapi" type="object">An AsyncAPI document whose WebSocket channels join the reference. `file` (default `api/asyncapi.json`) and `perspective`: `"server"` (default) or `"client"`, for a 2.x document written from the client's side. See [WebSocket channels](/asyncapi).</ParamField>
 <ParamField path="api.hideExtensions" type="string[]">Extensions that hide an operation or field. Default `["x-hidden", "x-internal"]`.</ParamField>
 <ParamField path="api.showDeprecated" type="boolean">`false` leaves deprecated operations out. Default `true`.</ParamField>
 <ParamField path="api.auth" type="object">Auth the spec doesn't declare, e.g. `{ "header": "xi-api-key" }` or `{ "type": "bearer" }`. Used by Try it and the cURL samples.</ParamField>

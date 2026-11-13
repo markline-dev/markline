@@ -1,0 +1,167 @@
+---
+title: WebSocket channels
+lede: Add an AsyncAPI document beside your OpenAPI spec and its WebSocket channels join the API reference, next to the endpoints they belong with.
+toc:
+  - id: add-a-document
+    label: Add a document
+  - id: what-a-channel-shows
+    label: What a channel shows
+  - id: where-channels-go
+    label: Where channels go
+  - id: titles-and-message-names
+    label: Titles and message names
+  - id: whose-side-the-document-is-written-from
+    label: Whose side it's written from
+  - id: versions
+    label: Versions
+  - id: build-output
+    label: Build output
+  - id: not-yet
+    label: Not yet
+---
+
+Markline reads AsyncAPI 2.x and 3.0 documents and shows each WebSocket channel
+in the [API reference](/openapi), as a section on a resource page, the way an
+operation is shown. There's nothing to generate and no second reference to
+maintain: the channels sit in the same sidebar, endpoint lists and page search as
+the REST operations.
+
+## Add a document
+
+Put the document at `api/asyncapi.json`, beside `api/openapi.json`:
+
+```text
+content/
+  api/
+    openapi.json
+    asyncapi.json
+  markline.json
+```
+
+That's all a site needs. To keep it somewhere else, set `api.asyncapi.file`,
+relative to the content folder:
+
+```json title="markline.json"
+{
+  "api": {
+    "asyncapi": { "file": "api/realtime.json" }
+  }
+}
+```
+
+The document is read as JSON. A file that isn't JSON, or isn't valid JSON, adds
+no channels and the build says why (see [Build output](#build-output)).
+
+## What a channel shows
+
+Each channel gets a section with:
+
+- **The connection URL**, under a `WSS` badge: the first server's URL joined to
+  the channel's address, with `{parameters}` set apart.
+- **Its description**, rendered as markdown.
+- **Path parameters, query parameters and headers**, from the channel's
+  `parameters` and its `ws` binding's `query` and `headers`, in the same tables
+  as an operation's.
+- **The fields of each message**, headed "Send · name" or "Receive · name", with
+  the message's description.
+- **A handshake card**: the opening `GET` with its required query parameters and
+  its headers, and the `101 Switching Protocols` reply, ready to copy.
+- **A message list**: one row per message, with an arrow for its direction, its
+  name, a Send or Receive label and a one-line preview. A row opens to the full
+  example, which you can copy or expand.
+
+What the client sends is listed before what it receives. In the sidebar and the
+resource's endpoint list a channel carries a `WSS` badge in place of a method.
+
+A channel marked `deprecated` is labelled so, as is the field list of a
+deprecated message. With
+[`api.showDeprecated`](/configuration) set to `false`, deprecated channels are
+left out, as deprecated operations are.
+
+## Where channels go
+
+A channel goes on a resource page, so its URL sits beside the operations it
+belongs with. Markline picks the page in this order:
+
+1. **Its tags.** The first tag that names a resource, after
+   [`api.tags`](/openapi#rename-hide-and-merge-tags) renames and merges. When
+   every tag the channel has is hidden, the channel is hidden too.
+2. **Its path.** The resource whose operations share the longest run of leading
+   path segments with the channel's address. Hosts and a leading version segment
+   (`/v1`) don't count, `{parameters}` match each other whatever their names,
+   and case doesn't matter. A tie goes to the resource listed first.
+3. **A WebSockets page.** A channel that shares nothing with any resource goes on
+   a "WebSockets" page after the others, at `/api-reference/websockets`.
+
+So `/v1/text-to-speech/{voice_id}/stream-input` lands on the resource that has
+`/v1/text-to-speech/{voice_id}`, without any tags. Placement never changes the
+URL of an existing page: channels only add sections to pages, and the
+WebSockets page when it's needed.
+
+## Titles and message names
+
+A channel's title is the first of:
+
+1. its `x-title` (in 3.0, its `title`);
+2. its operation's summary;
+3. the last plain segment of its address, made readable:
+   `/v1/stream-input` reads "Stream input".
+
+A summary that's only `publish`, `subscribe`, `send` or `receive`, in any case,
+says nothing about the channel, so it isn't used as a title.
+
+A message whose payload is a `oneOf` of kinds (one "client message" covering
+start, text and close, say) is listed once per kind. Each kind is named by its
+`title`, then the name its `$ref` points at, then its place ("Message 3"), and
+keeps its own examples. A payload that's an ordinary object, or a `oneOf` beside
+`properties`, stays one message.
+
+## Whose side the document is written from
+
+AsyncAPI 2.x describes the server: an operation under `publish` is what the
+server receives, so a client sends it, and `subscribe` is what a client
+receives. Markline shows both from the client's side, as **Send** and
+**Receive**, since that's who reads an API reference.
+
+Some 2.x documents are written from the client's side instead, with `publish`
+meaning what the server sends. If Send and Receive come out the wrong way round,
+set `api.asyncapi.perspective` to `"client"`:
+
+```json title="markline.json"
+{
+  "api": {
+    "asyncapi": { "perspective": "client" }
+  }
+}
+```
+
+The build says once that it's reading the document from the client's side, so a
+wrong setting is easy to spot. AsyncAPI 3.0 documents say what each side does
+with `action`, so the setting doesn't change them. A 3.0 message that no
+operation names has no direction; it's listed as "Message".
+
+## Versions
+
+In a [versioned site](/versions#api-reference-per-version), each version reads
+its own document, from its own folder: `v1/api/asyncapi.json` beside
+`v1/api/openapi.json`. `api.asyncapi.file` is relative to each version's folder.
+A version without a document has no channels.
+
+## Build output
+
+A document Markline can't fully read never fails the build. What it can't read is
+left out, and the build prints one line about it, once (with the version, for a
+version other than the first):
+
+- a file that isn't JSON, or isn't valid JSON;
+- an AsyncAPI version other than 2.x or 3.0, or none;
+- a `$ref` that points outside the document, at nothing, or back at itself;
+- the client-side reading, when `perspective` is `"client"`.
+
+## Not yet
+
+- YAML documents. Convert to JSON for now.
+- A version with an AsyncAPI document but no OpenAPI spec.
+- Channels in the static search index and in `llms.txt`. They are in the
+  reference's own sidebar and page search.
+- Trying a channel from the page, the way Try it calls an operation.

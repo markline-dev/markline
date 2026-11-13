@@ -38,6 +38,7 @@
               { "href": "/components", "label": "Components" },
               { "href": "/landing-pages", "label": "Landing pages" },
               { "href": "/openapi", "label": "API reference" },
+              { "href": "/asyncapi", "label": "WebSocket channels" },
               { "href": "/search", "label": "Search" },
               { "href": "/llm-files", "label": "LLM files" }
             ]

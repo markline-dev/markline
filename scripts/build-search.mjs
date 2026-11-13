@@ -11,10 +11,12 @@ import path from "node:path";
 import matter from "gray-matter";
 import * as pagefind from "pagefind";
 import { apiIndexLines, apiSearchRecords, resourcePages, specWarnings } from "./openapi-order.mjs";
+import { asyncApiReport } from "./asyncapi-build.mjs";
 import { searchGroups, searchTrails } from "./search-groups.mjs";
 import { markdownPath, mdxToMarkdown, pageMarkdown, sectionIds, sectionIndex } from "./llms.mjs";
 import { removeGeneratedFiles, writeManifest } from "./generated-files.mjs";
 import { siteFiles } from "./site-files.mjs";
+import { hrefAsPath, pathHref } from "./url-path.mjs";
 import { CHANGELOG_PER_PAGE, clashMessage, exportClashes } from "./export-names.mjs";
 import { writeGithubStats } from "./github-stats.mjs";
 import { contentRootFrom } from "./content-root.mjs";
@@ -82,7 +84,7 @@ function walk(dir, parents = []) {
 function slugToUrl(root, file) {
   const rel = path.relative(root, file).replace(/\.mdx$/, "");
   if (rel === "index") return "/";
-  const parts = rel.split(path.sep);
+  const parts = rel.split(path.sep).map((p) => p.normalize("NFC")); // as lib/docs.ts slugFromFile
   const trimmed = parts[parts.length - 1] === "index" ? parts.slice(0, -1) : parts;
   return "/" + trimmed.join("/");
 }
@@ -127,6 +129,13 @@ function apiRecords(root) {
     return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : null;
   };
   for (const w of specWarnings(spec, cfg, readVersion)) console.warn(w);
+  // And the AsyncAPI documents' beside them, version by version.
+  for (const w of asyncApiReport(root, spec, api).warnings) console.warn(w);
+  for (const v of (Array.isArray(cfg.versions) ? cfg.versions : []).slice(1)) {
+    const versioned = readVersion(v.id);
+    if (!versioned) continue;
+    for (const w of asyncApiReport(path.join(root, v.id), versioned, api).warnings) console.warn(w.replace("[markline]", `[markline] (version ${v.id})`));
+  }
   return apiSearchRecords(spec, api, toPlainText);
 }
 
@@ -275,7 +284,10 @@ function apiResources(root) {
   const specFile = path.join(root, "api", "openapi.json");
   if (!fs.existsSync(specFile)) return [];
   const spec = JSON.parse(fs.readFileSync(specFile, "utf8"));
-  return resourcePages(spec, loadJsonConfig(root).api).map((page) => ({
+  const api = loadJsonConfig(root).api;
+  // Plus a WebSockets page when some AsyncAPI channel joins no resource.
+  const pages = [...resourcePages(spec, api), ...asyncApiReport(root, spec, api).pages.map((p) => ({ ...p, section: null }))];
+  return pages.map((page) => ({
     url: `/api-reference/${page.slug}`,
     title: page.title,
     desc: page.description ? String(page.description).split("\n")[0].trim() : "",
@@ -298,7 +310,7 @@ function writeLlms(root) {
   const name = cfg.name ?? cfg.seo?.title ?? "Documentation";
   const desc = cfg.seo?.description ?? cfg.description ?? "";
   const base = String(cfg.seo?.metadataBase ?? process.env.MARKLINE_SITE_URL ?? "").replace(/\/$/, "");
-  const abs = (u) => (base ? base + u : u);
+  const abs = (u) => (base ? base + pathHref(u) : pathHref(u));
 
   const docMap = docPagesForLlms(root);
   const out = generatedFiles(name);
@@ -321,7 +333,7 @@ function writeLlms(root) {
       // in sidebar order. Folders with no `href` contribute only their children.
       const flatten = (items) => (items ?? []).flatMap((p) => [...(p.href ? [p] : []), ...flatten(p.pages)]);
       for (const p of flatten(g.pages)) {
-        const href = p.href.replace(/(^|\/)index$/, "") || "/"; // as lib/config.ts does
+        const href = hrefAsPath(p.href).replace(/(^|\/)index$/, "") || "/"; // as lib/config.ts does
         const d = docMap.get(href);
         used.add(href);
         if (!d && href.startsWith("/") && !isBuiltRoute(root, href)) {
@@ -394,7 +406,7 @@ function writeLlms(root) {
   }
   if (base) {
     const urls = [...pages]
-      .map((u) => `  <url>\n    <loc>${xmlEsc(base + u)}</loc>\n    <changefreq>weekly</changefreq>\n  </url>`)
+      .map((u) => `  <url>\n    <loc>${xmlEsc(base + pathHref(u))}</loc>\n    <changefreq>weekly</changefreq>\n  </url>`)
       .join("\n");
     out.write(
       "sitemap.xml",
@@ -639,7 +651,7 @@ async function main() {
   for (const r of records) {
     const group = groupOf(r);
     await index.addCustomRecord({
-      url: r.url,
+      url: pathHref(r.url),
       content: `${r.title}. ${r.content}`,
       language: "en",
       meta: { title: r.title, ...((r.meta ?? trails.get(r.url) ?? group) ? { section: r.meta ?? trails.get(r.url) ?? group } : {}) },

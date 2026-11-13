@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { contentRoot } from "./paths";
 import { limitOf, MAX_LIMIT } from "./ai/rate-limit";
+import { hrefAsPath } from "@/scripts/url-path.mjs";
 import { MAX_PROXIES, validIpHeader, validProxies } from "./ai/client-ip";
 import type { TagOverride } from "./openapi-tag-config";
 import { checkTemplateVersions, deepMerge, loadTemplateChain, templateCss, templateOptions } from "./templates";
@@ -199,6 +200,13 @@ export type ApiConfig = {
    * Replaces the spec's `x-tagGroups`; `[]` turns those off.
    */
   sections?: { title: string; tags: string[] }[];
+  /**
+   * The AsyncAPI document of the API's WebSocket channels. `file` is relative to
+   * the content root (default `api/asyncapi.json`). `perspective` says which side a
+   * 2.x document is written from: "server" (the spec's: `publish` is what clients
+   * send) or "client" (`publish` is what the server sends). 3.0 isn't affected.
+   */
+  asyncapi?: { file?: string; perspective?: "server" | "client" };
   /**
    * Operation extensions that hide an operation when truthy. Replaces the
    * default `["x-hidden", "x-internal"]`; e.g. add `"x-fern-ignore"`.
@@ -693,7 +701,7 @@ export function normalizeNavHrefs<T>(node: T): T {
   if (typeof node !== "object" || node === null) return node;
   const entries = Object.entries(node).map(([key, value]) => [
     key,
-    key === "href" && typeof value === "string" ? value.replace(/(^|\/)index$/, "") || "/" : normalizeNavHrefs(value),
+    key === "href" && typeof value === "string" ? hrefAsPath(value).replace(/(^|\/)index$/, "") || "/" : normalizeNavHrefs(value),
   ]);
   return Object.fromEntries(entries) as T;
 }

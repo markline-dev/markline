@@ -5,6 +5,12 @@ All notable changes to `@markline/markline` and `@markline/create`.
 ## Unreleased
 
 ### Added
+- **WebSocket channels from AsyncAPI.** An `api/asyncapi.json` (AsyncAPI 2.x
+  or 3.0, JSON) adds its channels to the API reference: each on the resource
+  its tag or path matches, else a "WebSockets" page, with its parameters, the
+  handshake, and its messages marked Send or Receive with copyable samples.
+  `api.asyncapi.file` moves it; `api.asyncapi.perspective: "client"` reads a 2.x
+  document written from the client's side.
 - **`ai.rateLimit.trustedProxies` and `ai.rateLimit.ipHeader`** say which
   address Ask AI's built-in route counts a reader by: that many entries from
   the right of `X-Forwarded-For`, or a header your host sets, such as
@@ -134,6 +140,12 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **A heading in the changelog's intro no longer takes an entry's id.** An
   intro heading such as `## 2026 10 15` got the same id as that day's entry;
   it now gets its own.
+- **Pages whose file names have a space or an accent load on a Node server.**
+  `docs/Getting Started.mdx` or `docs/café.mdx` was a 404 on `markline start`
+  (a static export was fine). Links to such pages, in the sidebar, previous and
+  next, breadcrumbs, `sitemap.xml`, `llms.txt` and search, are now encoded
+  URLs too, and a page saved with a decomposed accent is listed in `llms.txt`
+  under its title.
 - **A file deleted from `public/` is no longer served.** `markline start`
   and `dev` kept serving a file the project had deleted from `public/`, from
   their copy in `.markline/`. A file it copied is now removed once it's gone

@@ -22,6 +22,8 @@ toc:
     label: AI & page actions
   - id: versions
     label: Versions
+  - id: websocket-channels-asyncapi
+    label: WebSocket channels
 ---
 
 Markline turns an OpenAPI 3.0/3.1 document into a full reference: a left
@@ -754,3 +756,50 @@ exist there, and every link stays under that version's prefix. See
 
 With one version, or none, there's no picker. The spec's `info.version`
 describes the spec, not a version of the site, so it isn't shown as one.
+
+## WebSocket channels (AsyncAPI)
+
+Put an AsyncAPI document beside the spec, at `api/asyncapi.json`, and its
+channels join the reference. AsyncAPI 2.x and 3.0 are read, as JSON. Each
+channel gets a section like an operation's: a `WSS` badge and the connection
+URL, its path and query parameters and headers, the handshake, and its
+messages, each marked **Send** (the client sends it) or **Receive** (the client
+receives it), with a sample you can expand and copy. A message whose payload is
+a `oneOf` of kinds is listed once per kind, named by the kind's `title`, its
+`$ref` name, or its place in the list.
+
+A channel goes on a resource page, so its URL sits beside the operations it
+belongs with:
+
+1. Its tags, when one names a resource (after [`api.tags`](#rename-hide-and-merge-tags)).
+   When every tag is hidden, the channel is hidden too.
+2. Otherwise, the resource whose operations share the most leading path segments
+   with it. Hosts and a leading version segment (`/v1`) don't count, and
+   `{parameters}` match each other. A tie goes to the resource listed first.
+3. Otherwise, a **WebSockets** page after the others.
+
+A channel's title is its `x-title` (3.0: its `title`), else its operation's
+summary, else the last plain segment of its address (`/v1/stream-input` reads
+"Stream input"). A summary that's only `publish`, `subscribe`, `send` or
+`receive` doesn't count as a title.
+
+### Whose side the document is written from
+
+AsyncAPI 2.x describes the server: `publish` is what the server receives, so a
+client sends it. Some documents are written from the client's side instead, with
+`publish` meaning what the server sends. Set `api.asyncapi.perspective` to
+`"client"` for those and Send and Receive swap; the build output says so once.
+3.0 documents say what each side does with `action`, so the setting doesn't
+change them.
+
+```json title="markline.json"
+{
+  "api": {
+    "asyncapi": { "file": "api/realtime.json", "perspective": "client" }
+  }
+}
+```
+
+`file` is relative to the content folder (in a versioned site, to each
+version's folder). Not yet: YAML documents, search entries for channels, and
+versions with an AsyncAPI document but no OpenAPI spec.

@@ -2,6 +2,7 @@ import { Children, cloneElement, isValidElement } from "react";
 import Link from "next/link";
 import { resolveVideo } from "@/lib/video";
 import { calloutIcon } from "@/lib/callout-icon";
+import { titleNodes, type TitleNode } from "@/lib/inline-title";
 import { isIconPath, navIcon } from "./nav-icons";
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -190,11 +191,41 @@ export function Steps({ children }: { children: React.ReactNode; toc?: boolean }
 /** `id` comes from remarkTocIds, on the steps listed in "On this page". */
 type StepProps = { title?: string; id?: string; children: React.ReactNode; __num?: number };
 
+/** A title's inline Markdown (lib/inline-title.ts) as elements. Never raw
+ *  HTML; a link whose URL was refused keeps only its text. */
+function InlineTitle({ nodes }: { nodes: TitleNode[] }) {
+  return (
+    <>
+      {nodes.map((n, i) => {
+        switch (n.type) {
+          case "text":
+            return n.value;
+          case "code":
+            return <code key={i}>{n.value}</code>;
+          case "strong":
+            return <strong key={i}><InlineTitle nodes={n.children} /></strong>;
+          case "em":
+            return <em key={i}><InlineTitle nodes={n.children} /></em>;
+          case "del":
+            return <del key={i}><InlineTitle nodes={n.children} /></del>;
+          case "link":
+            if (!n.href) return <InlineTitle key={i} nodes={n.children} />;
+            return /^(https?:|mailto:)/i.test(n.href) ? (
+              <a key={i} href={n.href} target="_blank" rel="noopener noreferrer"><InlineTitle nodes={n.children} /></a>
+            ) : (
+              <Link key={i} href={n.href}><InlineTitle nodes={n.children} /></Link>
+            );
+        }
+      })}
+    </>
+  );
+}
+
 export function Step({ title, id, children, __num }: StepProps) {
   return (
     <div className="step">
       <span className="num">{__num}</span>
-      {title && <h3 id={id}>{title}</h3>}
+      {title && <h3 id={id}><InlineTitle nodes={titleNodes(title)} /></h3>}
       <div className="step-body">{children}</div>
     </div>
   );

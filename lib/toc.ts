@@ -7,6 +7,7 @@ import remarkGfm from "remark-gfm";
 import remarkMdx from "remark-mdx";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
+import { titleText } from "./inline-title";
 
 export type TocItem = { id: string; label: string; depth?: 2 | 3 };
 
@@ -81,7 +82,7 @@ function planToc(tree: MdxNode, opts: { steps?: boolean }) {
   const natural = new Set<string>();
   const reserve = (node: MdxNode) => {
     if (isTocHeading(node)) natural.add(slugify(nodeText(node)));
-    if (node.name === "Step") natural.add(`step-${slugify(stringAttr(node, "title") ?? "")}`);
+    if (node.name === "Step") natural.add(`step-${slugify(titleText(stringAttr(node, "title") ?? ""))}`);
     const id = stringAttr(node, "id");
     if (id) used.add(id);
     (node.children ?? []).forEach(reserve);
@@ -118,7 +119,8 @@ function planToc(tree: MdxNode, opts: { steps?: boolean }) {
     }
     if (node.name === "Steps") list = !!opts.steps || flag(node, "toc");
     else if (node.name === "Step" && listing) {
-      const label = (stringAttr(node, "title") ?? "").trim();
+      // What the reader sees: the title's text, without its Markdown or URLs.
+      const label = titleText(stringAttr(node, "title") ?? "");
       const slug = slugify(label);
       if (slug) {
         const id = claim(`step-${slug}`);

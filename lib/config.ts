@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { contentRoot } from "./paths";
 import { limitOf, MAX_LIMIT } from "./ai/rate-limit";
+import { hrefAsPath } from "@/scripts/url-path.mjs";
 import { MAX_PROXIES, validIpHeader, validProxies } from "./ai/client-ip";
 import type { TagOverride } from "./openapi-tag-config";
 import { checkTemplateVersions, deepMerge, loadTemplateChain, templateCss, templateOptions } from "./templates";
@@ -693,7 +694,7 @@ export function normalizeNavHrefs<T>(node: T): T {
   if (typeof node !== "object" || node === null) return node;
   const entries = Object.entries(node).map(([key, value]) => [
     key,
-    key === "href" && typeof value === "string" ? value.normalize("NFC").replace(/(^|\/)index$/, "") || "/" : normalizeNavHrefs(value),
+    key === "href" && typeof value === "string" ? hrefAsPath(value).replace(/(^|\/)index$/, "") || "/" : normalizeNavHrefs(value),
   ]);
   return Object.fromEntries(entries) as T;
 }

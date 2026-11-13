@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { pageSlug } from "@/lib/paths";
+import { hrefAsPath } from "@/scripts/url-path.mjs";
 import { NOT_FOUND_SEGMENT, uncachedNotFound } from "@/lib/uncached-not-found";
 import type { Metadata } from "next";
 import { MDXRemote } from "next-mdx-remote/rsc";
@@ -119,7 +120,7 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
   // A translated or older-version page follows its own sidebar.
   const tabs = getDocsTabs(doc.variant);
   const crumbs =
-    doc.fm.crumbs ??
+    doc.fm.crumbs?.map((c) => ({ ...c, href: hrefAsPath(c.href) })) ??
     withCrumbsRoot(
       navCrumbs(tabs, doc.slug, doc.fm.title) ?? deriveCrumbs(doc.slug, doc.fm.title),
       config.layout.breadcrumbsRoot,
@@ -293,6 +294,7 @@ function relatedLinks(
   mode: "off" | "collection" | undefined,
 ): PageNavLink[] {
   if (listed?.length) {
+    listed = listed.map(hrefAsPath);
     const labels = new Map(tabs.flatMap((t) => t.sections.flatMap((s) => flattenLinks(s.links))).map((l) => [l.href, l.label]));
     // The page's own title first: a sidebar label is written for its folder
     // ("Overview"), and reads as ambiguous once it's listed elsewhere.

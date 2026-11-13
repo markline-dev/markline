@@ -15,7 +15,7 @@ import { searchGroups, searchTrails } from "./search-groups.mjs";
 import { markdownPath, mdxToMarkdown, pageMarkdown, sectionIds, sectionIndex } from "./llms.mjs";
 import { removeGeneratedFiles, writeManifest } from "./generated-files.mjs";
 import { siteFiles } from "./site-files.mjs";
-import { pathHref } from "./url-path.mjs";
+import { hrefAsPath, pathHref } from "./url-path.mjs";
 import { CHANGELOG_PER_PAGE, clashMessage, exportClashes } from "./export-names.mjs";
 import { writeGithubStats } from "./github-stats.mjs";
 import { contentRootFrom } from "./content-root.mjs";
@@ -322,7 +322,7 @@ function writeLlms(root) {
       // in sidebar order. Folders with no `href` contribute only their children.
       const flatten = (items) => (items ?? []).flatMap((p) => [...(p.href ? [p] : []), ...flatten(p.pages)]);
       for (const p of flatten(g.pages)) {
-        const href = p.href.replace(/(^|\/)index$/, "") || "/"; // as lib/config.ts does
+        const href = hrefAsPath(p.href).replace(/(^|\/)index$/, "") || "/"; // as lib/config.ts does
         const d = docMap.get(href);
         used.add(href);
         if (!d && href.startsWith("/") && !isBuiltRoute(root, href)) {

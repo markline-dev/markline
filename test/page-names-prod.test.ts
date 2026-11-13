@@ -29,7 +29,17 @@ before(async () => {
     JSON.stringify({
       name: "t",
       seo: { metadataBase: BASE },
-      navigation: { tabs: [{ label: "Docs", href: "/", groups: [{ group: "G", pages: [{ href: "/" }, { href: "/Getting Started" }, { href: "/café" }, { href: "/a%2F" }, { href: "/x%41" }, { href: "/naïve" }, { href: "/guides/a" }] }] }] },
+      navigation: { tabs: [{ label: "Docs", href: "/", groups: [{ group: "G", pages: [
+            { href: "/" },
+            // Written as an author would: plain, or already encoded.
+            { href: "/Getting Started" },
+            { href: "/Getting%20Started", label: "Getting Started, encoded" },
+            { href: "/café" },
+            { href: "/a%252F" },
+            { href: "/x%2541" },
+            { href: "/naïve" },
+            { href: "/guides/a" },
+          ] }] }] },
     }),
   );
   site.build();
@@ -74,6 +84,7 @@ test("links in pages (sidebar, previous and next) are encoded and resolve", { sk
     for (const m of html.matchAll(/href="([^"]*)"/g)) if (NAMED.test(decodeURIComponent(m[1])) && !m[1].startsWith("http") && !m[1].includes("_next")) hrefs.add(m[1]);
   }
   for (const h of ["/Getting%20Started", "/caf%C3%A9", "/a%252F", "/x%2541", "/na%C3%AFve"]) assert.ok(hrefs.has(h), `${h} in ${[...hrefs].join()}`);
+  assert.ok(![...hrefs].some((h) => h.includes("%2520") || h.includes("%25C3")), `nothing encoded twice: ${[...hrefs].join()}`);
   await resolves("pages", [...hrefs]);
 });
 

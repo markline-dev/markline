@@ -8,6 +8,9 @@ export const DEFAULT_HIDE_EXTENSIONS = ["x-hidden", "x-internal"];
 
 const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 
+/** What an AsyncAPI document adds to the plan: nothing, without one. */
+export const NO_EXTRAS = { pages: [], groups: undefined, known: [], labels: {} };
+
 function override(api, name) {
   const tags = api?.tags;
   return tags && Object.prototype.hasOwnProperty.call(tags, name) ? tags[name] : undefined;
@@ -132,13 +135,19 @@ function configWarnings(known, order, alias, api) {
 }
 
 /** Mirrors sectionSource() in lib/openapi-tag-config.ts. */
-export function sectionSource(configured, specGroups) {
+export function sectionSource(configured, specGroups, asyncGroups) {
   const parse = (list, key) =>
     (Array.isArray(list) ? list : [])
       .filter((g) => g && typeof g[key] === "string" && g[key].trim() && Array.isArray(g.tags))
       .map((g) => ({ title: g[key].trim(), tags: g.tags.filter((t) => typeof t === "string") }));
   if (Array.isArray(configured)) return { sections: parse(configured, "title"), fromSpec: false };
-  return { sections: parse(specGroups, "name"), fromSpec: true };
+  const sections = parse(specGroups, "name");
+  for (const g of parse(asyncGroups, "name")) {
+    const same = sections.find((s) => s.title === g.title);
+    if (same) same.tags.push(...g.tags);
+    else sections.push(g);
+  }
+  return { sections, fromSpec: true };
 }
 
 /** Mirrors planSections() in lib/openapi-tag-config.ts. */
@@ -221,8 +230,10 @@ export function planSections(sections, order, alias, known, api) {
  * mirroring normalize() in lib/openapi.ts, so llms.txt, search and the sitemap
  * never link to a page that doesn't exist. Tags whose slugs collide are folded
  * into the first one. `warnings` is what the site build should print.
+ * `extras` is what an AsyncAPI document adds (asyncapi-build.mjs channelExtras):
+ * pages only channels make, its tag groups, and tag names it makes known.
  */
-export function resourcePlan(spec, api) {
+export function resourcePlan(spec, api, extras = NO_EXTRAS) {
   const ops = [];
   const used = [];
   for (const [pathStr, item] of Object.entries(spec.paths ?? {})) {
@@ -236,14 +247,17 @@ export function resourcePlan(spec, api) {
       if (!used.includes(tag)) used.push(tag);
     }
   }
+  for (const page of extras.pages) if (!used.includes(page)) used.push(page);
 
   const usedSet = new Set(used);
   const declared = specTagList(spec).map((t) => resolveTag(t.name, api)).filter((n) => n && usedSet.has(n));
   const pinned = (api?.tagOrder ?? []).map((n) => resolveTag(n, api)).filter((n) => n && usedSet.has(n));
   const declaredSet = new Set(declared);
-  const rest = used.filter((n) => !declaredSet.has(n)).sort((a, b) => a.localeCompare(b));
+  const last = extras.pages.filter((n) => usedSet.has(n) && !declaredSet.has(n));
+  const lastSet = new Set(last);
+  const rest = used.filter((n) => !declaredSet.has(n) && !lastSet.has(n)).sort((a, b) => a.localeCompare(b));
   const pinnedSet = new Set(pinned);
-  const ranked = [...new Set([...pinned, ...declared.filter((n) => !pinnedSet.has(n)), ...rest])];
+  const ranked = [...new Set([...pinned, ...declared.filter((n) => !pinnedSet.has(n)), ...rest, ...last])];
 
   const bySlug = new Map();
   const alias = new Map();
@@ -266,16 +280,17 @@ export function resourcePlan(spec, api) {
     const names = c.names.map((n) => `"${n}"`).join(", ");
     return `[markline] API tags ${names} share the URL /api-reference/${c.slug}; their operations are merged into "${c.into}". Use api.tags (label / mergeInto) in markline.json to rename or merge them explicitly.`;
   });
-  warnings.push(...configWarnings(knownTags(spec), tags, alias, api));
+  const known = new Set([...knownTags(spec), ...extras.known]);
+  warnings.push(...configWarnings(known, tags, alias, api));
   // Sections only reorder and group the pages, as in normalize().
-  const sectioned = planSections(sectionSource(api?.sections, spec["x-tagGroups"]).sections, tags, alias, knownTags(spec), api);
+  const sectioned = planSections(sectionSource(api?.sections, spec["x-tagGroups"], extras.groups).sections, tags, alias, known, api);
   warnings.push(...sectioned.warnings);
   return { tags: sectioned.order, sections: sectioned.sections, alias, ops, collisions: [...collisions.values()], warnings };
 }
 
 /** The resources that get a page, in sidebar order. */
-export function orderedResourceTags(spec, api) {
-  return resourcePlan(spec, api).tags;
+export function orderedResourceTags(spec, api, extras) {
+  return resourcePlan(spec, api, extras).tags;
 }
 
 const ACRONYMS = {
@@ -299,8 +314,8 @@ function segmentDisplayName(seg) {
  * Each resource page with its title and description, by the same rule as
  * describeTags() in lib/openapi-tag-config.ts, so llms.txt reads like the site.
  */
-export function resourcePages(spec, api) {
-  const plan = resourcePlan(spec, api);
+export function resourcePages(spec, api, extras = NO_EXTRAS) {
+  const plan = resourcePlan(spec, api, extras);
   const specTags = new Map(specTagList(spec).map((t) => [t.name, t]));
   const names = [...new Set([...specTags.keys(), ...plan.alias.keys(), ...Object.keys(api?.tags ?? {})])];
   const pageOf = (n) => {
@@ -313,7 +328,8 @@ export function resourcePages(spec, api) {
     const xDisplay = specTags.get(page)?.["x-displayName"];
     const label =
       [page, ...merged].map((n) => override(api, n)?.label?.trim()).find(Boolean) ??
-      (typeof xDisplay === "string" ? xDisplay.trim() : "");
+      ((typeof xDisplay === "string" ? xDisplay.trim() : "") ||
+        (Object.prototype.hasOwnProperty.call(extras.labels, page) ? extras.labels[page] : ""));
     const description =
       override(api, page)?.description ??
       specTags.get(page)?.description ??
@@ -347,13 +363,14 @@ export function apiSearchRecords(spec, api, toPlainText = (s) => s) {
   });
 }
 
-/** What a build should say about the default spec and each version's (`versions`' first entry is the default). */
-export function specWarnings(spec, cfg, readVersion) {
-  const out = [...resourcePlan(spec, cfg?.api).warnings];
+/** What a build should say about the default spec and each version's (`versions`' first entry is the default).
+ *  `extrasOf(versionId, spec)` gives what that version's AsyncAPI document adds (undefined for the default). */
+export function specWarnings(spec, cfg, readVersion, extrasOf = () => NO_EXTRAS) {
+  const out = [...resourcePlan(spec, cfg?.api, extrasOf(undefined, spec)).warnings];
   for (const v of (Array.isArray(cfg?.versions) ? cfg.versions : []).slice(1)) {
     const versioned = readVersion(v.id);
     if (!versioned) continue;
-    for (const w of resourcePlan(versioned, cfg.api).warnings) out.push(w.replace("[markline]", `[markline] (version ${v.id})`));
+    for (const w of resourcePlan(versioned, cfg.api, extrasOf(v.id, versioned)).warnings) out.push(w.replace("[markline]", `[markline] (version ${v.id})`));
   }
   return out;
 }

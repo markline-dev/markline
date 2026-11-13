@@ -11,7 +11,7 @@ import path from "node:path";
 import matter from "gray-matter";
 import * as pagefind from "pagefind";
 import { apiIndexLines, apiSearchRecords, resourcePages, specWarnings } from "./openapi-order.mjs";
-import { asyncApiReport } from "./asyncapi-build.mjs";
+import { asyncApiReport, channelExtras } from "./asyncapi-build.mjs";
 import { searchGroups, searchTrails } from "./search-groups.mjs";
 import { markdownPath, mdxToMarkdown, pageMarkdown, sectionIds, sectionIndex } from "./llms.mjs";
 import { removeGeneratedFiles, writeManifest } from "./generated-files.mjs";
@@ -128,7 +128,8 @@ function apiRecords(root) {
     const file = path.join(root, id, "api", "openapi.json");
     return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : null;
   };
-  for (const w of specWarnings(spec, cfg, readVersion)) console.warn(w);
+  const extrasOf = (id, s) => channelExtras(id ? path.join(root, id) : root, s, api).extras;
+  for (const w of specWarnings(spec, cfg, readVersion, extrasOf)) console.warn(w);
   // And the AsyncAPI documents' beside them, version by version.
   for (const w of asyncApiReport(root, spec, api).warnings) console.warn(w);
   for (const v of (Array.isArray(cfg.versions) ? cfg.versions : []).slice(1)) {
@@ -285,8 +286,8 @@ function apiResources(root) {
   if (!fs.existsSync(specFile)) return [];
   const spec = JSON.parse(fs.readFileSync(specFile, "utf8"));
   const api = loadJsonConfig(root).api;
-  // Plus a WebSockets page when some AsyncAPI channel joins no resource.
-  const pages = [...resourcePages(spec, api), ...asyncApiReport(root, spec, api).pages.map((p) => ({ ...p, section: null }))];
+  // With the WebSockets page when some AsyncAPI channel joins no resource, in its place and section.
+  const pages = resourcePages(spec, api, channelExtras(root, spec, api).extras);
   return pages.map((page) => ({
     url: `/api-reference/${page.slug}`,
     title: page.title,

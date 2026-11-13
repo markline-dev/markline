@@ -14,6 +14,8 @@ toc:
     label: Whose side it's written from
   - id: hiding-and-deprecation
     label: Hiding and deprecation
+  - id: the-websockets-page-and-sections
+    label: The WebSockets page and sections
   - id: versions
     label: Versions
   - id: build-output
@@ -91,7 +93,9 @@ belongs with. Markline picks the page in this order:
    (`/v1`) don't count, `{parameters}` match each other whatever their names,
    and case doesn't matter. A tie goes to the resource listed first.
 3. **A WebSockets page.** A channel that shares nothing with any resource goes on
-   a "WebSockets" page after the others, at `/api-reference/websockets`.
+   a "WebSockets" page after the others, at `/api-reference/websockets`. It can
+   be renamed, moved, merged or put in a section like any other page (see
+   [below](#the-websockets-page-and-sections)).
 
 So `/v1/text-to-speech/{voice_id}/stream-input` lands on the resource that has
 `/v1/text-to-speech/{voice_id}`, without any tags. Placement never changes the
@@ -164,6 +168,41 @@ A channel, message or field marked `deprecated: true` stays, labelled
 "Deprecated": in the sidebar, in the resource's endpoint list, on the message's
 row, and beside the field. With `api.showDeprecated` set to `false`, deprecated
 channels and messages are left out, as deprecated operations are.
+
+## The WebSockets page and sections
+
+The WebSockets page is a resource like the others, named `WebSockets`, so the
+settings that arrange the reference arrange it too:
+
+- [`api.tags`](/openapi#rename-hide-and-merge-tags): `label` renames it (its URL
+  stays `/api-reference/websockets`), `mergeInto` puts its channels on another
+  page, and `hidden` hides it with its channels.
+- `api.tagOrder`: list `WebSockets` to move it up. Otherwise a WebSockets page
+  that only channels make comes after every other page. If the spec has a
+  `WebSockets` tag of its own, or `mergeInto` names a page the spec already has,
+  the channels join that page where it already is.
+- [`api.sections`](/openapi#group-tags-into-sections): list `WebSockets` in a
+  section like any tag.
+
+```json title="markline.json"
+{
+  "api": {
+    "tags": { "WebSockets": { "label": "Realtime" } },
+    "sections": [
+      { "title": "Speech", "tags": ["text-to-speech", "WebSockets"] }
+    ]
+  }
+}
+```
+
+Without `api.sections`, the sidebar's sections come from the OpenAPI spec's
+`x-tagGroups`, then from the AsyncAPI document's own `x-tagGroups`, in the same
+`[{ "name", "tags" }]` form. A group with exactly the same name as one of the
+spec's joins it (names are matched as written, so `Core` and `core` are two
+groups), and a page stays in the first group that lists it. Sections come before
+pages in no section, so an AsyncAPI group that lists `WebSockets` moves it up to
+its group's place, even ahead of the spec's pages when the spec has no groups of
+its own. `api.sections`, even an empty list, replaces both.
 
 ## Versions
 

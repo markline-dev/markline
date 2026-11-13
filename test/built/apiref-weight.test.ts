@@ -141,6 +141,13 @@ function site(dir: string, apiMatch: string[], versioned = false, single = false
   fs.mkdirSync(path.join(dir, "docs", "sdk"), { recursive: true });
   fs.writeFileSync(path.join(dir, "api", "openapi.json"), JSON.stringify(spec));
   if (versioned) fs.writeFileSync(path.join(dir, "api", "asyncapi.json"), JSON.stringify(asyncSpec));
+  // The sectioned site: one channel with nowhere to go, so a WebSockets page its section can hold.
+  if (single) {
+    fs.writeFileSync(
+      path.join(dir, "api", "asyncapi.json"),
+      JSON.stringify({ asyncapi: "2.6.0", info: { title: "t", version: "1" }, channels: { "/firehose": { subscribe: { message: { name: "all", payload: { type: "string" } } } } } }),
+    );
+  }
   fs.writeFileSync(path.join(dir, "docs", "index.mdx"), "---\ntitle: Home\n---\n\nHome.\n");
   fs.writeFileSync(path.join(dir, "docs", "guide.mdx"), "---\ntitle: Guide\nrelated:\n  - /api-reference/thingsOp1\n---\n\nGuide.\n");
   fs.writeFileSync(path.join(dir, "docs", "sdk", "auth.mdx"), "---\ntitle: Auth\n---\n\nAuth.\n");
@@ -151,7 +158,7 @@ function site(dir: string, apiMatch: string[], versioned = false, single = false
       ...(versioned
         ? { versions: [{ id: "v2", label: "2.0 (latest)" }, { id: "v1", label: "1.0" }, { id: "v0", label: "0.9 docs only" }] }
         : single
-          ? { versions: [{ id: "only", label: "The only one" }], api: { sections: [{ title: "Elsewhere", tags: ["others"] }] } }
+          ? { versions: [{ id: "only", label: "The only one" }], api: { sections: [{ title: "Elsewhere", tags: ["others", "WebSockets"] }] } }
           : {}),
       navigation: {
         tabs: [
@@ -430,4 +437,14 @@ test("a WebSocket channel lands on the resource its path or tag names, the rest 
   // Only the version with an AsyncAPI file has channels.
   assert.doesNotMatch(page(reference, "api-reference/v1/others"), /class="verb wss"/);
   assert.ok(!fs.existsSync(path.join(reference, "api-reference/v1/websockets.html")));
+});
+
+test("api.sections can hold the WebSockets page, in the sidebar and in the page order", { skip }, () => {
+  const html = page(holding, "api-reference/things");
+  const side = html.slice(html.indexOf('class="api-side"'), html.indexOf("</aside>"));
+  const at = (s: string) => side.indexOf(s);
+  // Elsewhere's caption, its two pages in the order listed, then the pages in no section.
+  assert.ok(at('class="api-section-cap">Elsewhere<') >= 0, "the section is shown");
+  assert.ok(at('class="api-section-cap">Elsewhere<') < at(">Others<") && at(">Others<") < at(">WebSockets<") && at(">WebSockets<") < at(">Things<"), side.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 400));
+  assert.ok(fs.existsSync(path.join(holding, "api-reference", "websockets.html")));
 });

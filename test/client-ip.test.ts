@@ -36,3 +36,23 @@ test("ipHeader and trustedProxies take only sensible values", () => {
   assert.equal(validProxies(2), 2);
   for (const bad of [0, 11, 1.5, "2", -1]) assert.equal(validProxies(bad), undefined, String(bad));
 });
+
+test("ports and brackets don't make one reader several", () => {
+  assert.equal(clientIp(h({ "x-forwarded-for": "203.0.113.7:5678" })), "203.0.113.7");
+  assert.equal(clientIp(h({ "x-forwarded-for": "[2001:DB8::1]:443" })), "2001:db8::1");
+  assert.equal(clientIp(h({ "x-forwarded-for": "[::1]" })), "::1");
+  assert.equal(clientIp(h({ "x-forwarded-for": "2001:db8::1" })), "2001:db8::1", "a bare IPv6 address keeps its colons");
+  assert.equal(clientIp(h({ "fly-client-ip": "[2001:DB8::2]:1" }), { ipHeader: "fly-client-ip" }), "2001:db8::2");
+});
+
+test("ipHeader takes the right-most entry of a list, and nothing from an empty one", () => {
+  assert.equal(clientIp(h({ "x-real-ip": "9.9.9.9, 203.0.113.7" }), { ipHeader: "x-real-ip" }), "203.0.113.7");
+  assert.equal(clientIp(h({ "x-real-ip": "" }), { ipHeader: "x-real-ip" }), "unknown");
+  assert.equal(clientIp(h({ "x-real-ip": " , " }), { ipHeader: "x-real-ip" }), "unknown");
+});
+
+test("ipHeader can't be a header that holds something else", () => {
+  for (const bad of ["content-type", "Content-Length", "content-disposition", "set-cookie", "proxy-authorization", "forwarded"]) {
+    assert.equal(validIpHeader(bad), undefined, bad);
+  }
+});

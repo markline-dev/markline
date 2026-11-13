@@ -10,7 +10,8 @@ All notable changes to `@markline/markline` and `@markline/create`.
   `llms-full.txt` describes them (URL, parameters, messages).
 - **AsyncAPI-only versions.** A version (or a site) with an AsyncAPI document
   and no OpenAPI spec now has an API reference: its channels on its WebSockets
-  page, offered in the version picker, listed in the sitemap.
+  page, offered in the version picker, listed in the sitemap. One whose
+  document gives no page isn't offered.
 - **The WebSockets page in the sidebar's order and sections.** `api.tags`
   (`label`, `mergeInto`, `hidden`), `api.tagOrder` and `api.sections` treat the
   AsyncAPI channels' "WebSockets" page like any resource, and an AsyncAPI

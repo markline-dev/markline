@@ -6,6 +6,7 @@ import { tagLabels, tagSlug, type TagLabels } from "./openapi-tags";
 import { isJsonMediaType, pickMediaType } from "./openapi-media";
 import {
   collisionWarning,
+  mergedBySpelling,
   describeTags,
   isHiddenOperation,
   knownTags,
@@ -21,7 +22,7 @@ import {
 } from "./openapi-tag-config";
 import { pruneSpec } from "./openapi-prune";
 import { attachChannels, hideChannelFields, WEBSOCKETS_TAG, type AsyncChannel } from "./asyncapi";
-import { asyncApiFile, channelExtras, readApiSpec, type ChannelExtras } from "@/scripts/asyncapi-build.mjs";
+import { ASYNC_ONLY, asyncApiFile, channelExtras, readApiSpec, type ChannelExtras } from "@/scripts/asyncapi-build.mjs";
 import { loadConfig } from "./config";
 import { sampleMember } from "./openapi-schema";
 
@@ -209,9 +210,16 @@ export function hasOpenApiSpec(variantId?: string): boolean {
   return fs.existsSync(apiSpecPath(variantId));
 }
 
-/** Whether a version has an API reference: an OpenAPI spec, an AsyncAPI document, or both. */
+/**
+ * Whether a version has an API reference: an OpenAPI spec, or an AsyncAPI
+ * document with something to show. One that can't be read, has no channels, or
+ * whose channels are all hidden gives no page, so the version isn't offered and
+ * its reference is a 404, as with no document at all.
+ */
 export function hasApiReference(variantId?: string): boolean {
-  return hasOpenApiSpec(variantId) || fs.existsSync(asyncApiFile(variantDir(variantId), loadConfig().api));
+  if (hasOpenApiSpec(variantId)) return true;
+  if (!fs.existsSync(asyncApiFile(variantDir(variantId), loadConfig().api))) return false;
+  return loadOpenApi(variantId).tags.length > 0;
 }
 
 const variantDir = (variantId?: string) => (variantId ? path.join(contentRoot(), variantId) : contentRoot());
@@ -448,11 +456,16 @@ export function normalize(input: any, opts: NormalizeOptions = {}): OpenAPIDoc {
   const extraLabels = Object.entries(extras.labels)
     .filter(([name]) => !specTags.some((t) => t.name === name))
     .map(([name, label]) => ({ name, displayName: label }));
-  for (const c of plan.collisions) warnings.push(collisionWarning(c));
-  warnings.push(...tagConfigWarnings(known, plan, opts), ...(extras.warnings ?? []));
+  // A mergeInto that only differs from a tag in spelling is reported once, by tagConfigWarnings.
+  for (const c of plan.collisions) if (!mergedBySpelling(c, known, opts)) warnings.push(collisionWarning(c));
+  // A version with only an AsyncAPI document has no spec tags for api.tags, api.tagOrder
+  // or sections to name, so checking them would repeat the same warnings per version.
+  const asyncOnly = input?.[ASYNC_ONLY] === true;
+  if (!asyncOnly) warnings.push(...tagConfigWarnings(known, plan, opts));
+  warnings.push(...(extras.warnings ?? []));
   // Sections only reorder and group the pages: every page keeps its URL.
   const sectioned = planSections(sectionSource(opts.sections, raw["x-tagGroups"], extras.groups).sections, plan, known, opts);
-  warnings.push(...sectioned.warnings);
+  if (!asyncOnly) warnings.push(...sectioned.warnings);
   for (const [from, into] of plan.alias) {
     for (const op of tagsMap.get(from)!) op.tag = into;
     tagsMap.get(into)!.push(...tagsMap.get(from)!);

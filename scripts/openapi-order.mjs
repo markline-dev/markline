@@ -279,15 +279,24 @@ export function resourcePlan(spec, api, extras = NO_EXTRAS) {
   }
   for (const o of ops) o.tag = alias.get(o.tag) ?? o.tag;
   const tags = [...new Set(ranked.map((n) => alias.get(n) ?? n))];
-  const warnings = [...collisions.values()].map((c) => {
-    const names = c.names.map((n) => `"${n}"`).join(", ");
-    return `[markline] API tags ${names} share the URL /api-reference/${c.slug}; their operations are merged into "${c.into}". Use api.tags (label / mergeInto) in markline.json to rename or merge them explicitly.`;
-  });
   const known = new Set([...knownTags(spec), ...extras.known]);
-  warnings.push(...configWarnings(known, tags, alias, api), ...(extras.warnings ?? []));
+  // Mirrors mergedBySpelling() in lib/openapi-tag-config.ts.
+  const mergeTargets = Object.values(api?.tags ?? {})
+    .map((o) => (typeof o?.mergeInto === "string" ? o.mergeInto.trim() : ""))
+    .filter((t) => t && !known.has(t));
+  const warnings = [...collisions.values()]
+    .filter((c) => !c.names.filter((n) => n !== c.into).every((n) => mergeTargets.includes(n)))
+    .map((c) => {
+      const names = c.names.map((n) => `"${n}"`).join(", ");
+      return `[markline] API tags ${names} share the URL /api-reference/${c.slug}; their operations are merged into "${c.into}". Use api.tags (label / mergeInto) in markline.json to rename or merge them explicitly.`;
+    });
+  // As in normalize(): a version with only an AsyncAPI document skips the api.tags and section checks.
+  const asyncOnly = spec?.["x-markline-asyncapi-only"] === true;
+  if (!asyncOnly) warnings.push(...configWarnings(known, tags, alias, api));
+  warnings.push(...(extras.warnings ?? []));
   // Sections only reorder and group the pages, as in normalize().
   const sectioned = planSections(sectionSource(api?.sections, spec["x-tagGroups"], extras.groups).sections, tags, alias, known, api);
-  warnings.push(...sectioned.warnings);
+  if (!asyncOnly) warnings.push(...sectioned.warnings);
   return { tags: sectioned.order, sections: sectioned.sections, alias, ops, collisions: [...collisions.values()], warnings };
 }
 

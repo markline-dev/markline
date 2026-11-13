@@ -17,6 +17,9 @@ export function asyncApiFile(dir, api) {
   return path.join(dir, api?.asyncapi?.file ?? path.join("api", "asyncapi.json"));
 }
 
+/** Marks the spec readApiSpec() stands in for a version with only an AsyncAPI document. */
+export const ASYNC_ONLY = "x-markline-asyncapi-only";
+
 /**
  * The OpenAPI spec in `dir` (the content root, or a version's folder), parsed; a
  * spec with no operations when there's only an AsyncAPI document, so its channels
@@ -25,7 +28,7 @@ export function asyncApiFile(dir, api) {
 export function readApiSpec(dir, api) {
   const file = path.join(dir, "api", "openapi.json");
   if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, "utf8"));
-  return fs.existsSync(asyncApiFile(dir, api)) ? { openapi: "3.0.0", info: { title: "", version: "" }, paths: {} } : null;
+  return fs.existsSync(asyncApiFile(dir, api)) ? { openapi: "3.0.0", info: { title: "", version: "" }, paths: {}, [ASYNC_ONLY]: true } : null;
 }
 
 /**

@@ -81,7 +81,7 @@ test("a build prints the documents' warnings once, version by version, and lists
 test("a folder with only an AsyncAPI document reads as a spec with no operations", () => {
   const dir = path.join(root, "only");
   write(path.join(dir, "api", "asyncapi.json"), channels());
-  assert.deepEqual(readApiSpec(dir, {}), { openapi: "3.0.0", info: { title: "", version: "" }, paths: {} });
+  assert.deepEqual(readApiSpec(dir, {}), { openapi: "3.0.0", info: { title: "", version: "" }, paths: {}, "x-markline-asyncapi-only": true });
   assert.equal(readApiSpec(path.join(root, "nothing"), {}), null);
   assert.equal(readApiSpec(dir, { asyncapi: { file: "api/other.json" } }), null);
   write(path.join(dir, "api", "openapi.json"), spec);

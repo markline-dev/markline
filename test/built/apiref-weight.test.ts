@@ -140,6 +140,9 @@ function site(dir: string, apiMatch: string[], versioned = false, single = false
   if (versioned) {
     fs.mkdirSync(path.join(dir, "v1", "api"), { recursive: true });
     fs.writeFileSync(path.join(dir, "v1", "api", "openapi.json"), JSON.stringify(v1Spec));
+    // v4's document can't be read: no page, so no picker entry.
+    fs.mkdirSync(path.join(dir, "v4", "api"), { recursive: true });
+    fs.writeFileSync(path.join(dir, "v4", "api", "asyncapi.json"), "{ not json");
     fs.mkdirSync(path.join(dir, "v3", "api"), { recursive: true });
     fs.writeFileSync(
       path.join(dir, "v3", "api", "asyncapi.json"),
@@ -164,7 +167,7 @@ function site(dir: string, apiMatch: string[], versioned = false, single = false
     JSON.stringify({
       name: "Weight",
       ...(versioned
-        ? { versions: [{ id: "v2", label: "2.0 (latest)" }, { id: "v1", label: "1.0" }, { id: "v3", label: "3.0 realtime only" }, { id: "v0", label: "0.9 docs only" }] }
+        ? { versions: [{ id: "v2", label: "2.0 (latest)" }, { id: "v1", label: "1.0" }, { id: "v3", label: "3.0 realtime only" }, { id: "v4", label: "4.0 nothing to show" }, { id: "v0", label: "0.9 docs only" }] }
         : single
           ? { versions: [{ id: "only", label: "The only one" }], api: { sections: [{ title: "Elsewhere", tags: ["others", "WebSockets"] }] } }
           : {}),
@@ -495,4 +498,11 @@ test("every channel link the build writes lands on its id on the page: search re
   for (const url of links) assert.ok(lands(url), url);
   // What field hiding covers on the pages isn't in the llms files at all.
   assert.doesNotMatch(text, /shardsecret|shardvalue|refsecret|refvalue|Internalfeed/);
+});
+
+test("a version whose AsyncAPI document gives no page isn't offered, and has no pages", { skip }, () => {
+  const picker = page(reference, "api-reference/others").match(/\\"versions\\":\[[^\]]*\]/)?.[0] ?? "";
+  assert.match(picker, /3\.0 realtime only/);
+  assert.doesNotMatch(picker, /4\.0 nothing to show/);
+  assert.ok(!fs.existsSync(path.join(reference, "api-reference", "v4", "websockets.html")));
 });

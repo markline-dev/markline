@@ -218,7 +218,11 @@ only WebSockets, or a site that's only that. Its reference is its channels: with
 no resources to join, they're on its WebSockets page (named, merged or sectioned
 as [above](#the-websockets-page-and-sections)), which its reference opens on. The
 version picker offers it like any version with a spec, and the build lists its
-pages and prints its warnings the same way.
+pages and prints its warnings the same way. A document that gives it nothing to
+show (one that can't be read, or whose channels are all hidden) gives it no
+reference: it isn't offered, as for a version with no document. `api.tags`,
+`api.tagOrder` and `api.sections` aren't checked against such a version, since it
+has no spec tags for them to name.
 
 ```text
 content/

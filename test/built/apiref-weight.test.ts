@@ -8,6 +8,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import zlib from "node:zlib";
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
 
@@ -123,6 +124,8 @@ const asyncSpec = {
     "/stream": { "x-title": "Things feed", subscribe: { tags: [{ name: "things" }], message: { name: "thing", payload: { type: "string" } } } },
     "/firehose": { subscribe: { message: { name: "everything", payload: { type: "string" } } } },
     "/internal-feed": { "x-title": "Internalfeed", "x-internal": true, subscribe: { message: { name: "x", payload: { type: "string" } } } },
+    // Titled like two operations on its page: its id is numbered past theirs.
+    "/v1/others/{otherId}/dup": { "x-title": "others operation 1", subscribe: { message: { name: "dup", payload: { type: "string" } } } },
   },
   components: { schemas: { Shared: { type: "object", properties: { code: { type: "string" } } } } },
 };
@@ -138,6 +141,9 @@ function site(dir: string, apiMatch: string[], versioned = false, single = false
   if (versioned) {
     fs.mkdirSync(path.join(dir, "v1", "api"), { recursive: true });
     fs.writeFileSync(path.join(dir, "v1", "api", "openapi.json"), JSON.stringify(v1Spec));
+    // v4's document can't be read: no page, so no picker entry.
+    fs.mkdirSync(path.join(dir, "v4", "api"), { recursive: true });
+    fs.writeFileSync(path.join(dir, "v4", "api", "asyncapi.json"), "{ not json");
     fs.mkdirSync(path.join(dir, "v3", "api"), { recursive: true });
     fs.writeFileSync(
       path.join(dir, "v3", "api", "asyncapi.json"),
@@ -162,7 +168,7 @@ function site(dir: string, apiMatch: string[], versioned = false, single = false
     JSON.stringify({
       name: "Weight",
       ...(versioned
-        ? { versions: [{ id: "v2", label: "2.0 (latest)" }, { id: "v1", label: "1.0" }, { id: "v3", label: "3.0 realtime only" }, { id: "v0", label: "0.9 docs only" }] }
+        ? { versions: [{ id: "v2", label: "2.0 (latest)" }, { id: "v1", label: "1.0" }, { id: "v3", label: "3.0 realtime only" }, { id: "v4", label: "4.0 nothing to show" }, { id: "v0", label: "0.9 docs only" }] }
         : single
           ? { versions: [{ id: "only", label: "The only one" }], api: { sections: [{ title: "Elsewhere", tags: ["others", "WebSockets"] }] } }
           : {}),
@@ -464,4 +470,51 @@ test("a version with only an AsyncAPI document has a reference, and the picker o
   assert.doesNotMatch(picker, /0\.9 docs only/);
   // The default version's pages don't change for it.
   assert.doesNotMatch(page(reference, "api-reference/websockets"), /Onlylive/);
+});
+
+test("every channel link the build writes lands on its id on the page: search records, llms.txt, llms-full.txt", { skip }, async () => {
+  const { channelRecords } = (await import("../../scripts/asyncapi-build.mjs" as string)) as {
+    channelRecords: (dir: string, spec: unknown, api: unknown) => { url: string }[];
+  };
+  const content = path.join(tmp, "reference");
+  const cfg = JSON.parse(fs.readFileSync(path.join(content, "markline.json"), "utf8"));
+  const raw = JSON.parse(fs.readFileSync(path.join(content, "api", "openapi.json"), "utf8"));
+  const lands = (url: string) => {
+    const [p, id] = url.split("#");
+    return page(reference, p.slice(1)).includes(` id="${id}"`);
+  };
+  // Search records, as build-search makes them.
+  const records = channelRecords(content, raw, cfg.api).map((r) => r.url);
+  assert.ok(records.includes("/api-reference/others#others-operation-1-2"), records.join(", "));
+  assert.ok(records.length >= 4, records.join(", "));
+  for (const url of records) assert.ok(lands(url), url);
+  // The llms files, from a real build-search run on the same content.
+  const cwd = path.join(tmp, "search");
+  fs.mkdirSync(path.join(cwd, "public"), { recursive: true });
+  const r = spawnSync(process.execPath, [path.join(ROOT, "scripts", "build-search.mjs")], { cwd, encoding: "utf8", env: buildEnv({ MARKLINE_CONTENT: content }) });
+  assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`);
+  const linksIn = (text: string) => [...new Set([...text.matchAll(/\]\((\/api-reference\/[^)#\s]+#[^)\s]+)\)/g)].map((m) => m[1]))].sort();
+  // Each output on its own: llms.txt's list, llms-full.txt's section, and the search index.
+  for (const f of ["llms.txt", "llms-full.txt"]) {
+    const text = fs.readFileSync(path.join(cwd, "public", f), "utf8");
+    assert.deepEqual(linksIn(text), [...records].sort(), f);
+    // What field hiding covers on the pages isn't in the llms files at all.
+    assert.doesNotMatch(text, /shardsecret|shardvalue|refsecret|refvalue|Internalfeed/, f);
+  }
+  // The search index's records, as pagefind stored them (gzipped "pagefind_dcd" + JSON).
+  const fragments = path.join(cwd, "public", "pagefind", "fragment");
+  const indexed = fs
+    .readdirSync(fragments)
+    .map((f) => zlib.gunzipSync(fs.readFileSync(path.join(fragments, f))).toString("utf8").replace(/^pagefind_dcd/, ""))
+    .map((json) => (JSON.parse(json) as { url: string }).url)
+    .filter((url) => url.includes("#"));
+  for (const url of records) assert.ok(indexed.includes(url), `${url} in the search index`);
+  for (const url of indexed.filter((u) => u.startsWith("/api-reference/"))) assert.ok(lands(url), url);
+});
+
+test("a version whose AsyncAPI document gives no page isn't offered, and has no pages", { skip }, () => {
+  const picker = page(reference, "api-reference/others").match(/\\"versions\\":\[[^\]]*\]/)?.[0] ?? "";
+  assert.match(picker, /3\.0 realtime only/);
+  assert.doesNotMatch(picker, /4\.0 nothing to show/);
+  assert.ok(!fs.existsSync(path.join(reference, "api-reference", "v4", "websockets.html")));
 });

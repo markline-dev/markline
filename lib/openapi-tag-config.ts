@@ -385,6 +385,18 @@ export function planSections(sections: TagSection[], plan: TagPlan, known: Set<s
 }
 
 /** Build-time warning text for a slug collision. */
+/**
+ * Whether a slug collision only comes from a `mergeInto` naming a tag in another
+ * spelling ("Alpha" for "alpha"): tagConfigWarnings says that one, so the
+ * collision isn't said again.
+ */
+export function mergedBySpelling(c: TagCollision, known: Set<string>, opts?: TagOptions): boolean {
+  const targets = Object.values(opts?.tags ?? {})
+    .map((o) => (typeof o?.mergeInto === "string" ? o.mergeInto.trim() : ""))
+    .filter((t) => t && !known.has(t));
+  return c.names.filter((n) => n !== c.into).every((n) => targets.includes(n));
+}
+
 export function collisionWarning(c: TagCollision): string {
   const names = c.names.map((n) => `"${n}"`).join(", ");
   return `[markline] API tags ${names} share the URL /api-reference/${c.slug}; their operations are merged into "${c.into}". Use api.tags (label / mergeInto) in markline.json to rename or merge them explicitly.`;

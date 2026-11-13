@@ -4,8 +4,8 @@ import { allResponses, codeSamples, colorizeJson, successResponse, type CodeRail
 import { buildPlaygroundSpec } from "./playground-spec";
 import { mdToHtml } from "./md-desc";
 import { hoistEndpoints } from "./apiref-payload";
-import { uniqueAnchors } from "./apiref-anchors";
-import type { AsyncChannel } from "./asyncapi";
+import { pageAnchors } from "@/scripts/apiref-anchors.mjs";
+import { joinUrl, type AsyncChannel } from "./asyncapi";
 import type { PlaygroundSpec } from "@/components/docs/api/playground";
 import { loadConfig, playgroundMode } from "./config";
 import { tagSlug, parseOpenApiTag, buildTagTree, segmentDisplayName, type TagTreeNode } from "./openapi-tags";
@@ -215,10 +215,6 @@ const VERB: Record<string, string> = {
   delete: "DEL",
 };
 
-/** An operation's own slug, before repeats on its page are numbered. */
-function anchorBase(op: OpenAPIOperation): string {
-  return tagSlug(op.summary ?? op.operationId) || op.operationId;
-}
 
 /**
  * Each operation's id on its resource's page: its own slug, with
@@ -231,14 +227,13 @@ export function operationAnchors(tag: OpenAPITag, doc: Pick<OpenAPIDoc, "webhook
     ...(tag.events ?? []).map((e) => e.name),
     ...(doc.webhooks ?? []).filter((w) => w.tags.includes(tag.name)).map((w) => w.name),
   ];
-  const reserved = [slug, `${slug}-object`, `ep-panels-${slug}`, ...events.map(eventAnchor)];
   // Operations, then the resource's WebSocket channels: one set of ids, none repeated.
-  const items: (OpenAPIOperation | AsyncChannel)[] = [...tag.operations, ...(tag.channels ?? [])];
-  const ids = uniqueAnchors(
-    items.map((x) => ("operationId" in x ? anchorBase(x) : tagSlug(x.title ?? x.address) || "channel")),
-    reserved,
-  );
-  return new Map(items.map((x, i) => [x, ids[i]]));
+  const channels = tag.channels ?? [];
+  const ids = pageAnchors(slug, tag.operations, channels, events.map(eventAnchor));
+  return new Map<OpenAPIOperation | AsyncChannel, string>([
+    ...tag.operations.map((op, i) => [op, ids.operations[i]] as const),
+    ...channels.map((c, i) => [c, ids.channels[i]] as const),
+  ]);
 }
 
 export function displayName(s: string): string {
@@ -312,9 +307,7 @@ function paramGroups(op: OpenAPIOperation, root: unknown): ParamGroup[] {
 /** The handshake's parameters and the messages, ready to render. */
 const DIRECTION_ORDER = { send: 0, receive: 1, unspecified: 2 } as const;
 
-/** A server URL and a channel address, with one slash between them. */
-export const joinUrl = (server: string, address: string): string =>
-  !server ? address : /^[a-z][a-z0-9+.-]*:\/\//i.test(address) ? address : `${server.replace(/\/+$/, "")}/${address.replace(/^\/+/, "")}`;
+export { joinUrl };
 
 function buildChannel(c: AsyncChannel, id: string, root: unknown): ChannelView {
   const groups: ParamGroup[] = [];

@@ -9,7 +9,7 @@ import { parseOpenApiTag, tagSlug } from "../lib/openapi-tags.ts";
 // The build's planner is plain JS without types.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const { resourcePages, resourcePlan, specWarnings } = (await import("../scripts/openapi-order.mjs" as string)) as any;
-import { channelExtras, readApiSpec, type ChannelExtras } from "../scripts/asyncapi-build.mjs";
+import { channelExtras, isStandIn, readApiSpec, type ChannelExtras } from "../scripts/asyncapi-build.mjs";
 
 // The WebSockets page in the plan: ordered, labelled, sectioned, renamed, merged
 // or hidden by the same settings as any resource, identically for the pages
@@ -247,15 +247,48 @@ test("a version with only an AsyncAPI document doesn't repeat the api.tags, tagO
   const dirs: Record<string, string> = { default: homeless(), v1: homeless() };
   const read = (id: string) => readApiSpec(dirs[id], cfg.api);
   const extrasOf = (id: string | undefined, s: object) => channelExtras(dirs[id ?? "default"], s, cfg.api).extras;
-  const warnings: string[] = specWarnings(undeclared, cfg, read, extrasOf);
+  const warnings: string[] = specWarnings(undeclared, cfg, read, extrasOf, isStandIn);
   // Said for the default version's spec, not again for v1, which has no spec.
   assert.equal(warnings.filter((w) => /"nosuch" matches no tag/.test(w)).length, 1, warnings.join("\n"));
   assert.equal(warnings.filter((w) => /"nothere" matches no tag/.test(w)).length, 1);
   assert.equal(warnings.filter((w) => /"absent" in "S" matches no tag/.test(w)).length, 1);
   assert.ok(!warnings.some((w) => w.includes("(version v1)")), warnings.join("\n"));
-  // The pages agree: normalize() on the stand-in spec says nothing about them either.
+  // The pages agree: loadOpenApi() normalizes such a version with configChecks off.
   const stand = readApiSpec(dirs.v1, cfg.api) as object;
-  const doc = normalize(stand, { ...(cfg.api as NormalizeOptions), extras: extrasOf("v1", stand) });
+  const doc = normalize(stand, { ...(cfg.api as NormalizeOptions), extras: extrasOf("v1", stand), configChecks: false });
   assert.deepEqual(doc.warnings, []);
   assert.deepEqual(doc.tags.map((t) => t.name), ["WebSockets"]);
+});
+
+test("a site whose only reference is AsyncAPI still gets its typos reported", () => {
+  const dir = path.join(tmp, "typos");
+  fs.mkdirSync(path.join(dir, "api"), { recursive: true });
+  fs.writeFileSync(
+    path.join(dir, "api", "asyncapi.json"),
+    JSON.stringify({ asyncapi: "2.6.0", info: { title: "t", version: "1" }, channels: { "/chat": { subscribe: { tags: [{ name: "Chat" }], message: { name: "m" } } } } }),
+  );
+  const api = { tags: { Chatt: { label: "C" }, WebSocket: { label: "W" }, Realtime: { mergeInto: "WebSockest" } }, tagOrder: ["Chatt"] };
+  const stand = readApiSpec(dir, api) as object;
+  const { extras: ex } = channelExtras(dir, stand, api);
+  // The build, for the default version (a stand-in): the checks run.
+  const built: string[] = specWarnings(stand, { api }, () => null, () => ex, isStandIn);
+  // The pages, as loadOpenApi() normalizes the default version: the checks run there too.
+  const page = normalize(stand, { ...(api as NormalizeOptions), extras: ex }).warnings;
+  for (const warnings of [built, page]) {
+    const all = warnings.join("\n");
+    assert.match(all, /"Chatt" matches no tag/);
+    assert.match(all, /"WebSocket" matches no tag/);
+    assert.match(all, /tagOrder: "Chatt" matches no tag/);
+    assert.match(all, /"Realtime" merges into "WebSockest", which isn't a tag in the spec, so it creates a new page\. Did you mean "WebSockets"\?/);
+  }
+  assert.deepEqual(built, page);
+});
+
+test("spec tags that collide are still reported when a mergeInto respells one of them", () => {
+  const base = { openapi: "3.0.0", info: { title: "t", version: "1" }, tags: [{ name: "voices" }] };
+  for (const other of ["Voices", "VOICES"]) {
+    const s3 = { ...base, paths: { "/v": { get: op("v", ["voices"]) }, "/V": { get: op("V", [other]) }, "/b": { get: op("b", ["billing"]) } } };
+    const r = both({ tags: { billing: { mergeInto: "Voices" } } }, NONE, s3);
+    assert.ok(r.warnings.some((w) => /share the URL \/api-reference\/voices/.test(w)), `${other}: ${r.warnings.join("\n")}`);
+  }
 });

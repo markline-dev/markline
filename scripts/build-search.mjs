@@ -11,7 +11,7 @@ import path from "node:path";
 import matter from "gray-matter";
 import * as pagefind from "pagefind";
 import { apiIndexLines, apiSearchRecords, resourcePages, specWarnings } from "./openapi-order.mjs";
-import { asyncApiReport, channelExtras, channelLlms, channelRecords, readApiSpec } from "./asyncapi-build.mjs";
+import { asyncApiReport, channelExtras, channelLlms, channelRecords, isStandIn, readApiSpec } from "./asyncapi-build.mjs";
 import { searchGroups, searchTrails } from "./search-groups.mjs";
 import { markdownPath, mdxToMarkdown, pageMarkdown, sectionIds, sectionIndex } from "./llms.mjs";
 import { removeGeneratedFiles, writeManifest } from "./generated-files.mjs";
@@ -125,7 +125,7 @@ function apiRecords(root) {
   // The one place a build prints these; page workers would each repeat them.
   const readVersion = (id) => readApiSpec(path.join(root, id), api);
   const extrasOf = (id, s) => channelExtras(id ? path.join(root, id) : root, s, api).extras;
-  for (const w of specWarnings(spec, cfg, readVersion, extrasOf)) console.warn(w);
+  for (const w of specWarnings(spec, cfg, readVersion, extrasOf, isStandIn)) console.warn(w);
   // And the AsyncAPI documents' beside them, version by version.
   for (const w of asyncApiReport(root, spec, api).warnings) console.warn(w);
   for (const v of (Array.isArray(cfg.versions) ? cfg.versions : []).slice(1)) {

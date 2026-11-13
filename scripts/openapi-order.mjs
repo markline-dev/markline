@@ -236,7 +236,7 @@ export function planSections(sections, order, alias, known, api) {
  * `extras` is what an AsyncAPI document adds (asyncapi-build.mjs channelExtras):
  * pages only channels make, its tag groups, and tag names it makes known.
  */
-export function resourcePlan(spec, api, extras = NO_EXTRAS) {
+export function resourcePlan(spec, api, extras = NO_EXTRAS, { configChecks = true } = {}) {
   const ops = [];
   const used = [];
   for (const [pathStr, item] of Object.entries(spec.paths ?? {})) {
@@ -290,13 +290,12 @@ export function resourcePlan(spec, api, extras = NO_EXTRAS) {
       const names = c.names.map((n) => `"${n}"`).join(", ");
       return `[markline] API tags ${names} share the URL /api-reference/${c.slug}; their operations are merged into "${c.into}". Use api.tags (label / mergeInto) in markline.json to rename or merge them explicitly.`;
     });
-  // As in normalize(): a version with only an AsyncAPI document skips the api.tags and section checks.
-  const asyncOnly = spec?.["x-markline-asyncapi-only"] === true;
-  if (!asyncOnly) warnings.push(...configWarnings(known, tags, alias, api));
+  // As in normalize(): `configChecks: false` skips the api.tags and section checks.
+  if (configChecks) warnings.push(...configWarnings(known, tags, alias, api));
   warnings.push(...(extras.warnings ?? []));
   // Sections only reorder and group the pages, as in normalize().
   const sectioned = planSections(sectionSource(api?.sections, spec["x-tagGroups"], extras.groups).sections, tags, alias, known, api);
-  if (!asyncOnly) warnings.push(...sectioned.warnings);
+  if (configChecks) warnings.push(...sectioned.warnings);
   return { tags: sectioned.order, sections: sectioned.sections, alias, ops, collisions: [...collisions.values()], warnings };
 }
 
@@ -376,13 +375,15 @@ export function apiSearchRecords(spec, api, toPlainText = (s) => s) {
 }
 
 /** What a build should say about the default spec and each version's (`versions`' first entry is the default).
- *  `extrasOf(versionId, spec)` gives what that version's AsyncAPI document adds (undefined for the default). */
-export function specWarnings(spec, cfg, readVersion, extrasOf = () => NO_EXTRAS) {
+ *  `extrasOf(versionId, spec)` gives what that version's AsyncAPI document adds (undefined for the default);
+ *  `quiet(spec)` marks a version that would only repeat the api.tags and section checks (no spec of its own). */
+export function specWarnings(spec, cfg, readVersion, extrasOf = () => NO_EXTRAS, quiet = () => false) {
   const out = [...resourcePlan(spec, cfg?.api, extrasOf(undefined, spec)).warnings];
   for (const v of (Array.isArray(cfg?.versions) ? cfg.versions : []).slice(1)) {
     const versioned = readVersion(v.id);
     if (!versioned) continue;
-    for (const w of resourcePlan(versioned, cfg.api, extrasOf(v.id, versioned)).warnings) out.push(w.replace("[markline]", `[markline] (version ${v.id})`));
+    const { warnings } = resourcePlan(versioned, cfg.api, extrasOf(v.id, versioned), { configChecks: !quiet(versioned) });
+    for (const w of warnings) out.push(w.replace("[markline]", `[markline] (version ${v.id})`));
   }
   return out;
 }

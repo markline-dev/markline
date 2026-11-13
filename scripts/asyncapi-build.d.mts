@@ -5,7 +5,7 @@ import type { AsyncChannel } from "../lib/asyncapi";
 export type ChannelExtras = { pages: string[]; groups?: unknown[]; known: string[]; labels: Record<string, string>; warnings?: string[] };
 
 export function asyncApiFile(dir: string, api: unknown): string;
-export const ASYNC_ONLY: "x-markline-asyncapi-only";
+export function isStandIn(spec: unknown): boolean;
 export function readApiSpec(dir: string, api: unknown): unknown | null;
 export function channelExtras(
   dir: string,

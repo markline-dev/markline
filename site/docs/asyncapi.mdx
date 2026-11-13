@@ -220,9 +220,9 @@ as [above](#the-websockets-page-and-sections)), which its reference opens on. Th
 version picker offers it like any version with a spec, and the build lists its
 pages and prints its warnings the same way. A document that gives it nothing to
 show (one that can't be read, or whose channels are all hidden) gives it no
-reference: it isn't offered, as for a version with no document. `api.tags`,
-`api.tagOrder` and `api.sections` aren't checked against such a version, since it
-has no spec tags for them to name.
+reference: it isn't offered, as for a version with no document. Mistakes in
+`api.tags`, `api.tagOrder` and `api.sections` are reported once, for the first
+version, not repeated for each AsyncAPI-only version after it.
 
 ```text
 content/

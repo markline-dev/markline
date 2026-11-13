@@ -22,7 +22,7 @@ import {
 } from "./openapi-tag-config";
 import { pruneSpec } from "./openapi-prune";
 import { attachChannels, hideChannelFields, WEBSOCKETS_TAG, type AsyncChannel } from "./asyncapi";
-import { ASYNC_ONLY, asyncApiFile, channelExtras, readApiSpec, type ChannelExtras } from "@/scripts/asyncapi-build.mjs";
+import { asyncApiFile, channelExtras, isStandIn, readApiSpec, type ChannelExtras } from "@/scripts/asyncapi-build.mjs";
 import { loadConfig } from "./config";
 import { sampleMember } from "./openapi-schema";
 
@@ -169,6 +169,8 @@ export type NormalizeOptions = TagOptions & {
   auth?: { type?: "apiKey" | "bearer"; header?: string; description?: string };
   /** What an AsyncAPI document adds: pages only its channels make, its tag groups, tag names it makes known. */
   extras?: ChannelExtras;
+  /** `false` skips the api.tags, api.tagOrder and section checks (a version that would only repeat them). */
+  configChecks?: boolean;
 };
 
 const METHODS = ["get", "post", "put", "patch", "delete", "options", "head"] as const;
@@ -245,11 +247,15 @@ export function loadOpenApi(variantId?: string): OpenAPIDoc {
     showDeprecated: api.showDeprecated,
     auth: api.auth,
     extras,
+    // A non-default version with only an AsyncAPI document would only repeat the default's.
+    configChecks: !(variantId && isStandIn(raw)),
   });
   if (read) placeChannels(doc, read, api);
   // A build prints these once, from scripts/build-search.mjs; its page workers
-  // would each repeat them.
-  if (process.env.NODE_ENV !== "production") warnOnce(doc.warnings);
+  // would each repeat them. Labelled with the version, as the build labels them.
+  if (process.env.NODE_ENV !== "production") {
+    warnOnce(variantId ? doc.warnings.map((w) => w.replace("[markline]", `[markline] (version ${variantId})`)) : doc.warnings);
+  }
   _cache.set(key, doc);
   return doc;
 }
@@ -458,14 +464,14 @@ export function normalize(input: any, opts: NormalizeOptions = {}): OpenAPIDoc {
     .map(([name, label]) => ({ name, displayName: label }));
   // A mergeInto that only differs from a tag in spelling is reported once, by tagConfigWarnings.
   for (const c of plan.collisions) if (!mergedBySpelling(c, known, opts)) warnings.push(collisionWarning(c));
-  // A version with only an AsyncAPI document has no spec tags for api.tags, api.tagOrder
-  // or sections to name, so checking them would repeat the same warnings per version.
-  const asyncOnly = input?.[ASYNC_ONLY] === true;
-  if (!asyncOnly) warnings.push(...tagConfigWarnings(known, plan, opts));
+  // api.tags, api.tagOrder and sections are checked once per site: a version with only
+  // an AsyncAPI document skips them (configChecks: false) rather than say them again.
+  const checks = opts.configChecks !== false;
+  if (checks) warnings.push(...tagConfigWarnings(known, plan, opts));
   warnings.push(...(extras.warnings ?? []));
   // Sections only reorder and group the pages: every page keeps its URL.
   const sectioned = planSections(sectionSource(opts.sections, raw["x-tagGroups"], extras.groups).sections, plan, known, opts);
-  if (!asyncOnly) warnings.push(...sectioned.warnings);
+  if (checks) warnings.push(...sectioned.warnings);
   for (const [from, into] of plan.alias) {
     for (const op of tagsMap.get(from)!) op.tag = into;
     tagsMap.get(into)!.push(...tagsMap.get(from)!);

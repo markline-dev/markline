@@ -20,7 +20,7 @@ import { HubHero } from "@/components/docs/hub-hero";
 import { LandingPage } from "@/components/landing/landing";
 import { remarkLandingProse } from "@/lib/landing-prose";
 import { remarkCodeGroupTitles } from "@/lib/code-group";
-import { elementsIn, extractToc, missingTocIds, remarkTocIds } from "@/lib/toc";
+import { elementsIn, extractToc, missingTocIds, remarkTocIds, withOffView } from "@/lib/toc";
 import { SiteFooter } from "@/components/site-footer";
 import type { Crumb, PageNavLink } from "@/components/docs/page";
 import { ChangelogEntryView, ChangelogView, changelogToc } from "@/components/docs/changelog";
@@ -197,7 +197,7 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
         actionStyle={config.layout.pageActions}
         title={doc.fm.title}
         lede={doc.fm.lede}
-        toc={doc.fm.toc ?? extractToc(doc.body, { steps: doc.fm.tocSteps })}
+        toc={doc.fm.toc ? withOffView(doc.fm.toc, doc.body, { steps: doc.fm.tocSteps }) : extractToc(doc.body, { steps: doc.fm.tocSteps })}
         lastUpdated={doc.fm.last_updated}
         editUrl={editUrl}
         feedbackEnabled={feedbackConfig() != null}

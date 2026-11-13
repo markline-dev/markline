@@ -123,6 +123,8 @@ const asyncSpec = {
     "/stream": { "x-title": "Things feed", subscribe: { tags: [{ name: "things" }], message: { name: "thing", payload: { type: "string" } } } },
     "/firehose": { subscribe: { message: { name: "everything", payload: { type: "string" } } } },
     "/internal-feed": { "x-title": "Internalfeed", "x-internal": true, subscribe: { message: { name: "x", payload: { type: "string" } } } },
+    // Titled like two operations on its page: its id is numbered past theirs.
+    "/v1/others/{otherId}/dup": { "x-title": "others operation 1", subscribe: { message: { name: "dup", payload: { type: "string" } } } },
   },
   components: { schemas: { Shared: { type: "object", properties: { code: { type: "string" } } } } },
 };
@@ -464,4 +466,33 @@ test("a version with only an AsyncAPI document has a reference, and the picker o
   assert.doesNotMatch(picker, /0\.9 docs only/);
   // The default version's pages don't change for it.
   assert.doesNotMatch(page(reference, "api-reference/websockets"), /Onlylive/);
+});
+
+test("every channel link the build writes lands on its id on the page: search records, llms.txt, llms-full.txt", { skip }, async () => {
+  const { channelRecords } = (await import("../../scripts/asyncapi-build.mjs" as string)) as {
+    channelRecords: (dir: string, spec: unknown, api: unknown) => { url: string }[];
+  };
+  const content = path.join(tmp, "reference");
+  const cfg = JSON.parse(fs.readFileSync(path.join(content, "markline.json"), "utf8"));
+  const raw = JSON.parse(fs.readFileSync(path.join(content, "api", "openapi.json"), "utf8"));
+  const lands = (url: string) => {
+    const [p, id] = url.split("#");
+    return page(reference, p.slice(1)).includes(` id="${id}"`);
+  };
+  // Search records, as build-search makes them.
+  const records = channelRecords(content, raw, cfg.api).map((r) => r.url);
+  assert.ok(records.includes("/api-reference/others#others-operation-1-2"), records.join(", "));
+  assert.ok(records.length >= 4, records.join(", "));
+  for (const url of records) assert.ok(lands(url), url);
+  // The llms files, from a real build-search run on the same content.
+  const cwd = path.join(tmp, "search");
+  fs.mkdirSync(path.join(cwd, "public"), { recursive: true });
+  const r = spawnSync(process.execPath, [path.join(ROOT, "scripts", "build-search.mjs")], { cwd, encoding: "utf8", env: buildEnv({ MARKLINE_CONTENT: content }) });
+  assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`);
+  const text = ["llms.txt", "llms-full.txt"].map((f) => fs.readFileSync(path.join(cwd, "public", f), "utf8")).join("\n");
+  const links = [...text.matchAll(/\]\((\/api-reference\/[^)#\s]+#[^)\s]+)\)/g)].map((m) => m[1]);
+  assert.deepEqual([...new Set(links)].sort(), [...records].sort());
+  for (const url of links) assert.ok(lands(url), url);
+  // What field hiding covers on the pages isn't in the llms files at all.
+  assert.doesNotMatch(text, /shardsecret|shardvalue|refsecret|refvalue|Internalfeed/);
 });

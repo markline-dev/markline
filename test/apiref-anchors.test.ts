@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 // lib/ imports resolve via test/setup.mjs, which `npm test` loads first.
-import { uniqueAnchors } from "../lib/apiref-anchors.ts";
+import { uniqueAnchors } from "../scripts/apiref-anchors.mjs";
 import { buildApiRefView, operationAnchors } from "../lib/apiref-view.ts";
 import { normalize } from "../lib/openapi.ts";
 

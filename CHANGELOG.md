@@ -5,6 +5,9 @@ All notable changes to `@markline/markline` and `@markline/create`.
 ## Unreleased
 
 ### Added
+- **WebSocket channels in search and the LLM files.** Each channel is a search
+  result that opens its section; `llms.txt` lists the channels and
+  `llms-full.txt` describes them (URL, parameters, messages).
 - **AsyncAPI-only versions.** A version (or a site) with an AsyncAPI document
   and no OpenAPI spec now has an API reference: its channels on its WebSockets
   page, offered in the version picker, listed in the sitemap.

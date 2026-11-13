@@ -437,6 +437,10 @@ export function attachChannels(
   return { byResource, rest, hidden };
 }
 
+/** A server URL and a channel address, with one slash between them: a channel's connection URL. */
+export const joinUrl = (server, address) =>
+  !server ? address : /^[a-z][a-z0-9+.-]*:\/\//i.test(address) ? address : `${server.replace(/\/+$/, "")}/${address.replace(/^\/+/, "")}`;
+
 /** The resource page a channel with nowhere else to go is on. */
 export const WEBSOCKETS_TAG = "WebSockets";
 

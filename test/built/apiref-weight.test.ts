@@ -84,6 +84,26 @@ const spec = {
 };
 const OPERATIONS = THINGS + 3;
 
+/** Channels for the default version only: one by path, one by tag, one with nowhere to go. */
+const asyncSpec = {
+  asyncapi: "2.6.0",
+  info: { title: "Weight realtime", version: "1" },
+  servers: { live: { url: "live.weight.test", protocol: "wss" } },
+  channels: {
+    "/v1/others/{otherId}/live": {
+      parameters: { otherId: { description: "Which other.", schema: { type: "string" } } },
+      bindings: { ws: { query: { type: "object", required: ["token"], properties: { token: { type: "string" }, verbose: { type: "boolean" } } } } },
+      publish: {
+        summary: "publish",
+        message: { name: "watch", description: "Starts **watching** this other.", payload: { type: "object", properties: { since: { type: "integer" } } } },
+      },
+      subscribe: { message: { name: "changed", payload: { type: "object", properties: { at: { type: "string" } } } } },
+    },
+    "/stream": { "x-title": "Things feed", subscribe: { tags: [{ name: "things" }], message: { name: "thing", payload: { type: "string" } } } },
+    "/firehose": { subscribe: { message: { name: "everything", payload: { type: "string" } } } },
+  },
+};
+
 /** v1's spec: only the "others" resource, so "things" exists in the default version alone. */
 const v1Spec = { ...spec, paths: Object.fromEntries(Object.entries(spec.paths).filter(([p]) => p.startsWith("/others/"))) };
 
@@ -97,6 +117,7 @@ function site(dir: string, apiMatch: string[], versioned = false, single = false
   }
   fs.mkdirSync(path.join(dir, "docs", "sdk"), { recursive: true });
   fs.writeFileSync(path.join(dir, "api", "openapi.json"), JSON.stringify(spec));
+  if (versioned) fs.writeFileSync(path.join(dir, "api", "asyncapi.json"), JSON.stringify(asyncSpec));
   fs.writeFileSync(path.join(dir, "docs", "index.mdx"), "---\ntitle: Home\n---\n\nHome.\n");
   fs.writeFileSync(path.join(dir, "docs", "guide.mdx"), "---\ntitle: Guide\nrelated:\n  - /api-reference/thingsOp1\n---\n\nGuide.\n");
   fs.writeFileSync(path.join(dir, "docs", "sdk", "auth.mdx"), "---\ntitle: Auth\n---\n\nAuth.\n");
@@ -316,7 +337,8 @@ test("sections caption the sidebar, lead the order, and leave every URL where it
     fs
       .readdirSync(path.join(dist, "api-reference"), { withFileTypes: true })
       // Not "reference"'s version landings (v1.html, v0.html): only it has versions.
-      .filter((e) => e.isFile() && e.name.endsWith(".html") && !/^v\d+\.html$/.test(e.name))
+      // Nor its WebSockets page: only it has an AsyncAPI document.
+      .filter((e) => e.isFile() && e.name.endsWith(".html") && !/^(v\d+|websockets)\.html$/.test(e.name))
       .map((e) => e.name)
       .sort();
   assert.ok(pages(reference).length >= OPERATIONS);
@@ -351,4 +373,32 @@ test("a streamed operation is badged, its {parameters} set apart, and its path t
   const grouped = page(holding, "api-reference/others");
   assert.match(grouped, /class="api-crumbs ep-crumbs">Elsewhere › Others</);
   assert.doesNotMatch(grouped, /id="[^"]*elsewhere/i);
+});
+
+test("a WebSocket channel lands on the resource its path or tag names, the rest under WebSockets", { skip }, () => {
+  const others = page(reference, "api-reference/others");
+  // By path: /v1/others/{otherId}/live shares others/{otherId} with an operation here.
+  assert.match(others, /<span class="verb wss">WSS<\/span>/);
+  assert.match(others, /wss:\/\/live\.weight\.test\/v1\/others\/<span class="pp">\{otherId\}<\/span>\/live/);
+  // Read from the server's side: publish is what the client sends.
+  assert.match(others, /aria-label="Send"[^>]*>[^<]*<\/span><span class="ws-name"[^>]*>watch</);
+  assert.match(others, /aria-label="Receive"[^>]*>[^<]*<\/span><span class="ws-name"[^>]*>changed</);
+  // The keyword summary isn't the title; the address is.
+  assert.match(others, />Live<\/h2>/);
+  // By tag: the "things" tag beats a path that shares nothing.
+  assert.match(page(reference, "api-reference/things"), />Things feed<\/h2>/);
+  // Nowhere else: a "WebSockets" resource of its own.
+  const ws = page(reference, "api-reference/websockets");
+  assert.match(ws, />Firehose<\/h2>/);
+  assert.match(ws, /<title>WebSockets · /);
+  assert.doesNotMatch(ws, />Live<\/h2>|>Things feed<\/h2>/);
+  assert.doesNotMatch(others, />Firehose<\/h2>|>Things feed<\/h2>/);
+  // The handshake is a request a reader can copy, like every other card.
+  // Its required query parameters are in the URL; optional ones aren't.
+  assert.match(others, /<pre class="ws-hs">GET wss:\/\/live\.weight\.test\/v1\/others\/\{otherId\}\/live\?token=&lt;token&gt;\nConnection: Upgrade\nUpgrade: websocket\n/);
+  // A message's description is markdown, rendered the way a lead is.
+  assert.match(others, /class="sec-lead msg-lead"[^>]*>Starts <strong>watching<\/strong> this other\.</);
+  // Only the version with an AsyncAPI file has channels.
+  assert.doesNotMatch(page(reference, "api-reference/v1/others"), /class="verb wss"/);
+  assert.ok(!fs.existsSync(path.join(reference, "api-reference/v1/websockets.html")));
 });

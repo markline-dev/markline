@@ -3,7 +3,7 @@
 import { createContext, Fragment, useContext, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { withEndpoints } from "@/lib/apiref-payload";
-import type { ApiRefView, AttrView, EndpointView, EventColors, EventView, NavTreeNode, NavParent } from "@/lib/apiref-view";
+import type { ApiRefView, AttrView, ChannelView, EndpointView, EventColors, EventView, NavTreeNode, NavParent } from "@/lib/apiref-view";
 import type { AiPublicConfig } from "@/lib/config";
 import { ApiExplorer, BinaryBody, PlaygroundProvider, usePlayground } from "../playground";
 import { colorizeJsonText } from "@/lib/playground-highlight";
@@ -500,6 +500,9 @@ export function MarklineApiRef({
           {r.sections.map((ep) => (
             <EndpointSection key={ep.opId} ep={ep} endpoints={view.endpoints} aiEnabled={aiOn} crumbs={opCrumbs} />
           ))}
+          {r.channels.map((ch) => (
+            <ChannelSection key={ch.id} ch={ch} aiEnabled={aiOn} crumbs={opCrumbs} />
+          ))}
 
           {/* Webhook events — collapsible cards at the foot of the resource */}
           {r.events.map((ev, i) => (
@@ -674,6 +677,98 @@ function EventSection({
             </div>
           </div>
         </div>
+      </div>
+    </section>
+  );
+}
+
+/* ── WebSocket channel section ───────────────────────────────────────────── */
+const DIRECTION_LABEL = { send: "Send", receive: "Receive", unspecified: "Message" } as const;
+
+/** The opening request, as plain text a reader can copy: the upgrade, its required query parameters and its headers. */
+function handshake(ch: ChannelView): string {
+  const group = (title: string) => ch.groups.find((g) => g.title === title)?.attrs ?? [];
+  const query = group("Query parameters").filter((a) => a.required).map((a) => `${a.name}=<${a.name}>`);
+  const headers = group("Headers").map((a) => `${a.name}: <${a.name}>`);
+  return [`GET ${ch.url || ch.address}${query.length ? `?${query.join("&")}` : ""}`, "Connection: Upgrade", "Upgrade: websocket", ...headers, "", "← 101 Switching Protocols"].join("\n");
+}
+
+/** A WebSocket channel: its handshake on the left and right, then its messages. */
+function ChannelSection({ ch, aiEnabled, crumbs }: { ch: ChannelView; aiEnabled: boolean; crumbs: string[] }) {
+  const withAttrs = ch.messages.filter((m) => m.attrs.length);
+  return (
+    <section className="api-sec" id={ch.id}>
+      <div className="api-l">
+        {crumbs.length > 0 && <div className="api-crumbs ep-crumbs">{crumbs.join(" › ")}</div>}
+        <h2>
+          {ch.title}
+          {ch.deprecated && <DeprecatedPill />}
+        </h2>
+        <div className={ch.deprecated ? "api-path dep" : "api-path"}>
+          <span className="verb wss">WSS</span>{" "}
+          <span className="api-url">
+            <span className="seg">
+              <PathText path={ch.url || ch.address} />
+            </span>
+          </span>
+        </div>
+        {ch.lead && <div className="sec-lead" data-md={ch.leadMd} dangerouslySetInnerHTML={{ __html: ch.lead }} />}
+        {ch.groups.map((g) => (
+          <div key={g.title}>
+            <div className="attr-h">{g.title}</div>
+            {g.attrs.map((a) => (
+              <Attr key={a.name} attr={a} showReqOpt />
+            ))}
+          </div>
+        ))}
+        {withAttrs.map((m, i) => (
+          <div key={i}>
+            <div className="attr-h">
+              {DIRECTION_LABEL[m.direction]} · {m.name}
+              {m.deprecated && <DeprecatedPill />}
+            </div>
+            {m.description && <div className="sec-lead msg-lead" data-md={m.descriptionMd} dangerouslySetInnerHTML={{ __html: m.description }} />}
+            {m.attrs.map((a) => (
+              <Attr key={a.name} attr={a} showReqOpt />
+            ))}
+          </div>
+        ))}
+      </div>
+      <div className="api-r">
+        <AiActions resource={ch.title} markdown aiEnabled={aiEnabled} />
+        <div className="code-card ws-handshake" data-label={`WSS ${ch.address} · Handshake`}>
+          <div className="cc-head">
+            <span className="cc-title">Handshake</span>
+            <CardTools />
+          </div>
+          <pre className="ws-hs">{handshake(ch)}</pre>
+        </div>
+        {ch.messages.length > 0 && (
+          <div className="ws-msgs">
+            <div className="ws-msgs-head">Messages</div>
+            {ch.messages.map((m, i) => (
+              <details className="ws-msg" key={`${m.direction}-${m.name}-${i}`}>
+                <summary>
+                  <span className={`ws-dir ${m.direction}`} aria-label={DIRECTION_LABEL[m.direction]}>
+                    {m.direction === "send" ? "↑" : m.direction === "receive" ? "↓" : "•"}
+                  </span>
+                  <span className="ws-name" title={m.name}>{m.name}</span>
+                  <span className="ws-pill">{DIRECTION_LABEL[m.direction]}</span>
+                  {m.preview && <code className="ws-preview">{m.preview}</code>}
+                </summary>
+                {m.html && (
+                  <div className="code-card" data-label={`WSS ${ch.address} · ${DIRECTION_LABEL[m.direction]} · ${m.name}`}>
+                    <div className="cc-head">
+                      <span className="cc-title">{m.name}</span>
+                      <CardTools />
+                    </div>
+                    <pre dangerouslySetInnerHTML={{ __html: m.html }} />
+                  </div>
+                )}
+              </details>
+            ))}
+          </div>
+        )}
       </div>
     </section>
   );

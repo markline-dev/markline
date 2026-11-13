@@ -20,6 +20,7 @@ import {
   type TagSection,
 } from "./openapi-tag-config";
 import { pruneSpec } from "./openapi-prune";
+import { attachChannels, readAsyncApiFile, WEBSOCKETS_TAG, type AsyncChannel } from "./asyncapi";
 import { loadConfig } from "./config";
 import { sampleMember } from "./openapi-schema";
 
@@ -133,6 +134,8 @@ export type OpenAPITag = {
   operations: OpenAPIOperation[];
   /** Aggregated `x-events` from the tag and its operations. */
   events: OpenAPIEvent[];
+  /** WebSocket channels from the AsyncAPI document that file under this resource. */
+  channels?: AsyncChannel[];
 };
 
 export type OpenAPIDoc = {
@@ -219,11 +222,50 @@ export function loadOpenApi(variantId?: string): OpenAPIDoc {
     showDeprecated: api.showDeprecated,
     auth: api.auth,
   });
+  addChannels(doc, variantId, api);
   // A build prints these once, from scripts/build-search.mjs; its page workers
   // would each repeat them.
   if (process.env.NODE_ENV !== "production") warnOnce(doc.warnings);
   _cache.set(key, doc);
   return doc;
+}
+
+/** The AsyncAPI document beside a spec: `api.asyncapi.file`, else `api/asyncapi.json`. */
+export function asyncApiPath(variantId?: string): string {
+  const configured = loadConfig().api.asyncapi?.file;
+  const dir = variantId ? path.join(contentRoot(), variantId) : contentRoot();
+  return configured ? path.join(dir, configured) : path.join(dir, "api", "asyncapi.json");
+}
+
+export { WEBSOCKETS_TAG };
+
+/**
+ * Put the AsyncAPI document's channels on the reference's resources: a channel
+ * joins its tag's resource, or the one its path shares most with, or a
+ * "WebSockets" resource after the rest. URLs of existing pages don't change.
+ * scripts/asyncapi-build.mjs makes the same choice for the sitemap.
+ */
+function addChannels(doc: OpenAPIDoc, variantId: string | undefined, api: ReturnType<typeof loadConfig>["api"]) {
+  const read = readAsyncApiFile(asyncApiPath(variantId), { perspective: api.asyncapi?.perspective, showDeprecated: api.showDeprecated });
+  if (!read) return;
+  doc.warnings.push(...read.warnings);
+  const opts: TagOptions = { tags: api.tags };
+  const { byResource, rest } = attachChannels(
+    read.channels,
+    doc.tags.map((t) => ({ name: t.name, paths: t.operations.map((o) => o.path) })),
+    (tag) => resolveTag(tag, opts),
+  );
+  for (const tag of doc.tags) {
+    const mine = byResource.get(tag.name);
+    if (mine?.length) tag.channels = mine;
+  }
+  if (rest.length) {
+    const existing = doc.tags.find((t) => t.name === WEBSOCKETS_TAG);
+    if (existing) existing.channels = [...(existing.channels ?? []), ...rest];
+    else doc.tags.push({ name: WEBSOCKETS_TAG, operations: [], events: [], channels: rest });
+    // Its own spelling, not "Web Sockets"; a label from api.tags still wins.
+    doc.tagLabels[WEBSOCKETS_TAG] ??= WEBSOCKETS_TAG;
+  }
 }
 
 /** The security scheme `api.auth` stands for. */

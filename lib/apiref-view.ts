@@ -1,10 +1,11 @@
 import type { JSONSchema, OpenAPIDoc, OpenAPIEvent, OpenAPIOperation, OpenAPIParameter, OpenAPITag } from "./openapi";
-import { eventAnchor, hasOpenApiSpec, resolveSchema } from "./openapi";
+import { eventAnchor, hasOpenApiSpec, resolveSchema, sampleFromSchema } from "./openapi";
 import { allResponses, codeSamples, colorizeJson, successResponse, type CodeRail } from "./openapi-codegen";
 import { buildPlaygroundSpec } from "./playground-spec";
 import { mdToHtml } from "./md-desc";
 import { hoistEndpoints } from "./apiref-payload";
 import { uniqueAnchors } from "./apiref-anchors";
+import type { AsyncChannel } from "./asyncapi";
 import type { PlaygroundSpec } from "@/components/docs/api/playground";
 import { loadConfig, playgroundMode } from "./config";
 import { tagSlug, parseOpenApiTag, buildTagTree, segmentDisplayName, type TagTreeNode } from "./openapi-tags";
@@ -25,6 +26,37 @@ export { tagSlug, parseOpenApiTag, segmentDisplayName } from "./openapi-tags";
 export type AttrView = FieldView;
 
 export type ParamGroup = { title: string; attrs: AttrView[] };
+
+/** A message on a WebSocket channel: which way it goes, and what it carries. */
+export type ChannelMessageView = {
+  name: string;
+  direction: "send" | "receive" | "unspecified";
+  /** The description as sanitised HTML, the way a lead is, and its markdown. */
+  description?: string;
+  descriptionMd?: string;
+  deprecated?: boolean;
+  /** One line of the example, for the collapsed row. */
+  preview: string;
+  /** The whole example, colourised. */
+  html: string;
+  attrs: AttrView[];
+};
+
+/** A WebSocket channel's section on its resource page. */
+export type ChannelView = {
+  id: string;
+  title: string;
+  address: string;
+  /** The URL a client connects to: the first server, then the address. */
+  url: string;
+  deprecated?: boolean;
+  /** Rendered from markdown to sanitized HTML. */
+  lead?: string;
+  leadMd?: string;
+  /** Path parameters, query parameters and headers of the handshake. */
+  groups: ParamGroup[];
+  messages: ChannelMessageView[];
+};
 
 /** A single documented response, for the status-code switcher on a code card. */
 export type ResponseView = { status: string; label: string; tone: "g" | "r"; html: string };
@@ -115,6 +147,8 @@ export type ResourceView = {
   events: EventView[];
   object?: ObjectView;
   sections: EndpointView[];
+  /** The resource's WebSocket channels, after its operations. */
+  channels: ChannelView[];
 };
 
 export type SearchEntry = {
@@ -191,15 +225,20 @@ function anchorBase(op: OpenAPIOperation): string {
  * repeats numbered and the page's own ids (the resource, its object, its endpoint
  * list and its events) left alone. Everything that links to an operation uses it.
  */
-export function operationAnchors(tag: OpenAPITag, doc: Pick<OpenAPIDoc, "webhooks">): Map<OpenAPIOperation, string> {
+export function operationAnchors(tag: OpenAPITag, doc: Pick<OpenAPIDoc, "webhooks">): Map<OpenAPIOperation | AsyncChannel, string> {
   const slug = tagSlug(tag.name);
   const events = [
     ...(tag.events ?? []).map((e) => e.name),
     ...(doc.webhooks ?? []).filter((w) => w.tags.includes(tag.name)).map((w) => w.name),
   ];
   const reserved = [slug, `${slug}-object`, `ep-panels-${slug}`, ...events.map(eventAnchor)];
-  const ids = uniqueAnchors(tag.operations.map(anchorBase), reserved);
-  return new Map(tag.operations.map((op, i) => [op, ids[i]]));
+  // Operations, then the resource's WebSocket channels: one set of ids, none repeated.
+  const items: (OpenAPIOperation | AsyncChannel)[] = [...tag.operations, ...(tag.channels ?? [])];
+  const ids = uniqueAnchors(
+    items.map((x) => ("operationId" in x ? anchorBase(x) : tagSlug(x.title ?? x.address) || "channel")),
+    reserved,
+  );
+  return new Map(items.map((x, i) => [x, ids[i]]));
 }
 
 export function displayName(s: string): string {
@@ -268,6 +307,52 @@ function paramGroups(op: OpenAPIOperation, root: unknown): ParamGroup[] {
     });
   }
   return groups;
+}
+
+/** The handshake's parameters and the messages, ready to render. */
+const DIRECTION_ORDER = { send: 0, receive: 1, unspecified: 2 } as const;
+
+/** A server URL and a channel address, with one slash between them. */
+export const joinUrl = (server: string, address: string): string =>
+  !server ? address : /^[a-z][a-z0-9+.-]*:\/\//i.test(address) ? address : `${server.replace(/\/+$/, "")}/${address.replace(/^\/+/, "")}`;
+
+function buildChannel(c: AsyncChannel, id: string, root: unknown): ChannelView {
+  const groups: ParamGroup[] = [];
+  if (c.parameters.length) {
+    groups.push({
+      title: "Path parameters",
+      attrs: c.parameters.map((p) => ({ ...paramField({ name: p.name, description: p.description, schema: p.schema }, true), optional: undefined })),
+    });
+  }
+  const query = attrsFromSchema(c.query, root);
+  if (query.length) groups.push({ title: "Query parameters", attrs: query });
+  const headers = attrsFromSchema(c.headers, root);
+  if (headers.length) groups.push({ title: "Headers", attrs: headers });
+  return {
+    id,
+    title: c.title ?? c.address,
+    address: c.address,
+    url: joinUrl(c.servers[0] ?? "", c.address),
+    deprecated: c.deprecated,
+    lead: mdToHtml(c.description),
+    leadMd: c.description,
+    groups,
+    // What the client sends first, then what it receives, each in the document's order.
+    messages: [...c.messages].sort((a, b) => DIRECTION_ORDER[a.direction] - DIRECTION_ORDER[b.direction]).map((m) => {
+      const sample = m.examples.length ? m.examples[0] : m.payload ? sampleFromSchema(m.payload, root) : null;
+      const line = sample === null || sample === undefined ? "" : JSON.stringify(sample);
+      return {
+        name: m.title ?? m.name,
+        direction: m.direction,
+        description: mdToHtml(m.description ?? m.summary),
+        descriptionMd: m.description ?? m.summary,
+        deprecated: m.deprecated,
+        preview: line.length > 90 ? `${line.slice(0, 89)}…` : line,
+        html: sample === null || sample === undefined ? "" : colorizeJson(sample),
+        attrs: attrsFromSchema(m.payload, root),
+      };
+    }),
+  };
 }
 
 function buildEndpoint(
@@ -375,6 +460,7 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
           deprecated: op.deprecated,
           streaming: op.streaming,
         })),
+        ...(activeTag.channels ?? []).map((c) => ({ id: anchors.get(c)!, verb: "WSS", name: c.title ?? c.address, opId: "", deprecated: c.deprecated })),
         ...events.map((ev) => ({ id: ev.id, verb: null, name: ev.name, opId: "", evt: ev.tone })),
       ]
     : [];
@@ -425,17 +511,27 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
     section: activeTag ? (doc.sections ?? []).find((sec) => sec.tags.includes(activeTag.name))?.title : undefined,
     lead: mdToHtml(activeTag?.description),
     leadMd: activeTag?.description,
-    endpoints: (activeTag?.operations ?? []).map((op) => ({
-      title: op.summary ?? op.operationId,
-      verb: VERB[op.method] ?? op.method.toUpperCase(),
-      path: op.path,
-      id: anchors.get(op)!,
-      deprecated: op.deprecated,
-      streaming: op.streaming,
-    })),
+    endpoints: [
+      ...(activeTag?.operations ?? []).map((op) => ({
+        title: op.summary ?? op.operationId,
+        verb: VERB[op.method] ?? op.method.toUpperCase(),
+        path: op.path,
+        id: anchors.get(op)!,
+        deprecated: op.deprecated,
+        streaming: op.streaming,
+      })),
+      ...(activeTag?.channels ?? []).map((c) => ({
+        title: c.title ?? c.address,
+        verb: "WSS",
+        path: c.address,
+        id: anchors.get(c)!,
+        deprecated: c.deprecated,
+      })),
+    ],
     events,
     object,
     sections: [],
+    channels: (activeTag?.channels ?? []).map((c) => buildChannel(c, anchors.get(c)!, root)),
   };
   const hoisted = hoistEndpoints<ApiRefView["endpoints"][number], EndpointView>((activeTag?.operations ?? []).map((op) => buildEndpoint(op, doc, root, baseUrl, langs, interactive, base, anchors.get(op)!)));
   resource.sections = hoisted.sections;
@@ -487,6 +583,15 @@ function buildSearchIndex(doc: OpenAPIDoc, base = "/api-reference"): SearchEntry
         snippet: op.description || `${op.method.toUpperCase()} ${op.path}`,
         verb: (VERB[op.method] ?? op.method.toUpperCase()).toLowerCase(),
         href: `${base}/${slug}#${anchors.get(op)}`,
+      });
+    }
+    for (const c of tag.channels ?? []) {
+      out.push({
+        title: c.title ?? c.address,
+        crumbs: [...groupCrumbs, name],
+        snippet: c.description || `WebSocket ${c.address}`,
+        verb: "wss",
+        href: `${base}/${slug}#${anchors.get(c)}`,
       });
     }
     for (const ev of tag.events ?? []) {

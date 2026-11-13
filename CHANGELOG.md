@@ -5,6 +5,12 @@ All notable changes to `@markline/markline` and `@markline/create`.
 ## Unreleased
 
 ### Added
+- **WebSocket channels from AsyncAPI.** An `api/asyncapi.json` (AsyncAPI 2.x
+  or 3.0, JSON) adds its channels to the API reference: each on the resource
+  its tag or path matches, else a "WebSockets" page, with its parameters, the
+  handshake, and its messages marked Send or Receive with copyable samples.
+  `api.asyncapi.file` moves it; `api.asyncapi.perspective: "client"` reads a 2.x
+  document written from the client's side.
 - **`ai.rateLimit.trustedProxies` and `ai.rateLimit.ipHeader`** say which
   address Ask AI's built-in route counts a reader by: that many entries from
   the right of `X-Forwarded-For`, or a header your host sets, such as

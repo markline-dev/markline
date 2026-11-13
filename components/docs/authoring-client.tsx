@@ -23,24 +23,28 @@ function useUntilFound(panes: React.RefObject<(HTMLElement | null)[]>, key: unkn
 }
 
 /**
- * Calls `reveal(i)` for the pane that holds the URL's #target, on load and
- * when the hash changes, and for a pane find-in-page matches in.
+ * Opens the pane that holds the URL's #target, when that pane isn't showing:
+ * on load and when the hash changes, and when find-in-page matches in it. After
+ * a #link it then goes to the target, which the browser scrolled to while it
+ * was hidden and had no size. On a reload or back/forward the browser restores
+ * the scroll position itself, so that's left alone.
  */
 function useReveal(panes: React.RefObject<(HTMLElement | null)[]>, onReveal: (i: number) => void, shown: unknown) {
   // The latest callback, so the listeners are added once.
   const latest = useRef(onReveal);
   latest.current = onReveal;
-  // The #target to go to once its pane is showing: the browser scrolled while
-  // it was hidden, with no size, and showing it moves the page.
+  // The #target to go to once its pane is showing.
   const target = useRef<HTMLElement | null>(null);
   useEffect(() => {
     target.current?.scrollIntoView();
     target.current = null;
   }, [shown]);
   useEffect(() => {
-    const reveal = (i: number) => latest.current(i);
     const holding = (el: Element | null) => (el ? panes.current.findIndex((p) => p?.contains(el)) : -1);
-    const onHash = () => {
+    // Panes the browser has just shown itself ("until found"), for a #link or find-in-page.
+    const matched = new Set<number>();
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const fromHash = (scroll: boolean) => {
       let id = location.hash.slice(1);
       try {
         id = decodeURIComponent(id);
@@ -48,25 +52,36 @@ function useReveal(panes: React.RefObject<(HTMLElement | null)[]>, onReveal: (i:
       const el = id ? document.getElementById(id) : null;
       const i = holding(el);
       if (i < 0) return;
-      // The browser may already have shown it ("until found" content opens on
-      // a #link before hashchange fires), so always go there once it's shown:
-      // after the reveal renders, or shortly if there was nothing to render.
-      target.current = el;
-      reveal(i);
-      setTimeout(() => {
-        target.current?.scrollIntoView();
-        target.current = null;
-      }, 50);
+      const byBrowser = matched.delete(i);
+      if (!byBrowser && !panes.current[i]?.hasAttribute("hidden")) return; // already showing: the browser's jump is right
+      if (scroll) target.current = el;
+      latest.current(i);
+      // The browser showed it before hashchange, so the reveal may already have
+      // rendered without this target: go there shortly instead.
+      if (scroll && byBrowser) {
+        clearTimeout(timer);
+        timer = setTimeout(() => {
+          target.current?.scrollIntoView();
+          target.current = null;
+        }, 50);
+      }
     };
-    onHash();
+    const nav = (performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined)?.type;
+    fromHash(nav !== "reload" && nav !== "back_forward");
+    const onHash = () => fromHash(true);
     window.addEventListener("hashchange", onHash);
     const off = panes.current.map((p, i) => {
       if (!p) return () => {};
-      const f = () => reveal(i);
+      const f = () => {
+        matched.add(i);
+        setTimeout(() => matched.delete(i), 200); // only the hashchange that follows, if any
+        latest.current(i);
+      };
       p.addEventListener("beforematch", f);
       return () => p.removeEventListener("beforematch", f);
     });
     return () => {
+      clearTimeout(timer);
       window.removeEventListener("hashchange", onHash);
       off.forEach((f) => f());
     };
@@ -96,6 +111,7 @@ export function Tabs({ children }: { children: React.ReactNode }) {
     if (focus) buttons.current[i]?.focus();
   };
   const onKeyDown = (e: React.KeyboardEvent) => {
+    if (e.altKey || e.metaKey || e.ctrlKey) return; // the browser's own shortcuts
     const step = { ArrowRight: 1, ArrowLeft: -1 }[e.key];
     if (step) pick((active + step + tabs.length) % tabs.length, true);
     else if (e.key === "Home") pick(0, true);
@@ -160,6 +176,7 @@ export function Accordion({
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(!!defaultOpen);
+  const bodyId = useId();
   const body = useRef<(HTMLElement | null)[]>([]);
   useReveal(body, () => setOpen(true), open);
   useUntilFound(body, open);
@@ -172,6 +189,7 @@ export function Accordion({
         type="button"
         onClick={() => setOpen((o) => !o)}
         aria-expanded={open}
+        aria-controls={bodyId}
         className={`ml-accordion-toggle${open ? " open" : ""}`}
       >
         <span className="title">{title}</span>
@@ -186,6 +204,7 @@ export function Accordion({
       {/* Always in the page, hidden until found while closed. */}
       <div
         className="ml-accordion-body"
+        id={bodyId}
         ref={(el) => {
           body.current[0] = el;
         }}

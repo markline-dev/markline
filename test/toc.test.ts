@@ -165,7 +165,7 @@ test("the toc and the page agree on entities and comments", async () => {
   assert.deepEqual(await stepIdsIn(mdx), ["step-r-d", "step-caf-time"]);
 });
 
-test("the toc lists only what's in the page when it loads", () => {
+test("the toc lists everything in the page, marking what isn't showing when it loads", () => {
   const mdx = [
     "<Tabs>",
     '  <Tab title="A">',
@@ -192,11 +192,12 @@ test("the toc lists only what's in the page when it loads", () => {
     "  ## In a note",
     "</Note>",
   ].join("\n");
-  // Every tab is in the page; those after the first are marked, for the toc to
-  // show when that tab is picked. A closed accordion's headings stay out.
-  assert.deepEqual(extractToc(mdx).map((i) => [i.label, !!i.offTab]), [
+  // Every tab and accordion body is in the page; what isn't showing when it
+  // loads is marked, for the toc to show once it is.
+  assert.deepEqual(extractToc(mdx).map((i) => [i.label, !!i.offView]), [
     ["In the first tab", false],
     ["In the second tab", true],
+    ["In a closed one", true],
     ["In an open one", false],
     ["In a note", false],
   ]);
@@ -204,7 +205,7 @@ test("the toc lists only what's in the page when it loads", () => {
 
 test("a step in a later tab is listed for that tab, with its id", async () => {
   const mdx = '<Tabs>\n<Tab title="A">x</Tab>\n<Tab title="B">\n<Steps toc>\n<Step title="Later">y</Step>\n</Steps>\n</Tab>\n</Tabs>';
-  assert.deepEqual(extractToc(mdx), [{ id: "step-later", label: "Later", depth: 2, offTab: true }]);
+  assert.deepEqual(extractToc(mdx), [{ id: "step-later", label: "Later", depth: 2, offView: true }]);
   assert.deepEqual(await stepIdsIn(mdx), ["step-later"]);
 });
 
@@ -214,7 +215,7 @@ test("struck-through text in a heading reads as the page does", () => {
 
 test("a comment or space before the first tab doesn't hide it from the toc", () => {
   const tabs = (before: string) => [before, "<Tabs>", before, '<Tab title="A">', "## In first", "</Tab>", '<Tab title="B">', "## In second", "</Tab>", "</Tabs>"].join("\n");
-  const shown = (mdx: string, o?: { steps?: boolean }) => extractToc(mdx, o).filter((i) => !i.offTab).map((i) => i.label);
+  const shown = (mdx: string, o?: { steps?: boolean }) => extractToc(mdx, o).filter((i) => !i.offView).map((i) => i.label);
   assert.deepEqual(shown(tabs("{/* note */}")), ["In first"]);
   assert.deepEqual(shown(tabs('{" "}'), { steps: true }), ["In first"]);
 });
@@ -303,4 +304,40 @@ test("a hand-written toc entry that matches nothing on the page is reported", ()
 test("a repeated heading's id skips a step's own id", () => {
   const mdx = '## Step X\n\n## Step X\n\n<Steps toc>\n<Step title="X 1">y</Step>\n</Steps>\n';
   assert.deepEqual(ids(mdx), ["step-x", "step-x-2", "step-x-1"]);
+});
+
+test("inside a later tab or a closed accordion, a nested first tab is still out of view", () => {
+  const mdx = [
+    "<Tabs>",
+    '<Tab title="A">',
+    "## A",
+    "</Tab>",
+    '<Tab title="B">',
+    "<Tabs>",
+    '<Tab title="B1">',
+    "## B1",
+    "</Tab>",
+    "</Tabs>",
+    "</Tab>",
+    "</Tabs>",
+    "",
+    '<Accordion title="Closed">',
+    "<Tabs>",
+    '<Tab title="C1">',
+    "## C1",
+    "</Tab>",
+    "</Tabs>",
+    "</Accordion>",
+  ].join("\n");
+  assert.deepEqual(extractToc(mdx).map((i) => [i.label, !!i.offView]), [["A", false], ["B1", true], ["C1", true]]);
+});
+
+test("a hand-written toc list is marked for what isn't showing when the page loads", async () => {
+  const { withOffView } = await import("../lib/toc");
+  const body = '## Top\n\n<Tabs>\n<Tab title="A">\n## A\n</Tab>\n<Tab title="B">\n## B\n</Tab>\n</Tabs>\n';
+  assert.deepEqual(withOffView([{ id: "top", label: "Top" }, { id: "b", label: "B" }, { id: "nope", label: "?" }], body), [
+    { id: "top", label: "Top" },
+    { id: "b", label: "B", offView: true },
+    { id: "nope", label: "?" },
+  ]);
 });

@@ -55,7 +55,12 @@ test("every tab is in the page, the ones not showing hidden, with tab roles", { 
 });
 
 test("a closed accordion's body is in the page, hidden", { skip }, () => {
-  assert.match(html, /<div class="ml-accordion-body" hidden="">[\s\S]*Accordion only text\./);
+  const body = html.match(/<div class="ml-accordion-body"[^>]*>/)?.[0] ?? "";
+  assert.match(body, / hidden=""/);
+  assert.match(html.slice(html.indexOf(body)), /Accordion only text\./);
+  // The toggle names the body it opens.
+  const controls = html.match(/<button[^>]*aria-controls="([^"]+)"[^>]*class="ml-accordion-toggle"/)?.[1];
+  assert.ok(controls && body.includes(` id="${controls}"`), `aria-controls ${controls} names ${body}`);
 });
 
 test("On this page starts on the first tab, and every link it shows lands", { skip }, () => {

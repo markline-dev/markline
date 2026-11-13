@@ -16,7 +16,7 @@ export function TocList({ items }: { items: TocItem[] }) {
   // Items under a tab that isn't showing. From the page itself once it's here
   // (a tab picked, a link to another tab); until then, whatever isn't in the
   // first tab, so the server's list matches the page as it loads.
-  const [hiddenIds, setHiddenIds] = useState(() => new Set(items.filter((i) => i.offTab).map((i) => i.id)));
+  const [hiddenIds, setHiddenIds] = useState(() => new Set(items.filter((i) => i.offView).map((i) => i.id)));
 
   useEffect(() => {
     const update = () =>

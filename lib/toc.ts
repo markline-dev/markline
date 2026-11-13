@@ -8,9 +8,9 @@ import remarkMdx from "remark-mdx";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
 
-/** `offTab`: in a <Tab> other than the first, so not showing until that tab
- *  is picked; "On this page" hides it until then. */
-export type TocItem = { id: string; label: string; depth?: 2 | 3; offTab?: boolean };
+/** `offView`: in the page but not showing when it loads, in a <Tab> other than
+ *  the first or a closed <Accordion>; "On this page" shows it once it is. */
+export type TocItem = { id: string; label: string; depth?: 2 | 3; offView?: boolean };
 
 function slugify(s: string): string {
   return s.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
@@ -50,19 +50,21 @@ function flag(node: MdxNode, name: string): boolean {
 }
 
 /**
- * The children in the page when it loads, so a link to them lands: the first
- * <Tab>, an <Accordion> only if it starts open, and nothing in a <CodeGroup>,
- * which shows only its fences.
+ * The children the page renders: every <Tab> and <Accordion> body (shown or
+ * not; visit() marks those that aren't showing when it loads), and nothing in
+ * a <CodeGroup>, which shows only its fences.
  */
 function shownChildren(node: MdxNode): MdxNode[] {
   const children = node.children ?? [];
   if (node.name === "CodeGroup") return [];
-  if (node.name === "Accordion" && !flag(node, "defaultOpen")) return [];
-  // Every <Tab> is in the page; visit() marks those after the first. A comment
-  // or {" "} between them renders nothing.
+  // A comment or {" "} between tabs renders nothing.
   if (node.name === "Tabs") return children.filter((c) => !c.type.endsWith("Expression"));
   return children;
 }
+
+/** Whether `node`'s i-th child is out of view when the page loads. */
+const offViewChild = (node: MdxNode, i: number) =>
+  (node.name === "Tabs" && i > 0) || (node.name === "Accordion" && !flag(node, "defaultOpen"));
 
 const isTocHeading = (node: MdxNode) => node.type === "heading" && (node.depth === 2 || node.depth === 3);
 
@@ -111,9 +113,9 @@ function planToc(tree: MdxNode, opts: { steps?: boolean }) {
   const items: TocItem[] = [];
   const steps = new Map<MdxNode, string>();
   let underH2 = false;
-  const visit = (node: MdxNode, listing: boolean, offTab: boolean) => {
+  const visit = (node: MdxNode, listing: boolean, offView: boolean) => {
     let list = listing;
-    const off = offTab ? { offTab: true } : {};
+    const off = offView ? { offView: true } : {};
     if (node.type === "heading") {
       if (node.depth === 2) underH2 = true;
       const id = ids.get(node);
@@ -130,7 +132,7 @@ function planToc(tree: MdxNode, opts: { steps?: boolean }) {
         items.push({ id, label, depth: underH2 ? 3 : 2, ...off });
       }
     }
-    shownChildren(node).forEach((c, i) => visit(c, list, offTab || (node.name === "Tabs" && i > 0)));
+    shownChildren(node).forEach((c, i) => visit(c, list, offView || offViewChild(node, i)));
   };
   visit(tree, false, false);
   return { items, headings: ids, steps, ids: used };
@@ -152,6 +154,16 @@ export function extractToc(body: string, opts: { steps?: boolean } = {}): TocIte
   } catch {
     return [];
   }
+}
+
+/**
+ * A hand-written `toc:` list, with each entry marked `offView` when its target
+ * isn't showing as the page loads (from the page's own plan), so it doesn't
+ * appear on the server and then vanish.
+ */
+export function withOffView(toc: TocItem[], body: string, opts: { steps?: boolean } = {}): TocItem[] {
+  const off = new Set(extractToc(body, opts).filter((i) => i.offView).map((i) => i.id));
+  return toc.map((t) => (off.has(String(t?.id)) ? { ...t, offView: true } : t));
 }
 
 /**

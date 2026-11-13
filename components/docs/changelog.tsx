@@ -37,7 +37,7 @@ function entryComponents(date: string): MDXComponents {
 export function changelogToc(entries: ChangelogEntry[]): TocItem[] {
   return entries.flatMap((e) => [
     { id: e.date, label: formatDate(e.date), depth: 2 as const },
-    ...extractToc(e.body).map((h) => ({ id: headingId(e.date, h.id), label: h.label, depth: 3 as const })),
+    ...extractToc(e.body).map((h) => ({ id: headingId(e.date, h.id), label: h.label, depth: 3 as const, ...(h.offView ? { offView: true } : {}) })),
   ]);
 }
 

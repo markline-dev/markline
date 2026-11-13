@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 // lib/ imports resolve via test/setup.mjs, which `npm test` loads first.
-import { uniqueAnchors } from "../scripts/apiref-anchors.mjs";
+import { pageAnchors, uniqueAnchors } from "../scripts/apiref-anchors.mjs";
 import { buildApiRefView, operationAnchors } from "../lib/apiref-view.ts";
 import { normalize } from "../lib/openapi.ts";
 
@@ -106,4 +106,17 @@ test("two operations with one operationId: a warning, and still two anchors on t
   assert.deepEqual(ids, ["get-thing", "get-thing-1"]);
   const view = buildApiRefView(doc, dup, "text-to-speech");
   assert.deepEqual(view.resource.sections.map((s) => s.id), ids);
+});
+
+test("pageAnchors: the page's own ids and its events' are never taken; operations come first", () => {
+  const ids = pageAnchors(
+    "speech",
+    [{ summary: "Speech", operationId: "a" }, { summary: "Event done", operationId: "b" }, { operationId: "c" }],
+    [{ title: "Event done", address: "/x" }, { address: "/Speech Object" }, { address: "" }],
+    ["event-done"],
+  );
+  assert.deepEqual(ids, {
+    operations: ["speech-1", "event-done-1", "c"],
+    channels: ["event-done-2", "speech-object-1", "channel"],
+  });
 });

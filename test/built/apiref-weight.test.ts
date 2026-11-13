@@ -8,6 +8,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import zlib from "node:zlib";
 
 const ROOT = path.resolve(import.meta.dirname, "../..");
 
@@ -492,12 +493,23 @@ test("every channel link the build writes lands on its id on the page: search re
   fs.mkdirSync(path.join(cwd, "public"), { recursive: true });
   const r = spawnSync(process.execPath, [path.join(ROOT, "scripts", "build-search.mjs")], { cwd, encoding: "utf8", env: buildEnv({ MARKLINE_CONTENT: content }) });
   assert.equal(r.status, 0, `${r.stdout}\n${r.stderr}`);
-  const text = ["llms.txt", "llms-full.txt"].map((f) => fs.readFileSync(path.join(cwd, "public", f), "utf8")).join("\n");
-  const links = [...text.matchAll(/\]\((\/api-reference\/[^)#\s]+#[^)\s]+)\)/g)].map((m) => m[1]);
-  assert.deepEqual([...new Set(links)].sort(), [...records].sort());
-  for (const url of links) assert.ok(lands(url), url);
-  // What field hiding covers on the pages isn't in the llms files at all.
-  assert.doesNotMatch(text, /shardsecret|shardvalue|refsecret|refvalue|Internalfeed/);
+  const linksIn = (text: string) => [...new Set([...text.matchAll(/\]\((\/api-reference\/[^)#\s]+#[^)\s]+)\)/g)].map((m) => m[1]))].sort();
+  // Each output on its own: llms.txt's list, llms-full.txt's section, and the search index.
+  for (const f of ["llms.txt", "llms-full.txt"]) {
+    const text = fs.readFileSync(path.join(cwd, "public", f), "utf8");
+    assert.deepEqual(linksIn(text), [...records].sort(), f);
+    // What field hiding covers on the pages isn't in the llms files at all.
+    assert.doesNotMatch(text, /shardsecret|shardvalue|refsecret|refvalue|Internalfeed/, f);
+  }
+  // The search index's records, as pagefind stored them (gzipped "pagefind_dcd" + JSON).
+  const fragments = path.join(cwd, "public", "pagefind", "fragment");
+  const indexed = fs
+    .readdirSync(fragments)
+    .map((f) => zlib.gunzipSync(fs.readFileSync(path.join(fragments, f))).toString("utf8").replace(/^pagefind_dcd/, ""))
+    .map((json) => (JSON.parse(json) as { url: string }).url)
+    .filter((url) => url.includes("#"));
+  for (const url of records) assert.ok(indexed.includes(url), `${url} in the search index`);
+  for (const url of indexed.filter((u) => u.startsWith("/api-reference/"))) assert.ok(lands(url), url);
 });
 
 test("a version whose AsyncAPI document gives no page isn't offered, and has no pages", { skip }, () => {

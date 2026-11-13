@@ -14,7 +14,7 @@ import { buildApiRefView, tagSlug, parseOpenApiTag } from "@/lib/apiref-view";
 import { mdToText } from "@/lib/md-desc";
 import { mdxComponents } from "@/components/docs/mdx";
 import { getHighlighter, shellEnhancer } from "@/lib/shiki";
-import { contentRoot } from "@/lib/paths";
+import { contentRoot, pageSlug } from "@/lib/paths";
 import { SiteFooter } from "@/components/site-footer";
 import { aiConfig, loadConfig, nonDefaultVersionIds, feedbackConfig } from "@/lib/config";
 import { siteOpenGraph, siteTwitter } from "@/lib/site-meta";
@@ -124,7 +124,9 @@ export function generateStaticParams(): { slug?: string[] }[] {
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug?: string[] }> }): Promise<Metadata> {
-  const { slug } = await params;
+  // An encoded name that isn't a page (pageSlug: null) is the not-found path.
+  const decoded = pageSlug((await params).slug);
+  const slug = decoded === null ? [NOT_FOUND_SEGMENT] : decoded;
   const { variantId, rest } = parseVariant(slug);
   const doc = loadOpenApi(variantId);
   const path = "/api-reference" + (slug?.length ? `/${slug.join("/")}` : "");
@@ -147,7 +149,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug?: st
 }
 
 export default async function ApiReferencePage({ params }: { params: Promise<{ slug?: string[] }> }) {
-  const { slug } = await params;
+  // An encoded name that isn't a page (pageSlug: null) is the not-found path.
+  const decoded = pageSlug((await params).slug);
+  const slug = decoded === null ? [NOT_FOUND_SEGMENT] : decoded;
   if (slug?.[0] === NOT_FOUND_SEGMENT) return uncachedNotFound();
   const { variantId, rest } = parseVariant(slug);
   if (!hasApiReference(variantId)) return uncachedNotFound();

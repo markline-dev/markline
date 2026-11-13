@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { pathHref } from "@/scripts/url-path.mjs";
 import { usePathname } from "next/navigation";
 import { TocList, type TocItem } from "./toc";
 import { DocsRate } from "./feedback";
@@ -152,7 +153,7 @@ function SidebarSections({
       if (!kids.length) {
         if (!l.href) return null;
         return (
-          <Link key={k} href={l.href} onClick={onNavigate} className={active ? "active" : undefined}>
+          <Link key={k} href={pathHref(l.href)} onClick={onNavigate} className={active ? "active" : undefined}>
             {rowContent(l)}
           </Link>
         );
@@ -166,7 +167,7 @@ function SidebarSections({
             // A page that also has children: the label navigates, the chevron
             // opens and closes.
             <div className="docs-nav-row">
-              <Link href={l.href} onClick={onNavigate} className={active ? "active" : undefined}>
+              <Link href={pathHref(l.href)} onClick={onNavigate} className={active ? "active" : undefined}>
                 {rowContent(l)}
               </Link>
               <button

@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { pageSlug } from "@/lib/paths";
 import { NOT_FOUND_SEGMENT, uncachedNotFound } from "@/lib/uncached-not-found";
 import type { Metadata } from "next";
 import { MDXRemote } from "next-mdx-remote/rsc";
@@ -70,8 +71,8 @@ function changelogMetadata(slug: string[]): Metadata | undefined {
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug?: string[] }> }): Promise<Metadata> {
-  const { slug } = await params;
-  if (slug?.[0] === NOT_FOUND_SEGMENT) return {};
+  const slug = pageSlug((await params).slug);
+  if (slug === null || slug?.[0] === NOT_FOUND_SEGMENT) return {};
   const cl = changelogMetadata(slug ?? []);
   if (cl) return cl;
   const doc = getDoc(slug);
@@ -98,8 +99,8 @@ export async function generateMetadata({ params }: { params: Promise<{ slug?: st
 const warnedMigration = new Set<string>();
 
 export default async function DocsCatchAll({ params }: { params: Promise<{ slug?: string[] }> }) {
-  const { slug } = await params;
-  if (slug?.[0] === NOT_FOUND_SEGMENT) return uncachedNotFound();
+  const slug = pageSlug((await params).slug);
+  if (slug === null || slug?.[0] === NOT_FOUND_SEGMENT) return uncachedNotFound();
   const changelog = slug?.[0] === CHANGELOG_PATH.slice(1) ? await renderChangelog(slug) : undefined;
   if (changelog) return changelog;
   const doc = getDoc(slug);

@@ -153,6 +153,25 @@ export function listDocs(): Doc[] {
   return [listVariantDocs(undefined), ...prefixes.map((p) => listVariantDocs(p))].flat();
 }
 
+/**
+ * `file` as it's spelled on disk. A name with an accent can be stored composed
+ * ("café") or decomposed ("cafe" + accent), and a URL can carry either, so a
+ * name that isn't found as written is looked up by its NFC form.
+ */
+function onDisk(file: string): string | undefined {
+  if (fs.existsSync(file)) return file;
+  const parts = path.relative(contentRoot(), file).split(path.sep);
+  let dir = contentRoot();
+  for (const part of parts) {
+    if (!fs.statSync(dir, { throwIfNoEntry: false })?.isDirectory()) return undefined;
+    const want = part.normalize("NFC");
+    const match = fs.readdirSync(dir).find((n) => n.normalize("NFC") === want);
+    if (!match) return undefined;
+    dir = path.join(dir, match);
+  }
+  return fs.existsSync(dir) ? dir : undefined;
+}
+
 export function getDoc(slug: string[] | undefined): Doc | undefined {
   const s = slug ?? [];
   if (!isSafeSlug(s)) return undefined;
@@ -168,7 +187,7 @@ export function getDoc(slug: string[] | undefined): Doc | undefined {
     candidates.push(path.join(root, `${rest.join(path.sep)}.mdx`));
     candidates.push(path.join(root, rest.join(path.sep), "index.mdx"));
   }
-  const found = candidates.find((c) => fs.existsSync(c));
+  const found = candidates.map(onDisk).find((c): c is string => !!c);
   if (!found) return undefined;
   const { fm, body } = readMdx(found);
   return {

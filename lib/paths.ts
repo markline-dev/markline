@@ -10,6 +10,25 @@ export function isSafeSlug(slug: string[]): boolean {
 }
 
 /**
+ * A page route's slug as the file it names. Next gives page routes their
+ * segments still percent-encoded ("Getting%20Started", "caf%C3%A9"); route
+ * handlers get them decoded, so this is for pages only. Each segment is
+ * decoded and NFC-normalised, then checked like any other slug, so an encoded
+ * ".." or "/" is refused as the plain one is. `null` means no such page;
+ * `undefined` is the root.
+ */
+export function pageSlug(segments: string[] | undefined): string[] | undefined | null {
+  if (!segments) return undefined;
+  let decoded: string[];
+  try {
+    decoded = segments.map((s) => decodeURIComponent(s).normalize("NFC"));
+  } catch {
+    return null;
+  }
+  return isSafeSlug(decoded) ? decoded : null;
+}
+
+/**
  * Root directory that holds docs content (the `docs/` and `api/` subtrees).
  *
  * Configurable via the `MARKLINE_CONTENT` env var, which may be absolute or

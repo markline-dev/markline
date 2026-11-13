@@ -15,6 +15,7 @@ import { searchGroups, searchTrails } from "./search-groups.mjs";
 import { markdownPath, mdxToMarkdown, pageMarkdown, sectionIds, sectionIndex } from "./llms.mjs";
 import { removeGeneratedFiles, writeManifest } from "./generated-files.mjs";
 import { siteFiles } from "./site-files.mjs";
+import { pathHref } from "./url-path.mjs";
 import { CHANGELOG_PER_PAGE, clashMessage, exportClashes } from "./export-names.mjs";
 import { writeGithubStats } from "./github-stats.mjs";
 import { contentRootFrom } from "./content-root.mjs";
@@ -298,7 +299,7 @@ function writeLlms(root) {
   const name = cfg.name ?? cfg.seo?.title ?? "Documentation";
   const desc = cfg.seo?.description ?? cfg.description ?? "";
   const base = String(cfg.seo?.metadataBase ?? process.env.MARKLINE_SITE_URL ?? "").replace(/\/$/, "");
-  const abs = (u) => (base ? base + u : u);
+  const abs = (u) => (base ? base + pathHref(u) : pathHref(u));
 
   const docMap = docPagesForLlms(root);
   const out = generatedFiles(name);
@@ -394,7 +395,7 @@ function writeLlms(root) {
   }
   if (base) {
     const urls = [...pages]
-      .map((u) => `  <url>\n    <loc>${xmlEsc(base + u)}</loc>\n    <changefreq>weekly</changefreq>\n  </url>`)
+      .map((u) => `  <url>\n    <loc>${xmlEsc(base + pathHref(u))}</loc>\n    <changefreq>weekly</changefreq>\n  </url>`)
       .join("\n");
     out.write(
       "sitemap.xml",
@@ -639,7 +640,7 @@ async function main() {
   for (const r of records) {
     const group = groupOf(r);
     await index.addCustomRecord({
-      url: r.url,
+      url: pathHref(r.url),
       content: `${r.title}. ${r.content}`,
       language: "en",
       meta: { title: r.title, ...((r.meta ?? trails.get(r.url) ?? group) ? { section: r.meta ?? trails.get(r.url) ?? group } : {}) },

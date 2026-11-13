@@ -123,6 +123,11 @@ All notable changes to `@markline/markline` and `@markline/create`.
   header's picker.
 
 ### Fixed
+- **Pages whose file names have a space or an accent load on a Node server.**
+  `docs/Getting Started.mdx` or `docs/café.mdx` was a 404 on `markline start`
+  (a static export was fine). Links to such pages, in the sidebar, previous and
+  next, breadcrumbs, `sitemap.xml`, `llms.txt` and search, are now encoded
+  URLs too.
 - **Generated Node samples with Fern names camelCase nested keys too**
   (`voiceSettings: { similarityBoost: 1 }`), as Fern's TypeScript SDK does. A
   free-form map's keys (`additionalProperties`) stay as written.

@@ -56,6 +56,47 @@ function NavHref({ link, className, onClick, children }: {
   );
 }
 
+/**
+ * Re-asserts the resolved theme after hydration. The pre-paint script in
+ * app/layout.tsx sets data-theme before first paint, but third-party scripts
+ * injected into <head> before hydration (tag managers, edge analytics) can
+ * make React bail out of hydration and re-render <html> from scratch, wiping
+ * the attribute. Running the same resolution again post-mount makes the theme
+ * survive that, and the matchMedia listener keeps "system" live afterwards.
+ */
+function useThemeResilience(appearance: "light" | "dark" | "system") {
+  useEffect(() => {
+    const apply = () => {
+      let t: string | null = null;
+      try {
+        t = localStorage.getItem("docs-theme");
+      } catch {}
+      if (t !== "dark" && t !== "light") {
+        t =
+          appearance === "dark" || appearance === "light"
+            ? appearance
+            : window.matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light";
+      }
+      const html = document.documentElement;
+      if (html.getAttribute("data-theme") !== t) html.setAttribute("data-theme", t);
+      html.classList.toggle("dark", t === "dark");
+    };
+    apply();
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    const onChange = () => {
+      let stored: string | null = null;
+      try {
+        stored = localStorage.getItem("docs-theme");
+      } catch {}
+      if (stored !== "dark" && stored !== "light") apply();
+    };
+    mq.addEventListener("change", onChange);
+    return () => mq.removeEventListener("change", onChange);
+  }, [appearance]);
+}
+
 type Logo = { light?: string; dark?: string; text?: string; icon?: LogoIcon; iconTile?: boolean };
 
 export function SiteNav({
@@ -75,6 +116,7 @@ export function SiteNav({
   homeWidth = "full",
   header = "single",
   search = "sidebar",
+  appearance = "system",
 }: {
   /** Brand lockup: a logo image and/or text from config. Falls back to the
    *  Markline <Wordmark/> when no logo is configured. */
@@ -110,6 +152,8 @@ export function SiteNav({
   header?: "single" | "stacked";
   /** layout.search: "header" puts the search box in the topbar. */
   search?: "sidebar" | "header";
+  /** Configured default appearance (config.theme.appearance). */
+  appearance?: "light" | "dark" | "system";
 }) {
   const pathname = usePathname();
   const starCount = useStat(stars?.key, stars?.baked, stars?.mode ?? false);
@@ -122,6 +166,8 @@ export function SiteNav({
   // instead of tracking it locally.
   const [drawerOpen, setDrawerOpen] = useState(false);
   const expanded = menuOpen || drawerOpen;
+
+  useThemeResilience(appearance);
 
   useEffect(() => {
     const body = document.body;

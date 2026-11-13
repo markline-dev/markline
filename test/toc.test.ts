@@ -259,7 +259,7 @@ test("a step and a heading that read the same get different ids", () => {
   assert.deepEqual(ids('## Step one\n\n<Steps toc>\n<Step title="One">x</Step>\n<Step title="One">y</Step>\n</Steps>\n'), ["step-one", "step-one-1", "step-one-2"]);
 });
 
-async function headingIdsIn(mdx: string, opts?: { steps?: boolean }): Promise<string[]> {
+async function headingIdsIn(mdx: string, opts?: { steps?: boolean; reserved?: string[] }): Promise<string[]> {
   const parser = ["unified", "remark-parse", "remark-mdx"];
   const [{ unified }, { default: remarkParse }, { default: remarkMdx }] = await Promise.all(parser.map((m) => import(m)));
   const tree = unified().use(remarkParse).use(remarkMdx).parse(mdx);
@@ -295,4 +295,10 @@ test("a hand-written toc entry that matches nothing on the page is reported", ()
 test("a repeated heading's id skips a step's own id", () => {
   const mdx = '## Step X\n\n## Step X\n\n<Steps toc>\n<Step title="X 1">y</Step>\n</Steps>\n';
   assert.deepEqual(ids(mdx), ["step-x", "step-x-2", "step-x-1"]);
+});
+
+test("ids the page already has elsewhere are skipped", async () => {
+  const ids = await headingIdsIn("## 2026 10 15\n\n## 2026 10 15 fixes\n\n## Other\n", { reserved: ["2026-10-15", "2026-10-15-fixes"] });
+  assert.deepEqual(ids, ["2026-10-15-1", "2026-10-15-fixes-1", "other"]);
+  assert.deepEqual(await headingIdsIn("## 2026 10 15\n"), ["2026-10-15"], "nothing reserved, nothing moves");
 });

@@ -131,6 +131,9 @@ All notable changes to `@markline/markline` and `@markline/create`.
   header's picker.
 
 ### Fixed
+- **A heading in the changelog's intro no longer takes an entry's id.** An
+  intro heading such as `## 2026 10 15` got the same id as that day's entry;
+  it now gets its own.
 - **A file deleted from `public/` is no longer served.** `markline start`
   and `dev` kept serving a file the project had deleted from `public/`, from
   their copy in `.markline/`. A file it copied is now removed once it's gone

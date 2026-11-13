@@ -21,7 +21,7 @@ import { remarkCodeGroupTitles } from "@/lib/code-group";
 import { elementsIn, extractToc, missingTocIds, remarkTocIds } from "@/lib/toc";
 import { SiteFooter } from "@/components/site-footer";
 import type { Crumb, PageNavLink } from "@/components/docs/page";
-import { ChangelogEntryView, ChangelogView } from "@/components/docs/changelog";
+import { ChangelogEntryView, ChangelogView, changelogToc } from "@/components/docs/changelog";
 import { getChangelogEntry, listChangelog } from "@/lib/changelog";
 import {
   CHANGELOG_PATH, PER_PAGE, dateFromSlug, entryPath, formatDate, pageCount, pageFromSlug, pagePath,
@@ -260,18 +260,21 @@ async function renderChangelog(slug: string[]) {
   if (!page) return undefined;
   const pages = pageCount(entries.length);
   if (page > pages) return uncachedNotFound();
-  // docs/changelog.mdx, if it exists, supplies the title, lede and an intro.
+  // docs/changelog.mdx, if it exists, supplies the title, lede and an intro,
+  // shown on the first page only. Its headings' ids skip the entries' ids there.
   const intro = getDoc(["changelog"]);
+  const shown = entries.slice((page - 1) * PER_PAGE, page * PER_PAGE);
+  const reserved = changelogToc(shown).map((i) => i.id);
   return shell(
     <ChangelogView
       title={intro?.fm.title ?? "Changelog"}
       lede={intro?.fm.lede}
       intro={
         intro?.body.trim() && page === 1 ? (
-          <MDXRemote source={intro.body} components={mdxComponents} options={{ mdxOptions: { format: "mdx", remarkPlugins: [remarkGfm, remarkCodeGroupTitles, remarkTocIds], rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]] }, blockJS: false }} />
+          <MDXRemote source={intro.body} components={mdxComponents} options={{ mdxOptions: { format: "mdx", remarkPlugins: [remarkGfm, remarkCodeGroupTitles, [remarkTocIds, { reserved }]], rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]] }, blockJS: false }} />
         ) : undefined
       }
-      entries={entries.slice((page - 1) * PER_PAGE, page * PER_PAGE)}
+      entries={shown}
       page={page}
       pages={pages}
       rss={!!(config.seo.metadataBase ?? process.env.MARKLINE_SITE_URL)}

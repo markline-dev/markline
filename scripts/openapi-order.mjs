@@ -116,7 +116,7 @@ function configWarnings(known, order, alias, api) {
     } else if (resolveTag(target, api) === null) {
       out.push(`[markline] api.tags: "${name}" merges into "${target}", which is hidden, so its operations are hidden too.`);
     } else if (!known.has(target) && !override(api, target)?.mergeInto) {
-      const same = [...known].find((k) => slug(k) === slug(target));
+      const same = order.find((p) => p !== target && slug(p) === slug(target));
       const near = [...known].find((k) => closeName(k, target));
       if (same) {
         out.push(`[markline] api.tags: "${name}" merges into "${target}", which has the same URL as "${same}", so it joins that page. Did you mean "${same}"?`);

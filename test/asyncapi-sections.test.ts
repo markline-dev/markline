@@ -23,6 +23,8 @@ const spec = {
   paths: { "/things": { get: op("things", ["things"]) }, "/others": { get: op("others", ["others"]) }, "/zed": { get: op("zed", ["zed"]) } },
   "x-tagGroups": [{ name: "Core", tags: ["things"] }],
 };
+/** No AsyncAPI document. */
+const NONE: ChannelExtras = { pages: [], known: [], labels: {} };
 /** As channelExtras() gives them: `pages` already resolved through api.tags. */
 const extras = (groups?: unknown[], pages = ["WebSockets"]): ChannelExtras => ({ pages, groups, known: ["WebSockets", "live"], labels: { WebSockets: "WebSockets" } });
 
@@ -197,4 +199,25 @@ test("a label on WebSockets that can't reach the spec's own websockets page is r
   // On the page itself, the label works and nothing is said.
   const ok = place(lower, { tags: { websockets: { label: "Realtime" } } });
   assert.deepEqual([ok.titles[ok.order.indexOf("websockets")], ok.warnings], ["Realtime", []]);
+});
+
+test("a mergeInto target that's a new page, not a same-URL one, still says 'creates a new page'", () => {
+  const spec2 = {
+    openapi: "3.0.0",
+    info: { title: "t", version: "1" },
+    tags: [{ name: "Users" }, { name: "Billing" }],
+    paths: { "/a": { get: op("a", ["Admin"]) }, "/u": { get: op("u", ["Users"]) }, "/b": { get: op("b", ["Billing"]) } },
+  };
+  for (const tags of [{ Admin: { mergeInto: "users" }, Users: { hidden: true } }, { Admin: { mergeInto: "users" }, Users: { mergeInto: "Billing" } }]) {
+    const r = both({ tags }, NONE, spec2);
+    assert.ok(r.order.includes("users"), r.order.join());
+    assert.ok(r.warnings.some((w) => /"Admin" merges into "users", which isn't a tag in the spec, so it creates a new page\. Did you mean "Users"\?/.test(w)), r.warnings.join("\n"));
+    assert.ok(!r.warnings.some((w) => /joins that page/.test(w)), r.warnings.join("\n"));
+  }
+});
+
+test("a spec's own WebSockets tag with a label: renamed, and nothing said", () => {
+  const own = { ...undeclared, paths: { ...undeclared.paths, "/ws": { get: op("ws", ["WebSockets"]) } } };
+  const r = place(own, { tags: { WebSockets: { label: "Realtime" } } });
+  assert.deepEqual([r.titles[r.order.indexOf("WebSockets")], r.home, r.warnings], ["Realtime", ["WebSockets"], []]);
 });

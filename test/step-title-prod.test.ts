@@ -18,8 +18,12 @@ before(() => {
     '<Step title="Read [the guide](/guides/a)">b</Step>',
     '<Step title="Click [here](javascript:alert(1))">c</Step>',
     '<Step title="Install the SDK">d</Step>',
+    // The two ways Markdown writes a path with a space.
+    '<Step title="Open [Getting Started](</Getting Started>)">e</Step>',
+    '<Step title="See [it again](/Getting%20Started)">f</Step>',
     "</Steps>",
   ].join("\n");
+  fs.writeFileSync(path.join(site.dir, "docs", "Getting Started.mdx"), "---\ntitle: GS\n---\n\ngs\n");
   fs.writeFileSync(path.join(site.dir, "docs", "steps.mdx"), `---\ntitle: Steps\n---\n\n${steps}\n`);
   site.build();
   const file = filesUnder(path.join(site.dir, ".markline", ".next", "server", "app")).find((f) => f.endsWith(`${path.sep}steps.html`));
@@ -33,6 +37,8 @@ test("a step's heading shows its title formatted", { skip }, () => {
   assert.match(html, /<h3 id="step-run-now-with-npm">Run <strong>now<\/strong> with <code>npm<\/code><\/h3>/);
   assert.match(html, /<h3 id="step-read-the-guide">Read <a href="\/guides\/a">the guide<\/a><\/h3>/);
   assert.match(html, /<h3 id="step-install-the-sdk">Install the SDK<\/h3>/, "a plain title is as before");
+  assert.match(html, /<a href="\/Getting%20Started">Getting Started<\/a>/, "an internal link is encoded like every other");
+  assert.match(html, /<a href="\/Getting%20Started">it again<\/a>/, "and an encoded one isn't encoded twice");
 });
 
 test("a javascript: link in a title keeps its text and loses its URL", { skip }, () => {

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { resolveVideo } from "@/lib/video";
 import { calloutIcon } from "@/lib/callout-icon";
 import { titleNodes, type TitleNode } from "@/lib/inline-title";
+import { hrefAsPath, pathHref } from "@/scripts/url-path.mjs";
 import { isIconPath, navIcon } from "./nav-icons";
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -213,7 +214,7 @@ function InlineTitle({ nodes }: { nodes: TitleNode[] }) {
             return /^(https?:|mailto:)/i.test(n.href) ? (
               <a key={i} href={n.href} target="_blank" rel="noopener noreferrer"><InlineTitle nodes={n.children} /></a>
             ) : (
-              <Link key={i} href={n.href}><InlineTitle nodes={n.children} /></Link>
+              <Link key={i} href={pathHref(hrefAsPath(n.href))}><InlineTitle nodes={n.children} /></Link>
             );
         }
       })}

@@ -68,6 +68,11 @@ there. It's rebuilt on every run, so don't edit it, and keep it out of git
 there is removed on the next run, with a message naming it. The last build's
 output and any `.env` files stay.
 
+Your `public/` folder is copied into it on each run. A file you delete from
+`public/` stops being served by `markline dev` and `markline start` too. A
+file deleted before Markline started tracking this may still be served from
+the old copy; delete `.markline/public` once to clear it.
+
 `MARKLINE_DIST` puts the build output somewhere other than `.markline/.next`,
 so several builds of one project can sit side by side. It's read from the
 shell only, and must be a folder inside `.markline/` (a relative path such as

@@ -33,8 +33,10 @@ All notable changes to `@markline/markline` and `@markline/create`.
   site-wide `llms.txt`. They're files in a build or static export, and served
   by `markline dev`. Copy for LLM and View as Markdown use the same text.
 - **Steps in "On this page".** `<Steps toc>`, or `toc: steps` in frontmatter,
-  lists step titles in the table of contents, as each step shows them. A
-  step's link is `#step-<title>`, with `-1`, `-2` added when it repeats.
+  lists step titles in the table of contents. A step's title can use inline
+  Markdown (code, bold, italics, links): the step shows it formatted, "On this
+  page" shows its text, and its link is `#step-<text>`, with `-1`, `-2` added
+  when it repeats.
 - **A warning for a `toc:` link that misses.** When a page's frontmatter lists
   its own "On this page" entries, Markline warns, at build and in dev, about any
   `#id` that no heading or element on the page has.

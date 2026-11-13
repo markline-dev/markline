@@ -47,7 +47,7 @@ const STEPS = [
 test("extractToc lists step titles inside <Steps toc>", () => {
   assert.deepEqual(extractToc(STEPS), [
     { id: "step-install-the-sdk", label: "Install the SDK", depth: 2 },
-    { id: "step-set-api-key-env", label: "Set `API_KEY` > env", depth: 2 },
+    { id: "step-set-api-key-env", label: "Set API_KEY > env", depth: 2 },
     { id: "example-response", label: "Example response", depth: 2 },
   ]);
 });
@@ -56,7 +56,7 @@ test("toc: steps lists every <Steps>, nested under the ## before it", () => {
   const items = extractToc(STEPS, { steps: true });
   assert.deepEqual(items.map((i) => [i.label, i.depth]), [
     ["Install the SDK", 2],
-    ["Set `API_KEY` > env", 2],
+    ["Set API_KEY > env", 2],
     ["Example response", 2],
     ["Unlisted", 3],
   ]);
@@ -226,9 +226,20 @@ test("angle brackets inside inline code are kept, not stripped as HTML", () => {
   assert.equal(labelOf("Hello <b>world</b> and `<x>`"), "Hello world and <x>");
 });
 
-test("a step's title is listed as the page shows it", () => {
-  // <Step> prints its title as given, so "On this page" does too.
-  assert.deepEqual(extractToc('<Steps toc>\n<Step title="Run **now**">x</Step>\n</Steps>').map((i) => i.label), ["Run **now**"]);
+test("a step's title is listed as its text, and its id has no URL", () => {
+  const steps = (titles: string[]) => `<Steps toc>\n${titles.map((t) => `<Step title="${t}">x</Step>`).join("\n")}\n</Steps>`;
+  const items = extractToc(steps(["Run **now** with `npm`", "See [the docs](https://x.test/a)", "1. Install"]));
+  assert.deepEqual(items.map((i) => [i.label, i.id]), [
+    ["Run now with npm", "step-run-now-with-npm"],
+    ["See the docs", "step-see-the-docs"],
+    ["1. Install", "step-1-install"],
+  ]);
+});
+
+test("a plain title keeps the id it had", () => {
+  for (const [title, id] of [["Install the SDK", "step-install-the-sdk"], ["Café & co", "step-caf-co"], ["Use v2.1 (beta)", "step-use-v2-1-beta"]]) {
+    assert.equal(extractToc(`<Steps toc>\n<Step title="${title}">x</Step>\n</Steps>`)[0].id, id, title);
+  }
 });
 
 const ids = (mdx: string, opts?: { steps?: boolean }) => extractToc(mdx, opts).map((i) => i.id);

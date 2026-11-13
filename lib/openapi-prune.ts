@@ -351,3 +351,20 @@ export function pruneSpec<T>(raw: T, hideExtensions: readonly string[]): T {
   if (!hideExtensions.length || !isNode(raw)) return raw;
   return new Pruner(raw, hideExtensions).document() as T;
 }
+
+/**
+ * One schema's visible part, for a schema with no `$ref`s left (AsyncAPI's are
+ * resolved when read): hidden properties and members dropped, its own examples
+ * cleaned. Undefined when nothing of it is visible.
+ */
+export function pruneSchema<T>(schema: T, hideExtensions: readonly string[]): T | undefined {
+  if (!hideExtensions.length || !isNode(schema)) return schema;
+  const pruner = new Pruner({}, hideExtensions);
+  return pruner.schemaGone(schema) ? undefined : (pruner.schema(schema) as T);
+}
+
+/** An example without the keys `schema` (no `$ref`s left) declares hidden. */
+export function pruneExample(value: unknown, schema: unknown, hideExtensions: readonly string[]): unknown {
+  if (!hideExtensions.length) return value;
+  return new Pruner({}, hideExtensions).cleanExample(value, schema);
+}

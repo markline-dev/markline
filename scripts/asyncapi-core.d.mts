@@ -1,7 +1,7 @@
 // Types for scripts/asyncapi-core.mjs, which lib/asyncapi.ts and build-search import.
 import type { AsyncChannel, AsyncDoc, Perspective } from "../lib/asyncapi";
 
-export function normalizeAsyncApi(input: unknown, opts?: { perspective?: Perspective }): AsyncDoc;
+export function normalizeAsyncApi(input: unknown, opts?: { perspective?: Perspective; hideExtensions?: readonly string[] }): AsyncDoc;
 
 export type Resource = { name: string; paths: string[] };
 export function attachChannels(
@@ -14,5 +14,5 @@ export function attachChannels(
 export const WEBSOCKETS_TAG: "WebSockets";
 export function readAsyncApiFile(
   file: string,
-  opts?: { perspective?: Perspective; showDeprecated?: boolean },
+  opts?: { perspective?: Perspective; showDeprecated?: boolean; hideExtensions?: readonly string[] },
 ): { channels: AsyncChannel[]; warnings: string[] } | null;

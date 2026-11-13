@@ -25,12 +25,14 @@ const str = (v) => (typeof v === "string" && v.trim() ? v : undefined);
 
 /** Local `$ref`s only (`#/…`), through chains; undefined when missing, external or a cycle. */
 class Refs {
-          root;
-          warnings;
-          warned = new Set();
-  constructor(root, warnings) {
+  root;
+  warnings;
+  exts;
+  warned = new Set();
+  constructor(root, warnings, exts = []) {
     this.root = root;
     this.warnings = warnings;
+    this.exts = exts;
   }
 
   /** The node itself, or what its `$ref` points at. */
@@ -50,13 +52,24 @@ class Refs {
     return this.get(cur, seen);
   }
 
+  /**
+   * Whether `api.hideExtensions` hides this node: a flag on it, or on what its
+   * `$ref` points at. Hidden channels, operations and messages are left out, the
+   * way hidden operations are.
+   */
+  hidden(node) {
+    if (!this.exts.length || !isNode(node)) return false;
+    const flagged = (n) => isNode(n) && this.exts.some((e) => !!n[e]);
+    return flagged(node) || (typeof node.$ref === "string" && flagged(this.get(node)));
+  }
+
   /** The last segment of a `$ref`, as a fallback name ("#/components/messages/Ping" → "Ping"). */
   static key(node) {
     const ref = isNode(node) ? node.$ref : undefined;
     return typeof ref === "string" ? ref.split("/").pop()?.replace(/~1/g, "/").replace(/~0/g, "~") : undefined;
   }
 
-          warn(message) {
+  warn(message) {
     if (!this.warned.has(message)) {
       this.warned.add(message);
       this.warnings.push(message);
@@ -113,7 +126,7 @@ const idPart = (s) => s.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-+|-+$/g, "") |
  */
 function messagesOf(raw, fallbackId, direction, refs) {
   const m = refs.get(raw);
-  if (!m) return [];
+  if (!m || refs.hidden(raw)) return [];
   const id = Refs.key(raw) ?? fallbackId;
   const base = {
     contentType: str(m.contentType),
@@ -124,7 +137,7 @@ function messagesOf(raw, fallbackId, direction, refs) {
   if (payload && Array.isArray(payload.oneOf) && !payload.properties) {
     return payload.oneOf.flatMap((member, i) => {
       const kind = refs.get(member);
-      if (!kind) return [];
+      if (!kind || refs.hidden(member)) return [];
       const name = str(kind.title) ?? Refs.key(member) ?? `Message ${i + 1}`;
       return [
         {
@@ -156,14 +169,12 @@ function messagesOf(raw, fallbackId, direction, refs) {
 
 /** A 2.x operation's messages: `message` is one message or a `oneOf` list of them. */
 function operationMessages(op, direction, channelId, refs) {
-  if (!op) return [];
+  if (!op || refs.hidden(op)) return [];
   const m = refs.get(op.message);
   if (!m) return [];
   const list = Array.isArray(m.oneOf) ? m.oneOf : [op.message];
   return list.flatMap((x, i) => messagesOf(x, `${channelId}-${direction}-${i}`, direction, refs));
 }
-
-/** Which side a 2.x document is written from: the spec's ("server") or the client's. */
 
 /** A summary that's only an operation keyword ("subscribe") says nothing as a title. */
 const said = (v) => {
@@ -202,9 +213,12 @@ function v2(raw, refs, servers, perspective) {
   const [pub, sub] = perspective === "client" ? ["receive", "send"] : ["send", "receive"];
   return Object.entries(isNode(raw.channels) ? raw.channels : {}).flatMap(([address, value]) => {
     const ch = refs.get(value);
-    if (!ch) return [];
-    const publish = refs.get(ch.publish);
-    const subscribe = refs.get(ch.subscribe);
+    if (!ch || refs.hidden(value)) return [];
+    // A channel whose operations are all hidden goes with them.
+    const ops = [ch.publish, ch.subscribe].filter((o) => o !== undefined);
+    if (ops.length && ops.every((o) => refs.hidden(o))) return [];
+    const publish = refs.hidden(ch.publish) ? undefined : refs.get(ch.publish);
+    const subscribe = refs.hidden(ch.subscribe) ? undefined : refs.get(ch.subscribe);
     const parameters = Object.entries(isNode(ch.parameters) ? ch.parameters : {}).map(([name, p]) => {
       const param = refs.get(p);
       return { name, description: str(param?.description), schema: deref(param?.schema, refs) };
@@ -233,18 +247,29 @@ function v3(raw, refs, servers) {
   const directions = new Map();
   const opTags = new Map();
   const opText = new Map();
+  // Channels some operation uses, and those a visible one does: one used only by hidden operations is hidden.
+  const used = new Set();
+  const usedVisibly = new Set();
+  const hiddenNames = new Map();
   for (const value of Object.values(isNode(raw.operations) ? raw.operations : {})) {
     const op = refs.get(value);
     const ref = isNode(op?.channel) ? op.channel.$ref : undefined;
     const channelKey = typeof ref === "string" && ref.startsWith("#/channels/") ? ref.slice("#/channels/".length).replace(/~1/g, "/").replace(/~0/g, "~") : undefined;
     if (!op || !channelKey || !(channelKey in channels)) continue;
-    // `send` is the described application sending: a client receives it.
-    const direction = op.action === "send" ? "receive" : op.action === "receive" ? "send" : "unspecified";
+    used.add(channelKey);
     const ch = refs.get(channels[channelKey]);
     // An operation's `messages` are `$ref`s into its channel's messages; without them, it uses them all.
     const named = Array.isArray(op.messages)
       ? op.messages.map((m) => Refs.key(m)).filter((k) => !!k)
       : Object.keys(isNode(ch?.messages) ? ch.messages : {});
+    if (refs.hidden(value)) {
+      // Its messages go with it, unless a visible operation uses them too.
+      hiddenNames.set(channelKey, new Set([...(hiddenNames.get(channelKey) ?? []), ...named]));
+      continue;
+    }
+    usedVisibly.add(channelKey);
+    // `send` is the described application sending: a client receives it.
+    const direction = op.action === "send" ? "receive" : op.action === "receive" ? "send" : "unspecified";
     const byMessage = directions.get(channelKey) ?? new Map();
     for (const key of named) byMessage.set(key, new Set([...(byMessage.get(key) ?? []), direction]));
     directions.set(channelKey, byMessage);
@@ -260,7 +285,7 @@ function v3(raw, refs, servers) {
 
   return Object.entries(channels).flatMap(([key, value]) => {
     const ch = refs.get(value);
-    if (!ch) return [];
+    if (!ch || refs.hidden(value) || (used.has(key) && !usedVisibly.has(key))) return [];
     const address = str(ch.address) ?? key;
     const parameters = Object.entries(isNode(ch.parameters) ? ch.parameters : {}).map(([name, p]) => {
       const param = refs.get(p);
@@ -273,6 +298,7 @@ function v3(raw, refs, servers) {
     });
     const byMessage = directions.get(key) ?? new Map();
     const messages = Object.entries(isNode(ch.messages) ? ch.messages : {}).flatMap(([name, m]) => {
+      if (!byMessage.has(name) && hiddenNames.get(key)?.has(name)) return [];
       const ways = [...(byMessage.get(name) ?? new Set(["unspecified"]))];
       // A message used both ways is listed once for each.
       return ways.flatMap((way) => messagesOf(m, name, way, refs));
@@ -321,7 +347,7 @@ export function normalizeAsyncApi(input, opts = {}) {
     warnings.push(`[markline] AsyncAPI ${version} is newer than 3.0, so its channels aren't shown.`);
     return out;
   }
-  const refs = new Refs(raw, warnings);
+  const refs = new Refs(raw, warnings, opts.hideExtensions ?? []);
   const servers = {};
   for (const [name, s] of Object.entries(isNode(raw.servers) ? raw.servers : {})) {
     const url = serverUrl(refs.get(s) ?? {});
@@ -411,10 +437,11 @@ export const WEBSOCKETS_TAG = "WebSockets";
 
 /**
  * The AsyncAPI document at `file`, read: null when there's none, else its channels
- * (deprecated ones left out when `showDeprecated` is false) and its warnings. One
+ * (without what `hideExtensions` flags, and without deprecated channels and
+ * messages when `showDeprecated` is false) and its warnings. One
  * it can't read gives no channels and a warning, never a throw.
  */
-export function readAsyncApiFile(file, { perspective, showDeprecated } = {}) {
+export function readAsyncApiFile(file, { perspective, showDeprecated, hideExtensions } = {}) {
   if (!fs.existsSync(file)) return null;
   const name = path.basename(file);
   if (!/\.json$/i.test(file)) {
@@ -426,6 +453,9 @@ export function readAsyncApiFile(file, { perspective, showDeprecated } = {}) {
   } catch {
     return { channels: [], warnings: [`[markline] ${name} isn't valid JSON, so its channels aren't shown.`] };
   }
-  const doc = normalizeAsyncApi(raw, { perspective });
-  return { channels: showDeprecated === false ? doc.channels.filter((c) => !c.deprecated) : doc.channels, warnings: doc.warnings };
+  const doc = normalizeAsyncApi(raw, { perspective, hideExtensions });
+  if (showDeprecated !== false) return { channels: doc.channels, warnings: doc.warnings };
+  // Deprecated channels and messages left out, as deprecated operations are.
+  const channels = doc.channels.filter((c) => !c.deprecated).map((c) => ({ ...c, messages: c.messages.filter((m) => !m.deprecated) }));
+  return { channels, warnings: doc.warnings };
 }

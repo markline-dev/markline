@@ -4,7 +4,7 @@ const METHODS = ["get", "post", "put", "patch", "delete", "options", "head"];
 // runs under plain node. test/openapi-tag-config.test.ts checks that the two
 // agree, so change both together.
 
-const DEFAULT_HIDE_EXTENSIONS = ["x-hidden", "x-internal"];
+export const DEFAULT_HIDE_EXTENSIONS = ["x-hidden", "x-internal"];
 
 const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 

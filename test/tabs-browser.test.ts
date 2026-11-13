@@ -75,21 +75,43 @@ const tocIds = () => ev<string[]>(`[...document.querySelectorAll(".docs-toc .toc
 const selected = () => ev<string>(`[...document.querySelectorAll('[role=tab]')].map((b) => b.getAttribute("aria-selected")).join()`);
 const topOf = (id: string) => ev<number>(`Math.round(document.getElementById(${JSON.stringify(id)}).getBoundingClientRect().top)`);
 
-async function load(url: string) {
+/** Wait until `cond` (an expression in the page) holds, up to 10s. */
+async function until(cond: string, what = cond) {
+  for (let i = 0; i < 100; i++) {
+    if (await ev<boolean>(cond).catch(() => false)) return;
+    await sleep(100);
+  }
+  assert.fail(`timed out waiting for ${what}`);
+}
+/** The page has loaded and React has hydrated `sel` (it carries React's props). */
+const hydrated = (sel: string) =>
+  until(`document.readyState === "complete" && Object.keys(document.querySelector(${JSON.stringify(sel)}) ?? {}).some((k) => k.startsWith("__reactProps"))`, `${sel} hydrated`);
+/** Hydrated, and the panes' effects have run (a hidden one is now "until found"). */
+const settled = async () => {
+  await hydrated("[role=tab]");
+  await until(`!!document.querySelector('[hidden="until-found"]')`, "the panes' effects");
+  await sleep(150); // past restoresScroll's first-load window and the 50ms reveal timer
+};
+
+async function load(url: string, ready = settled) {
   // From a blank page, so a URL differing only in its #hash is a fresh load.
   await send("Page.navigate", { url: "about:blank" });
-  await sleep(100);
+  await until(`location.href === "about:blank"`);
   await send("Page.navigate", { url });
-  for (let i = 0; i < 100; i++) {
-    await sleep(100);
-    if (await ev<boolean>(`document.readyState === "complete" && !!document.querySelector('[role=tab]')`)) break;
-  }
-  await sleep(500); // hydration
+  await ready();
+}
+/** Reload, and wait for the new document. */
+async function reload(ready = settled) {
+  await ev(`window.__old = true`);
+  await send("Page.reload");
+  await until(`!window.__old && document.readyState === "complete"`, "the reload");
+  await ready();
 }
 
 before(async () => {
   if (skip) return;
   fs.writeFileSync(path.join(site.dir, "docs", "tabbed.mdx"), `---\ntitle: Tabbed\n---\n\n${body}\n`);
+  fs.writeFileSync(path.join(site.dir, "docs", "linking.mdx"), "---\ntitle: Linking\n---\n\n[To beta](/tabbed#in-beta)\n");
   site.build();
   base = await site.serve("start", "/tabbed");
 
@@ -164,13 +186,38 @@ test("a #link into a hidden tab or a closed accordion opens it and goes there", 
 });
 
 test("a reload keeps its scroll position rather than jumping to the #target", { skip }, async () => {
-  await load(`${base}/tabbed#in-alpha`);
+  // The #target is in a tab that isn't showing as the page loads, so only the
+  // reload check keeps it from scrolling there.
+  await load(`${base}/tabbed#in-beta`);
   await ev(`window.scrollTo(0, 3000)`);
-  await sleep(300);
-  await send("Page.reload");
-  await sleep(2500);
+  await until(`Math.round(scrollY) === 3000`);
+  await reload();
   const y = await ev<number>(`Math.round(scrollY)`);
   assert.ok(Math.abs(y - 3000) < 50, `restored near 3000, at ${y}`);
+  assert.equal(await selected(), "false,true", "and the #target's tab is open");
+});
+
+test("after a reload, a link to another page's hidden tab still goes there", { skip }, async () => {
+  const link = `a[href="/tabbed#in-beta"]`;
+  await load(`${base}/linking`, () => hydrated(link));
+  await reload(() => hydrated(link));
+  await ev(`window.__same = true; document.querySelector(${JSON.stringify(link)}).click()`);
+  await until(`location.pathname === "/tabbed" && !!document.querySelector('[role=tab]')`, "the client-side navigation");
+  await until(`document.querySelectorAll('[role=tab]')[1].getAttribute("aria-selected") === "true"`, "the Beta tab");
+  await sleep(300);
+  assert.equal(await ev(`window.__same`), true, "a client-side navigation, not a new document");
+  const top = await topOf("in-beta");
+  assert.ok(top >= 0 && top < 300, `the heading is in view (${top})`);
+});
+
+test("a #link to a heading already showing leaves no target behind for a later tab switch", { skip }, async () => {
+  await load(`${base}/tabbed#in-alpha`);
+  await ev(`window.scrollTo(0, 0)`);
+  await until(`scrollY === 0`);
+  await ev(`document.querySelectorAll('[role=tab]')[1].click()`);
+  await sleep(300);
+  assert.equal(await selected(), "false,true");
+  assert.equal(await ev<number>(`Math.round(scrollY)`), 0, "picking a tab doesn't scroll");
 });
 
 test("arrow keys move between tabs; with a modifier they're the browser's", { skip }, async () => {

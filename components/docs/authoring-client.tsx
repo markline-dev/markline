@@ -23,7 +23,26 @@ function useUntilFound(panes: React.RefObject<(HTMLElement | null)[]>, key: unkn
 }
 
 /**
- * Opens the pane that holds the URL's #target, when that pane isn't showing:
+ * Whether the browser is restoring this document's scroll position itself, on
+ * a reload or back/forward. The navigation type belongs to the document, so a
+ * later client-side navigation would inherit it and never go to its #target:
+ * it counts only through the first load, and only at the URL that loaded.
+ */
+let restoring: boolean | undefined;
+function restoresScroll(): boolean {
+  if (restoring === undefined) {
+    const nav = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
+    restoring = (nav?.type === "reload" || nav?.type === "back_forward") && nav.name === location.href;
+    // Every pane hydrated with the page has asked by then.
+    const done = () => setTimeout(() => (restoring = false), 0);
+    if (document.readyState === "complete") done();
+    else window.addEventListener("load", done, { once: true });
+  }
+  return restoring;
+}
+
+/**
+ * Opens the pane that holds the URL's #target (a no-op if it's showing):
  * on load and when the hash changes, and when find-in-page matches in it. After
  * a #link it then goes to the target, which the browser scrolled to while it
  * was hidden and had no size. On a reload or back/forward the browser restores
@@ -53,7 +72,6 @@ function useReveal(panes: React.RefObject<(HTMLElement | null)[]>, onReveal: (i:
       const i = holding(el);
       if (i < 0) return;
       const byBrowser = matched.delete(i);
-      if (!byBrowser && !panes.current[i]?.hasAttribute("hidden")) return; // already showing: the browser's jump is right
       if (scroll) target.current = el;
       latest.current(i);
       // The browser showed it before hashchange, so the reveal may already have
@@ -66,8 +84,7 @@ function useReveal(panes: React.RefObject<(HTMLElement | null)[]>, onReveal: (i:
         }, 50);
       }
     };
-    const nav = (performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined)?.type;
-    fromHash(nav !== "reload" && nav !== "back_forward");
+    fromHash(!restoresScroll());
     const onHash = () => fromHash(true);
     window.addEventListener("hashchange", onHash);
     const off = panes.current.map((p, i) => {

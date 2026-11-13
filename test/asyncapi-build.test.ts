@@ -4,7 +4,7 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { asyncApiReport } from "../scripts/asyncapi-build.mjs";
+import { asyncApiReport, readApiSpec } from "../scripts/asyncapi-build.mjs";
 
 // What a build prints and lists for an AsyncAPI document: its warnings (once,
 // from build-search; the page workers stay quiet in production) and the
@@ -76,4 +76,36 @@ test("a build prints the documents' warnings once, version by version, and lists
   const sitemap = fs.readFileSync(path.join(cwd, "public", "sitemap.xml"), "utf8");
   assert.match(sitemap, /https:\/\/docs\.async\.test\/api-reference\/websockets</);
   assert.match(sitemap, /\/api-reference\/things</);
+});
+
+test("a folder with only an AsyncAPI document reads as a spec with no operations", () => {
+  const dir = path.join(root, "only");
+  write(path.join(dir, "api", "asyncapi.json"), channels());
+  assert.deepEqual(readApiSpec(dir, {}), { openapi: "3.0.0", info: { title: "", version: "" }, paths: {} });
+  assert.equal(readApiSpec(path.join(root, "nothing"), {}), null);
+  assert.equal(readApiSpec(dir, { asyncapi: { file: "api/other.json" } }), null);
+  write(path.join(dir, "api", "openapi.json"), spec);
+  assert.deepEqual(readApiSpec(dir, {}), spec);
+  // Its channels, joining no resource, make the WebSockets page.
+  assert.deepEqual(asyncApiReport(path.join(root, "only"), { openapi: "3.0.0", paths: {} }, {}).pages.map((p) => p.slug), ["websockets"]);
+});
+
+test("a build covers versions with only an AsyncAPI document: warnings and the default's sitemap", () => {
+  const site = path.join(root, "only-site");
+  write(path.join(site, "docs", "index.mdx"), "---\ntitle: Home\n---\n\nHome.\n");
+  write(path.join(site, "api", "asyncapi.json"), channels());
+  write(path.join(site, "v1", "api", "asyncapi.json"), { asyncapi: "9.0.0", info: { title: "t", version: "1" } });
+  write(path.join(site, "markline.json"), {
+    name: "Only",
+    seo: { metadataBase: "https://docs.only.test" },
+    versions: [{ id: "v2" }, { id: "v1" }],
+    navigation: { tabs: [{ id: "api", label: "API", href: "/api-reference", match: ["/api-reference"], openapi: true }] },
+  });
+  const cwd = path.join(root, "only-build");
+  fs.mkdirSync(path.join(cwd, "public"), { recursive: true });
+  const script = path.join(import.meta.dirname, "..", "scripts", "build-search.mjs");
+  const r = spawnSync(process.execPath, [script], { cwd, encoding: "utf8", env: { ...process.env, MARKLINE_CONTENT: site, NODE_TEST_CONTEXT: "" } });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stderr + r.stdout, /\[markline\] \(version v1\) AsyncAPI 9\.0\.0 isn't supported/);
+  assert.match(fs.readFileSync(path.join(cwd, "public", "sitemap.xml"), "utf8"), /https:\/\/docs\.only\.test\/api-reference\/websockets</);
 });

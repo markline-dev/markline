@@ -7,7 +7,7 @@ import remarkGfm from "remark-gfm";
 import { remarkCodeGroupTitles } from "@/lib/code-group";
 import { remarkTocIds } from "@/lib/toc";
 import rehypePrettyCode from "rehype-pretty-code";
-import { loadOpenApi, loadOpenApiRoot, hasOpenApiSpec } from "@/lib/openapi";
+import { loadOpenApi, loadOpenApiRoot, hasApiReference } from "@/lib/openapi";
 import { ApiOperationPage } from "@/components/docs/api/operation-page";
 import { MarklineApiRef } from "@/components/docs/api/reference/markline-apiref";
 import { buildApiRefView, tagSlug, parseOpenApiTag } from "@/lib/apiref-view";
@@ -109,7 +109,7 @@ export function generateStaticParams(): { slug?: string[] }[] {
   // Resource pages (one per tag) + per-operation pages (back-compat deep links),
   // for a given version variant, under an optional path prefix.
   const pushVariant = (variantId: string | undefined, prefix: string[]) => {
-    if (!hasOpenApiSpec(variantId)) return;
+    if (!hasApiReference(variantId)) return;
     const doc = loadOpenApi(variantId);
     for (const tag of doc.tags) params.push({ slug: [...prefix, tagSlug(tag.name)] });
     for (const id of Object.keys(doc.operationsById)) params.push({ slug: [...prefix, id] });
@@ -150,7 +150,7 @@ export default async function ApiReferencePage({ params }: { params: Promise<{ s
   const { slug } = await params;
   if (slug?.[0] === NOT_FOUND_SEGMENT) return uncachedNotFound();
   const { variantId, rest } = parseVariant(slug);
-  if (!hasOpenApiSpec(variantId)) return uncachedNotFound();
+  if (!hasApiReference(variantId)) return uncachedNotFound();
   if (rest.length > 1) return uncachedNotFound(); // a resource or operation is one segment
   const doc = loadOpenApi(variantId);
   const root = loadOpenApiRoot(variantId);

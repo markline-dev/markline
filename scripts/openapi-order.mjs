@@ -9,7 +9,7 @@ export const DEFAULT_HIDE_EXTENSIONS = ["x-hidden", "x-internal"];
 const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 
 /** What an AsyncAPI document adds to the plan: nothing, without one. */
-export const NO_EXTRAS = { pages: [], groups: undefined, known: [], labels: {} };
+export const NO_EXTRAS = { pages: [], groups: undefined, known: [], labels: {}, warnings: [] };
 
 function override(api, name) {
   const tags = api?.tags;
@@ -116,8 +116,11 @@ function configWarnings(known, order, alias, api) {
     } else if (resolveTag(target, api) === null) {
       out.push(`[markline] api.tags: "${name}" merges into "${target}", which is hidden, so its operations are hidden too.`);
     } else if (!known.has(target) && !override(api, target)?.mergeInto) {
+      const same = [...known].find((k) => slug(k) === slug(target));
       const near = [...known].find((k) => closeName(k, target));
-      if (near) {
+      if (same) {
+        out.push(`[markline] api.tags: "${name}" merges into "${target}", which has the same URL as "${same}", so it joins that page. Did you mean "${same}"?`);
+      } else if (near) {
         out.push(`[markline] api.tags: "${name}" merges into "${target}", which isn't a tag in the spec, so it creates a new page. Did you mean "${near}"?`);
       }
     }
@@ -281,7 +284,7 @@ export function resourcePlan(spec, api, extras = NO_EXTRAS) {
     return `[markline] API tags ${names} share the URL /api-reference/${c.slug}; their operations are merged into "${c.into}". Use api.tags (label / mergeInto) in markline.json to rename or merge them explicitly.`;
   });
   const known = new Set([...knownTags(spec), ...extras.known]);
-  warnings.push(...configWarnings(known, tags, alias, api));
+  warnings.push(...configWarnings(known, tags, alias, api), ...(extras.warnings ?? []));
   // Sections only reorder and group the pages, as in normalize().
   const sectioned = planSections(sectionSource(api?.sections, spec["x-tagGroups"], extras.groups).sections, tags, alias, known, api);
   warnings.push(...sectioned.warnings);

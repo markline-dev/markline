@@ -178,3 +178,23 @@ test("the build's warnings know the WebSockets page, for the default spec and ea
   const bare = specWarnings(undeclared, cfg, read);
   assert.equal(bare.filter((w: string) => /"WebSockets" matches no tag/.test(w)).length, 4, bare.join("\n"));
 });
+
+test("mergeInto a page by another spelling joins it, and says so rather than 'creates a new page'", () => {
+  const r = place(undeclared, { tags: { WebSockets: { mergeInto: "Alpha" } } });
+  assert.deepEqual([r.order, r.home], [["things", "alpha", "zed"], ["alpha"]]);
+  assert.equal(r.warnings.length, 1);
+  assert.match(r.warnings[0], /"WebSockets" merges into "Alpha", which has the same URL as "alpha", so it joins that page/);
+  assert.doesNotMatch(r.warnings[0], /creates a new page/);
+});
+
+test("a label on WebSockets that can't reach the spec's own websockets page is reported", () => {
+  const lower = { ...undeclared, paths: { ...undeclared.paths, "/ws": { get: op("ws", ["websockets"]) } } };
+  const r = place(lower, { tags: { WebSockets: { label: "Realtime" } } });
+  assert.deepEqual(r.home, ["websockets"]);
+  assert.deepEqual(r.warnings, [
+    `[markline] api.tags: "WebSockets" has a label, but the WebSocket channels are on the spec's "websockets" page, which it doesn't rename. Put the label on "websockets".`,
+  ]);
+  // On the page itself, the label works and nothing is said.
+  const ok = place(lower, { tags: { websockets: { label: "Realtime" } } });
+  assert.deepEqual([ok.titles[ok.order.indexOf("websockets")], ok.warnings], ["Realtime", []]);
+});

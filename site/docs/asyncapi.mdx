@@ -211,6 +211,20 @@ its own document, from its own folder: `v1/api/asyncapi.json` beside
 `v1/api/openapi.json`. `api.asyncapi.file` is relative to each version's folder.
 A version without a document has no channels.
 
+A version can have an AsyncAPI document and no OpenAPI spec, for an API that's
+only WebSockets, or a site that's only that. Its reference is its channels: with
+no resources to join, they're on its WebSockets page (named, merged or sectioned
+as [above](#the-websockets-page-and-sections)), which its reference opens on. The
+version picker offers it like any version with a spec, and the build lists its
+pages and prints its warnings the same way.
+
+```text
+content/
+  api/openapi.json        # v2, the default: REST and WebSockets
+  api/asyncapi.json
+  v3/api/asyncapi.json    # v3: WebSockets only
+```
+
 ## Build output
 
 A document Markline can't fully read never fails the build. What it can't read is
@@ -225,7 +239,6 @@ version other than the first):
 ## Not yet
 
 - YAML documents. Convert to JSON for now.
-- A version with an AsyncAPI document but no OpenAPI spec.
 - Channels in the static search index and in `llms.txt`. They are in the
   reference's own sidebar and page search.
 - Trying a channel from the page, the way Try it calls an operation.

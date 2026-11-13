@@ -2,9 +2,10 @@
 import type { AsyncChannel } from "../lib/asyncapi";
 
 /** What an AsyncAPI document adds to the reference's plan. */
-export type ChannelExtras = { pages: string[]; groups?: unknown[]; known: string[]; labels: Record<string, string> };
+export type ChannelExtras = { pages: string[]; groups?: unknown[]; known: string[]; labels: Record<string, string>; warnings?: string[] };
 
 export function asyncApiFile(dir: string, api: unknown): string;
+export function readApiSpec(dir: string, api: unknown): unknown | null;
 export function channelExtras(
   dir: string,
   spec: unknown,

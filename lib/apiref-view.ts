@@ -1,5 +1,5 @@
 import type { JSONSchema, OpenAPIDoc, OpenAPIEvent, OpenAPIOperation, OpenAPIParameter, OpenAPITag } from "./openapi";
-import { eventAnchor, hasOpenApiSpec, resolveSchema, sampleFromSchema } from "./openapi";
+import { eventAnchor, hasApiReference, resolveSchema, sampleFromSchema } from "./openapi";
 import { allResponses, codeSamples, colorizeJson, successResponse, type CodeRail } from "./openapi-codegen";
 import { buildPlaygroundSpec } from "./playground-spec";
 import { mdToHtml } from "./md-desc";
@@ -545,7 +545,7 @@ export function buildApiRefView(doc: OpenAPIDoc, root: unknown, activeSlug?: str
     resource,
     search: buildSearchIndex(doc, base),
     endpoints: hoisted.endpoints,
-    versions: versionEntries(loadConfig().versions, variantId, (id, i) => hasOpenApiSpec(i === 0 ? undefined : id)),
+    versions: versionEntries(loadConfig().versions, variantId, (id, i) => hasApiReference(i === 0 ? undefined : id)),
     eventColors: ((): EventColors => {
       const mode = api.events?.dots ?? "palette";
       const palette = api.events?.palette?.length ? api.events.palette : DEFAULT_EVENT_PALETTE;

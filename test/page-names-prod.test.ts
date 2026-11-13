@@ -18,6 +18,10 @@ before(async () => {
   const page = (t: string) => `---\ntitle: ${t}\n---\n\n${t} body\n`;
   fs.writeFileSync(path.join(site.dir, "docs", "Getting Started.mdx"), page("Getting Started"));
   fs.writeFileSync(path.join(site.dir, "docs", "café.mdx"), page("Cafe"));
+  // A literal % in a name, and a name saved decomposed (i + combining diaeresis).
+  fs.writeFileSync(path.join(site.dir, "docs", "a%2F.mdx"), page("Percent"));
+  fs.writeFileSync(path.join(site.dir, "docs", "x%41.mdx"), page("Hex"));
+  fs.writeFileSync(path.join(site.dir, "docs", "nai\u0308ve.mdx"), page("Naive"));
   // Outside docs/: no URL may reach it.
   fs.writeFileSync(path.join(site.dir, "private.mdx"), "---\ntitle: Private\n---\n\nNOT-A-PAGE\n");
   fs.writeFileSync(
@@ -25,7 +29,7 @@ before(async () => {
     JSON.stringify({
       name: "t",
       seo: { metadataBase: BASE },
-      navigation: { tabs: [{ label: "Docs", href: "/", groups: [{ group: "G", pages: [{ href: "/" }, { href: "/Getting Started" }, { href: "/café" }, { href: "/guides/a" }] }] }] },
+      navigation: { tabs: [{ label: "Docs", href: "/", groups: [{ group: "G", pages: [{ href: "/" }, { href: "/Getting Started" }, { href: "/café" }, { href: "/a%2F" }, { href: "/x%41" }, { href: "/naïve" }, { href: "/guides/a" }] }] }] },
     }),
   );
   site.build();
@@ -35,7 +39,7 @@ before(async () => {
 after(() => site.destroy());
 
 const get = (p: string) => fetch(base + p);
-const NAMED = /Getting|caf/i;
+const NAMED = /Getting|caf|a%2F|x%41|na.?ve|ï/i;
 
 test("the pages load, however the name is encoded", { skip }, async () => {
   for (const [p, body] of [["/Getting%20Started", "Getting Started body"], ["/caf%C3%A9", "Cafe body"], ["/cafe%CC%81", "Cafe body"]]) {
@@ -67,9 +71,9 @@ test("links in pages (sidebar, previous and next) are encoded and resolve", { sk
   const hrefs = new Set<string>();
   for (const p of ["/", "/Getting%20Started", "/caf%C3%A9", "/guides/a"]) {
     const html = await (await get(p)).text();
-    for (const m of html.matchAll(/href="([^"]*)"/g)) if (NAMED.test(decodeURIComponent(m[1])) && !m[1].startsWith("http")) hrefs.add(m[1]);
+    for (const m of html.matchAll(/href="([^"]*)"/g)) if (NAMED.test(decodeURIComponent(m[1])) && !m[1].startsWith("http") && !m[1].includes("_next")) hrefs.add(m[1]);
   }
-  assert.ok(hrefs.has("/Getting%20Started") && hrefs.has("/caf%C3%A9"), [...hrefs].join());
+  for (const h of ["/Getting%20Started", "/caf%C3%A9", "/a%252F", "/x%2541", "/na%C3%AFve"]) assert.ok(hrefs.has(h), `${h} in ${[...hrefs].join()}`);
   await resolves("pages", [...hrefs]);
 });
 
@@ -88,6 +92,18 @@ test("the sitemap, llms.txt, .md files and search records name them encoded", { 
     })
     .filter((u) => NAMED.test(decodeURIComponent(u)));
   await resolves("search records", urls);
+});
+
+test("a page named with a literal %, or saved decomposed, loads from the build at the URL its links use", { skip }, async () => {
+  for (const [p, body] of [["/a%252F", "Percent body"], ["/x%2541", "Hex body"], ["/na%C3%AFve", "Naive body"]]) {
+    const res = await get(p);
+    assert.equal(res.status, 200, p);
+    assert.match(await res.text(), new RegExp(body), p);
+  }
+  assert.equal((await get("/na%C3%AFve")).headers.get("x-nextjs-cache"), "HIT", "prerendered under its NFC name");
+  const llms = await (await get("/llms.txt")).text();
+  assert.match(llms, /- \[Naive\]\([^)]*\/na%C3%AFve\)/, "listed with its title");
+  assert.equal(llms.match(/na%C3%AFve\)/g)?.length, 1, "once, not again under More");
 });
 
 test("a static export keeps the files a static host serves for these names", { skip }, () => {

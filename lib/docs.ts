@@ -126,7 +126,9 @@ function walk(dir: string, parents: string[] = []): string[] {
 function slugFromFile(root: string, filePath: string): string[] {
   const rel = path.relative(root, filePath).replace(/\.mdx$/, "");
   if (rel === "index") return [];
-  const parts = rel.split(path.sep);
+  // NFC, as links and requests are: a name saved decomposed ("naïve" as
+  // i + diaeresis) is then prerendered under the URL its links use.
+  const parts = rel.split(path.sep).map((p) => p.normalize("NFC"));
   return parts[parts.length - 1] === "index" ? parts.slice(0, -1) : parts;
 }
 

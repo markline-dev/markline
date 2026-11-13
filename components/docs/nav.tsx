@@ -61,8 +61,22 @@ function pickActiveTabId(tabs: TopTab[], pathname: string): string {
   return tabs.find((t) => t.matchPrefixes.includes("__default__"))?.id ?? tabs[0]?.id ?? "";
 }
 
+/** Whether a sidebar link (written as its file's name, "/café") is the page at
+ *  `pathname`, which may come encoded ("/caf%C3%A9"). The link is never
+ *  decoded: a page named "a%2F" is linked as "/a%2F" and requested as "/a%252F". */
+function samePage(href: string | undefined, pathname: string): boolean {
+  if (href === undefined) return false;
+  const want = href.normalize("NFC");
+  if (want === pathname.normalize("NFC")) return true;
+  try {
+    return want === decodeURIComponent(pathname).normalize("NFC");
+  } catch {
+    return false;
+  }
+}
+
 function holdsPath(link: DocLink, pathname: string): boolean {
-  return link.href === pathname || (link.children ?? []).some((c) => holdsPath(c, pathname));
+  return samePage(link.href, pathname) || (link.children ?? []).some((c) => holdsPath(c, pathname));
 }
 
 /** Keys of every item and group that contains the current page. */
@@ -148,7 +162,7 @@ function SidebarSections({
     links.map((l, i) => {
       const k = `${prefix}/${i}`;
       const kids = l.children ?? [];
-      const active = l.href !== undefined && pathname === l.href;
+      const active = samePage(l.href, pathname);
 
       if (!kids.length) {
         if (!l.href) return null;

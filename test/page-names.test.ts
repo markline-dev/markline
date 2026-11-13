@@ -24,7 +24,8 @@ test("an encoded dot segment, slash or null is still no page", () => {
 test("links to such pages are encoded once", () => {
   assert.equal(pathHref("/Getting Started"), "/Getting%20Started");
   assert.equal(pathHref("/café"), "/caf%C3%A9");
-  assert.equal(pathHref("/caf%C3%A9"), "/caf%C3%A9", "already encoded");
+  assert.equal(pathHref("/a%2F"), "/a%252F", "a literal % in a file's name is encoded, not decoded");
+  assert.equal(pathHref("/x%41"), "/x%2541");
   assert.equal(pathHref("/café"), "/caf%C3%A9", "decomposed, as NFC");
   assert.equal(pathHref("/a b?q=1 2#x y"), "/a%20b?q=1 2#x y", "only the path");
   for (const other of ["https://x.test/a b", "mailto:a@b.test", "#top", "//cdn.test/x", "", "relative/a b"]) assert.equal(pathHref(other), other);

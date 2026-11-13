@@ -683,7 +683,7 @@ export function normalizeNavHrefs<T>(node: T): T {
   if (typeof node !== "object" || node === null) return node;
   const entries = Object.entries(node).map(([key, value]) => [
     key,
-    key === "href" && typeof value === "string" ? value.replace(/(^|\/)index$/, "") || "/" : normalizeNavHrefs(value),
+    key === "href" && typeof value === "string" ? value.normalize("NFC").replace(/(^|\/)index$/, "") || "/" : normalizeNavHrefs(value),
   ]);
   return Object.fromEntries(entries) as T;
 }

@@ -127,7 +127,8 @@ All notable changes to `@markline/markline` and `@markline/create`.
   `docs/Getting Started.mdx` or `docs/café.mdx` was a 404 on `markline start`
   (a static export was fine). Links to such pages, in the sidebar, previous and
   next, breadcrumbs, `sitemap.xml`, `llms.txt` and search, are now encoded
-  URLs too.
+  URLs too, and a page saved with a decomposed accent is listed in `llms.txt`
+  under its title.
 - **Generated Node samples with Fern names camelCase nested keys too**
   (`voiceSettings: { similarityBoost: 1 }`), as Fern's TypeScript SDK does. A
   free-form map's keys (`additionalProperties`) stay as written.

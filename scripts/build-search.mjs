@@ -83,7 +83,7 @@ function walk(dir, parents = []) {
 function slugToUrl(root, file) {
   const rel = path.relative(root, file).replace(/\.mdx$/, "");
   if (rel === "index") return "/";
-  const parts = rel.split(path.sep);
+  const parts = rel.split(path.sep).map((p) => p.normalize("NFC")); // as lib/docs.ts slugFromFile
   const trimmed = parts[parts.length - 1] === "index" ? parts.slice(0, -1) : parts;
   return "/" + trimmed.join("/");
 }

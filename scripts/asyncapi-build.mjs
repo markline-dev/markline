@@ -55,9 +55,15 @@ export function channelExtras(dir, spec, api) {
       : [];
   // Where each channel lands, as placeChannels() in lib/openapi.ts puts them: its
   // resource's, then the rest on the WebSockets page (or wherever api.tags sent it).
-  const placed = new Map(byResource);
+  // A new WebSockets page is a resource there too, so a channel tagged for it joins
+  // it by tag rather than an operation's page by path: attach again with it.
   const home = planned ?? page;
-  if (home && rest.length) placed.set(home, [...(placed.get(home) ?? []), ...rest]);
+  const final =
+    page && planned === undefined
+      ? attachChannels(read.channels, [...resources, { name: page, paths: [] }], (tag) => resolveTag(tag, api))
+      : { byResource, rest };
+  const placed = new Map(final.byResource);
+  if (home && final.rest.length) placed.set(home, [...(placed.get(home) ?? []), ...final.rest]);
   return {
     read,
     placed,

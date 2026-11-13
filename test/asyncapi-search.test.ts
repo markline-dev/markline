@@ -33,6 +33,10 @@ const asyncDoc = {
     "/v1/speech/{id}/stream-input-2": { "x-title": "Stream input", subscribe: { message: { name: "audio2" } } },
     "/firehose": { subscribe: { message: { name: "all" } } },
     "/firehose2": { "x-title": "Firehose", subscribe: { message: { name: "all2" } } },
+    // Tagged for the WebSockets page, though its path matches speech: it joins WebSockets.
+    "/v1/speech/{id}/live": { "x-title": "Live", subscribe: { tags: [{ name: "WebSockets" }], message: { name: "live" } } },
+    // Titled like an operation on another page ("Other"): not numbered past it.
+    "/v1/speech/{id}/other": { "x-title": "Other", subscribe: { message: { name: "o" } } },
   },
 };
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "markline-asyncapi-search-"));
@@ -52,20 +56,33 @@ function onPages(api: Record<string, unknown>) {
 }
 
 test("each channel's link is its page and its id there, as the page renders them", () => {
-  for (const api of [{}, { tags: { WebSockets: { label: "Realtime" } } }, { tags: { WebSockets: { mergeInto: "other" } } }, { tagOrder: ["WebSockets"] }]) {
+  for (const api of [
+    {},
+    { tags: { WebSockets: { label: "Realtime" } } },
+    { tags: { WebSockets: { mergeInto: "other" } } },
+    { tags: { WebSockets: { mergeInto: "Realtime" } } },
+    { tagOrder: ["WebSockets"] },
+  ]) {
     const built = channelPages(dir, spec, api).map((p) => [p.channel.id, p.url]);
     assert.deepEqual(built, onPages(api), JSON.stringify(api));
   }
   // Numbered past the operation it shares a title with, and past each other.
   assert.deepEqual(
     channelPages(dir, spec, {}).map((p) => p.url),
-    ["/api-reference/speech#stream-input-1", "/api-reference/speech#stream-input-2", "/api-reference/websockets#firehose", "/api-reference/websockets#firehose-1"],
+    [
+      "/api-reference/speech#stream-input-1",
+      "/api-reference/speech#stream-input-2",
+      "/api-reference/speech#other",
+      "/api-reference/websockets#live",
+      "/api-reference/websockets#firehose",
+      "/api-reference/websockets#firehose-1",
+    ],
   );
 });
 
 test("search records: one per channel, its text, under API reference", () => {
   const records = channelRecords(dir, spec, {}, (s) => s.replace(/\*\*/g, ""));
-  assert.equal(records.length, 4);
+  assert.equal(records.length, 6);
   assert.deepEqual(records[0], {
     url: "/api-reference/speech#stream-input-1",
     title: "Stream input",

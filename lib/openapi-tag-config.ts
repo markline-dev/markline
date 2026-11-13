@@ -192,8 +192,9 @@ export function tagConfigWarnings(known: Set<string>, plan: TagPlan, opts?: TagO
     } else if (resolveTag(target, opts) === null) {
       out.push(`[markline] api.tags: "${name}" merges into "${target}", which is hidden, so its operations are hidden too.`);
     } else if (!known.has(target) && !override(opts, target)?.mergeInto) {
-      // Spelled differently but the same URL: it joins that page rather than making one.
-      const same = [...known].find((k) => tagSlug(k) === tagSlug(target));
+      // Spelled differently but the same URL as a page there is: it joins that page
+      // rather than making one. (A page named the target itself is the one it makes.)
+      const same = plan.order.find((p) => p !== target && tagSlug(p) === tagSlug(target));
       // A new name is how a page gets renamed, so only a near miss is worth saying.
       const near = [...known].find((k) => closeName(k, target));
       if (same) {

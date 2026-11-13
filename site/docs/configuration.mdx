@@ -513,7 +513,7 @@ entries.
 <ParamField path="api.tags" type="object">Per-tag `label`, `description`, `hidden` and `mergeInto`, keyed by the spec's tag name. See [Rename, hide and merge tags](/openapi#rename-hide-and-merge-tags).</ParamField>
 <ParamField path="api.tagOrder" type="string[]">Tags that open the API sidebar, in order.</ParamField>
 <ParamField path="api.sections" type="array">Sidebar sections, `[{ "title", "tags": [...] }]`, in order. Replaces the spec's `x-tagGroups`; `[]` turns them off. See [Group tags into sections](/openapi#group-tags-into-sections).</ParamField>
-<ParamField path="api.asyncapi" type="object">An AsyncAPI document whose WebSocket channels join the reference. `file` (default `api/asyncapi.json`) and `perspective`: `"server"` (default) or `"client"`, for a 2.x document written from the client's side. See [WebSocket channels](/openapi#websocket-channels-asyncapi).</ParamField>
+<ParamField path="api.asyncapi" type="object">An AsyncAPI document whose WebSocket channels join the reference. `file` (default `api/asyncapi.json`) and `perspective`: `"server"` (default) or `"client"`, for a 2.x document written from the client's side. See [WebSocket channels](/asyncapi).</ParamField>
 <ParamField path="api.hideExtensions" type="string[]">Extensions that hide an operation or field. Default `["x-hidden", "x-internal"]`.</ParamField>
 <ParamField path="api.showDeprecated" type="boolean">`false` leaves deprecated operations out. Default `true`.</ParamField>
 <ParamField path="api.auth" type="object">Auth the spec doesn't declare, e.g. `{ "header": "xi-api-key" }` or `{ "type": "bearer" }`. Used by Try it and the cURL samples.</ParamField>
@@ -583,6 +583,33 @@ See [API reference](/openapi) for the full guide — generating the reference, t
   bundled [`feedback-worker`](/feedback#cloudflare-worker-d1). See [Feedback](/feedback) for the
   payload and deploy steps.
 </ParamField>
+
+[Ask AI](/ai#configuration) has its own page for the rest of the `ai` block.
+Its rate limits apply to the built-in `/api/ai` route, per reader:
+
+<ParamField path="ai.rateLimit.perMinute" type="number">
+  Questions a reader can ask in any 60 seconds. Default `10`. See
+  [Cost & abuse](/ai#cost-abuse).
+</ParamField>
+<ParamField path="ai.rateLimit.perDay" type="number">
+  Questions a reader can ask per UTC day. Off unless set. Over either limit,
+  the reader gets a 429 with `Retry-After`. Both take a whole number from 1 to
+  1,000,000; any other value is reported and ignored.
+</ParamField>
+<ParamField path="ai.rateLimit.trustedProxies" type="number">
+  How many proxies you run in front of Markline, from 1 to 10. Default `1`.
+  The reader is counted by the address that many entries from the right of
+  `X-Forwarded-For`. See [Which address is counted](/ai#which-address-is-counted).
+</ParamField>
+<ParamField path="ai.rateLimit.ipHeader" type="string">
+  A header your host sets to the reader's address, such as
+  `cf-connecting-ip`. When it's set, only that header is read, and if it holds
+  a list, its right-most entry. Headers that can't hold the reader's address,
+  like `x-forwarded-for` or `cookie`, are reported and ignored.
+</ParamField>
+
+Addresses are compared without `[…]` around an IPv6 address or a `:port`
+after one, and ignoring case, so a reader on several connections counts once.
 
 ## Versions & i18n
 

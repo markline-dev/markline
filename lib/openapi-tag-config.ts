@@ -103,14 +103,17 @@ export type TagPlan = {
  * ("dubbing" / "Dubbing") would share a URL and one would vanish, so the later
  * one merges into the earlier and the collision is reported.
  */
-export function planTags(used: string[], declared: string[], opts?: TagOptions): TagPlan {
+export function planTags(used: string[], declared: string[], opts?: TagOptions, trailing: string[] = []): TagPlan {
   const usedSet = new Set(used);
   const resolvedDeclared = declared.map((n) => resolveTag(n, opts)).filter((n): n is string => !!n && usedSet.has(n));
   const pinned = (opts?.tagOrder ?? []).map((n) => resolveTag(n, opts)).filter((n): n is string => !!n && usedSet.has(n));
   const declaredSet = new Set(resolvedDeclared);
-  const rest = [...usedSet].filter((n) => !declaredSet.has(n)).sort((a, b) => a.localeCompare(b));
+  // Pages only WebSocket channels make ("WebSockets") come after the rest, unless pinned or declared.
+  const last = trailing.filter((n) => usedSet.has(n) && !declaredSet.has(n));
+  const lastSet = new Set(last);
+  const rest = [...usedSet].filter((n) => !declaredSet.has(n) && !lastSet.has(n)).sort((a, b) => a.localeCompare(b));
   const pinnedSet = new Set(pinned);
-  const ranked = [...new Set([...pinned, ...resolvedDeclared.filter((n) => !pinnedSet.has(n)), ...rest])];
+  const ranked = [...new Set([...pinned, ...resolvedDeclared.filter((n) => !pinnedSet.has(n)), ...rest, ...last])];
 
   // Precedence for a collision follows spec order (declared, then first use),
   // not tagOrder, so pinning a tag never changes which name a page keeps.
@@ -269,17 +272,29 @@ export type SectionPlan = {
 };
 
 /**
- * Sections from `api.sections`, or else the spec's `x-tagGroups`. An `api.sections`
- * array, even an empty one, replaces the spec's groups. Malformed entries are
- * dropped.
+ * Sections from `api.sections`, or else the spec's `x-tagGroups`, then the AsyncAPI
+ * document's. An `api.sections` array, even an empty one, replaces both. A group
+ * titled like one before it joins it; a tag is listed in the first group that
+ * names it. Malformed entries are dropped.
  */
-export function sectionSource(configured: unknown, specGroups: unknown): { sections: TagSection[]; fromSpec: boolean } {
+export function sectionSource(
+  configured: unknown,
+  specGroups: unknown,
+  /** The AsyncAPI document's `x-tagGroups`: after the spec's, a same-titled group joining it. */
+  asyncGroups?: unknown,
+): { sections: TagSection[]; fromSpec: boolean } {
   const parse = (list: unknown, key: "title" | "name"): TagSection[] =>
     (Array.isArray(list) ? list : [])
       .filter((g) => g && typeof g[key] === "string" && g[key].trim() && Array.isArray(g.tags))
       .map((g) => ({ title: g[key].trim(), tags: g.tags.filter((t: unknown): t is string => typeof t === "string") }));
   if (Array.isArray(configured)) return { sections: parse(configured, "title"), fromSpec: false };
-  return { sections: parse(specGroups, "name"), fromSpec: true };
+  const sections = parse(specGroups, "name");
+  for (const g of parse(asyncGroups, "name")) {
+    const same = sections.find((s) => s.title === g.title);
+    if (same) same.tags.push(...g.tags);
+    else sections.push(g);
+  }
+  return { sections, fromSpec: true };
 }
 
 /**

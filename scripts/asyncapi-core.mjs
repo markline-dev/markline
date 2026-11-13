@@ -335,6 +335,8 @@ export function normalizeAsyncApi(input, opts = {}) {
     version,
     info: { title: str(info.title) ?? "", version: str(info.version) ?? "", description: str(info.description) },
     channels: [],
+    // Sidebar groups, as OpenAPI's `x-tagGroups`: `[{ name, tags }]`.
+    tagGroups: Array.isArray(raw["x-tagGroups"]) ? raw["x-tagGroups"] : undefined,
     warnings,
   };
   const major = /^(\d+)\./.exec(version)?.[1];
@@ -457,8 +459,8 @@ export function readAsyncApiFile(file, { perspective, showDeprecated, hideExtens
     return { channels: [], warnings: [`[markline] ${name} isn't valid JSON, so its channels aren't shown.`] };
   }
   const doc = normalizeAsyncApi(raw, { perspective, hideExtensions });
-  if (showDeprecated !== false) return { channels: doc.channels, warnings: doc.warnings };
+  if (showDeprecated !== false) return { channels: doc.channels, tagGroups: doc.tagGroups, warnings: doc.warnings };
   // Deprecated channels and messages left out, as deprecated operations are.
   const channels = doc.channels.filter((c) => !c.deprecated).map((c) => ({ ...c, messages: c.messages.filter((m) => !m.deprecated) }));
-  return { channels, warnings: doc.warnings };
+  return { channels, tagGroups: doc.tagGroups, warnings: doc.warnings };
 }

@@ -38,7 +38,7 @@ test("a channel that joins a resource makes no page; one that joins none makes W
   write(path.join(dir, "api", "asyncapi.json"), channels());
   assert.deepEqual(asyncApiReport(dir, spec, {}), { warnings: [], pages: [] });
   write(path.join(dir, "api", "asyncapi.json"), channels({ "/firehose": { subscribe: { message: { name: "all", payload: { type: "string" } } } } }));
-  assert.deepEqual(asyncApiReport(dir, spec, {}).pages, [{ name: "WebSockets", slug: "websockets", title: "WebSockets" }]);
+  assert.deepEqual(asyncApiReport(dir, spec, {}).pages, [{ name: "WebSockets", slug: "websockets", title: "WebSockets", section: null }]);
   // Hidden by its tag, or deprecated with showDeprecated off: no page for it.
   const hiddenTag = { tags: { secret: { hidden: true } } };
   write(path.join(dir, "api", "asyncapi.json"), channels({ "/firehose": { subscribe: { tags: [{ name: "secret" }], message: { name: "all" } } } }));

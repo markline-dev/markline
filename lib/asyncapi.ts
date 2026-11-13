@@ -52,6 +52,8 @@ export type AsyncDoc = {
   version: string;
   info: { title: string; version: string; description?: string };
   channels: AsyncChannel[];
+  /** The document's `x-tagGroups` (`[{ name, tags }]`), for the sidebar's sections. */
+  tagGroups?: unknown[];
   warnings: string[];
 };
 

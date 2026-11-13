@@ -5,6 +5,10 @@ All notable changes to `@markline/markline` and `@markline/create`.
 ## Unreleased
 
 ### Added
+- **The WebSockets page in the sidebar's order and sections.** `api.tags`
+  (`label`, `mergeInto`, `hidden`), `api.tagOrder` and `api.sections` treat the
+  AsyncAPI channels' "WebSockets" page like any resource, and an AsyncAPI
+  document's `x-tagGroups` add to the OpenAPI spec's.
 - **Hiding and deprecation for WebSocket channels.** `api.hideExtensions`
   (by default `x-internal` and `x-hidden`) now hides AsyncAPI channels,
   operations, messages, `oneOf` kinds and fields, from the page, its examples

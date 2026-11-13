@@ -15,4 +15,4 @@ export const WEBSOCKETS_TAG: "WebSockets";
 export function readAsyncApiFile(
   file: string,
   opts?: { perspective?: Perspective; showDeprecated?: boolean; hideExtensions?: readonly string[] },
-): { channels: AsyncChannel[]; warnings: string[] } | null;
+): { channels: AsyncChannel[]; tagGroups?: unknown[]; warnings: string[] } | null;

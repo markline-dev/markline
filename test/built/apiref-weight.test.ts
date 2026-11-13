@@ -130,13 +130,19 @@ const asyncSpec = {
 /** v1's spec: only the "others" resource, so "things" exists in the default version alone. */
 const v1Spec = { ...spec, paths: Object.fromEntries(Object.entries(spec.paths).filter(([p]) => p.startsWith("/others/"))) };
 
-/** `versioned`: v2 (the default) and v1 with specs, and v0 with docs only. `single`: one
+/** `versioned`: v2 (the default) and v1 with specs, v3 with only an AsyncAPI document, and v0
+ *  with docs only. `single`: one
  *  version, and the reference in sections, "others" first. */
 function site(dir: string, apiMatch: string[], versioned = false, single = false) {
   fs.mkdirSync(path.join(dir, "api"), { recursive: true });
   if (versioned) {
     fs.mkdirSync(path.join(dir, "v1", "api"), { recursive: true });
     fs.writeFileSync(path.join(dir, "v1", "api", "openapi.json"), JSON.stringify(v1Spec));
+    fs.mkdirSync(path.join(dir, "v3", "api"), { recursive: true });
+    fs.writeFileSync(
+      path.join(dir, "v3", "api", "asyncapi.json"),
+      JSON.stringify({ asyncapi: "3.0.0", info: { title: "t", version: "3" }, channels: { live: { address: "/live", title: "Onlylive" } } }),
+    );
   }
   fs.mkdirSync(path.join(dir, "docs", "sdk"), { recursive: true });
   fs.writeFileSync(path.join(dir, "api", "openapi.json"), JSON.stringify(spec));
@@ -156,7 +162,7 @@ function site(dir: string, apiMatch: string[], versioned = false, single = false
     JSON.stringify({
       name: "Weight",
       ...(versioned
-        ? { versions: [{ id: "v2", label: "2.0 (latest)" }, { id: "v1", label: "1.0" }, { id: "v0", label: "0.9 docs only" }] }
+        ? { versions: [{ id: "v2", label: "2.0 (latest)" }, { id: "v1", label: "1.0" }, { id: "v3", label: "3.0 realtime only" }, { id: "v0", label: "0.9 docs only" }] }
         : single
           ? { versions: [{ id: "only", label: "The only one" }], api: { sections: [{ title: "Elsewhere", tags: ["others", "WebSockets"] }] } }
           : {}),
@@ -447,4 +453,15 @@ test("api.sections can hold the WebSockets page, in the sidebar and in the page 
   assert.ok(at('class="api-section-cap">Elsewhere<') >= 0, "the section is shown");
   assert.ok(at('class="api-section-cap">Elsewhere<') < at(">Others<") && at(">Others<") < at(">WebSockets<") && at(">WebSockets<") < at(">Things<"), side.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 400));
   assert.ok(fs.existsSync(path.join(holding, "api-reference", "websockets.html")));
+});
+
+test("a version with only an AsyncAPI document has a reference, and the picker offers it", { skip }, () => {
+  // Its channel has no resource to join, so it's on that version's WebSockets page, which its landing opens.
+  assert.match(page(reference, "api-reference/v3/websockets"), />Onlylive<\/h2>/);
+  assert.match(page(reference, "api-reference/v3"), />Onlylive<\/h2>/);
+  const picker = page(reference, "api-reference/others").match(/\\"versions\\":\[[^\]]*\]/)?.[0] ?? "";
+  assert.match(picker, /3\.0 realtime only/);
+  assert.doesNotMatch(picker, /0\.9 docs only/);
+  // The default version's pages don't change for it.
+  assert.doesNotMatch(page(reference, "api-reference/websockets"), /Onlylive/);
 });

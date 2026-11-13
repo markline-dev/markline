@@ -11,7 +11,7 @@ import path from "node:path";
 import matter from "gray-matter";
 import * as pagefind from "pagefind";
 import { apiIndexLines, apiSearchRecords, resourcePages, specWarnings } from "./openapi-order.mjs";
-import { asyncApiReport, channelExtras } from "./asyncapi-build.mjs";
+import { asyncApiReport, channelExtras, readApiSpec } from "./asyncapi-build.mjs";
 import { searchGroups, searchTrails } from "./search-groups.mjs";
 import { markdownPath, mdxToMarkdown, pageMarkdown, sectionIds, sectionIndex } from "./llms.mjs";
 import { removeGeneratedFiles, writeManifest } from "./generated-files.mjs";
@@ -118,16 +118,13 @@ function contentPrefixIds(root) {
 }
 
 function apiRecords(root) {
-  const specFile = path.join(root, "api", "openapi.json");
-  if (!fs.existsSync(specFile)) return [];
-  const spec = JSON.parse(fs.readFileSync(specFile, "utf8"));
   const cfg = loadJsonConfig(root);
   const api = cfg.api;
+  // A folder with only an AsyncAPI document reads as a spec with no operations.
+  const spec = readApiSpec(root, api);
+  if (!spec) return [];
   // The one place a build prints these; page workers would each repeat them.
-  const readVersion = (id) => {
-    const file = path.join(root, id, "api", "openapi.json");
-    return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, "utf8")) : null;
-  };
+  const readVersion = (id) => readApiSpec(path.join(root, id), api);
   const extrasOf = (id, s) => channelExtras(id ? path.join(root, id) : root, s, api).extras;
   for (const w of specWarnings(spec, cfg, readVersion, extrasOf)) console.warn(w);
   // And the AsyncAPI documents' beside them, version by version.
@@ -282,10 +279,9 @@ function docPagesForLlms(root, versionId) {
 
 /** Unique OpenAPI tags → resource-page links (the reference is per-tag). */
 function apiResources(root) {
-  const specFile = path.join(root, "api", "openapi.json");
-  if (!fs.existsSync(specFile)) return [];
-  const spec = JSON.parse(fs.readFileSync(specFile, "utf8"));
   const api = loadJsonConfig(root).api;
+  const spec = readApiSpec(root, api);
+  if (!spec) return [];
   // With the WebSockets page when some AsyncAPI channel joins no resource, in its place and section.
   const pages = resourcePages(spec, api, channelExtras(root, spec, api).extras);
   return pages.map((page) => ({

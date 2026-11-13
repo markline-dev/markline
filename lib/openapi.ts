@@ -21,7 +21,7 @@ import {
 } from "./openapi-tag-config";
 import { pruneSpec } from "./openapi-prune";
 import { attachChannels, hideChannelFields, WEBSOCKETS_TAG, type AsyncChannel } from "./asyncapi";
-import { channelExtras, type ChannelExtras } from "@/scripts/asyncapi-build.mjs";
+import { asyncApiFile, channelExtras, readApiSpec, type ChannelExtras } from "@/scripts/asyncapi-build.mjs";
 import { loadConfig } from "./config";
 import { sampleMember } from "./openapi-schema";
 
@@ -173,7 +173,7 @@ export type NormalizeOptions = TagOptions & {
 const METHODS = ["get", "post", "put", "patch", "delete", "options", "head"] as const;
 
 /** No AsyncAPI document: nothing added to the plan. */
-const NO_EXTRAS: ChannelExtras = { pages: [], known: [], labels: {} };
+const NO_EXTRAS: ChannelExtras = { pages: [], known: [], labels: {}, warnings: [] };
 
 // Parsed-spec cache, keyed by version id ("" = the default/unprefixed version).
 const _cache = new Map<string, OpenAPIDoc>();
@@ -209,19 +209,26 @@ export function hasOpenApiSpec(variantId?: string): boolean {
   return fs.existsSync(apiSpecPath(variantId));
 }
 
+/** Whether a version has an API reference: an OpenAPI spec, an AsyncAPI document, or both. */
+export function hasApiReference(variantId?: string): boolean {
+  return hasOpenApiSpec(variantId) || fs.existsSync(asyncApiFile(variantDir(variantId), loadConfig().api));
+}
+
+const variantDir = (variantId?: string) => (variantId ? path.join(contentRoot(), variantId) : contentRoot());
+
 export function loadOpenApi(variantId?: string): OpenAPIDoc {
   const key = variantId ?? "";
   const hit = _cache.get(key);
   if (hit) return hit;
-  const file = apiSpecPath(variantId);
-  if (!fs.existsSync(file)) {
+  const api = loadConfig().api;
+  // The spec, or (a version with only an AsyncAPI document) one with no operations.
+  const raw = readApiSpec(variantDir(variantId), api);
+  if (!raw) {
     _cache.set(key, EMPTY_DOC);
     return EMPTY_DOC;
   }
-  const raw = JSON.parse(fs.readFileSync(file, "utf8"));
-  const api = loadConfig().api;
   // The AsyncAPI document beside it, read once: what it adds to the plan, then its channels.
-  const { read, extras } = channelExtras(variantId ? path.join(contentRoot(), variantId) : contentRoot(), raw, api);
+  const { read, extras } = channelExtras(variantDir(variantId), raw, api);
   const doc = normalize(raw, {
     tags: api.tags,
     tagOrder: api.tagOrder,
@@ -442,7 +449,7 @@ export function normalize(input: any, opts: NormalizeOptions = {}): OpenAPIDoc {
     .filter(([name]) => !specTags.some((t) => t.name === name))
     .map(([name, label]) => ({ name, displayName: label }));
   for (const c of plan.collisions) warnings.push(collisionWarning(c));
-  warnings.push(...tagConfigWarnings(known, plan, opts));
+  warnings.push(...tagConfigWarnings(known, plan, opts), ...(extras.warnings ?? []));
   // Sections only reorder and group the pages: every page keeps its URL.
   const sectioned = planSections(sectionSource(opts.sections, raw["x-tagGroups"], extras.groups).sections, plan, known, opts);
   warnings.push(...sectioned.warnings);

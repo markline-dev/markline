@@ -194,8 +194,35 @@ budget. Both the built-in route and the Worker ship with conservative defaults:
 are per IP and kept in memory, so each server instance (or Worker isolate)
 counts on its own, and remembers at most 50,000 callers (one forgotten starts
 a fresh day): they slow one caller down but don't cap what the site spends.
-Set a spending limit with your AI provider. Limits use the client IP your host
-reports; behind a proxy you don't control, a caller can change it.</Warning>
+Set a spending limit with your AI provider.</Warning>
+
+### Which address is counted
+
+The built-in route counts each reader by the address in `X-Forwarded-For`
+that your nearest proxy added: the right-most entry. Entries to its left came
+with the request, so they're not used.
+
+- `ai.rateLimit.trustedProxies` (default `1`): how many proxies you run in
+  front of Markline, such as `2` for a CDN in front of a load balancer. The
+  address that many entries from the right is counted.
+- `ai.rateLimit.ipHeader`: a header your host sets to the reader's address
+  itself. When it's set, only that header is read.
+
+Some hosts, from their own docs:
+
+| Host | What to set |
+| --- | --- |
+| [Vercel](https://vercel.com/docs/headers/request-headers#x-forwarded-for) | Nothing: Vercel replaces `X-Forwarded-For` with the reader's address. |
+| [Cloudflare](https://developers.cloudflare.com/fundamentals/reference/http-headers/#cf-connecting-ip) in front of your server | `"ipHeader": "cf-connecting-ip"`, with your server taking traffic only from Cloudflare. |
+
+When nothing sits in front of the server, as with `markline start` reachable
+directly, no proxy adds the address: Next.js only fills in `X-Forwarded-For`
+when a request arrives without one, so the header is whatever the request
+carried, and the limits can be sidestepped. Run the server behind a proxy that
+sets `X-Forwarded-For`, or set `ipHeader` to a header your host sets.
+
+These two settings are for the built-in route. The Ask AI Worker always counts
+by `CF-Connecting-IP`, which Cloudflare sets.
 
 ## Markdown for agents
 

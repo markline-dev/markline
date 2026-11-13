@@ -5,6 +5,10 @@ All notable changes to `@markline/markline` and `@markline/create`.
 ## Unreleased
 
 ### Added
+- **`ai.rateLimit.trustedProxies` and `ai.rateLimit.ipHeader`** say which
+  address Ask AI's built-in route counts a reader by: that many entries from
+  the right of `X-Forwarded-For`, or a header your host sets, such as
+  `cf-connecting-ip`.
 - **`icon` on callouts.** `<Callout>`, `<Note>`, `<Info>`, `<Tip>`,
   `<Check>`, `<Warning>` and `<Danger>` take an `icon`: a Phosphor icon name,
   or one or two characters such as `↗`. Paths and URLs aren't accepted.
@@ -64,6 +68,10 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **Line numbers in the Expand dialog.** Copy still copies only the code.
 
 ### Changed
+- **Ask AI's limits count the address the nearest proxy reports.** The
+  built-in route used the first `X-Forwarded-For` entry; it now uses the
+  right-most one, the one your proxy added. Set `ai.rateLimit.trustedProxies`
+  if your site runs behind more than one proxy.
 - **The API reference reads more easily.** Path parameters (`{voice_id}`) stand
   out in each operation's path and in the endpoint list. Each operation's title
   has its section and resource above it. Sidebar rows are tighter. Section

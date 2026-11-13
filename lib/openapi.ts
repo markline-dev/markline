@@ -20,7 +20,7 @@ import {
   type TagSection,
 } from "./openapi-tag-config";
 import { pruneSpec } from "./openapi-prune";
-import { attachChannels, readAsyncApiFile, WEBSOCKETS_TAG, type AsyncChannel } from "./asyncapi";
+import { attachChannels, hideChannelFields, readAsyncApiFile, WEBSOCKETS_TAG, type AsyncChannel } from "./asyncapi";
 import { loadConfig } from "./config";
 import { sampleMember } from "./openapi-schema";
 
@@ -246,12 +246,14 @@ export { WEBSOCKETS_TAG };
  * scripts/asyncapi-build.mjs makes the same choice for the sitemap.
  */
 function addChannels(doc: OpenAPIDoc, variantId: string | undefined, api: ReturnType<typeof loadConfig>["api"]) {
-  const read = readAsyncApiFile(asyncApiPath(variantId), { perspective: api.asyncapi?.perspective, showDeprecated: api.showDeprecated });
+  const hideExtensions = api.hideExtensions ?? DEFAULT_HIDE_EXTENSIONS;
+  const read = readAsyncApiFile(asyncApiPath(variantId), { perspective: api.asyncapi?.perspective, showDeprecated: api.showDeprecated, hideExtensions });
   if (!read) return;
   doc.warnings.push(...read.warnings);
+  const channels = read.channels.map((c) => hideChannelFields(c, hideExtensions));
   const opts: TagOptions = { tags: api.tags };
   const { byResource, rest } = attachChannels(
-    read.channels,
+    channels,
     doc.tags.map((t) => ({ name: t.name, paths: t.operations.map((o) => o.path) })),
     (tag) => resolveTag(tag, opts),
   );

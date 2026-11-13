@@ -4,7 +4,7 @@
 // joins no resource, for the sitemap and the export-name check.
 import path from "node:path";
 import { attachChannels, readAsyncApiFile, WEBSOCKETS_TAG } from "./asyncapi-core.mjs";
-import { resolveTag, resourcePlan } from "./openapi-order.mjs";
+import { DEFAULT_HIDE_EXTENSIONS, resolveTag, resourcePlan } from "./openapi-order.mjs";
 
 /** `api.asyncapi.file` under `dir` (the content root, or a version's folder), else `api/asyncapi.json`. */
 export function asyncApiFile(dir, api) {
@@ -16,7 +16,11 @@ export function asyncApiFile(dir, api) {
  * and the resource pages only channels make (none, or the WebSockets page).
  */
 export function asyncApiReport(dir, spec, api) {
-  const read = readAsyncApiFile(asyncApiFile(dir, api), { perspective: api?.asyncapi?.perspective, showDeprecated: api?.showDeprecated });
+  const read = readAsyncApiFile(asyncApiFile(dir, api), {
+    perspective: api?.asyncapi?.perspective,
+    showDeprecated: api?.showDeprecated,
+    hideExtensions: api?.hideExtensions ?? DEFAULT_HIDE_EXTENSIONS,
+  });
   if (!read) return { warnings: [], pages: [] };
   const plan = spec ? resourcePlan(spec, api) : { tags: [], ops: [] };
   const resources = plan.tags.map((name) => ({ name, paths: plan.ops.filter((o) => o.tag === name).map((o) => o.path) }));

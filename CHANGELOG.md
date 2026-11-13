@@ -5,6 +5,11 @@ All notable changes to `@markline/markline` and `@markline/create`.
 ## Unreleased
 
 ### Added
+- **Hiding and deprecation for WebSocket channels.** `api.hideExtensions`
+  (by default `x-internal` and `x-hidden`) now hides AsyncAPI channels,
+  operations, messages, `oneOf` kinds and fields, from the page, its examples
+  and the sitemap. Deprecated messages are labelled in their row, and
+  `api.showDeprecated: false` leaves deprecated messages out too.
 - **WebSocket channels from AsyncAPI.** An `api/asyncapi.json` (AsyncAPI 2.x
   or 3.0, JSON) adds its channels to the API reference: each on the resource
   its tag or path matches, else a "WebSockets" page, with its parameters, the

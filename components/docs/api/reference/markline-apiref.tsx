@@ -754,6 +754,7 @@ function ChannelSection({ ch, aiEnabled, crumbs }: { ch: ChannelView; aiEnabled:
                   </span>
                   <span className="ws-name" title={m.name}>{m.name}</span>
                   <span className="ws-pill">{DIRECTION_LABEL[m.direction]}</span>
+                  {m.deprecated && <DeprecatedPill />}
                   {m.preview && <code className="ws-preview">{m.preview}</code>}
                 </summary>
                 {m.html && (

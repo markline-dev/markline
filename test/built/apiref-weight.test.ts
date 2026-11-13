@@ -84,7 +84,8 @@ const spec = {
 };
 const OPERATIONS = THINGS + 3;
 
-/** Channels for the default version only: one by path, one by tag, one with nowhere to go. */
+/** Channels for the default version only: one by path, one by tag, one with nowhere to go,
+ *  one hidden (x-internal), a hidden field, and a deprecated message. */
 const asyncSpec = {
   asyncapi: "2.6.0",
   info: { title: "Weight realtime", version: "1" },
@@ -97,11 +98,33 @@ const asyncSpec = {
         summary: "publish",
         message: { name: "watch", description: "Starts **watching** this other.", payload: { type: "object", properties: { since: { type: "integer" } } } },
       },
-      subscribe: { message: { name: "changed", payload: { type: "object", properties: { at: { type: "string" } } } } },
+      subscribe: {
+        message: {
+          oneOf: [
+            {
+              name: "changed",
+              payload: {
+                type: "object",
+                properties: {
+                  at: { type: "string" },
+                  shardsecret: { type: "string", "x-internal": true },
+                  // Hidden beside its $ref; the same schema stays visible as refshown.
+                  refsecret: { $ref: "#/components/schemas/Shared", "x-internal": true },
+                  refshown: { $ref: "#/components/schemas/Shared" },
+                },
+              },
+              examples: [{ payload: { at: "now", shardsecret: "shardvalue", refsecret: { code: "refvalue" }, refshown: { code: "ok" } } }],
+            },
+            { name: "legacychange", deprecated: true, payload: { type: "string" } },
+          ],
+        },
+      },
     },
     "/stream": { "x-title": "Things feed", subscribe: { tags: [{ name: "things" }], message: { name: "thing", payload: { type: "string" } } } },
     "/firehose": { subscribe: { message: { name: "everything", payload: { type: "string" } } } },
+    "/internal-feed": { "x-title": "Internalfeed", "x-internal": true, subscribe: { message: { name: "x", payload: { type: "string" } } } },
   },
+  components: { schemas: { Shared: { type: "object", properties: { code: { type: "string" } } } } },
 };
 
 /** v1's spec: only the "others" resource, so "things" exists in the default version alone. */
@@ -398,6 +421,12 @@ test("a WebSocket channel lands on the resource its path or tag names, the rest 
   assert.match(others, /<pre class="ws-hs">GET wss:\/\/live\.weight\.test\/v1\/others\/\{otherId\}\/live\?token=&lt;token&gt;\nConnection: Upgrade\nUpgrade: websocket\n/);
   // A message's description is markdown, rendered the way a lead is.
   assert.match(others, /class="sec-lead msg-lead"[^>]*>Starts <strong>watching<\/strong> this other\.</);
+  // Hidden (x-internal, the default): the channel nowhere, the field and its example value nowhere.
+  for (const html of [others, ws, page(reference, "api-reference/things")]) assert.doesNotMatch(html, /Internalfeed|internal-feed|shardsecret|shardvalue|refsecret|refvalue/);
+  assert.match(others, /refshown/);
+  assert.match(others, /&quot;at&quot;|"at"/);
+  // A deprecated message is marked in its row.
+  assert.match(others, /class="ws-name"[^>]*>legacychange<\/span><span class="ws-pill">Receive<\/span><span class="dep-pill">Deprecated</);
   // Only the version with an AsyncAPI file has channels.
   assert.doesNotMatch(page(reference, "api-reference/v1/others"), /class="verb wss"/);
   assert.ok(!fs.existsSync(path.join(reference, "api-reference/v1/websockets.html")));

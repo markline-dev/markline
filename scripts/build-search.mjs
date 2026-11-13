@@ -16,6 +16,7 @@ import { searchGroups, searchTrails } from "./search-groups.mjs";
 import { markdownPath, mdxToMarkdown, pageMarkdown, sectionIds, sectionIndex } from "./llms.mjs";
 import { removeGeneratedFiles, writeManifest } from "./generated-files.mjs";
 import { siteFiles } from "./site-files.mjs";
+import { hrefAsPath, pathHref } from "./url-path.mjs";
 import { CHANGELOG_PER_PAGE, clashMessage, exportClashes } from "./export-names.mjs";
 import { writeGithubStats } from "./github-stats.mjs";
 import { contentRootFrom } from "./content-root.mjs";
@@ -83,7 +84,7 @@ function walk(dir, parents = []) {
 function slugToUrl(root, file) {
   const rel = path.relative(root, file).replace(/\.mdx$/, "");
   if (rel === "index") return "/";
-  const parts = rel.split(path.sep);
+  const parts = rel.split(path.sep).map((p) => p.normalize("NFC")); // as lib/docs.ts slugFromFile
   const trimmed = parts[parts.length - 1] === "index" ? parts.slice(0, -1) : parts;
   return "/" + trimmed.join("/");
 }
@@ -309,7 +310,7 @@ function writeLlms(root) {
   const name = cfg.name ?? cfg.seo?.title ?? "Documentation";
   const desc = cfg.seo?.description ?? cfg.description ?? "";
   const base = String(cfg.seo?.metadataBase ?? process.env.MARKLINE_SITE_URL ?? "").replace(/\/$/, "");
-  const abs = (u) => (base ? base + u : u);
+  const abs = (u) => (base ? base + pathHref(u) : pathHref(u));
 
   const docMap = docPagesForLlms(root);
   const out = generatedFiles(name);
@@ -332,7 +333,7 @@ function writeLlms(root) {
       // in sidebar order. Folders with no `href` contribute only their children.
       const flatten = (items) => (items ?? []).flatMap((p) => [...(p.href ? [p] : []), ...flatten(p.pages)]);
       for (const p of flatten(g.pages)) {
-        const href = p.href.replace(/(^|\/)index$/, "") || "/"; // as lib/config.ts does
+        const href = hrefAsPath(p.href).replace(/(^|\/)index$/, "") || "/"; // as lib/config.ts does
         const d = docMap.get(href);
         used.add(href);
         if (!d && href.startsWith("/") && !isBuiltRoute(root, href)) {
@@ -405,7 +406,7 @@ function writeLlms(root) {
   }
   if (base) {
     const urls = [...pages]
-      .map((u) => `  <url>\n    <loc>${xmlEsc(base + u)}</loc>\n    <changefreq>weekly</changefreq>\n  </url>`)
+      .map((u) => `  <url>\n    <loc>${xmlEsc(base + pathHref(u))}</loc>\n    <changefreq>weekly</changefreq>\n  </url>`)
       .join("\n");
     out.write(
       "sitemap.xml",
@@ -650,7 +651,7 @@ async function main() {
   for (const r of records) {
     const group = groupOf(r);
     await index.addCustomRecord({
-      url: r.url,
+      url: pathHref(r.url),
       content: `${r.title}. ${r.content}`,
       language: "en",
       meta: { title: r.title, ...((r.meta ?? trails.get(r.url) ?? group) ? { section: r.meta ?? trails.get(r.url) ?? group } : {}) },

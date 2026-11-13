@@ -40,7 +40,7 @@ function removeLeftovers(workDir, staged, outputDirs) {
       staged.includes(name) ||
       (name === "node_modules" && entry.isSymbolicLink()) ||
       (outputDirs.includes(name) && entry.isDirectory()) ||
-      ((name === ".markline-generated.json" || name === ".markline-github.json" || name === ".env" || name.startsWith(".env.")) && entry.isFile());
+      ((name === ".markline-generated.json" || name === ".markline-github.json" || name === ".markline-public.json" || name === ".env" || name.startsWith(".env.")) && entry.isFile());
     if (stays) continue;
     fs.rmSync(path.join(workDir, name), { recursive: true, force: true });
     removed.push(name);

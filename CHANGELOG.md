@@ -123,6 +123,11 @@ All notable changes to `@markline/markline` and `@markline/create`.
   header's picker.
 
 ### Fixed
+- **A file deleted from `public/` is no longer served.** `markline start`
+  and `dev` kept serving a file the project had deleted from `public/`, from
+  their copy in `.markline/`. A file it copied is now removed once it's gone
+  from the project, unless something changed it since. Files deleted before
+  this release stay until you delete `.markline/public` once.
 - **Generated Node samples with Fern names camelCase nested keys too**
   (`voiceSettings: { similarityBoost: 1 }`), as Fern's TypeScript SDK does. A
   free-form map's keys (`additionalProperties`) stay as written.

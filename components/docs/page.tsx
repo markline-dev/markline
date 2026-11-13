@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { pathHref } from "@/scripts/url-path.mjs";
 import { DocsToc } from "./nav";
 import { DocAiRow } from "./doc-actions";
 import { CalloutIconOf } from "./authoring";
@@ -65,7 +66,7 @@ export function DocsPage({
               <span key={i} className="bc-seg">
                 {i > 0 && <span className="sep" aria-hidden>{crumbStyle === "chevron" ? ChevronSep : "/"}</span>}
                 {c.href ? (
-                  <a href={c.href}>{c.label}</a>
+                  <a href={pathHref(c.href)}>{c.label}</a>
                 ) : (
                   <span className={i === crumbs.length - 1 ? "cur" : undefined}>{c.label}</span>
                 )}
@@ -94,7 +95,7 @@ export function DocsPage({
             <h2 id="related-articles">Related articles</h2>
             <LinkList>
               {related.map((r) => (
-                <LinkItem key={r.href} href={r.href} title={r.label} />
+                <LinkItem key={r.href} href={pathHref(r.href)} title={r.label} />
               ))}
             </LinkList>
           </section>
@@ -104,17 +105,17 @@ export function DocsPage({
           <nav className={`page-nav${next ? "" : " page-nav--last"}`} aria-label="Previous and next pages">
             {prev &&
               (next ? (
-                <Link href={prev.href} className="pn-prev" title={prev.label} aria-label={`Previous: ${prev.label}`}>
+                <Link href={pathHref(prev.href)} className="pn-prev" title={prev.label} aria-label={`Previous: ${prev.label}`}>
                   {ChevronLeft} Previous
                 </Link>
               ) : (
-                <Link href={prev.href} className="pn-card">
+                <Link href={pathHref(prev.href)} className="pn-card">
                   <span className="d">{ChevronLeft} Previous</span>
                   <span className="t">{prev.label}</span>
                 </Link>
               ))}
             {next && (
-              <Link href={next.href} className="pn-card pn-next">
+              <Link href={pathHref(next.href)} className="pn-card pn-next">
                 <span className="t">{next.label}</span>
                 <span className="d">Next {ChevronSep}</span>
               </Link>

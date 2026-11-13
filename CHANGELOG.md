@@ -48,8 +48,10 @@ All notable changes to `@markline/markline` and `@markline/create`.
   site-wide `llms.txt`. They're files in a build or static export, and served
   by `markline dev`. Copy for LLM and View as Markdown use the same text.
 - **Steps in "On this page".** `<Steps toc>`, or `toc: steps` in frontmatter,
-  lists step titles in the table of contents, as each step shows them. A
-  step's link is `#step-<title>`, with `-1`, `-2` added when it repeats.
+  lists step titles in the table of contents. A step's title can use inline
+  Markdown (code, bold, italics, links): the step shows it formatted, "On this
+  page" shows its text, and its link is `#step-<text>`, with `-1`, `-2` added
+  when it repeats.
 - **A warning for a `toc:` link that misses.** When a page's frontmatter lists
   its own "On this page" entries, Markline warns, at build and in dev, about any
   `#id` that no heading or element on the page has.
@@ -152,6 +154,15 @@ All notable changes to `@markline/markline` and `@markline/create`.
   header's picker.
 
 ### Fixed
+- **A heading in the changelog's intro no longer takes an entry's id.** An
+  intro heading such as `## 2026 10 15` got the same id as that day's entry;
+  it now gets its own.
+- **Pages whose file names have a space or an accent load on a Node server.**
+  `docs/Getting Started.mdx` or `docs/café.mdx` was a 404 on `markline start`
+  (a static export was fine). Links to such pages, in the sidebar, previous and
+  next, breadcrumbs, `sitemap.xml`, `llms.txt` and search, are now encoded
+  URLs too, and a page saved with a decomposed accent is listed in `llms.txt`
+  under its title.
 - **A file deleted from `public/` is no longer served.** `markline start`
   and `dev` kept serving a file the project had deleted from `public/`, from
   their copy in `.markline/`. A file it copied is now removed once it's gone
@@ -245,6 +256,11 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **Copy copies the tab that's showing.** In the API reference, Copy always
   copied the first tab: cURL when Node was picked, the 200 when 422 was. It
   also no longer stores a second copy of every sample in the page.
+- **Generated SDK samples use valid variable names.** The result variable comes
+  from the last part of the tag, camelCased (`tools/fx` → `fx`,
+  `payment-methods` → `paymentMethod`), and gets a `Result` suffix when it's a
+  reserved word in JS, Python or Go (`types` → `typeResult`). Before, a tag like
+  `text-to-speech` gave `const text-to-speech = …`, which doesn't run.
 
 ## 0.1.8
 

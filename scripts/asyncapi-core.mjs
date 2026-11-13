@@ -81,11 +81,14 @@ class Refs {
 /** Resolve a schema's `$ref`s all the way down, so it reads without the document. */
 function deref(schema, refs, seen = new Set()) {
   const ref = isNode(schema) && typeof schema.$ref === "string" ? schema.$ref : undefined;
-  if (ref && seen.has(ref)) return { type: "object", description: "(recursive)" };
+  // Keys beside a `$ref` (a description, `deprecated`, a hide flag) apply to this
+  // use of the target, over the target's own, as in OpenAPI 3.1.
+  const siblings = ref ? Object.fromEntries(Object.entries(schema).filter(([k]) => k !== "$ref")) : {};
+  if (ref && seen.has(ref)) return { type: "object", description: "(recursive)", ...siblings };
   const node = refs.get(schema);
   if (!node) return undefined;
   const next = ref ? new Set([...seen, ref]) : seen;
-  const out = { ...node };
+  const out = { ...node, ...siblings };
   delete out.$ref;
   for (const key of ["properties", "patternProperties"]) {
     if (isNode(node[key])) out[key] = Object.fromEntries(Object.entries(node[key]).map(([k, v]) => [k, deref(v, refs, next) ?? {}]));

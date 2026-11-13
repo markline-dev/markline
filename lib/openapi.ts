@@ -19,8 +19,8 @@ import {
   type TagOptions,
   type TagSection,
 } from "./openapi-tag-config";
-import { pruneExample, pruneSchema, pruneSpec } from "./openapi-prune";
-import { attachChannels, readAsyncApiFile, WEBSOCKETS_TAG, type AsyncChannel } from "./asyncapi";
+import { pruneSpec } from "./openapi-prune";
+import { attachChannels, hideChannelFields, readAsyncApiFile, WEBSOCKETS_TAG, type AsyncChannel } from "./asyncapi";
 import { loadConfig } from "./config";
 import { sampleMember } from "./openapi-schema";
 
@@ -250,7 +250,7 @@ function addChannels(doc: OpenAPIDoc, variantId: string | undefined, api: Return
   const read = readAsyncApiFile(asyncApiPath(variantId), { perspective: api.asyncapi?.perspective, showDeprecated: api.showDeprecated, hideExtensions });
   if (!read) return;
   doc.warnings.push(...read.warnings);
-  const channels = read.channels.map((c) => hideFields(c, hideExtensions));
+  const channels = read.channels.map((c) => hideChannelFields(c, hideExtensions));
   const opts: TagOptions = { tags: api.tags };
   const { byResource, rest } = attachChannels(
     channels,
@@ -268,28 +268,6 @@ function addChannels(doc: OpenAPIDoc, variantId: string | undefined, api: Return
     // Its own spelling, not "Web Sockets"; a label from api.tags still wins.
     doc.tagLabels[WEBSOCKETS_TAG] ??= WEBSOCKETS_TAG;
   }
-}
-
-/**
- * A channel without the fields `api.hideExtensions` flags, as the OpenAPI pruner
- * leaves an operation: in its query, headers and payloads, and in their
- * examples. A path parameter stays, without its schema if that's hidden: the URL
- * needs it. Whole channels and messages were already left out when read.
- */
-function hideFields(c: AsyncChannel, exts: readonly string[]): AsyncChannel {
-  if (!exts.length) return c;
-  return {
-    ...c,
-    parameters: c.parameters.map((p) => ({ ...p, schema: pruneSchema(p.schema, exts) })),
-    query: pruneSchema(c.query, exts),
-    headers: pruneSchema(c.headers, exts),
-    messages: c.messages.map((m) => {
-      const payload = pruneSchema(m.payload, exts);
-      // A payload hidden whole takes its examples with it.
-      const examples = m.payload && !payload ? [] : m.examples.map((e) => pruneExample(e, m.payload, exts));
-      return { ...m, payload, examples };
-    }),
-  };
 }
 
 /** The security scheme `api.auth` stands for. */

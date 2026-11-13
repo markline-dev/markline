@@ -103,8 +103,17 @@ const asyncSpec = {
           oneOf: [
             {
               name: "changed",
-              payload: { type: "object", properties: { at: { type: "string" }, shardsecret: { type: "string", "x-internal": true } } },
-              examples: [{ payload: { at: "now", shardsecret: "shardvalue" } }],
+              payload: {
+                type: "object",
+                properties: {
+                  at: { type: "string" },
+                  shardsecret: { type: "string", "x-internal": true },
+                  // Hidden beside its $ref; the same schema stays visible as refshown.
+                  refsecret: { $ref: "#/components/schemas/Shared", "x-internal": true },
+                  refshown: { $ref: "#/components/schemas/Shared" },
+                },
+              },
+              examples: [{ payload: { at: "now", shardsecret: "shardvalue", refsecret: { code: "refvalue" }, refshown: { code: "ok" } } }],
             },
             { name: "legacychange", deprecated: true, payload: { type: "string" } },
           ],
@@ -115,6 +124,7 @@ const asyncSpec = {
     "/firehose": { subscribe: { message: { name: "everything", payload: { type: "string" } } } },
     "/internal-feed": { "x-title": "Internalfeed", "x-internal": true, subscribe: { message: { name: "x", payload: { type: "string" } } } },
   },
+  components: { schemas: { Shared: { type: "object", properties: { code: { type: "string" } } } } },
 };
 
 /** v1's spec: only the "others" resource, so "things" exists in the default version alone. */
@@ -412,7 +422,8 @@ test("a WebSocket channel lands on the resource its path or tag names, the rest 
   // A message's description is markdown, rendered the way a lead is.
   assert.match(others, /class="sec-lead msg-lead"[^>]*>Starts <strong>watching<\/strong> this other\.</);
   // Hidden (x-internal, the default): the channel nowhere, the field and its example value nowhere.
-  for (const html of [others, ws, page(reference, "api-reference/things")]) assert.doesNotMatch(html, /Internalfeed|internal-feed|shardsecret|shardvalue/);
+  for (const html of [others, ws, page(reference, "api-reference/things")]) assert.doesNotMatch(html, /Internalfeed|internal-feed|shardsecret|shardvalue|refsecret|refvalue/);
+  assert.match(others, /refshown/);
   assert.match(others, /&quot;at&quot;|"at"/);
   // A deprecated message is marked in its row.
   assert.match(others, /class="ws-name"[^>]*>legacychange<\/span><span class="ws-pill">Receive<\/span><span class="dep-pill">Deprecated</);

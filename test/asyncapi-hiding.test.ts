@@ -4,7 +4,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 // lib/ imports resolve via test/setup.mjs, which `npm test` loads first.
-import { normalizeAsyncApi, readAsyncApiFile, type AsyncChannel } from "../lib/asyncapi.ts";
+import { hideChannelFields, normalizeAsyncApi, readAsyncApiFile, type AsyncChannel } from "../lib/asyncapi.ts";
 import { pruneExample, pruneSchema } from "../lib/openapi-prune.ts";
 import { asyncApiReport } from "../scripts/asyncapi-build.mjs";
 
@@ -131,4 +131,66 @@ test("the build hides what the pages hide: default extensions, api.hideExtension
   write({ "/firehose": { "x-fern-ignore": true, subscribe: { message: { name: "all" } } } });
   assert.equal(asyncApiReport(dir, spec, {}).pages.length, 1);
   assert.deepEqual(asyncApiReport(dir, spec, { hideExtensions: ["x-fern-ignore"] }).pages, []);
+});
+
+test("a field hidden beside its $ref is hidden there, and only there: payload, query and headers", () => {
+  const shared = { type: "object", properties: { code: { type: "string" } } };
+  const hiddenUse = { $ref: "#/components/schemas/Shared", "x-internal": true };
+  const plainUse = { $ref: "#/components/schemas/Shared" };
+  const doc = normalizeAsyncApi(
+    {
+      asyncapi: "2.6.0",
+      info: { title: "t", version: "1" },
+      channels: {
+        "/x": {
+          bindings: {
+            ws: {
+              query: { type: "object", properties: { qsecret: hiddenUse, qshown: plainUse } },
+              headers: { type: "object", properties: { hsecret: hiddenUse, hshown: plainUse } },
+            },
+          },
+          publish: {
+            message: {
+              name: "m",
+              payload: { type: "object", properties: { secret: hiddenUse, shown: plainUse, note: { ...plainUse, description: "Its own words." } } },
+              examples: [{ payload: { secret: { code: "s" }, shown: { code: "v" } } }],
+            },
+          },
+        },
+      },
+      components: { schemas: { Shared: shared } },
+    },
+    { hideExtensions: EXTS },
+  );
+  const raw = doc.channels[0];
+  // Read: the flag (and any other key) beside the $ref is kept on that use.
+  assert.equal(raw.messages[0].payload?.properties?.secret["x-internal"], true);
+  assert.equal(raw.messages[0].payload?.properties?.shown["x-internal"], undefined);
+  assert.equal(raw.messages[0].payload?.properties?.note.description, "Its own words.");
+  const c = hideChannelFields(raw, EXTS);
+  assert.deepEqual(Object.keys(c.messages[0].payload?.properties ?? {}), ["shown", "note"]);
+  assert.deepEqual(Object.keys(c.query?.properties ?? {}), ["qshown"]);
+  assert.deepEqual(Object.keys(c.headers?.properties ?? {}), ["hshown"]);
+  // The examples lose the hidden field too.
+  assert.deepEqual(c.messages[0].examples, [{ shown: { code: "v" } }]);
+  // The Shared schema itself is untouched for its visible uses.
+  assert.deepEqual(c.messages[0].payload?.properties?.shown.properties, { code: { type: "string" } });
+});
+
+test("hideChannelFields: path parameters stay, a payload hidden whole drops its examples, no extensions change nothing", () => {
+  const channel = {
+    id: "/x/{id}",
+    address: "/x/{id}",
+    tags: [],
+    servers: [],
+    parameters: [{ name: "id", schema: { type: "string", "x-internal": true } }],
+    messages: [
+      { id: "a", name: "a", direction: "send", examples: [{ k: 1 }], payload: { type: "object", "x-hidden": true, properties: { k: { type: "integer" } } } },
+      { id: "b", name: "b", direction: "send", examples: [{ k: 1, t: 2 }], payload: { type: "object", properties: { k: { type: "integer" }, t: { type: "integer", "x-internal": true } } } },
+    ],
+  } as AsyncChannel;
+  const c = hideChannelFields(channel, EXTS);
+  assert.deepEqual(c.parameters.map((p) => [p.name, p.schema]), [["id", undefined]]);
+  assert.deepEqual(c.messages.map((m) => [m.payload === undefined, m.examples]), [[true, []], [false, [{ k: 1 }]]]);
+  assert.equal(hideChannelFields(channel, []), channel);
 });

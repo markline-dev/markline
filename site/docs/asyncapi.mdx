@@ -154,9 +154,11 @@ document too: `x-internal` and `x-hidden` by default, or the list in
 - **a field** in a payload, the query or the headers, and it's left out of the
   tables and of every example. A path parameter stays, since the URL needs it.
 
-Hidden parts are removed before anything is built, so they don't reach the page,
-its search, or the build's sitemap. A hidden channel that would have been the
-only one on the WebSockets page takes that page with it.
+A flag beside a `$ref` hides that use only; the same schema stays wherever it's
+used without one. Hidden channels, operations and messages are removed before
+anything is built, so they reach no page, search entry or sitemap: a hidden
+channel that would have been the only one on the WebSockets page takes that page
+with it. Hidden fields are left out of every page.
 
 A channel, message or field marked `deprecated: true` stays, labelled
 "Deprecated": in the sidebar, in the resource's endpoint list, on the message's

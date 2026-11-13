@@ -28,6 +28,7 @@ function installNext(nm: string) {
 /** The framework at `app`: the real CLI, and just enough for it to stage. */
 function installApp(app: string) {
   fs.cpSync(BIN, path.join(app, "bin"), { recursive: true });
+  fs.cpSync(path.join(import.meta.dirname, "..", "scripts"), path.join(app, "scripts"), { recursive: true });
   write(path.join(app, "package.json"), '{"name":"@markline/markline","version":"0.0.0"}');
   write(path.join(app, "scripts", "build-search.mjs"), "");
 }

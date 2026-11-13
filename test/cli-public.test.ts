@@ -12,6 +12,7 @@ function setup(t: { after: (fn: () => void) => void }) {
   t.after(() => fs.rmSync(root, { recursive: true, force: true }));
   const app = path.join(root, "markline");
   fs.cpSync(path.join(import.meta.dirname, "..", "bin"), path.join(app, "bin"), { recursive: true });
+  fs.cpSync(path.join(import.meta.dirname, "..", "scripts"), path.join(app, "scripts"), { recursive: true });
   fs.writeFileSync(path.join(app, "package.json"), "{}");
   fs.mkdirSync(path.join(app, "node_modules", "next", "dist", "bin"), { recursive: true });
   fs.writeFileSync(path.join(app, "node_modules", "next", "package.json"), "{}");
@@ -180,3 +181,59 @@ test("public/ can't link into the staged app", (t) => {
   assert.match(top.stderr, /holds the staged app/);
 });
 
+
+test("a file deleted from public/ goes from the staged copy, unless something changed it since", (t) => {
+  const { site, pub, staged, run } = setup(t);
+  fs.mkdirSync(path.join(pub, "deep", "er"), { recursive: true });
+  for (const f of ["old.txt", "kept.txt", "edited.txt", "changed.txt", path.join("deep", "er", "x.txt")]) fs.writeFileSync(path.join(pub, f), `${f}\n`);
+  assert.equal(run().status, 0);
+  // The site edits one file, deletes it and others; something else rewrites a staged one.
+  fs.writeFileSync(path.join(pub, "edited.txt"), "edited\n");
+  assert.equal(run().status, 0);
+  for (const f of ["old.txt", "edited.txt", "changed.txt", path.join("deep", "er", "x.txt")]) fs.rmSync(path.join(pub, f));
+  fs.writeFileSync(path.join(staged, "changed.txt"), "written by something else\n");
+  fs.mkdirSync(path.join(staged, "pagefind"));
+  fs.writeFileSync(path.join(staged, "pagefind", "index.pf"), "index");
+  assert.equal(run().status, 0);
+  assert.ok(!fs.existsSync(path.join(staged, "old.txt")), "deleted");
+  assert.ok(!fs.existsSync(path.join(staged, "edited.txt")), "edited, then deleted");
+  assert.ok(!fs.existsSync(path.join(staged, "deep")), "folders it emptied go");
+  assert.equal(fs.readFileSync(path.join(staged, "changed.txt"), "utf8"), "written by something else\n", "changed since it was copied");
+  assert.ok(fs.existsSync(path.join(staged, "kept.txt")));
+  assert.ok(fs.existsSync(path.join(staged, "pagefind", "index.pf")), "the build's files stay");
+  assert.ok(fs.existsSync(staged), "public/ itself stays");
+  void site;
+});
+
+test("the first run after upgrading removes nothing it has no record of", (t) => {
+  const { pub, staged, run } = setup(t);
+  fs.mkdirSync(staged, { recursive: true });
+  fs.writeFileSync(path.join(staged, "from-before.txt"), "deleted before this release\n");
+  fs.mkdirSync(pub);
+  fs.writeFileSync(path.join(pub, "a.txt"), "a\n");
+  assert.equal(run().status, 0);
+  assert.ok(fs.existsSync(path.join(staged, "from-before.txt")));
+});
+
+test("with no public/ any more, what was copied from it goes", (t) => {
+  const { pub, staged, run } = setup(t);
+  fs.mkdirSync(pub);
+  fs.writeFileSync(path.join(pub, "logo.svg"), "<svg/>");
+  assert.equal(run().status, 0);
+  fs.rmSync(pub, { recursive: true });
+  assert.equal(run().status, 0);
+  assert.ok(!fs.existsSync(path.join(staged, "logo.svg")));
+});
+
+test("a record that points outside public/ is ignored", async (t) => {
+  const { root, site, pub, run } = setup(t);
+  const victim = path.join(root, "victim.txt");
+  fs.writeFileSync(victim, "keep me\n");
+  const hash = (await import("node:crypto")).createHash("sha256").update("keep me\n").digest("hex");
+  fs.mkdirSync(pub);
+  fs.writeFileSync(path.join(pub, "a.txt"), "a\n");
+  assert.equal(run().status, 0);
+  fs.writeFileSync(path.join(site, ".markline", ".markline-public.json"), JSON.stringify([{ file: "../../victim.txt", hash }, { file: victim, hash }]));
+  assert.equal(run().status, 0);
+  assert.equal(fs.readFileSync(victim, "utf8"), "keep me\n");
+});

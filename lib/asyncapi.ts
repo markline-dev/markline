@@ -5,7 +5,7 @@
  */
 import type { JSONSchema } from "./openapi";
 import { pruneExample, pruneSchema } from "./openapi-prune";
-export { attachChannels, normalizeAsyncApi, readAsyncApiFile, WEBSOCKETS_TAG, type Resource } from "@/scripts/asyncapi-core.mjs";
+export { attachChannels, joinUrl, normalizeAsyncApi, readAsyncApiFile, WEBSOCKETS_TAG, type Resource } from "@/scripts/asyncapi-core.mjs";
 
 /** From the client's side: what it sends, what it receives, or (a 3.0 message no operation names) not said. */
 export type Direction = "send" | "receive" | "unspecified";

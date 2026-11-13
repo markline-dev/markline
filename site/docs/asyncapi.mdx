@@ -18,6 +18,8 @@ toc:
     label: The WebSockets page and sections
   - id: versions
     label: Versions
+  - id: search-and-llm-files
+    label: Search and LLM files
   - id: build-output
     label: Build output
   - id: not-yet
@@ -225,6 +227,19 @@ content/
   v3/api/asyncapi.json    # v3: WebSockets only
 ```
 
+## Search and LLM files
+
+Each channel is in the site's search, under API reference, found by its title,
+description, address and message names. A result opens the channel's section on
+its resource page.
+
+[`llms.txt`](/llm-files) lists the channels under API reference, each with its
+link and connection URL. `llms-full.txt` ends with a "WebSocket channels"
+section: per channel, its link and URL, description, path parameters, and its
+messages with their direction and description. Message fields, query parameters,
+headers and examples are left out of `llms-full.txt`, so nothing
+`api.hideExtensions` hides on the pages can reach it.
+
 ## Build output
 
 A document Markline can't fully read never fails the build. What it can't read is
@@ -239,6 +254,4 @@ version other than the first):
 ## Not yet
 
 - YAML documents. Convert to JSON for now.
-- Channels in the static search index and in `llms.txt`. They are in the
-  reference's own sidebar and page search.
 - Trying a channel from the page, the way Try it calls an operation.

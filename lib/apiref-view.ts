@@ -31,7 +31,9 @@ export type ParamGroup = { title: string; attrs: AttrView[] };
 export type ChannelMessageView = {
   name: string;
   direction: "send" | "receive" | "unspecified";
+  /** The description as sanitised HTML, the way a lead is, and its markdown. */
   description?: string;
+  descriptionMd?: string;
   deprecated?: boolean;
   /** One line of the example, for the collapsed row. */
   preview: string;
@@ -342,7 +344,8 @@ function buildChannel(c: AsyncChannel, id: string, root: unknown): ChannelView {
       return {
         name: m.title ?? m.name,
         direction: m.direction,
-        description: m.description ?? m.summary,
+        description: mdToHtml(m.description ?? m.summary),
+        descriptionMd: m.description ?? m.summary,
         deprecated: m.deprecated,
         preview: line.length > 90 ? `${line.slice(0, 89)}…` : line,
         html: sample === null || sample === undefined ? "" : colorizeJson(sample),

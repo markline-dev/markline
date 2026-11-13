@@ -685,10 +685,12 @@ function EventSection({
 /* ── WebSocket channel section ───────────────────────────────────────────── */
 const DIRECTION_LABEL = { send: "Send", receive: "Receive", unspecified: "Message" } as const;
 
-/** The opening request, as plain text a reader can copy: the upgrade and its headers. */
+/** The opening request, as plain text a reader can copy: the upgrade, its required query parameters and its headers. */
 function handshake(ch: ChannelView): string {
-  const headers = ch.groups.find((g) => g.title === "Headers")?.attrs.map((a) => `${a.name}: <${a.name}>`) ?? [];
-  return [`GET ${ch.url || ch.address}`, "Connection: Upgrade", "Upgrade: websocket", ...headers, "", "← 101 Switching Protocols"].join("\n");
+  const group = (title: string) => ch.groups.find((g) => g.title === title)?.attrs ?? [];
+  const query = group("Query parameters").filter((a) => a.required).map((a) => `${a.name}=<${a.name}>`);
+  const headers = group("Headers").map((a) => `${a.name}: <${a.name}>`);
+  return [`GET ${ch.url || ch.address}${query.length ? `?${query.join("&")}` : ""}`, "Connection: Upgrade", "Upgrade: websocket", ...headers, "", "← 101 Switching Protocols"].join("\n");
 }
 
 /** A WebSocket channel: its handshake on the left and right, then its messages. */
@@ -719,13 +721,13 @@ function ChannelSection({ ch, aiEnabled, crumbs }: { ch: ChannelView; aiEnabled:
             ))}
           </div>
         ))}
-        {withAttrs.map((m) => (
-          <div key={`${m.direction}-${m.name}`}>
+        {withAttrs.map((m, i) => (
+          <div key={i}>
             <div className="attr-h">
               {DIRECTION_LABEL[m.direction]} · {m.name}
               {m.deprecated && <DeprecatedPill />}
             </div>
-            {m.description && <p className="sec-lead msg-lead">{m.description}</p>}
+            {m.description && <div className="sec-lead msg-lead" data-md={m.descriptionMd} dangerouslySetInnerHTML={{ __html: m.description }} />}
             {m.attrs.map((a) => (
               <Attr key={a.name} attr={a} showReqOpt />
             ))}
@@ -750,7 +752,7 @@ function ChannelSection({ ch, aiEnabled, crumbs }: { ch: ChannelView; aiEnabled:
                   <span className={`ws-dir ${m.direction}`} aria-label={DIRECTION_LABEL[m.direction]}>
                     {m.direction === "send" ? "↑" : m.direction === "receive" ? "↓" : "•"}
                   </span>
-                  <span className="ws-name">{m.name}</span>
+                  <span className="ws-name" title={m.name}>{m.name}</span>
                   <span className="ws-pill">{DIRECTION_LABEL[m.direction]}</span>
                   {m.preview && <code className="ws-preview">{m.preview}</code>}
                 </summary>

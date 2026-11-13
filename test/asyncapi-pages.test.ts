@@ -1,8 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 // lib/ imports resolve via test/setup.mjs, which `npm test` loads first.
-import { normalizeAsyncApi, type AsyncChannel } from "../lib/asyncapi.ts";
-import { attachChannels } from "../lib/asyncapi-attach.ts";
+import { attachChannels, normalizeAsyncApi, type AsyncChannel } from "../lib/asyncapi.ts";
 
 // Synthetic specs only: no third-party text.
 

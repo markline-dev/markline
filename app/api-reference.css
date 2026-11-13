@@ -97,9 +97,10 @@
 .ml-apiref .ws-dir.send { color: var(--c-green); }
 .ml-apiref .ws-dir.receive { color: var(--c-cyan); }
 [data-theme="light"] .ml-apiref .ws-dir.receive { color: #0b7fa8; }
-.ml-apiref .ws-name { font-size: 13px; color: var(--ink); white-space: nowrap; }
+/* A long name gives way (ellipsis) so the pill stays in the card on a phone. */
+.ml-apiref .ws-name { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 13px; color: var(--ink); white-space: nowrap; }
 .ml-apiref .ws-pill { flex: none; font-family: var(--mono); font-size: 9.5px; color: var(--ink-3); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; }
-.ml-apiref .ws-preview { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; color: var(--ink-3); }
+.ml-apiref .ws-preview { flex: 1 1 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; color: var(--ink-3); }
 .ml-apiref .ws-msg > .code-card { margin: 0 10px 10px; }
 .ml-apiref .msg-lead { margin-top: 4px; }
 

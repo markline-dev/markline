@@ -92,7 +92,11 @@ const asyncSpec = {
   channels: {
     "/v1/others/{otherId}/live": {
       parameters: { otherId: { description: "Which other.", schema: { type: "string" } } },
-      publish: { summary: "publish", message: { name: "watch", payload: { type: "object", properties: { since: { type: "integer" } } } } },
+      bindings: { ws: { query: { type: "object", required: ["token"], properties: { token: { type: "string" }, verbose: { type: "boolean" } } } } },
+      publish: {
+        summary: "publish",
+        message: { name: "watch", description: "Starts **watching** this other.", payload: { type: "object", properties: { since: { type: "integer" } } } },
+      },
       subscribe: { message: { name: "changed", payload: { type: "object", properties: { at: { type: "string" } } } } },
     },
     "/stream": { "x-title": "Things feed", subscribe: { tags: [{ name: "things" }], message: { name: "thing", payload: { type: "string" } } } },
@@ -377,8 +381,8 @@ test("a WebSocket channel lands on the resource its path or tag names, the rest 
   assert.match(others, /<span class="verb wss">WSS<\/span>/);
   assert.match(others, /wss:\/\/live\.weight\.test\/v1\/others\/<span class="pp">\{otherId\}<\/span>\/live/);
   // Read from the server's side: publish is what the client sends.
-  assert.match(others, /aria-label="Send"[^>]*>[^<]*<\/span><span class="ws-name">watch</);
-  assert.match(others, /aria-label="Receive"[^>]*>[^<]*<\/span><span class="ws-name">changed</);
+  assert.match(others, /aria-label="Send"[^>]*>[^<]*<\/span><span class="ws-name"[^>]*>watch</);
+  assert.match(others, /aria-label="Receive"[^>]*>[^<]*<\/span><span class="ws-name"[^>]*>changed</);
   // The keyword summary isn't the title; the address is.
   assert.match(others, />Live<\/h2>/);
   // By tag: the "things" tag beats a path that shares nothing.
@@ -390,7 +394,10 @@ test("a WebSocket channel lands on the resource its path or tag names, the rest 
   assert.doesNotMatch(ws, />Live<\/h2>|>Things feed<\/h2>/);
   assert.doesNotMatch(others, />Firehose<\/h2>|>Things feed<\/h2>/);
   // The handshake is a request a reader can copy, like every other card.
-  assert.match(others, /<pre class="ws-hs">GET wss:\/\/live\.weight\.test\/v1\/others\/\{otherId\}\/live\nConnection: Upgrade\nUpgrade: websocket\n/);
+  // Its required query parameters are in the URL; optional ones aren't.
+  assert.match(others, /<pre class="ws-hs">GET wss:\/\/live\.weight\.test\/v1\/others\/\{otherId\}\/live\?token=&lt;token&gt;\nConnection: Upgrade\nUpgrade: websocket\n/);
+  // A message's description is markdown, rendered the way a lead is.
+  assert.match(others, /class="sec-lead msg-lead"[^>]*>Starts <strong>watching<\/strong> this other\.</);
   // Only the version with an AsyncAPI file has channels.
   assert.doesNotMatch(page(reference, "api-reference/v1/others"), /class="verb wss"/);
   assert.ok(!fs.existsSync(path.join(reference, "api-reference/v1/websockets.html")));

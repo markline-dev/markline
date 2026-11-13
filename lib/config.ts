@@ -199,6 +199,13 @@ export type ApiConfig = {
    */
   sections?: { title: string; tags: string[] }[];
   /**
+   * The AsyncAPI document of the API's WebSocket channels. `file` is relative to
+   * the content root (default `api/asyncapi.json`). `perspective` says which side a
+   * 2.x document is written from: "server" (the spec's: `publish` is what clients
+   * send) or "client" (`publish` is what the server sends). 3.0 isn't affected.
+   */
+  asyncapi?: { file?: string; perspective?: "server" | "client" };
+  /**
    * Operation extensions that hide an operation when truthy. Replaces the
    * default `["x-hidden", "x-internal"]`; e.g. add `"x-fern-ignore"`.
    */

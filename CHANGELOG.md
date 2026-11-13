@@ -5,6 +5,12 @@ All notable changes to `@markline/markline` and `@markline/create`.
 ## Unreleased
 
 ### Added
+- **WebSocket channels from AsyncAPI.** An `api/asyncapi.json` (AsyncAPI 2.x
+  or 3.0, JSON) adds its channels to the API reference: each on the resource
+  its tag or path matches, else a "WebSockets" page, with its parameters, the
+  handshake, and its messages marked Send or Receive with copyable samples.
+  `api.asyncapi.file` moves it; `api.asyncapi.perspective: "client"` reads a 2.x
+  document written from the client's side.
 - **`icon` on callouts.** `<Callout>`, `<Note>`, `<Info>`, `<Tip>`,
   `<Check>`, `<Warning>` and `<Danger>` take an `icon`: a Phosphor icon name,
   or one or two characters such as `↗`. Paths and URLs aren't accepted.

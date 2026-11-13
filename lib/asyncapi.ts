@@ -140,25 +140,62 @@ function serverUrl(s: Node): string | undefined {
 }
 
 /** One message, from a message object (or a `$ref` to one). */
-function message(raw: unknown, fallbackId: string, direction: Direction, refs: Refs): AsyncMessage | undefined {
+const examplesOf = (node: Node | undefined): unknown[] =>
+  Array.isArray(node?.examples)
+    ? node.examples.map((e: unknown) => (isNode(e) && "payload" in e ? e.payload : e)).filter((e: unknown) => e !== undefined)
+    : node?.example !== undefined
+      ? [node.example]
+      : [];
+
+const idPart = (s: string) => s.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "message";
+
+/**
+ * The messages a message object stands for. Usually one; but a message whose
+ * payload is a `oneOf` of kinds (one "client message" covering init, text and
+ * close) is one per kind, named from the kind's `title`, its `$ref` key, or its
+ * place, with its own examples.
+ */
+function messagesOf(raw: unknown, fallbackId: string, direction: Direction, refs: Refs): AsyncMessage[] {
   const m = refs.get(raw);
-  if (!m) return undefined;
+  if (!m) return [];
   const id = Refs.key(raw) ?? fallbackId;
-  const examples = Array.isArray(m.examples)
-    ? m.examples.map((e: unknown) => (isNode(e) && "payload" in e ? e.payload : e)).filter((e: unknown) => e !== undefined)
-    : [];
-  return {
-    id,
-    name: str(m.name) ?? str(m.messageId) ?? id,
-    title: str(m.title),
-    summary: str(m.summary),
-    description: str(m.description),
+  const base = {
     contentType: str(m.contentType),
-    payload: deref(m.payload, refs),
-    examples,
     direction,
     deprecated: m.deprecated === true || undefined,
   };
+  const payload = refs.get(m.payload);
+  if (payload && Array.isArray(payload.oneOf) && !payload.properties) {
+    return payload.oneOf.flatMap((member: unknown, i: number) => {
+      const kind = refs.get(member);
+      if (!kind) return [];
+      const name = str(kind.title) ?? Refs.key(member) ?? `Message ${i + 1}`;
+      return [
+        {
+          ...base,
+          id: `${id}-${idPart(name)}`,
+          name,
+          summary: str(kind.summary),
+          description: str(kind.description),
+          payload: deref(member, refs),
+          examples: examplesOf(kind),
+          deprecated: base.deprecated || kind.deprecated === true || undefined,
+        },
+      ];
+    });
+  }
+  return [
+    {
+      ...base,
+      id,
+      name: str(m.name) ?? str(m.messageId) ?? id,
+      title: str(m.title),
+      summary: str(m.summary),
+      description: str(m.description),
+      payload: deref(m.payload, refs),
+      examples: examplesOf(m),
+    },
+  ];
 }
 
 /** A 2.x operation's messages: `message` is one message or a `oneOf` list of them. */
@@ -167,9 +204,23 @@ function operationMessages(op: Node | undefined, direction: Direction, channelId
   const m = refs.get(op.message);
   if (!m) return [];
   const list = Array.isArray(m.oneOf) ? m.oneOf : [op.message];
-  return list
-    .map((x: unknown, i: number) => message(x, `${channelId}-${direction}-${i}`, direction, refs))
-    .filter((x: AsyncMessage | undefined): x is AsyncMessage => !!x);
+  return list.flatMap((x: unknown, i: number) => messagesOf(x, `${channelId}-${direction}-${i}`, direction, refs));
+}
+
+/** Which side a 2.x document is written from: the spec's ("server") or the client's. */
+export type Perspective = "server" | "client";
+
+/** A summary that's only an operation keyword ("subscribe") says nothing as a title. */
+const said = (v: unknown): string | undefined => {
+  const s = str(v);
+  return s && !/^(publish|subscribe|send|receive)$/i.test(s.trim()) ? s : undefined;
+};
+
+/** A channel's address as a title: its last plain segment ("stream-input" → "Stream input"). */
+function readable(address: string): string {
+  const segs = address.split("/").filter((x) => x && !/^\{.*\}$/.test(x) && !/^v\d+$/i.test(x));
+  const last = (segs[segs.length - 1] ?? address).replace(/[-_]+/g, " ").trim();
+  return last ? last[0].toUpperCase() + last.slice(1) : address;
 }
 
 const tagNames = (...lists: unknown[]): string[] => [
@@ -190,7 +241,10 @@ function channelServers(names: unknown, all: Record<string, string>, refs: Refs)
     .filter((u): u is string => !!u);
 }
 
-function v2(raw: Node, refs: Refs, servers: Record<string, string>): AsyncChannel[] {
+function v2(raw: Node, refs: Refs, servers: Record<string, string>, perspective: Perspective): AsyncChannel[] {
+  // `publish` is what the described application receives: a client sends it. A
+  // document written from the client's side means the opposite.
+  const [pub, sub]: Direction[] = perspective === "client" ? ["receive", "send"] : ["send", "receive"];
   return Object.entries(isNode(raw.channels) ? raw.channels : {}).flatMap(([address, value]) => {
     const ch = refs.get(value);
     if (!ch) return [];
@@ -204,14 +258,14 @@ function v2(raw: Node, refs: Refs, servers: Record<string, string>): AsyncChanne
       {
         id: address,
         address,
-        title: str(ch["x-title"]) ?? str(publish?.summary) ?? str(subscribe?.summary),
-        summary: str(publish?.summary) ?? str(subscribe?.summary),
+        title: str(ch["x-title"]) ?? said(publish?.summary) ?? said(subscribe?.summary) ?? readable(address),
+        summary: said(publish?.summary) ?? said(subscribe?.summary),
         description: str(ch.description) ?? str(publish?.description) ?? str(subscribe?.description),
         tags: tagNames(publish?.tags, subscribe?.tags, ch.tags),
         servers: channelServers(ch.servers, servers, refs),
         parameters,
         ...wsBinding(ch, refs),
-        messages: [...operationMessages(publish, "send", address, refs), ...operationMessages(subscribe, "receive", address, refs)],
+        messages: [...operationMessages(publish, pub, address, refs), ...operationMessages(subscribe, sub, address, refs)],
         deprecated: ch.deprecated === true || publish?.deprecated === true || subscribe?.deprecated === true || undefined,
       },
     ];
@@ -266,15 +320,15 @@ function v3(raw: Node, refs: Refs, servers: Record<string, string>): AsyncChanne
     const messages = Object.entries(isNode(ch.messages) ? ch.messages : {}).flatMap(([name, m]) => {
       const ways = [...(byMessage.get(name) ?? new Set<Direction>(["unspecified"]))];
       // A message used both ways is listed once for each.
-      return ways.map((way) => message(m, name, way, refs)).filter((x): x is AsyncMessage => !!x);
+      return ways.flatMap((way) => messagesOf(m, name, way, refs));
     });
     const text = opText.get(key) ?? {};
     return [
       {
         id: key,
         address,
-        title: str(ch.title) ?? text.title,
-        summary: str(ch.summary) ?? text.summary,
+        title: str(ch.title) ?? said(text.title) ?? said(text.summary) ?? readable(address),
+        summary: said(str(ch.summary)) ?? said(text.summary),
         description: str(ch.description) ?? text.description,
         tags: tagNames(ch.tags, opTags.get(key)),
         servers: channelServers(ch.servers, servers, refs),
@@ -288,7 +342,7 @@ function v3(raw: Node, refs: Refs, servers: Record<string, string>): AsyncChanne
 }
 
 /** Read an AsyncAPI document. One it can't read gives no channels and a warning, never a throw. */
-export function normalizeAsyncApi(input: unknown): AsyncDoc {
+export function normalizeAsyncApi(input: unknown, opts: { perspective?: Perspective } = {}): AsyncDoc {
   const warnings: string[] = [];
   const raw = isNode(input) ? input : {};
   const version = str(raw.asyncapi) ?? "";
@@ -318,6 +372,11 @@ export function normalizeAsyncApi(input: unknown): AsyncDoc {
     const url = serverUrl(refs.get(s) ?? {});
     if (url) servers[name] = url;
   }
-  out.channels = major === "2" ? v2(raw, refs, servers) : v3(raw, refs, servers);
+  const perspective = opts.perspective ?? "server";
+  if (major === "2" && perspective === "client") {
+    // Said once, so a wrong choice (Send and Receive swapped) is easy to spot.
+    warnings.push(`[markline] AsyncAPI 2.x read from the client's side (api.asyncapi.perspective is "client").`);
+  }
+  out.channels = major === "2" ? v2(raw, refs, servers, perspective) : v3(raw, refs, servers);
   return out;
 }

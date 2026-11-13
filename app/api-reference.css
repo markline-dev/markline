@@ -81,6 +81,27 @@
 [data-theme="light"] .ml-apiref .verb.get   { color: #0b7fa8; }
 [data-theme="light"] .ml-apiref .verb.put   { color: #a5631f; }
 [data-theme="light"] .ml-apiref .verb.patch { color: #5b3fe0; }
+/* A WebSocket channel: its own badge colour, beside the methods'. */
+.ml-apiref .verb.wss { color: #4cc9b0; background: rgb(76 201 176 / .15); }
+[data-theme="light"] .ml-apiref .verb.wss { color: #0d7a66; }
+
+/* A channel's handshake and messages (right rail). */
+.ml-apiref .code-card pre.ws-hs { white-space: pre-wrap; overflow-wrap: anywhere; }
+.ml-apiref .ws-msgs { margin-top: 14px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; background: var(--panel); }
+.ml-apiref .ws-msgs-head { font-family: var(--mono); font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-3); padding: 9px 14px; border-bottom: 1px solid var(--line); }
+.ml-apiref .ws-msg + .ws-msg { border-top: 1px solid var(--line); }
+.ml-apiref .ws-msg > summary { display: flex; align-items: center; gap: 9px; padding: 9px 14px; cursor: pointer; list-style: none; min-width: 0; }
+.ml-apiref .ws-msg > summary::-webkit-details-marker { display: none; }
+.ml-apiref .ws-msg > summary:hover { background: var(--panel-hi); }
+.ml-apiref .ws-dir { flex: none; width: 16px; text-align: center; font-weight: 700; }
+.ml-apiref .ws-dir.send { color: var(--c-green); }
+.ml-apiref .ws-dir.receive { color: var(--c-cyan); }
+[data-theme="light"] .ml-apiref .ws-dir.receive { color: #0b7fa8; }
+.ml-apiref .ws-name { font-size: 13px; color: var(--ink); white-space: nowrap; }
+.ml-apiref .ws-pill { flex: none; font-family: var(--mono); font-size: 9.5px; color: var(--ink-3); border: 1px solid var(--line); border-radius: 5px; padding: 1px 5px; }
+.ml-apiref .ws-preview { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11.5px; color: var(--ink-3); }
+.ml-apiref .ws-msg > .code-card { margin: 0 10px 10px; }
+.ml-apiref .msg-lead { margin-top: 4px; }
 
 /* The top nav is now the shared global <SiteNav/> (app/markline-tokens.css);
    the .ml-apiref-scoped .nav / .brand / .btn / .theme-btn / .ghbadge rules were

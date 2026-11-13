@@ -30,3 +30,13 @@ test("loading a config with a bad rate limit warns", async (t) => {
   assert.equal(rate.length, 1, said.join("\n"));
   assert.match(rate[0], /ai\.rateLimit\.perDay .* ignoring "10abc"/);
 });
+
+test("trustedProxies and ipHeader that can't be used are reported", async () => {
+  const { warnRateLimits } = await import("../lib/config");
+  const said: string[] = [];
+  warnRateLimits({ trustedProxies: 0, ipHeader: "cookie" }, (m) => said.push(m));
+  warnRateLimits({ trustedProxies: 2, ipHeader: "cf-connecting-ip" }, (m) => said.push(m));
+  assert.equal(said.length, 2);
+  assert.match(said[0], /trustedProxies/);
+  assert.match(said[1], /ipHeader .*"cookie"/);
+});

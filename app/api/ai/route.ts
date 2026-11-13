@@ -1,6 +1,7 @@
 import { loadConfig, resolveAiBaseUrl } from "@/lib/config";
 import { buildMessages, chatComplete } from "@/lib/ai/transport";
 import { createRateLimiter, limitOf } from "@/lib/ai/rate-limit";
+import { clientIp, validIpHeader, validProxies } from "@/lib/ai/client-ip";
 
 /**
  * Ask AI server proxy (BYOK, proxy mode). Holds the operator key
@@ -52,7 +53,10 @@ export async function POST(req: Request) {
 
   // Only a valid request counts. The check and the count happen together, with
   // nothing awaited between them and the provider call.
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  const ip = clientIp(req.headers, {
+    trustedProxies: validProxies(ai.rateLimit?.trustedProxies),
+    ipHeader: validIpHeader(ai.rateLimit?.ipHeader),
+  });
   const wait = rateLimited(ip, {
     perMinute: limitOf(ai.rateLimit?.perMinute) ?? 10,
     perDay: limitOf(ai.rateLimit?.perDay),

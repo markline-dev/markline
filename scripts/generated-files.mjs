@@ -16,7 +16,7 @@ const MANIFEST = ".markline-generated.json";
 /** The files at the top of public/ the build generates, besides llms.txt. */
 const TOP_LEVEL = new Set(["llms-full.txt", "robots.txt", "sitemap.xml"]);
 
-const hashOf = (text) => crypto.createHash("sha256").update(text).digest("hex");
+export const hashOf = (text) => crypto.createHash("sha256").update(text).digest("hex");
 
 const inside = (dir, file) => {
   const rel = path.relative(dir, file);
@@ -36,9 +36,22 @@ function removeEntry(pub, entry, sitePublic) {
   // The site has put a file there since (perhaps a copy of ours, to edit):
   // the copy in public/ is its own now.
   if (sitePublic && inside(sitePublic, path.resolve(sitePublic, file)) && fs.existsSync(path.resolve(sitePublic, file))) return;
+  removeIfUnchanged(pub, file, hash);
+}
+
+/**
+ * Remove `pub`/`file` if it still has `hash`: only inside the real public/
+ * folder `pub`, never through a link, and never anything changed since. Throws
+ * if the file is already gone; callers catch that. Shared with the CLI's own
+ * record of the files it copied (bin/stage-public.mjs).
+ */
+export function removeIfUnchanged(pub, file, hash) {
+  if (typeof file !== "string" || typeof hash !== "string") return false;
   const abs = path.resolve(pub, file);
-  if (abs === pub || !inside(pub, abs) || !inside(pub, fs.realpathSync(path.dirname(abs)))) return;
-  if (hashOf(fs.readFileSync(abs)) === hash) fs.rmSync(abs, { force: true });
+  if (abs === pub || !inside(pub, abs) || !inside(pub, fs.realpathSync(path.dirname(abs)))) return false;
+  if (!fs.lstatSync(abs).isFile() || hashOf(fs.readFileSync(abs)) !== hash) return false;
+  fs.rmSync(abs, { force: true });
+  return true;
 }
 
 /**

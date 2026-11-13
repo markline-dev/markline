@@ -55,7 +55,8 @@ function syncApp() {
   }
   // Serve the consumer's own static assets (logo, favicon, images) from /public.
   const pub = path.join(CONTENT_DIR, "public");
-  if (fs.existsSync(pub)) stagePublic(pub, WORK_DIR);
+  // Also when there's no public/ (any more): what an earlier run copied goes.
+  stagePublic(pub, WORK_DIR);
 
   linkDeps(path.join(WORK_DIR, "node_modules"), depsDir(APP_DIR));
 }

@@ -2,6 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { contentRoot } from "./paths";
 import { limitOf, MAX_LIMIT } from "./ai/rate-limit";
+import { MAX_PROXIES, validIpHeader, validProxies } from "./ai/client-ip";
 import type { TagOverride } from "./openapi-tag-config";
 import { checkTemplateVersions, deepMerge, loadTemplateChain, templateCss, templateOptions } from "./templates";
 
@@ -354,7 +355,16 @@ export type AiConfig = {
    * they limit one caller's rate, not total spending; set spending limits with
    * the AI provider.
    */
-  rateLimit?: { perMinute?: number; perDay?: number };
+  rateLimit?: {
+    perMinute?: number;
+    perDay?: number;
+    /** How many proxies the site runs in front of Markline (default 1): the
+     *  address that many entries from the right of x-forwarded-for is counted. */
+    trustedProxies?: number;
+    /** A header the host sets to the reader's address, such as
+     *  "cf-connecting-ip"; when set, only it is read (lib/ai/client-ip.ts). */
+    ipHeader?: string;
+  };
 };
 
 /** Sanitized AI config safe to send to the browser (never a key). */
@@ -716,6 +726,13 @@ export function warnRateLimits(limits: unknown, warn: (msg: string) => void = co
     if (value !== undefined && limitOf(value) === undefined) {
       warn(`[markline] ai.rateLimit.${name} must be a whole number from 1 to ${MAX_LIMIT}; ignoring ${JSON.stringify(value)}.`);
     }
+  }
+  const { trustedProxies, ipHeader } = limits as Record<string, unknown>;
+  if (trustedProxies !== undefined && validProxies(trustedProxies) === undefined) {
+    warn(`[markline] ai.rateLimit.trustedProxies must be a whole number from 1 to ${MAX_PROXIES}; using 1.`);
+  }
+  if (ipHeader !== undefined && validIpHeader(ipHeader) === undefined) {
+    warn(`[markline] ai.rateLimit.ipHeader must be the name of a header your host sets to the reader's address; ignoring ${JSON.stringify(ipHeader)}.`);
   }
 }
 

@@ -17,6 +17,13 @@ export function asyncApiFile(dir, api) {
   return path.join(dir, api?.asyncapi?.file ?? path.join("api", "asyncapi.json"));
 }
 
+// The specs readApiSpec() stands in for a folder with only an AsyncAPI document:
+// tracked here, not by a key in the spec, which a real openapi.json could carry.
+const standIns = new WeakSet();
+
+/** Whether `spec` is readApiSpec()'s stand-in for a folder with only an AsyncAPI document. */
+export const isStandIn = (spec) => !!spec && typeof spec === "object" && standIns.has(spec);
+
 /**
  * The OpenAPI spec in `dir` (the content root, or a version's folder), parsed; a
  * spec with no operations when there's only an AsyncAPI document, so its channels
@@ -25,7 +32,10 @@ export function asyncApiFile(dir, api) {
 export function readApiSpec(dir, api) {
   const file = path.join(dir, "api", "openapi.json");
   if (fs.existsSync(file)) return JSON.parse(fs.readFileSync(file, "utf8"));
-  return fs.existsSync(asyncApiFile(dir, api)) ? { openapi: "3.0.0", info: { title: "", version: "" }, paths: {} } : null;
+  if (!fs.existsSync(asyncApiFile(dir, api))) return null;
+  const spec = { openapi: "3.0.0", info: { title: "", version: "" }, paths: {} };
+  standIns.add(spec);
+  return spec;
 }
 
 /**

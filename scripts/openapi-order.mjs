@@ -349,7 +349,7 @@ export function resourcePages(spec, api, extras = NO_EXTRAS) {
   });
 }
 
-function slugifyOpId(method, pathStr) {
+export function slugifyOpId(method, pathStr) {
   return `${method}_${pathStr.replace(/[^a-zA-Z0-9]+/g, "_")}`.replace(/^_+|_+$/g, "");
 }
 

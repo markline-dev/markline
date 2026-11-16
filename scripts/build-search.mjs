@@ -11,7 +11,7 @@ import path from "node:path";
 import matter from "gray-matter";
 import * as pagefind from "pagefind";
 import { apiIndexLines, apiSearchRecords, resourcePages, specWarnings } from "./openapi-order.mjs";
-import { asyncApiReport, channelExtras, readApiSpec } from "./asyncapi-build.mjs";
+import { asyncApiReport, channelExtras, channelLlms, channelRecords, readApiSpec } from "./asyncapi-build.mjs";
 import { searchGroups, searchTrails } from "./search-groups.mjs";
 import { markdownPath, mdxToMarkdown, pageMarkdown, sectionIds, sectionIndex } from "./llms.mjs";
 import { removeGeneratedFiles, writeManifest } from "./generated-files.mjs";
@@ -134,7 +134,8 @@ function apiRecords(root) {
     if (!versioned) continue;
     for (const w of asyncApiReport(path.join(root, v.id), versioned, api).warnings) console.warn(w.replace("[markline]", `[markline] (version ${v.id})`));
   }
-  return apiSearchRecords(spec, api, toPlainText);
+  // Operations, then WebSocket channels, each linking to its id on its resource's page.
+  return [...apiSearchRecords(spec, api, toPlainText), ...channelRecords(root, spec, api, toPlainText)];
 }
 
 /* ── Changelog ──────────────────────────────────────────────────────────────
@@ -344,6 +345,8 @@ function writeLlms(root) {
   }
   const leftover = [...docMap.values()].filter((d) => !used.has(d.url) && d.layout !== "landing");
   const apis = apiResources(root);
+  const apiSpec = readApiSpec(root, cfg.api);
+  const channels = apiSpec ? channelLlms(root, apiSpec, cfg.api, abs) : { index: "", full: "" };
 
   // ---- llms.txt (index) ----
   let idx = `# ${name}\n\n`;
@@ -367,6 +370,7 @@ function writeLlms(root) {
     idx += `## API reference\n\n`;
     idx += `- [API reference](${abs("/api-reference")}): interactive OpenAPI reference\n`;
     idx += apiIndexLines(apis, abs);
+    idx += channels.index;
     idx += "\n";
   }
 
@@ -382,6 +386,7 @@ function writeLlms(root) {
     if (d.lede) full += `${d.lede}\n\n`;
     full += `${d.body}\n`;
   }
+  full += channels.full;
 
   out.write("llms.txt", `${idx.trim()}\n`, { say: true });
   out.write("llms-full.txt", `${full.trim().replace(/\n{3,}/g, "\n\n")}\n`, { say: true });

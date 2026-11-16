@@ -10,7 +10,27 @@ export function channelExtras(
   dir: string,
   spec: unknown,
   api: unknown,
-): { read: { channels: AsyncChannel[]; tagGroups?: unknown[]; warnings: string[] } | null; extras: ChannelExtras };
+): {
+  read: { channels: AsyncChannel[]; tagGroups?: unknown[]; warnings: string[] } | null;
+  /** Each page's channels, in the order placeChannels() gives them. */
+  placed: Map<string, AsyncChannel[]>;
+  extras: ChannelExtras;
+};
+export type ChannelPage = {
+  channel: AsyncChannel;
+  page: { name: string; slug: string; title: string; section: string | null };
+  /** Its id on that page, and `/api-reference/<page>#<id>`. */
+  id: string;
+  url: string;
+};
+export function channelPages(dir: string, spec: unknown, api: unknown): ChannelPage[];
+export function channelRecords(
+  dir: string,
+  spec: unknown,
+  api: unknown,
+  toPlainText?: (s: string) => string,
+): { url: string; title: string; content: string; meta: string }[];
+export function channelLlms(dir: string, spec: unknown, api: unknown, abs?: (url: string) => string): { index: string; full: string };
 export function asyncApiReport(
   dir: string,
   spec: unknown,

@@ -3,6 +3,7 @@ import path from "node:path";
 import { contentRoot } from "./paths";
 import { limitOf, MAX_LIMIT } from "./ai/rate-limit";
 import { hrefAsPath } from "@/scripts/url-path.mjs";
+import { ALLOWED_LINKS, quoteHref, safeHref } from "@/scripts/safe-href.mjs";
 import { MAX_PROXIES, validIpHeader, validProxies } from "./ai/client-ip";
 import type { TagOverride } from "./openapi-tag-config";
 import { checkTemplateVersions, deepMerge, loadTemplateChain, templateCss, templateOptions } from "./templates";
@@ -706,6 +707,60 @@ export function normalizeNavHrefs<T>(node: T): T {
   return Object.fromEntries(entries) as T;
 }
 
+const DROP = Symbol("drop");
+
+/**
+ * Links in the config markline won't render (scripts/safe-href.mjs), each
+ * reported by its key path and left out: a link, nav page or tab with one is
+ * dropped from its list, and an item that holds `pages` stays as a folder.
+ * `footer.socials` values and `editUrl` are links too.
+ */
+export function dropUnsafeLinks<T>(node: T, at: string, warn: (msg: string) => void = console.warn): T {
+  const out = drop(node, at, warn);
+  return (out === DROP ? undefined : out) as T;
+}
+
+function drop(node: unknown, at: string, warn: (msg: string) => void): unknown {
+  const bad = (p: string, href: unknown, what: string) =>
+    warn(`[markline] ${p}: ${quoteHref(href)} isn't a link markline renders (use ${ALLOWED_LINKS}); ${what}.`);
+  if (Array.isArray(node)) {
+    const kept: unknown[] = [];
+    node.forEach((v, i) => {
+      const r = drop(v, `${at}[${i}]`, warn);
+      if (r !== DROP) kept.push(r);
+    });
+    return kept;
+  }
+  if (typeof node !== "object" || node === null) return node;
+  const obj = node as Record<string, unknown>;
+  const href = obj.href;
+  if (typeof href === "string" && !safeHref(href)) {
+    if (!Array.isArray(obj.pages)) {
+      bad(`${at}.href`, href, "leaving it out");
+      return DROP;
+    }
+    bad(`${at}.href`, href, "keeping the item as a folder");
+  }
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (k === "href" && typeof v === "string" && !safeHref(v)) continue;
+    const p = at ? `${at}.${k}` : k;
+    if (k === "socials" && v && typeof v === "object" && !Array.isArray(v)) {
+      out[k] = Object.fromEntries(
+        Object.entries(v).filter(([net, url]) => {
+          if (typeof url !== "string" || safeHref(url)) return true;
+          bad(`${p}.${net}`, url, "leaving it out");
+          return false;
+        }),
+      );
+      continue;
+    }
+    const r = drop(v, p, warn);
+    if (r !== DROP) out[k] = r;
+  }
+  return out;
+}
+
 /** `topbar.githubStars`: "live" unless it's "build" or false. Anything else is
  *  reported once and read as "live". */
 let starsWarned = false;
@@ -749,6 +804,15 @@ export function loadConfig(): MarklineConfig {
   }
   const base = withTemplate(DEFAULT_CONFIG, user, path.dirname(file));
   const config = mergeConfig(base, user);
+  config.topbar = dropUnsafeLinks(config.topbar, "topbar");
+  config.footer = dropUnsafeLinks(config.footer, "footer");
+  config.navigation = dropUnsafeLinks(config.navigation, "navigation");
+  config.versions = dropUnsafeLinks(config.versions, "versions");
+  if (config.i18n) config.i18n = dropUnsafeLinks(config.i18n, "i18n");
+  if (typeof config.editUrl === "string" && !safeHref(config.editUrl)) {
+    console.warn(`[markline] editUrl: ${quoteHref(config.editUrl)} isn't a link markline renders (use ${ALLOWED_LINKS}); leaving out "Edit this page".`);
+    config.editUrl = undefined;
+  }
   config.navigation = normalizeNavHrefs(config.navigation);
   config.versions = normalizeNavHrefs(config.versions);
   if (config.i18n) config.i18n = normalizeNavHrefs(config.i18n);

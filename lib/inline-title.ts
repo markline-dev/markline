@@ -7,6 +7,7 @@
 import remarkGfm from "remark-gfm";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
+import { safeHref } from "@/scripts/safe-href.mjs";
 
 export type TitleNode =
   | { type: "text"; value: string }
@@ -18,14 +19,8 @@ type Md = { type: string; value?: string; url?: string; alt?: string; children?:
 
 const parser = unified().use(remarkParse).use(remarkGfm);
 
-/** A link a title may have: a path or #anchor on this site, http(s) or mailto.
- *  Anything else (javascript:, data:, vbscript:, …) is dropped. */
-export function safeHref(url: string | undefined): string | undefined {
-  if (!url) return undefined;
-  const u = url.trim();
-  if (/^(\/|#|\.{0,2}\/)/.test(u) || /^[^:/?#]+(\/|$|[?#])/.test(u)) return u; // relative
-  return /^(https?:|mailto:)/i.test(u) ? u : undefined;
-}
+/** A link a title may have: the rule every link follows (scripts/safe-href.mjs). */
+export { safeHref };
 
 function convert(node: Md): TitleNode[] {
   const kids = () => (node.children ?? []).flatMap(convert);

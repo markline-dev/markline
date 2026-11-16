@@ -92,6 +92,13 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **Line numbers in the Expand dialog.** Copy still copies only the code.
 
 ### Changed
+- **One rule for every link.** A link goes to a path or `#anchor` on the
+  site, or an `http:`, `https:`, `mailto:` or `tel:` URL: in Markdown, in an
+  `<a>`, in a card, link-list item, path, bento card, feature or button, and
+  in `markline.json`. Any other link (`javascript:`, `data:`, `file:`, …) is
+  shown as its text, or left out of the config, and `markline dev` and
+  `markline build` name it by file or config key. Step titles now allow
+  `tel:` too.
 - **Every tab and accordion is in the page,** hidden while it isn't showing,
   so search engines see all of it. Tabs have tab and tabpanel roles, and the
   arrow keys move between them.

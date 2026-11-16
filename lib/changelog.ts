@@ -3,6 +3,7 @@ import path from "node:path";
 import matter from "gray-matter";
 import { contentRoot } from "./paths";
 import { entryDate } from "./changelog-core";
+import { warnBodyLinks } from "./body-links";
 
 /**
  * The changelog's entries: one MDX file per release in `<content>/changelog/`,
@@ -41,6 +42,7 @@ export function listChangelog(): ChangelogEntry[] {
       }
       continue;
     }
+    warnBodyLinks(`changelog/${name}`, content);
     entries.push({
       date,
       title: typeof data.title === "string" && data.title.trim() ? data.title.trim() : undefined,

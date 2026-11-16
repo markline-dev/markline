@@ -5,6 +5,7 @@ import path from "node:path";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import { remarkCodeGroupTitles } from "@/lib/code-group";
+import { remarkSafeLinks } from "@/lib/body-links";
 import { remarkTocIds } from "@/lib/toc";
 import rehypePrettyCode from "rehype-pretty-code";
 import { loadOpenApi, loadOpenApiRoot, hasApiReference } from "@/lib/openapi";
@@ -91,7 +92,7 @@ function renderMdx(source: string) {
       options={{
         mdxOptions: {
           format: "mdx",
-          remarkPlugins: [remarkGfm, remarkCodeGroupTitles, remarkTocIds],
+          remarkPlugins: [remarkGfm, remarkSafeLinks, remarkCodeGroupTitles, remarkTocIds],
           rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]],
         },
       }}

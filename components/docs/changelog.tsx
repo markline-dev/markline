@@ -2,6 +2,7 @@ import Link from "next/link";
 import { MDXRemote } from "next-mdx-remote/rsc";
 import remarkGfm from "remark-gfm";
 import { remarkCodeGroupTitles } from "@/lib/code-group";
+import { remarkSafeLinks } from "@/lib/body-links";
 import rehypePrettyCode from "rehype-pretty-code";
 import type { MDXComponents } from "mdx/types";
 import { mdxComponents } from "./mdx";
@@ -75,7 +76,7 @@ function Entry({ entry, linkDate = true }: { entry: ChangelogEntry; linkDate?: b
           source={entry.body}
           components={entryComponents(entry.date)}
           options={{
-            mdxOptions: { format: "mdx", remarkPlugins: [remarkGfm, remarkCodeGroupTitles, remarkTocIds], rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]] },
+            mdxOptions: { format: "mdx", remarkPlugins: [remarkGfm, remarkSafeLinks, remarkCodeGroupTitles, remarkTocIds], rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]] },
             blockJS: false,
           }}
         />

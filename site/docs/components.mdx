@@ -2,6 +2,8 @@
 title: Components
 lede: Rich components available in any MDX page — no import required.
 toc:
+  - id: links
+    label: Links
   - id: callouts
     label: Callouts
   - id: cards
@@ -37,6 +39,22 @@ toc:
   - id: landing-pages
     label: Landing pages
 ---
+
+## Links
+
+A link goes to a path or `#anchor` on your site, or to an `http:`, `https:`,
+`mailto:` or `tel:` URL. That holds for a Markdown link, an `<a>`, and the
+`href` of every component below that takes one: a card, link-list item, path,
+bento card, feature or button. A link of any other kind (`javascript:`,
+`data:`, `file:` and so on) is shown as its text, without the link, and
+`markline dev` and `markline build` say which, by file:
+
+```text
+[markline] docs/guide.mdx: the link "Run it" goes to "javascript:run()", which markline doesn't link to (use a path, a #anchor, or an http:, https:, mailto: or tel: URL); it's shown as text.
+```
+
+Links in `markline.json` follow the same rule; see
+[Configuration](/configuration#navigation).
 
 ## Callouts
 

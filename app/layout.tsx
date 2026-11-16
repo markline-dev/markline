@@ -203,6 +203,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           homeWidth={config.topbar.homeWidth}
           header={config.layout.header}
           search={config.layout.search}
+          appearance={appearance}
         />
         {children}
       </body>

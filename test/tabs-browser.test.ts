@@ -108,6 +108,43 @@ async function reload(ready = settled) {
   await ready();
 }
 
+/**
+ * Start headless Chrome and return its first page's DevTools socket URL.
+ * Chrome picks a free port and prints it; if it exits or says nothing in time,
+ * the failure carries what it wrote to stderr.
+ */
+async function launchChrome(profile: string): Promise<string> {
+  const args = ["--headless=new", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "--no-first-run", "--no-default-browser-check"];
+  // Linux CI runners (Ubuntu 24.04 restricts unprivileged user namespaces) and
+  // containers can't start Chrome's sandbox; this Chrome only loads the test site.
+  if (process.platform === "linux") args.push("--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu");
+  chrome = spawn(chromePath!, [...args, "about:blank"], { stdio: ["ignore", "ignore", "pipe"] });
+  let stderr = "";
+  const browserWs = await new Promise<string>((resolve, reject) => {
+    const fail = (why: string) => reject(new Error(`Chrome's DevTools endpoint: ${why}\n${chromePath} ${args.join(" ")}\nstderr:\n${stderr.slice(-4000) || "(nothing)"}`));
+    const timer = setTimeout(() => fail("no DevTools URL after 30s"), 30_000);
+    chrome!.on("error", (e) => (clearTimeout(timer), fail(String(e))));
+    chrome!.on("exit", (code, signal) => (clearTimeout(timer), fail(`Chrome exited (${signal ?? code})`)));
+    chrome!.stderr!.on("data", (d) => {
+      stderr += d;
+      const m = stderr.match(/DevTools listening on (ws:\/\/\S+)/);
+      if (m) (clearTimeout(timer), resolve(m[1]));
+    });
+  });
+  chrome.removeAllListeners("exit");
+  chrome.stderr!.resume(); // keep draining it
+  const port = new URL(browserWs).port;
+  for (let i = 0; i < 100; i++) {
+    try {
+      const targets = (await (await fetch(`http://127.0.0.1:${port}/json`)).json()) as { type: string; webSocketDebuggerUrl: string }[];
+      const page = targets.find((t) => t.type === "page")?.webSocketDebuggerUrl;
+      if (page) return page;
+    } catch {}
+    await sleep(100);
+  }
+  throw new Error(`Chrome's DevTools endpoint: no page target on port ${port}\nstderr:\n${stderr.slice(-4000)}`);
+}
+
 before(async () => {
   if (skip) return;
   fs.writeFileSync(path.join(site.dir, "docs", "tabbed.mdx"), `---\ntitle: Tabbed\n---\n\n${body}\n`);
@@ -116,17 +153,7 @@ before(async () => {
   base = await site.serve("start", "/tabbed");
 
   profile = fs.mkdtempSync(path.join(os.tmpdir(), "markline-chrome-"));
-  const port = 9300 + Math.floor(Math.random() * 500);
-  chrome = spawn(chromePath!, ["--headless=new", `--remote-debugging-port=${port}`, `--user-data-dir=${profile}`, "--no-first-run", "about:blank"], { stdio: "ignore" });
-  let ws: string | undefined;
-  for (let i = 0; i < 100 && !ws; i++) {
-    try {
-      const targets = (await (await fetch(`http://127.0.0.1:${port}/json`)).json()) as { type: string; webSocketDebuggerUrl: string }[];
-      ws = targets.find((t) => t.type === "page")?.webSocketDebuggerUrl;
-    } catch {}
-    if (!ws) await sleep(100);
-  }
-  assert.ok(ws, "Chrome's DevTools endpoint");
+  const ws = await launchChrome(profile);
   const sock = new WebSocket(ws);
   await new Promise((r) => sock.addEventListener("open", r, { once: true }));
   let id = 0;

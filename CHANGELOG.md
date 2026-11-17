@@ -165,6 +165,11 @@ All notable changes to `@markline/markline` and `@markline/create`.
   header's picker.
 
 ### Fixed
+- **AsyncAPI tags written as `$ref`** (3.0's `components/tags`, on a channel or
+  operation) are read by the name they point at, so such a channel now joins
+  the page that tag names (an OpenAPI resource of that name, say) instead of
+  going by its path or to the WebSockets page; a `$ref` that points at nothing
+  is reported once.
 - **"On this page" follows the tab you're on.** It listed the first tab's
   headings only, and kept them after you switched tabs. A link to a heading
   in another tab, or in a closed accordion, now opens it, and find-in-page can

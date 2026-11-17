@@ -12,9 +12,25 @@ import { pageAnchors } from "./apiref-anchors.mjs";
 
 const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 
-/** `api.asyncapi.file` under `dir` (the content root, or a version's folder), else `api/asyncapi.json`. */
+/** `api.asyncapi.file` under `dir` (the content root, or a version's folder), else the first of `api/asyncapi.json`, `.yaml`, `.yml` there. */
 export function asyncApiFile(dir, api) {
-  return path.join(dir, api?.asyncapi?.file ?? path.join("api", "asyncapi.json"));
+  if (api?.asyncapi?.file) return path.join(dir, api.asyncapi.file);
+  return asyncApiDefaults(dir).find((f) => fs.existsSync(f)) ?? asyncApiDefaults(dir)[0];
+}
+
+/** api.asyncapi.file names a file that isn't there: said, rather than quietly showing no channels. */
+export function missingFileWarnings(dir, api) {
+  const file = api?.asyncapi?.file;
+  return file && !fs.existsSync(path.join(dir, file)) ? [`[markline] api.asyncapi.file is "${file}", which doesn't exist, so no channels are shown.`] : [];
+}
+
+/** Where a folder's AsyncAPI document is looked for, in order, without api.asyncapi.file. */
+const asyncApiDefaults = (dir) => ["asyncapi.json", "asyncapi.yaml", "asyncapi.yml"].map((f) => path.join(dir, "api", f));
+
+/** The default-named documents in `dir` that aren't read because an earlier one is. */
+function ignoredAsyncApi(dir, api) {
+  if (api?.asyncapi?.file) return [];
+  return asyncApiDefaults(dir).filter((f) => fs.existsSync(f)).slice(1);
 }
 
 // The specs readApiSpec() stands in for a folder with only an AsyncAPI document:
@@ -43,12 +59,17 @@ export function readApiSpec(dir, api) {
  * as read (null when there's none); `extras` is what it adds to resourcePlan().
  */
 export function channelExtras(dir, spec, api) {
-  const read = readAsyncApiFile(asyncApiFile(dir, api), {
+  const file = asyncApiFile(dir, api);
+  const read = readAsyncApiFile(file, {
     perspective: api?.asyncapi?.perspective,
     showDeprecated: api?.showDeprecated,
     hideExtensions: api?.hideExtensions ?? DEFAULT_HIDE_EXTENSIONS,
   });
   if (!read) return { read: null, placed: new Map(), extras: NO_EXTRAS };
+  // Two documents by the default names: the first is read, and the build says so.
+  for (const other of ignoredAsyncApi(dir, api)) {
+    read.warnings.push(`[markline] api/${path.basename(file)} and api/${path.basename(other)} both exist; ${path.basename(file)} is read and ${path.basename(other)} is ignored.`);
+  }
   const plan = spec ? resourcePlan(spec, api) : { tags: [], ops: [] };
   const resources = plan.tags.map((name) => ({ name, paths: plan.ops.filter((o) => o.tag === name).map((o) => o.path) }));
   const { byResource, rest } = attachChannels(read.channels, resources, (tag) => resolveTag(tag, api));
@@ -90,7 +111,7 @@ export function channelExtras(dir, spec, api) {
 /** The document's warnings, and the resource pages only its channels make (as resourcePages() lists them). */
 export function asyncApiReport(dir, spec, api) {
   const { read, extras } = channelExtras(dir, spec, api);
-  if (!read) return { warnings: [], pages: [] };
+  if (!read) return { warnings: missingFileWarnings(dir, api), pages: [] };
   const before = new Set(spec ? resourcePlan(spec, api).tags : []);
   const pages = resourcePages(spec ?? {}, api, extras)
     .filter((p) => !before.has(p.name))

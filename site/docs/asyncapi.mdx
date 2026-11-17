@@ -34,7 +34,8 @@ the REST operations.
 
 ## Add a document
 
-Put the document at `api/asyncapi.json`, beside `api/openapi.json`:
+Put the document at `api/asyncapi.json` (or `api/asyncapi.yaml`, or
+`api/asyncapi.yml`), beside `api/openapi.json`:
 
 ```text
 content/
@@ -55,8 +56,16 @@ relative to the content folder:
 }
 ```
 
-The document is read as JSON. A file that isn't JSON, or isn't valid JSON, adds
-no channels and the build says why (see [Build output](#build-output)).
+The document can be JSON or YAML, chosen by its extension. Without
+`api.asyncapi.file`, Markline looks for `asyncapi.json`, then `asyncapi.yaml`, then
+`asyncapi.yml`, and reads the first it finds; if there's more than one, the build
+says which it ignored. YAML is read as plain data: anchors, aliases and `<<`
+merge keys work (an alias inside its own anchor is refused; use `$ref` for a
+recursive schema), but
+custom tags and YAML 1.1 types (`!!binary`, timestamps) stay plain values,
+repeated keys are an error, and a document whose aliases expand too far is
+refused. A file that can't be read adds no channels, and the build says why,
+with the line for YAML (see [Build output](#build-output)).
 
 ## What a channel shows
 
@@ -250,12 +259,12 @@ A document Markline can't fully read never fails the build. What it can't read i
 left out, and the build prints one line about it, once (with the version, for a
 version other than the first):
 
-- a file that isn't JSON, or isn't valid JSON;
+- a file that isn't JSON or YAML, or isn't valid (for YAML, with the line);
+- two documents by the default names, and which one is ignored;
 - an AsyncAPI version other than 2.x or 3.0, or none;
 - a `$ref` that points outside the document, at nothing, or back at itself;
 - the client-side reading, when `perspective` is `"client"`.
 
 ## Not yet
 
-- YAML documents. Convert to JSON for now.
 - Trying a channel from the page, the way Try it calls an operation.

@@ -15,8 +15,10 @@
  *
  * Everything but `readAsyncApiFile` is pure, and all of it is unit-tested.
  */
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import { parseDocument } from "yaml";
 
 /** From the client's side: what it sends, what it receives, or (a 3.0 message no operation names) not said. */
 
@@ -325,6 +327,46 @@ function v3(raw, refs, servers) {
   });
 }
 
+/**
+ * A YAML document's value, or why it can't be read: "line 3: Map keys must be
+ * unique". Plain data only (the core schema, no custom tags), duplicate keys are
+ * an error, and aliases are capped, so a document can't expand into gigabytes.
+ */
+export function readYaml(text) {
+  try {
+    const doc = parseDocument(text, { schema: "core", merge: true, resolveKnownTags: false, uniqueKeys: true, prettyErrors: true });
+    if (doc.errors.length) {
+      const e = doc.errors[0];
+      const line = e.linePos?.[0]?.line;
+      return { error: `${line ? `line ${line}: ` : ""}${e.message.split("\n")[0].replace(/ at line \d+, column \d+:?$/, "")}` };
+    }
+    const value = doc.toJS({ maxAliasCount: 100 });
+    // An alias inside its own anchor makes a value that contains itself: refuse it
+    // rather than let everything that walks the document loop.
+    if (circular(value)) return { error: "an alias refers to itself; use $ref for a recursive schema" };
+    return { value };
+  } catch (e) {
+    return { error: String(e?.message ?? e).split("\n")[0] };
+  }
+}
+
+/** Whether a value contains itself (an object among its own ancestors). */
+function circular(value, ancestors = new Set()) {
+  if (!value || typeof value !== "object") return false;
+  if (ancestors.has(value)) return true;
+  ancestors.add(value);
+  for (const v of Array.isArray(value) ? value : Object.values(value)) if (circular(v, ancestors)) return true;
+  ancestors.delete(value);
+  return false;
+}
+
+/**
+ * A document's reading, cached by its contents and options: a build reads the
+ * same document for several outputs, and a large YAML file is slow to parse.
+ * (Not by modification time, which a quick rewrite can leave unchanged.)
+ */
+const readCache = new Map();
+
 /** Read an AsyncAPI document. One it can't read gives no channels and a warning, never a throw. */
 export function normalizeAsyncApi(input, opts = {}) {
   const warnings = [];
@@ -450,17 +492,43 @@ export const WEBSOCKETS_TAG = "WebSockets";
  * messages when `showDeprecated` is false) and its warnings. One
  * it can't read gives no channels and a warning, never a throw.
  */
-export function readAsyncApiFile(file, { perspective, showDeprecated, hideExtensions } = {}) {
+export function readAsyncApiFile(file, opts = {}) {
   if (!fs.existsSync(file)) return null;
+  let text;
+  try {
+    text = fs.readFileSync(file, "utf8");
+  } catch (e) {
+    // A folder by that name, or a file that can't be opened: said, never thrown.
+    return { channels: [], tags: [], warnings: [`[markline] ${path.basename(file)} can't be read (${e?.code ?? "error"}), so its channels aren't shown.`] };
+  }
+  const digest = createHash("sha1").update(text).digest("hex");
+  const key = JSON.stringify([digest, opts.perspective, opts.showDeprecated, opts.hideExtensions]);
+  // One reading per file: the latest. Editing the document in a long dev session
+  // replaces its entry rather than piling up old ones.
+  const cached = readCache.get(file);
+  const read = cached?.key === key ? cached.read : readUncached(file, text, opts);
+  readCache.set(file, { key, read });
+  // A copy each time: callers add warnings to it.
+  return { ...read, warnings: [...read.warnings] };
+}
+
+function readUncached(file, text, { perspective, showDeprecated, hideExtensions } = {}) {
   const name = path.basename(file);
-  if (!/\.json$/i.test(file)) {
-    return { channels: [], warnings: [`[markline] ${name}: only JSON AsyncAPI documents are read for now, so its channels aren't shown.`] };
+  const yaml = /\.ya?ml$/i.test(file);
+  if (!yaml && !/\.json$/i.test(file)) {
+    return { channels: [], warnings: [`[markline] ${name}: only JSON and YAML AsyncAPI documents are read, so its channels aren't shown.`] };
   }
   let raw;
-  try {
-    raw = JSON.parse(fs.readFileSync(file, "utf8"));
-  } catch {
-    return { channels: [], warnings: [`[markline] ${name} isn't valid JSON, so its channels aren't shown.`] };
+  if (yaml) {
+    const read = readYaml(text);
+    if (read.error) return { channels: [], warnings: [`[markline] ${name} isn't valid YAML (${read.error}), so its channels aren't shown.`] };
+    raw = read.value;
+  } else {
+    try {
+      raw = JSON.parse(text);
+    } catch {
+      return { channels: [], warnings: [`[markline] ${name} isn't valid JSON, so its channels aren't shown.`] };
+    }
   }
   const doc = normalizeAsyncApi(raw, { perspective, hideExtensions });
   if (showDeprecated !== false) return { channels: doc.channels, tagGroups: doc.tagGroups, warnings: doc.warnings };

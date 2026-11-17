@@ -388,3 +388,64 @@ test("3.0 declares tags in info.tags; nested names nest; no channels, no page", 
   const none = declaredPlace(declaring([{ name: "Realtime" }], {}));
   assert.deepEqual(none.order, ["speech", "other"]);
 });
+
+test("a declared tag merged into another doesn't title it; mergeInto a new name is titled by that name", () => {
+  const tags = [
+    { name: "A", "x-displayName": "AX", description: "AD" },
+    { name: "B", "x-displayName": "BX", description: "BD" },
+  ];
+  const ch = { "/a": sub(["A"]), "/b": sub(["B"]) };
+  const merged = declaredPlace(declaring(tags, ch), { tags: { A: { mergeInto: "B" } } });
+  assert.deepEqual([merged.order, merged.titles[2], merged.descriptions[2]], [["speech", "other", "B"], "BX", "BD"]);
+  assert.deepEqual(merged.where, { "/a": "B", "/b": "B" });
+  // A tag that's merged in only lends its description when the page has none.
+  const plainB = declaredPlace(declaring([tags[0], { name: "B" }], ch), { tags: { A: { mergeInto: "B" } } });
+  assert.deepEqual([plainB.titles[2], plainB.descriptions[2]], ["B", "AD"]);
+  const renamed = declaredPlace(declaring([tags[0]], { "/a": sub(["A"]) }), { tags: { A: { mergeInto: "Streams" } } });
+  assert.deepEqual([renamed.order[2], renamed.titles[2], renamed.descriptions[2]], ["Streams", "Streams", "AD"]);
+});
+
+test("two declared tags with one URL are one page, the first's, and both their channels are on it", () => {
+  const r = declaredPlace(declaring([{ name: "Real time" }, { name: "real-time" }], { "/one": sub(["Real time"]), "/two": sub(["real-time"]) }));
+  assert.deepEqual(r.order, ["speech", "other", "Real time"]);
+  assert.deepEqual(r.where, { "/one": "Real time", "/two": "Real time" });
+  assert.deepEqual(r.warnings, []);
+});
+
+test("declared-tag pages keep the document's order; a name declared twice is the first declaration, hidden flag and all", () => {
+  const order = declaredPlace(declaring([{ name: "Zeta" }, { name: "Alpha" }, { name: "Mid" }], { "/a": sub(["Alpha"]), "/m": sub(["Mid"]), "/z": sub(["Zeta"]) }));
+  assert.deepEqual(order.order, ["speech", "other", "Zeta", "Alpha", "Mid"]);
+  const dupe = declaredPlace(declaring([{ name: "Live", description: "First." }, { name: "Live", description: "Second.", "x-internal": true }], { "/l": sub(["Live"]) }));
+  assert.deepEqual([dupe.order[2], dupe.descriptions[2], dupe.where["/l"]], ["Live", "First.", "Live"]);
+  const dupeHidden = declaredPlace(declaring([{ name: "Live", "x-internal": true }, { name: "Live" }], { "/l": sub(["Live"]) }));
+  assert.deepEqual([dupeHidden.order, dupeHidden.where["/l"]], [["speech", "other"], undefined]);
+});
+
+test("a declared WebSockets tag titles the WebSockets page; tags written as $ref name their page", () => {
+  const ws = declaredPlace(declaring([{ name: "WebSockets", "x-displayName": "Sockets", description: "All of them." }], { "/w": sub(["WebSockets"]) }));
+  assert.deepEqual([ws.order, ws.titles[2], ws.descriptions[2]], [["speech", "other", "WebSockets"], "Sockets", "All of them."]);
+  // 3.0, the components/tags pattern: declared and used by $ref.
+  const v3ref = declaredPlace(
+    declaring(
+      [{ $ref: "#/components/tags/Live" }],
+      { live: { address: "/live", tags: [{ $ref: "#/components/tags/Live" }] } },
+      { components: { tags: { Live: { name: "Live", description: "Live, by reference." } } } },
+      true,
+    ),
+  );
+  assert.deepEqual([v3ref.order, v3ref.where, v3ref.descriptions[2]], [["speech", "other", "Live"], { live: "Live" }, "Live, by reference."]);
+});
+
+test("placeChannels puts a channel's hidden fields out of its page", () => {
+  const dir = declaring(
+    [],
+    { "/v1/speech/{id}/f": { subscribe: { message: { name: "m", payload: { type: "object", properties: { shown: { type: "string" }, secret: { type: "string", "x-internal": true } } } } } } },
+  );
+  const placement = channelExtras(dir, speechSpec, {});
+  const doc = normalize(speechSpec, { extras: placement.extras });
+  placeChannels(doc, placement, {});
+  const payload = doc.tags.find((t) => t.name === "speech")!.channels![0].messages[0].payload!;
+  assert.deepEqual(Object.keys(payload.properties ?? {}), ["shown"]);
+  // What channelExtras read still has it: hiding fields is the page's step.
+  assert.ok(placement.read!.channels[0].messages[0].payload!.properties!.secret);
+});

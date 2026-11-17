@@ -96,7 +96,9 @@ All notable changes to `@markline/markline` and `@markline/create`.
   document declares (`tags`, or `info.tags` in 3.0) now gets a page, with its
   description, for the channels that carry it; before, the declaration was
   ignored and such channels went by their path. Channels with undeclared tags,
-  or no tags, are placed as before.
+  or no tags, are placed as before. A declared tag flagged hidden (`x-internal`)
+  now hides channels that carry only it, even where an OpenAPI resource has the
+  same name.
 - **Every tab and accordion is in the page,** hidden while it isn't showing,
   so search engines see all of it. Tabs have tab and tabpanel roles, and the
   arrow keys move between them.

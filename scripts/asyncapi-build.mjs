@@ -58,10 +58,13 @@ export function channelExtras(dir, spec, api) {
   // One that's already a page by its URL (an OpenAPI tag "speech" for "Speech") is that page.
   const declared = (read.tags ?? []).filter((t) => !t.hidden);
   const hiddenTags = new Set((read.tags ?? []).filter((t) => t.hidden).map((t) => t.name));
+  // Two declared tags of one URL ("Real time", "real-time") are one page, the first's.
   const declaredPage = new Map();
   for (const t of declared) {
     const r = resolveTag(t.name, api);
-    if (r !== null) declaredPage.set(t.name, plannedAs(r) ?? r);
+    if (r === null) continue;
+    const sameUrl = [...declaredPage.values()].find((p) => slug(p) === slug(r));
+    declaredPage.set(t.name, plannedAs(r) ?? sameUrl ?? r);
   }
   const pageOfTag = (tag) => (hiddenTags.has(tag) ? null : declaredPage.has(tag) ? declaredPage.get(tag) : resolveTag(tag, api));
   const candidates = [...new Set(declaredPage.values())].filter((p) => !plan.tags.includes(p));
@@ -93,14 +96,17 @@ export function channelExtras(dir, spec, api) {
   const placed = new Map(final.byResource);
   if (home && final.rest.length) placed.set(home, [...(placed.get(home) ?? []), ...final.rest]);
 
-  // Labels and descriptions for the pages only channels make.
+  // Labels and descriptions for the pages only channels make, as OpenAPI tags get
+  // theirs: the title only from the tag the page is named after (a tag merged into
+  // it, or renamed by mergeInto, doesn't title it); the description from that tag,
+  // else the first tag merged into it.
   const labels = { [WEBSOCKETS_TAG]: WEBSOCKETS_TAG };
   const descriptions = {};
-  for (const t of declared) {
-    const p = declaredPage.get(t.name);
-    if (!p || !tagPages.includes(p)) continue;
-    if (t.displayName && !(p in labels)) labels[p] = t.displayName;
-    if (t.description && !(p in descriptions)) descriptions[p] = t.description;
+  for (const p of tagPages) {
+    const own = declared.find((t) => t.name === p);
+    if (own?.displayName) labels[p] = own.displayName;
+    const description = own?.description ?? declared.find((t) => declaredPage.get(t.name) === p && t.description)?.description;
+    if (description) descriptions[p] = description;
   }
   return {
     read,

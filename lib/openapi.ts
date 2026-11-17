@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { contentRoot } from "./paths";
 import { mergeTagEvents, parseOperationEvents, parseWebhooks, parseXEvents } from "./openapi-events";
-import { tagLabels, tagSlug, type TagLabels } from "./openapi-tags";
+import { tagLabels, type TagLabels } from "./openapi-tags";
 import { isJsonMediaType, pickMediaType } from "./openapi-media";
 import {
   collisionWarning,
@@ -280,7 +280,7 @@ export function placeChannels(
   doc.warnings.push(...read.warnings);
   // Where channelExtras() placed each channel, as the build's links have it: the one placement.
   for (const tag of doc.tags) {
-    const mine = placed.get(tag.name) ?? placed.get([...placed.keys()].find((k) => tagSlug(k) === tagSlug(tag.name)) ?? "");
+    const mine = placed.get(tag.name);
     if (mine?.length) tag.channels = mine.map((c) => hideChannelFields(c, hideExtensions));
   }
 }

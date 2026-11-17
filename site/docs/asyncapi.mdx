@@ -124,13 +124,21 @@ as its title:
 ```
 
 - A declared tag gets a page only when at least one channel is on it.
-- One with the same URL as an OpenAPI resource ("Speech" and `speech`) is that
-  resource: its channels join it, and no second page is made.
+- One with the same URL as an OpenAPI resource ("Speech" and `speech`), or as a
+  tag declared before it ("Real time" and "real-time"), is that page: its
+  channels join it, and no second page is made.
+- Its title is its own `x-displayName` (or `api.tags` label). A tag merged into
+  another page with `mergeInto` doesn't title that page, but lends its
+  description when the page has none.
+- A tag can be declared once and used by `$ref`, as in 3.0's `components/tags`.
+- A declared tag flagged with an `api.hideExtensions` key (`x-internal`, say) is
+  hidden: a channel whose tags are all hidden is hidden too, even when an OpenAPI
+  resource has the same name.
 - These pages come after the OpenAPI resources and before the WebSockets page.
   `api.tags`, `api.tagOrder` and `api.sections` arrange them like any page, and
   names with `/` nest in the sidebar.
-- A tag a channel carries but the document doesn't declare is placed by path, as
-  before.
+- A tag a channel carries but the document doesn't declare works as before: it
+  joins an OpenAPI resource of that name, else the channel is placed by its path.
 
 ## Titles and message names
 

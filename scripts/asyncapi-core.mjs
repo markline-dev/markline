@@ -192,9 +192,10 @@ function readable(address) {
   return last ? last[0].toUpperCase() + last.slice(1) : address;
 }
 
-const tagNames = (...lists) => [
+/** Tag names from tag lists: names, tag objects, or `$ref`s to them (3.0's components/tags). */
+const tagNames = (refs, ...lists) => [
   ...new Set(
-    lists.flatMap((l) => (Array.isArray(l) ? l : [])).map((t) => (typeof t === "string" ? t : str(t?.name))).filter((t) => !!t),
+    lists.flatMap((l) => (Array.isArray(l) ? l : [])).map((t) => (typeof t === "string" ? t : str(refs.get(t)?.name))).filter((t) => !!t),
   ),
 ];
 
@@ -233,7 +234,7 @@ function v2(raw, refs, servers, perspective) {
         title: str(ch["x-title"]) ?? said(publish?.summary) ?? said(subscribe?.summary) ?? readable(address),
         summary: said(publish?.summary) ?? said(subscribe?.summary),
         description: str(ch.description) ?? str(publish?.description) ?? str(subscribe?.description),
-        tags: tagNames(publish?.tags, subscribe?.tags, ch.tags),
+        tags: tagNames(refs, publish?.tags, subscribe?.tags, ch.tags),
         servers: channelServers(ch.servers, servers, refs),
         parameters,
         ...wsBinding(ch, refs),
@@ -276,7 +277,7 @@ function v3(raw, refs, servers) {
     const byMessage = directions.get(channelKey) ?? new Map();
     for (const key of named) byMessage.set(key, new Set([...(byMessage.get(key) ?? []), direction]));
     directions.set(channelKey, byMessage);
-    opTags.set(channelKey, tagNames(opTags.get(channelKey), op.tags));
+    opTags.set(channelKey, tagNames(refs, opTags.get(channelKey), op.tags));
     const text = opText.get(channelKey) ?? {};
     opText.set(channelKey, {
       title: text.title ?? str(op.title),
@@ -314,7 +315,7 @@ function v3(raw, refs, servers) {
         title: str(ch.title) ?? said(text.title) ?? said(text.summary) ?? readable(address),
         summary: said(str(ch.summary)) ?? said(text.summary),
         description: str(ch.description) ?? text.description,
-        tags: tagNames(ch.tags, opTags.get(key)),
+        tags: tagNames(refs, ch.tags, opTags.get(key)),
         servers: channelServers(ch.servers, servers, refs),
         parameters,
         ...wsBinding(ch, refs),

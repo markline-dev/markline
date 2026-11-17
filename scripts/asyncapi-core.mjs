@@ -15,6 +15,7 @@
  *
  * Everything but `readAsyncApiFile` is pure, and all of it is unit-tested.
  */
+import { createHash } from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { parseDocument } from "yaml";
@@ -360,8 +361,9 @@ function circular(value, ancestors = new Set()) {
 }
 
 /**
- * A document's reading, cached by path, modification and options: a build reads
- * the same document for several outputs, and a large YAML file is slow to parse.
+ * A document's reading, cached by its contents and options: a build reads the
+ * same document for several outputs, and a large YAML file is slow to parse.
+ * (Not by modification time, which a quick rewrite can leave unchanged.)
  */
 const readCache = new Map();
 
@@ -492,15 +494,16 @@ export const WEBSOCKETS_TAG = "WebSockets";
  */
 export function readAsyncApiFile(file, opts = {}) {
   if (!fs.existsSync(file)) return null;
-  const stat = fs.statSync(file);
-  const key = JSON.stringify([file, stat.mtimeMs, stat.size, opts.perspective, opts.showDeprecated, opts.hideExtensions]);
-  if (!readCache.has(key)) readCache.set(key, readUncached(file, opts));
+  const text = fs.readFileSync(file, "utf8");
+  const digest = createHash("sha1").update(text).digest("hex");
+  const key = JSON.stringify([file, digest, opts.perspective, opts.showDeprecated, opts.hideExtensions]);
+  if (!readCache.has(key)) readCache.set(key, readUncached(file, text, opts));
   // A copy each time: callers add warnings to it.
   const read = readCache.get(key);
   return { ...read, warnings: [...read.warnings] };
 }
 
-function readUncached(file, { perspective, showDeprecated, hideExtensions } = {}) {
+function readUncached(file, text, { perspective, showDeprecated, hideExtensions } = {}) {
   const name = path.basename(file);
   const yaml = /\.ya?ml$/i.test(file);
   if (!yaml && !/\.json$/i.test(file)) {
@@ -508,12 +511,12 @@ function readUncached(file, { perspective, showDeprecated, hideExtensions } = {}
   }
   let raw;
   if (yaml) {
-    const read = readYaml(fs.readFileSync(file, "utf8"));
+    const read = readYaml(text);
     if (read.error) return { channels: [], warnings: [`[markline] ${name} isn't valid YAML (${read.error}), so its channels aren't shown.`] };
     raw = read.value;
   } else {
     try {
-      raw = JSON.parse(fs.readFileSync(file, "utf8"));
+      raw = JSON.parse(text);
     } catch {
       return { channels: [], warnings: [`[markline] ${name} isn't valid JSON, so its channels aren't shown.`] };
     }

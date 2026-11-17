@@ -128,10 +128,10 @@ test("a document is read once per change, however many outputs ask for it", () =
   assert.equal(a.channels, b.channels); // the same reading
   b.warnings.push("added by a caller");
   assert.deepEqual(readAsyncApiFile(file)!.warnings, []); // callers' additions don't leak
-  // A changed file is read again.
+  // A changed file is read again, even rewritten in the same instant.
+  const { mtime } = fs.statSync(file);
   fs.writeFileSync(file, stringify(v30));
-  const t = new Date(Date.now() + 2000);
-  fs.utimesSync(file, t, t);
+  fs.utimesSync(file, mtime, mtime);
   assert.notEqual(readAsyncApiFile(file)!.channels, a.channels);
   assert.deepEqual(readAsyncApiFile(file)!.channels.map((c) => c.id), ["live"]);
   // Other options are another reading.

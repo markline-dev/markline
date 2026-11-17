@@ -46,8 +46,13 @@ test("a channel that joins a resource makes no page; one that joins none makes W
   write(path.join(dir, "api", "asyncapi.json"), channels({ "/firehose": { deprecated: true, subscribe: { message: { name: "all" } } } }));
   assert.equal(asyncApiReport(dir, spec, {}).pages.length, 1);
   assert.deepEqual(asyncApiReport(dir, spec, { showDeprecated: false }).pages, []);
-  // A file elsewhere, by api.asyncapi.file; none at all is no report.
-  assert.deepEqual(asyncApiReport(dir, spec, { asyncapi: { file: "api/none.json" } }), { warnings: [], pages: [] });
+  // api.asyncapi.file naming a file that isn't there: no pages, and it's said.
+  assert.deepEqual(asyncApiReport(dir, spec, { asyncapi: { file: "api/none.json" } }), {
+    warnings: [`[markline] api.asyncapi.file is "api/none.json", which doesn't exist, so no channels are shown.`],
+    pages: [],
+  });
+  // No document and none named: nothing to say.
+  assert.deepEqual(asyncApiReport(path.join(root, "nothing-here"), spec, {}), { warnings: [], pages: [] });
 });
 
 test("a build prints the documents' warnings once, version by version, and lists the WebSockets page", () => {

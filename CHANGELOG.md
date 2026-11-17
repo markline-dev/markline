@@ -5,6 +5,10 @@ All notable changes to `@markline/markline` and `@markline/create`.
 ## Unreleased
 
 ### Added
+- **Very long examples are cut to their first lines.** A code card whose example
+  is over 1,000 lines shows its first 1,000 and says how many there are; Show
+  all puts the rest in (and makes it findable in the page), and Copy, Expand and
+  Copy for LLM still give all of it.
 - **WebSocket channels in search and the LLM files.** Each channel is a search
   result that opens its section; `llms.txt` lists the channels and
   `llms-full.txt` describes them (URL, parameters, messages).

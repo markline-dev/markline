@@ -61,6 +61,14 @@ const MANY_RESPONSES = {
   "422": { description: "Invalid", content: { "application/json": { schema: { type: "object", properties: { invalidfield: { type: "string" } } } } } },
 };
 
+// An example long enough to be cut to its first lines in its card.
+const BIG_RESPONSE = {
+  "200": {
+    description: "OK",
+    content: { "application/json": { example: { items: Array.from({ length: 260 }, (_, i) => ({ id: i, name: `bigitem${i}` })) } } },
+  },
+};
+
 const op = (i: number, tag: string) => ({
   operationId: `${tag}Op${i}`,
   // others 2 repeats others 1's summary: two operations, one slug.
@@ -69,7 +77,7 @@ const op = (i: number, tag: string) => ({
   description: `${"Describes the operation at some length. ".repeat(10)}${tag === "others" && i === 0 ? NEEDLE : ""}`,
   tags: [tag],
   ...(tag === "others" && i === 1 ? MARKED : {}),
-  responses: tag === "others" && i === 2 ? MANY_RESPONSES : { "200": { description: "OK" } },
+  responses: tag === "others" && i === 2 ? MANY_RESPONSES : tag === "others" && i === 0 ? BIG_RESPONSE : { "200": { description: "OK" } },
 });
 
 const spec = {
@@ -517,4 +525,24 @@ test("a version whose AsyncAPI document gives no page isn't offered, and has no 
   assert.match(picker, /3\.0 realtime only/);
   assert.doesNotMatch(picker, /4\.0 nothing to show/);
   assert.ok(!fs.existsSync(path.join(reference, "api-reference", "v4", "websockets.html")));
+});
+
+test("a very long example shows its first 1,000 lines, once, and the rest is a Show all away", { skip }, () => {
+  const html = page(reference, "api-reference/others");
+  const m = html.match(/<pre id="([^"]+)" data-code="([^"]+)">([\s\S]*?)<\/pre>/);
+  assert.ok(m, "a cut card");
+  const [, preId, , shown] = m!;
+  // Exactly 1,000 lines, every tag closed, nothing past the cut.
+  assert.equal(shown.split("\n").length, 1000);
+  assert.equal((shown.match(/<span\b/g) ?? []).length, (shown.match(/<\/span>/g) ?? []).length);
+  assert.doesNotMatch(shown, /bigitem259/);
+  const total = Number(html.match(/Showing 1000 of (\d+) lines\./)?.[1]);
+  assert.ok(total > 1000, "the note says how many");
+  // A real button that controls the code it expands.
+  assert.match(html, new RegExp(`<button type="button" class="cc-showall" aria-expanded="false" aria-controls="${preId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}">Show all ${total} lines</button>`));
+  // No second copy in the page's markup: the whole code arrives once, as the card's data.
+  assert.equal(count(html, "data-full"), 0);
+  const markup = html.replace(/<script\b[\s\S]*?<\/script>/g, "");
+  assert.doesNotMatch(markup, /bigitem259/);
+  assert.match(html, /bigitem259/);
 });

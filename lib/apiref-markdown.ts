@@ -1,3 +1,4 @@
+import { fullCodeText } from "./code-cut";
 /* ── doc-action Markdown generator (from a section's DOM) ── */
 export function apiSecToMarkdown(sec: Pick<HTMLElement, "querySelector" | "querySelectorAll" | "textContent">): string {
   const clean = (s?: string | null) => (s || "").replace(/\s+/g, " ").trim();
@@ -35,6 +36,7 @@ export function apiSecToMarkdown(sec: Pick<HTMLElement, "querySelector" | "query
     md += "\n";
   }
   const pre = sec.querySelector(".code-card pre, .ex-resp pre");
-  if (pre && /object/i.test(h?.textContent || "")) md += "```json\n" + (pre.textContent || "").trim() + "\n```\n";
+  // The whole sample, even when its card shows only the first lines.
+  if (pre && /object/i.test(h?.textContent || "")) md += "```json\n" + fullCodeText(pre).trim() + "\n```\n";
   return md.trim();
 }

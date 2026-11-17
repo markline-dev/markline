@@ -59,7 +59,9 @@ relative to the content folder:
 The document can be JSON or YAML, chosen by its extension. Without
 `api.asyncapi.file`, Markline looks for `asyncapi.json`, then `asyncapi.yaml`, then
 `asyncapi.yml`, and reads the first it finds; if there's more than one, the build
-says which it ignored. YAML is read as plain data: anchors and aliases work, but
+says which it ignored. YAML is read as plain data: anchors, aliases and `<<`
+merge keys work (an alias inside its own anchor is refused; use `$ref` for a
+recursive schema), but
 custom tags and YAML 1.1 types (`!!binary`, timestamps) stay plain values,
 repeated keys are an error, and a document whose aliases expand too far is
 refused. A file that can't be read adds no channels, and the build says why,

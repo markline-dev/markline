@@ -107,3 +107,49 @@ test("a build reads a YAML-only site: its warnings and its pages", () => {
   assert.match(r.stderr + r.stdout, /\[markline\] \(version v1\) asyncapi\.yml isn't valid YAML \(line 3: /);
   assert.match(fs.readFileSync(path.join(cwd, "public", "sitemap.xml"), "utf8"), /https:\/\/docs\.y\.test\/api-reference\/websockets</);
 });
+
+test("an alias inside its own anchor is refused, not looped on; merge keys apply, explicit keys winning", () => {
+  const recursive = "payload: &node {type: object, properties: {children: {type: array, items: *node}}}\n";
+  assert.equal(readYaml(recursive).error, "an alias refers to itself; use $ref for a recursive schema");
+  const dir = folder({ "api/asyncapi.yaml": `asyncapi: 2.6.0\ninfo: {title: t, version: '1'}\nchannels:\n  /x:\n    subscribe:\n      message:\n        ${recursive}` });
+  const read = readAsyncApiFile(path.join(dir, "api", "asyncapi.yaml"))!;
+  assert.deepEqual(read.channels, []);
+  assert.match(read.warnings[0], /isn't valid YAML \(an alias refers to itself; use \$ref for a recursive schema\)/);
+  // The same value twice (not inside itself) is fine.
+  assert.deepEqual(readYaml("s: &s {type: string}\na: *s\nb: *s\n").value, { s: { type: "string" }, a: { type: "string" }, b: { type: "string" } });
+  assert.deepEqual(readYaml("base: &b {x: 1, y: 1}\nm: {<<: *b, y: 2}\n").value, { base: { x: 1, y: 1 }, m: { x: 1, y: 2 } });
+});
+
+test("a document is read once per change, however many outputs ask for it", () => {
+  const dir = folder({ "api/asyncapi.yaml": stringify(v26) });
+  const file = path.join(dir, "api", "asyncapi.yaml");
+  const a = readAsyncApiFile(file)!;
+  const b = readAsyncApiFile(file)!;
+  assert.equal(a.channels, b.channels); // the same reading
+  b.warnings.push("added by a caller");
+  assert.deepEqual(readAsyncApiFile(file)!.warnings, []); // callers' additions don't leak
+  // A changed file is read again.
+  fs.writeFileSync(file, stringify(v30));
+  const t = new Date(Date.now() + 2000);
+  fs.utimesSync(file, t, t);
+  assert.notEqual(readAsyncApiFile(file)!.channels, a.channels);
+  assert.deepEqual(readAsyncApiFile(file)!.channels.map((c) => c.id), ["live"]);
+  // Other options are another reading.
+  assert.notEqual(readAsyncApiFile(file, { perspective: "client" })!.channels, readAsyncApiFile(file)!.channels);
+});
+
+test("api.asyncapi.file naming a missing file is said", () => {
+  const site = folder({
+    "docs/index.mdx": "---\ntitle: Home\n---\n\nHome.\n",
+    "markline.json": JSON.stringify({
+      name: "M",
+      api: { asyncapi: { file: "api/realtime.yaml" } },
+      navigation: { tabs: [{ id: "api", label: "API", href: "/api-reference", match: ["/api-reference"], openapi: true }] },
+    }),
+  });
+  const cwd = folder({ "public/.keep": "" });
+  const script = path.join(import.meta.dirname, "..", "scripts", "build-search.mjs");
+  const r = spawnSync(process.execPath, [script], { cwd, encoding: "utf8", env: { ...process.env, MARKLINE_CONTENT: site, NODE_TEST_CONTEXT: "" } });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stderr + r.stdout, /\[markline\] api\.asyncapi\.file is "api\/realtime\.yaml", which doesn't exist, so no channels are shown\./);
+});

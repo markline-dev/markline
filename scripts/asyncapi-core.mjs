@@ -333,17 +333,37 @@ function v3(raw, refs, servers) {
  */
 export function readYaml(text) {
   try {
-    const doc = parseDocument(text, { schema: "core", resolveKnownTags: false, uniqueKeys: true, prettyErrors: true });
+    const doc = parseDocument(text, { schema: "core", merge: true, resolveKnownTags: false, uniqueKeys: true, prettyErrors: true });
     if (doc.errors.length) {
       const e = doc.errors[0];
       const line = e.linePos?.[0]?.line;
       return { error: `${line ? `line ${line}: ` : ""}${e.message.split("\n")[0].replace(/ at line \d+, column \d+:?$/, "")}` };
     }
-    return { value: doc.toJS({ maxAliasCount: 100 }) };
+    const value = doc.toJS({ maxAliasCount: 100 });
+    // An alias inside its own anchor makes a value that contains itself: refuse it
+    // rather than let everything that walks the document loop.
+    if (circular(value)) return { error: "an alias refers to itself; use $ref for a recursive schema" };
+    return { value };
   } catch (e) {
     return { error: String(e?.message ?? e).split("\n")[0] };
   }
 }
+
+/** Whether a value contains itself (an object among its own ancestors). */
+function circular(value, ancestors = new Set()) {
+  if (!value || typeof value !== "object") return false;
+  if (ancestors.has(value)) return true;
+  ancestors.add(value);
+  for (const v of Array.isArray(value) ? value : Object.values(value)) if (circular(v, ancestors)) return true;
+  ancestors.delete(value);
+  return false;
+}
+
+/**
+ * A document's reading, cached by path, modification and options: a build reads
+ * the same document for several outputs, and a large YAML file is slow to parse.
+ */
+const readCache = new Map();
 
 /** Read an AsyncAPI document. One it can't read gives no channels and a warning, never a throw. */
 export function normalizeAsyncApi(input, opts = {}) {
@@ -470,8 +490,17 @@ export const WEBSOCKETS_TAG = "WebSockets";
  * messages when `showDeprecated` is false) and its warnings. One
  * it can't read gives no channels and a warning, never a throw.
  */
-export function readAsyncApiFile(file, { perspective, showDeprecated, hideExtensions } = {}) {
+export function readAsyncApiFile(file, opts = {}) {
   if (!fs.existsSync(file)) return null;
+  const stat = fs.statSync(file);
+  const key = JSON.stringify([file, stat.mtimeMs, stat.size, opts.perspective, opts.showDeprecated, opts.hideExtensions]);
+  if (!readCache.has(key)) readCache.set(key, readUncached(file, opts));
+  // A copy each time: callers add warnings to it.
+  const read = readCache.get(key);
+  return { ...read, warnings: [...read.warnings] };
+}
+
+function readUncached(file, { perspective, showDeprecated, hideExtensions } = {}) {
   const name = path.basename(file);
   const yaml = /\.ya?ml$/i.test(file);
   if (!yaml && !/\.json$/i.test(file)) {

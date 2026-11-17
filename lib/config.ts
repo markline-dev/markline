@@ -202,7 +202,7 @@ export type ApiConfig = {
   sections?: { title: string; tags: string[] }[];
   /**
    * The AsyncAPI document of the API's WebSocket channels. `file` is relative to
-   * the content root (default `api/asyncapi.json`). `perspective` says which side a
+   * the content root (default: the first of `api/asyncapi.json`, `.yaml`, `.yml`). `perspective` says which side a
    * 2.x document is written from: "server" (the spec's: `publish` is what clients
    * send) or "client" (`publish` is what the server sends). 3.0 isn't affected.
    */

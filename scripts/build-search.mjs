@@ -11,7 +11,7 @@ import path from "node:path";
 import matter from "gray-matter";
 import * as pagefind from "pagefind";
 import { apiIndexLines, apiSearchRecords, resourcePages, specWarnings } from "./openapi-order.mjs";
-import { asyncApiReport, channelExtras, channelLlms, channelRecords, isStandIn, readApiSpec } from "./asyncapi-build.mjs";
+import { asyncApiReport, channelExtras, channelLlms, channelRecords, isStandIn, missingFileWarnings, readApiSpec } from "./asyncapi-build.mjs";
 import { searchGroups, searchTrails } from "./search-groups.mjs";
 import { markdownPath, mdxToMarkdown, pageMarkdown, sectionIds, sectionIndex } from "./llms.mjs";
 import { removeGeneratedFiles, writeManifest } from "./generated-files.mjs";
@@ -122,7 +122,11 @@ function apiRecords(root) {
   const api = cfg.api;
   // A folder with only an AsyncAPI document reads as a spec with no operations.
   const spec = readApiSpec(root, api);
-  if (!spec) return [];
+  if (!spec) {
+    // No reference at all: still say when api.asyncapi.file names a file that isn't there.
+    for (const w of missingFileWarnings(root, api)) console.warn(w);
+    return [];
+  }
   // The one place a build prints these; page workers would each repeat them.
   const readVersion = (id) => readApiSpec(path.join(root, id), api);
   const extrasOf = (id, s) => channelExtras(id ? path.join(root, id) : root, s, api).extras;

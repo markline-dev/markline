@@ -12,10 +12,16 @@ import { pageAnchors } from "./apiref-anchors.mjs";
 
 const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 
-/** `api.asyncapi.file` under `dir` (the content root, or a version's folder), else `api/asyncapi.json`. */
+/** `api.asyncapi.file` under `dir` (the content root, or a version's folder), else the first of `api/asyncapi.json`, `.yaml`, `.yml` there. */
 export function asyncApiFile(dir, api) {
   if (api?.asyncapi?.file) return path.join(dir, api.asyncapi.file);
   return asyncApiDefaults(dir).find((f) => fs.existsSync(f)) ?? asyncApiDefaults(dir)[0];
+}
+
+/** api.asyncapi.file names a file that isn't there: said, rather than quietly showing no channels. */
+export function missingFileWarnings(dir, api) {
+  const file = api?.asyncapi?.file;
+  return file && !fs.existsSync(path.join(dir, file)) ? [`[markline] api.asyncapi.file is "${file}", which doesn't exist, so no channels are shown.`] : [];
 }
 
 /** Where a folder's AsyncAPI document is looked for, in order, without api.asyncapi.file. */
@@ -105,7 +111,7 @@ export function channelExtras(dir, spec, api) {
 /** The document's warnings, and the resource pages only its channels make (as resourcePages() lists them). */
 export function asyncApiReport(dir, spec, api) {
   const { read, extras } = channelExtras(dir, spec, api);
-  if (!read) return { warnings: [], pages: [] };
+  if (!read) return { warnings: missingFileWarnings(dir, api), pages: [] };
   const before = new Set(spec ? resourcePlan(spec, api).tags : []);
   const pages = resourcePages(spec ?? {}, api, extras)
     .filter((p) => !before.has(p.name))

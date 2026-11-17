@@ -158,6 +158,8 @@ All notable changes to `@markline/markline` and `@markline/create`.
   header's picker.
 
 ### Fixed
+- **WebSocket message previews in light mode** read as quiet text again, not
+  dark inline-code chips.
 - **"On this page" follows the tab you're on.** It listed the first tab's
   headings only, and kept them after you switched tabs. A link to a heading
   in another tab, or in a closed accordion, now opens it, and find-in-page can

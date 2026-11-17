@@ -265,6 +265,7 @@ my-docs/
 - MDX content with server-side syntax highlighting (Shiki).
 - First-class OpenAPI: operation pages, schema tables, sample requests/responses.
 - **Interactive API playground** ("Try it") on every endpoint.
+- **[WebSocket channels](https://markline.dev/asyncapi)** from an AsyncAPI document, placed next to the endpoints they belong with.
 - Static full-text search (Pagefind) — zero search infrastructure.
 - **[Ask AI](https://markline.dev/ai)** on your own LLM key (BYOK), off by default.
 - **[LLM files](https://markline.dev/llm-files)** — `llms.txt`, `llms-full.txt` and a `.md` copy of every page.

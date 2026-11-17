@@ -133,7 +133,7 @@ function place(raw: object, api: Record<string, unknown>) {
   const ex = placement.extras;
   const lib = both(api, ex, raw);
   const doc = normalize(raw, { ...(api as NormalizeOptions), extras: ex });
-  placeChannels(doc, placement, api as NormalizeOptions);
+  placeChannels(doc, placement);
   return { ...lib, home: doc.tags.filter((t) => t.channels?.some((c) => c.id === "/firehose")).map((t) => t.name) };
 }
 const undeclared = {
@@ -319,7 +319,7 @@ function declaredPlace(dir: string, api: Record<string, unknown> = {}) {
   const placement = channelExtras(dir, speechSpec, api);
   const lib = both(api, placement.extras, speechSpec);
   const doc = normalize(speechSpec, { ...(api as NormalizeOptions), extras: placement.extras });
-  placeChannels(doc, placement, api as NormalizeOptions);
+  placeChannels(doc, placement);
   const where = Object.fromEntries(doc.tags.flatMap((t) => (t.channels ?? []).map((c) => [c.id, t.name])));
   return { ...lib, where };
 }
@@ -443,7 +443,7 @@ test("placeChannels puts a channel's hidden fields out of its page", () => {
   );
   const placement = channelExtras(dir, speechSpec, {});
   const doc = normalize(speechSpec, { extras: placement.extras });
-  placeChannels(doc, placement, {});
+  placeChannels(doc, placement);
   const payload = doc.tags.find((t) => t.name === "speech")!.channels![0].messages[0].payload!;
   assert.deepEqual(Object.keys(payload.properties ?? {}), ["shown"]);
   // What channelExtras read still has it: hiding fields is the page's step.

@@ -251,7 +251,7 @@ export function loadOpenApi(variantId?: string): OpenAPIDoc {
     // A non-default version with only an AsyncAPI document would only repeat the default's.
     configChecks: !(variantId && isStandIn(raw)),
   });
-  if (read) placeChannels(doc, placement, api);
+  if (read) placeChannels(doc, placement);
   // A build prints these once, from scripts/build-search.mjs; its page workers
   // would each repeat them. Labelled with the version, as the build labels them.
   if (process.env.NODE_ENV !== "production") {
@@ -273,7 +273,6 @@ export { WEBSOCKETS_TAG };
 export function placeChannels(
   doc: OpenAPIDoc,
   { read, placed }: Pick<ReturnType<typeof channelExtras>, "read" | "placed">,
-  _api?: Pick<NormalizeOptions, "hideExtensions">,
 ) {
   if (!read) return;
   doc.warnings.push(...read.warnings);

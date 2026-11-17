@@ -48,7 +48,7 @@ fs.writeFileSync(path.join(dir, "api", "asyncapi.json"), JSON.stringify(asyncDoc
 function onPages(api: Record<string, unknown>) {
   const placement = channelExtras(dir, spec, api);
   const doc = normalize(spec, { ...(api as NormalizeOptions), extras: placement.extras });
-  placeChannels(doc, placement, api as NormalizeOptions);
+  placeChannels(doc, placement);
   return doc.tags.flatMap((tag) => {
     const ids = operationAnchors(tag, doc);
     return (tag.channels ?? []).map((c) => [c.id, `/api-reference/${tagSlug(tag.name)}#${ids.get(c)}`]);
@@ -176,4 +176,88 @@ test("llms-full prints fields and examples with the pages' hiding: hidden fields
   const { full } = channelLlms(d, spec, {});
   for (const shown of ["`qshown`", "`shownfield`", "`refshown`", '"shownfield": "seen"', '"refshown"']) assert.ok(full.includes(shown), shown);
   assert.doesNotMatch(full, /qsecret|secretfield|secretvalue|refsecret|refvalue/);
+});
+
+test("llms-full: a oneOf kind's own examples are cleaned against that kind; a headers-only example isn't a payload", () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), "markline-asyncapi-llms-shapes-"));
+  after(() => fs.rmSync(d, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(d, "api"));
+  const secret = { type: "string", "x-internal": true };
+  fs.writeFileSync(
+    path.join(d, "api", "asyncapi.json"),
+    JSON.stringify({
+      asyncapi: "2.6.0",
+      info: { title: "t", version: "1" },
+      channels: {
+        "/v1/speech/{id}/kinds": {
+          publish: {
+            message: {
+              name: "kinds",
+              payload: {
+                oneOf: [
+                  // An envelope kind: its example's `payload` is one of its properties, not a message example's.
+                  {
+                    title: "Env",
+                    type: "object",
+                    properties: { type: { type: "string" }, payload: { type: "object", properties: { ok: { type: "string" }, envsecret: secret } } },
+                    examples: [{ type: "a", payload: { ok: "envshown", envsecret: "envsecretvalue" } }],
+                  },
+                ],
+              },
+            },
+          },
+        },
+        "/v1/speech/{id}/hdr": {
+          publish: {
+            message: {
+              name: "hdr",
+              headers: { type: "object", properties: { hdrsecret: secret } },
+              payload: { type: "object", properties: { ok: { type: "string" } } },
+              examples: [{ name: "e", headers: { hdrsecret: "hdrsecretvalue" } }, { payload: { ok: "hdrshown" } }],
+            },
+          },
+        },
+        "/v1/speech/{id}/allof": {
+          publish: {
+            message: {
+              name: "allof",
+              payload: { allOf: [{ type: "object", properties: { ok: { type: "string" } } }, { type: "object", "x-internal": true, properties: { memberkey: { type: "string" } } }] },
+              examples: [{ payload: { ok: "allofshown", memberkey: "membervalue" } }],
+            },
+          },
+        },
+      },
+    }),
+  );
+  const { full } = channelLlms(d, spec, {});
+  for (const shown of ['"type": "a"', '"ok": "envshown"', '"ok": "hdrshown"', '"ok": "allofshown"']) assert.ok(full.includes(shown), shown);
+  assert.doesNotMatch(full, /envsecret|hdrsecret|memberkey|membervalue/);
+});
+
+test("llms-full: a custom api.hideExtensions hides what it names; an example of exactly 40 lines isn't cut", () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), "markline-asyncapi-llms-ext-"));
+  after(() => fs.rmSync(d, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(d, "api"));
+  // 40 lines exactly when pretty-printed: { "items": [ 36 numbers ] } with the braces and brackets.
+  const forty = { items: Array.from({ length: 36 }, (_, i) => i) };
+  assert.equal(JSON.stringify(forty, null, 2).split("\n").length, 40);
+  const fortyOne = { items: Array.from({ length: 37 }, (_, i) => i) };
+  fs.writeFileSync(
+    path.join(d, "api", "asyncapi.json"),
+    JSON.stringify({
+      asyncapi: "2.6.0",
+      info: { title: "t", version: "1" },
+      channels: {
+        "/v1/speech/{id}/a": { publish: { message: { name: "a", payload: { type: "object", properties: { fernfield: { type: "string", "x-fern-ignore": true }, kept: { type: "string" } } }, examples: [{ payload: forty }] } } },
+        "/v1/speech/{id}/b": { publish: { message: { name: "b", examples: [{ payload: fortyOne }] } } },
+      },
+    }),
+  );
+  // The default list doesn't name x-fern-ignore; a site's own list does.
+  assert.match(channelLlms(d, spec, {}).full, /`fernfield`/);
+  const { full } = channelLlms(d, spec, { hideExtensions: ["x-fern-ignore"] });
+  assert.doesNotMatch(full, /fernfield/);
+  assert.match(full, /`kept`/);
+  const fences = [...full.matchAll(/```json\n([\s\S]*?)\n```/g)].map((m) => m[1].split("\n"));
+  assert.deepEqual(fences.map((f) => [f.length, f.at(-1)]), [[40, "}"], [41, "…"]]);
 });

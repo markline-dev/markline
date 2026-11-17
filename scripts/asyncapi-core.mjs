@@ -112,13 +112,28 @@ function serverUrl(s) {
   return url.includes("://") || !protocol ? url : `${protocol}://${url}`;
 }
 
-/** One message, from a message object (or a `$ref` to one). */
-const examplesOf = (node) =>
-  Array.isArray(node?.examples)
-    ? node.examples.map((e) => (isNode(e) && "payload" in e ? e.payload : e)).filter((e) => e !== undefined)
-    : node?.example !== undefined
-      ? [node.example]
-      : [];
+/** Fields of an AsyncAPI Message Example Object (`{ name, summary, headers, payload }`). */
+const MESSAGE_EXAMPLE_KEYS = ["name", "summary", "headers", "payload"];
+
+/**
+ * A message's payload examples. Its `examples` are Message Example Objects: the
+ * payload is the `payload` key, and one without it (only `headers`, say) has no
+ * payload example. Their `headers` aren't shown anywhere, so they're dropped
+ * rather than printed unhidden. An example that's none of those keys is taken
+ * as the payload itself, as older documents write it.
+ */
+const messageExamples = (m) => {
+  if (!Array.isArray(m?.examples)) return m?.example !== undefined ? [m.example] : [];
+  return m.examples
+    .map((e) => (isNode(e) && MESSAGE_EXAMPLE_KEYS.some((k) => k in e) ? e.payload : e))
+    .filter((e) => e !== undefined);
+};
+
+/**
+ * A schema's own examples (a oneOf kind's): values of that schema, as written, to
+ * be cleaned against it. Not unwrapped like a message's, whose shape they don't have.
+ */
+const schemaExamples = (s) => (Array.isArray(s?.examples) ? s.examples : s?.example !== undefined ? [s.example] : []).filter((e) => e !== undefined);
 
 const idPart = (s) => s.replace(/[^A-Za-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "message";
 
@@ -151,7 +166,7 @@ function messagesOf(raw, fallbackId, direction, refs) {
           summary: str(kind.summary),
           description: str(kind.description),
           payload: deref(member, refs),
-          examples: examplesOf(kind),
+          examples: schemaExamples(kind),
           deprecated: base.deprecated || kind.deprecated === true || undefined,
         },
       ];
@@ -166,7 +181,7 @@ function messagesOf(raw, fallbackId, direction, refs) {
       summary: str(m.summary),
       description: str(m.description),
       payload: deref(m.payload, refs),
-      examples: examplesOf(m),
+      examples: messageExamples(m),
     },
   ];
 }

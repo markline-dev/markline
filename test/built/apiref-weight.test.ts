@@ -132,6 +132,27 @@ const asyncSpec = {
     "/stream": { "x-title": "Things feed", subscribe: { tags: [{ name: "things" }], message: { name: "thing", payload: { type: "string" } } } },
     "/firehose": { subscribe: { message: { name: "everything", payload: { type: "string" } } } },
     "/internal-feed": { "x-title": "Internalfeed", "x-internal": true, subscribe: { message: { name: "x", payload: { type: "string" } } } },
+    // Two example shapes that once leaked: a oneOf kind's own envelope example, and a headers-only message example.
+    "/v1/others/{otherId}/shapes": {
+      "x-title": "Shapeschannel",
+      subscribe: {
+        message: {
+          name: "shapes",
+          headers: { type: "object", properties: { hdrsecretmarker: { type: "string", "x-internal": true } } },
+          payload: {
+            oneOf: [
+              {
+                title: "Envkind",
+                type: "object",
+                properties: { kind: { type: "string" }, payload: { type: "object", properties: { envshown: { type: "string" }, envsecretmarker: { type: "string", "x-internal": true } } } },
+                examples: [{ kind: "k", payload: { envshown: "envvisible", envsecretmarker: "envsecretvalue" } }],
+              },
+            ],
+          },
+        },
+      },
+      publish: { message: { name: "hdronly", examples: [{ name: "e", headers: { hdrsecretmarker: "hdrsecretvalue" } }] } },
+    },
     // Titled like two operations on its page: its id is numbered past theirs.
     "/v1/others/{otherId}/dup": { "x-title": "others operation 1", subscribe: { message: { name: "dup", payload: { type: "string" } } } },
   },
@@ -507,11 +528,17 @@ test("every channel link the build writes lands on its id on the page: search re
     const text = fs.readFileSync(path.join(cwd, "public", f), "utf8");
     assert.deepEqual(linksIn(text), [...records].sort(), f);
     // What field hiding covers on the pages isn't in the llms files at all.
-    assert.doesNotMatch(text, /shardsecret|shardvalue|refsecret|refvalue|Internalfeed|qsecret|x-hsecret/, f);
+    assert.doesNotMatch(text, /shardsecret|shardvalue|refsecret|refvalue|Internalfeed|qsecret|x-hsecret|envsecret|hdrsecret/, f);
   }
   // llms-full.txt does print fields, query, headers and examples: their visible neighbours are there.
   const full = fs.readFileSync(path.join(cwd, "public", "llms-full.txt"), "utf8");
-  for (const shown of ["`refshown`", "`verbose` (boolean)", "`token` (string, required)", "`x-visibleheader` (string)", '"at": "now"']) assert.ok(full.includes(shown), shown);
+  for (const shown of ["`refshown`", "`verbose` (boolean)", "`token` (string, required)", "`x-visibleheader` (string)", '"at": "now"', '"envshown": "envvisible"']) {
+    assert.ok(full.includes(shown), shown);
+  }
+  // And on the page itself, the same shapes show nothing hidden.
+  const shapesPage = page(reference, "api-reference/others");
+  assert.match(shapesPage, />Shapeschannel<\/h2>/);
+  assert.doesNotMatch(shapesPage, /envsecret|hdrsecret/);
   // A deprecated message is listed, marked, while showDeprecated is on (the default), and gone with it off.
   assert.match(full, /### Receive: legacychange \(deprecated\)/);
   const quiet = path.join(tmp, "quiet");

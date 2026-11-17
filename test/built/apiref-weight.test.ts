@@ -145,9 +145,10 @@ function site(dir: string, apiMatch: string[], versioned = false, single = false
     fs.mkdirSync(path.join(dir, "v4", "api"), { recursive: true });
     fs.writeFileSync(path.join(dir, "v4", "api", "asyncapi.json"), "{ not json");
     fs.mkdirSync(path.join(dir, "v3", "api"), { recursive: true });
+    // Written in YAML: read like JSON.
     fs.writeFileSync(
-      path.join(dir, "v3", "api", "asyncapi.json"),
-      JSON.stringify({ asyncapi: "3.0.0", info: { title: "t", version: "3" }, channels: { live: { address: "/live", title: "Onlylive" } } }),
+      path.join(dir, "v3", "api", "asyncapi.yaml"),
+      ["asyncapi: 3.0.0", "info: { title: t, version: '3' }", "channels:", "  live:", "    address: /live", "    title: Onlylive", ""].join("\n"),
     );
   }
   fs.mkdirSync(path.join(dir, "docs", "sdk"), { recursive: true });
@@ -517,4 +518,22 @@ test("a version whose AsyncAPI document gives no page isn't offered, and has no 
   assert.match(picker, /3\.0 realtime only/);
   assert.doesNotMatch(picker, /4\.0 nothing to show/);
   assert.ok(!fs.existsSync(path.join(reference, "api-reference", "v4", "websockets.html")));
+});
+
+test("the YAML reader stays on the server: no client chunk carries it", { skip }, () => {
+  // A message only the yaml package has; the AsyncAPI-only v3 version above is read from YAML.
+  const chunks = path.join(reference, "_next", "static", "chunks");
+  const files: string[] = [];
+  const walk = (d: string) => {
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      if (e.isDirectory()) walk(path.join(d, e.name));
+      else if (e.name.endsWith(".js")) files.push(path.join(d, e.name));
+    }
+  };
+  walk(chunks);
+  assert.ok(files.length > 0);
+  const carrying = files.filter((f) => /Excessive alias count indicates a resource exhaustion attack/.test(fs.readFileSync(f, "utf8")));
+  assert.deepEqual(carrying, []);
+  // And the YAML document was read.
+  assert.match(page(reference, "api-reference/v3/websockets"), />Onlylive<\/h2>/);
 });

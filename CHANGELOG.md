@@ -5,6 +5,10 @@ All notable changes to `@markline/markline` and `@markline/create`.
 ## Unreleased
 
 ### Added
+- **YAML AsyncAPI documents.** `api/asyncapi.yaml` or `api/asyncapi.yml` (or a
+  YAML `api.asyncapi.file`) is read like `asyncapi.json`: as plain data, with
+  aliases capped and repeated keys refused, and a broken one named with its
+  line. `yaml` is now a direct dependency, at the version already installed.
 - **WebSocket channels in search and the LLM files.** Each channel is a search
   result that opens its section; `llms.txt` lists the channels and
   `llms-full.txt` describes them (URL, parameters, messages).

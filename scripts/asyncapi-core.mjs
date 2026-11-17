@@ -17,6 +17,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { parseDocument } from "yaml";
 
 /** From the client's side: what it sends, what it receives, or (a 3.0 message no operation names) not said. */
 
@@ -325,6 +326,25 @@ function v3(raw, refs, servers) {
   });
 }
 
+/**
+ * A YAML document's value, or why it can't be read: "line 3: Map keys must be
+ * unique". Plain data only (the core schema, no custom tags), duplicate keys are
+ * an error, and aliases are capped, so a document can't expand into gigabytes.
+ */
+export function readYaml(text) {
+  try {
+    const doc = parseDocument(text, { schema: "core", resolveKnownTags: false, uniqueKeys: true, prettyErrors: true });
+    if (doc.errors.length) {
+      const e = doc.errors[0];
+      const line = e.linePos?.[0]?.line;
+      return { error: `${line ? `line ${line}: ` : ""}${e.message.split("\n")[0].replace(/ at line \d+, column \d+:?$/, "")}` };
+    }
+    return { value: doc.toJS({ maxAliasCount: 100 }) };
+  } catch (e) {
+    return { error: String(e?.message ?? e).split("\n")[0] };
+  }
+}
+
 /** Read an AsyncAPI document. One it can't read gives no channels and a warning, never a throw. */
 export function normalizeAsyncApi(input, opts = {}) {
   const warnings = [];
@@ -453,14 +473,21 @@ export const WEBSOCKETS_TAG = "WebSockets";
 export function readAsyncApiFile(file, { perspective, showDeprecated, hideExtensions } = {}) {
   if (!fs.existsSync(file)) return null;
   const name = path.basename(file);
-  if (!/\.json$/i.test(file)) {
-    return { channels: [], warnings: [`[markline] ${name}: only JSON AsyncAPI documents are read for now, so its channels aren't shown.`] };
+  const yaml = /\.ya?ml$/i.test(file);
+  if (!yaml && !/\.json$/i.test(file)) {
+    return { channels: [], warnings: [`[markline] ${name}: only JSON and YAML AsyncAPI documents are read, so its channels aren't shown.`] };
   }
   let raw;
-  try {
-    raw = JSON.parse(fs.readFileSync(file, "utf8"));
-  } catch {
-    return { channels: [], warnings: [`[markline] ${name} isn't valid JSON, so its channels aren't shown.`] };
+  if (yaml) {
+    const read = readYaml(fs.readFileSync(file, "utf8"));
+    if (read.error) return { channels: [], warnings: [`[markline] ${name} isn't valid YAML (${read.error}), so its channels aren't shown.`] };
+    raw = read.value;
+  } else {
+    try {
+      raw = JSON.parse(fs.readFileSync(file, "utf8"));
+    } catch {
+      return { channels: [], warnings: [`[markline] ${name} isn't valid JSON, so its channels aren't shown.`] };
+    }
   }
   const doc = normalizeAsyncApi(raw, { perspective, hideExtensions });
   if (showDeprecated !== false) return { channels: doc.channels, tagGroups: doc.tagGroups, warnings: doc.warnings };

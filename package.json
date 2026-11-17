@@ -85,7 +85,8 @@
     "remark-rehype": "^11.1.2",
     "shiki": "1.22.2",
     "typescript": "5.6.3",
-    "unified": "^11.0.5"
+    "unified": "^11.0.5",
+    "yaml": "^2.9.0"
   },
   "devDependencies": {
     "eslint": "9.14.0",

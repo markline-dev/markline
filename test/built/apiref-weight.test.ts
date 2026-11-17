@@ -76,7 +76,8 @@ const spec = {
   openapi: "3.1.0",
   info: { title: "Weight", version: "1" },
   servers: [{ url: "https://api.example.com" }],
-  tags: [{ name: "things" }, { name: "others" }],
+  // An event on the others page: a channel titled like it is numbered past its id.
+  tags: [{ name: "things" }, { name: "others", "x-events": { status: { summary: "Status changed." } } }],
   components: { schemas: { Secret: { type: "object", "x-internal": true, properties: { secretinner: { type: "string" } } } } },
   paths: Object.fromEntries([
     ...Array.from({ length: THINGS }, (_, i) => [`/things/${i}`, { post: op(i, "things") }]),
@@ -153,6 +154,7 @@ const asyncSpec = {
       },
       publish: { message: { name: "hdronly", examples: [{ name: "e", headers: { hdrsecretmarker: "hdrsecretvalue" } }] } },
     },
+    "/v1/others/{otherId}/st": { "x-title": "Event status", subscribe: { message: { name: "st", payload: { type: "string" } } } },
     // Titled like two operations on its page: its id is numbered past theirs.
     "/v1/others/{otherId}/dup": { "x-title": "others operation 1", subscribe: { message: { name: "dup", payload: { type: "string" } } } },
   },
@@ -515,6 +517,8 @@ test("every channel link the build writes lands on its id on the page: search re
   // Search records, as build-search makes them.
   const records = channelRecords(content, raw, cfg.api).map((r) => r.url);
   assert.ok(records.includes("/api-reference/others#others-operation-1-2"), records.join(", "));
+  // Titled like the page's event "status": numbered past event-status, as the page numbers it.
+  assert.ok(records.includes("/api-reference/others#event-status-1"), records.join(", "));
   assert.ok(records.length >= 4, records.join(", "));
   for (const url of records) assert.ok(lands(url), url);
   // The llms files, from a real build-search run on the same content.

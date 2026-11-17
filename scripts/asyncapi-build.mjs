@@ -9,6 +9,8 @@ import { attachChannels, hideChannelFields, readAsyncApiFile, WEBSOCKETS_TAG } f
 import { DEFAULT_HIDE_EXTENSIONS, NO_EXTRAS, resolveTag, resourcePages, resourcePlan, slugifyOpId } from "./openapi-order.mjs";
 import { joinUrl } from "./asyncapi-core.mjs";
 import { pageAnchors } from "./apiref-anchors.mjs";
+import { eventAnchor, pageEvents } from "./openapi-events.mjs";
+import { pruneSpec } from "./openapi-prune.mjs";
 
 const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 
@@ -142,13 +144,24 @@ export function asyncApiReport(dir, spec, api) {
 /**
  * Every channel with the page it's on and its id there: `url` is
  * `/api-reference/<page>#<id>`, the anchor the page renders (pageAnchors, after
- * the page's operations in their order). Event anchors (`event-…`) aren't known
- * here; a channel would only miss its link if it were titled like one.
+ * the page's operations in their order, and its events' anchors reserved).
  */
 export function channelPages(dir, spec, api) {
   const { read, placed, extras } = channelExtras(dir, spec, api);
   if (!read || !spec) return [];
   const plan = resourcePlan(spec, api, extras);
+  // The page's events (their anchors are the page's own ids), by the pages' rule:
+  // pageEvents over the spec with hidden parts pruned, as normalize reads it.
+  const pruned = pruneSpec(spec, api?.hideExtensions ?? DEFAULT_HIDE_EXTENSIONS);
+  const prunedPlan = resourcePlan(pruned, api, extras);
+  const events = pageEvents(pruned, {
+    tags: Array.isArray(pruned.tags) ? pruned.tags.filter((t) => typeof t?.name === "string") : [],
+    ops: prunedPlan.ops.map((o) => ({ page: o.tag, op: o.op })),
+    pageOf: (t) => {
+      const r = resolveTag(t, api);
+      return r && (prunedPlan.alias.get(r) ?? r);
+    },
+  });
   const out = [];
   for (const page of resourcePages(spec, api, extras)) {
     const channels = placed.get(page.name) ?? [];
@@ -159,7 +172,8 @@ export function channelPages(dir, spec, api) {
       .map((o, i) => ({ i, navOrder: typeof o.op["x-nav-order"] === "number" ? o.op["x-nav-order"] : Infinity, o }))
       .sort((a, b) => a.navOrder - b.navOrder || a.i - b.i)
       .map(({ o }) => ({ summary: o.op.summary, operationId: o.op.operationId ?? slugifyOpId(o.method, o.path) }));
-    const ids = pageAnchors(page.slug, ops, channels).channels;
+    const eventIds = (events.get(page.name) ?? []).map((e) => eventAnchor(e.name));
+    const ids = pageAnchors(page.slug, ops, channels, eventIds).channels;
     channels.forEach((c, i) => out.push({ channel: c, page, id: ids[i], url: `/api-reference/${page.slug}#${ids[i]}` }));
   }
   return out;

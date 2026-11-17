@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { eventAnchor, mergeTagEvents, parseOperationEvents, parseWebhooks, parseXEvents } from "../lib/openapi-events.ts";
+import { eventAnchor, mergeTagEvents, parseOperationEvents, parseWebhooks, parseXEvents } from "../scripts/openapi-events.mjs";
 
 /** A raw operation that emits two events via the `x-events` map (one name-only). */
 const CREATE_PAYMENT = {

@@ -1,7 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { contentRoot } from "./paths";
-import { mergeTagEvents, parseOperationEvents, parseWebhooks, parseXEvents } from "./openapi-events";
+import { mergeTagEvents, pageEvents, parseOperationEvents, parseWebhooks, parseXEvents } from "@/scripts/openapi-events.mjs";
 import { tagLabels, type TagLabels } from "./openapi-tags";
 import { isJsonMediaType, pickMediaType } from "./openapi-media";
 import {
@@ -26,7 +26,7 @@ import { asyncApiFile, channelExtras, isStandIn, readApiSpec, type ChannelExtras
 import { loadConfig } from "./config";
 import { sampleMember } from "./openapi-schema";
 
-export { eventAnchor } from "./openapi-events";
+export { eventAnchor } from "@/scripts/openapi-events.mjs";
 
 export type JSONSchema = {
   type?: string | string[];
@@ -136,6 +136,8 @@ export type OpenAPITag = {
   operations: OpenAPIOperation[];
   /** Aggregated `x-events` from the tag and its operations. */
   events: OpenAPIEvent[];
+  /** Every event the resource's page shows: its events and the webhooks tagged for it (pageEvents). */
+  pageEvents?: OpenAPIEvent[];
   /** WebSocket channels from the AsyncAPI document that file under this resource. */
   channels?: AsyncChannel[];
 };
@@ -337,6 +339,8 @@ export function normalize(input: any, opts: NormalizeOptions = {}): OpenAPIDoc {
   }
 
   const tagsMap = new Map<string, OpenAPIOperation[]>();
+  // Each operation's spec object, for pageEvents (which reads its callbacks and x-events).
+  const rawOf = new Map<OpenAPIOperation, unknown>();
   const byId: Record<string, OpenAPIOperation> = {};
 
   for (const [pathStr, pathItem] of Object.entries<any>(raw.paths ?? {})) {
@@ -436,6 +440,7 @@ export function normalize(input: any, opts: NormalizeOptions = {}): OpenAPIDoc {
         );
       }
       byId[operationId] = operation;
+      rawOf.set(operation, op);
       if (!tagsMap.has(tag)) tagsMap.set(tag, []);
       tagsMap.get(tag)!.push(operation);
     }
@@ -489,6 +494,17 @@ export function normalize(input: any, opts: NormalizeOptions = {}): OpenAPIDoc {
       events: mergeTagEvents(operations, tagEvents[name]),
     };
   });
+  // Every event on each page, by the one rule the build's links use too.
+  const pageOf = (t: string) => {
+    const r = resolveTag(t, opts);
+    return r && (plan.alias.get(r) ?? r);
+  };
+  const onPages = pageEvents(raw, {
+    tags: specTags,
+    ops: tags.flatMap((t) => t.operations.map((op) => ({ page: t.name, op: rawOf.get(op) }))),
+    pageOf,
+  });
+  for (const t of tags) t.pageEvents = onPages.get(t.name) ?? [];
 
   // Labels for every tag path: spec `x-displayName`s (incl. nav-only group
   // tags) and config labels on group paths ("Workspace"), then each page's own.

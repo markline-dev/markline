@@ -168,6 +168,11 @@ All notable changes to `@markline/markline` and `@markline/create`.
   header's picker.
 
 ### Fixed
+- **A callback flagged hidden on itself** (`x-internal` on the callback, or on
+  the component its `$ref` names) is now hidden, with the event it would list.
+- **Search and LLM links to a WebSocket channel titled like one of its page's
+  events** ("Event done" beside the event `done`) land on the channel, numbered
+  past the event as the page numbers it.
 - **AsyncAPI tags written as `$ref`** (3.0's `components/tags`, on a channel or
   operation) are read by the name they point at, so such a channel now joins
   the page that tag names (an OpenAPI resource of that name, say) instead of

@@ -277,9 +277,11 @@ class Pruner {
       out.responses = Object.fromEntries(Object.entries(op.responses).map(([status, r]) => [status, this.response(r)]));
     }
     if (isNode(op.callbacks)) {
-      // A callback left with no path items would still list as an event.
+      // A callback flagged itself (or by its $ref's target) goes, as a flagged path
+      // item does; one left with no path items would still list as an event.
       out.callbacks = Object.fromEntries(
         Object.entries(op.callbacks)
+          .filter(([, cb]) => !this.refGone(cb))
           .map(([name, cb]) => [name, isNode(cb) && typeof cb.$ref !== "string" ? this.pathItems(cb) : cb])
           .filter(([, cb]) => !isNode(cb) || Object.keys(cb).length > 0),
       );

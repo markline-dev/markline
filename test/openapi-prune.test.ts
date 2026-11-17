@@ -312,3 +312,15 @@ test("a hidden path parameter in components stays, since the URL needs it", () =
   assert.deepEqual(out.paths["/items/{id}"].get.parameters, [{ $ref: "#/components/parameters/Id" }]);
   assert.ok(out.components.parameters.Id);
 });
+
+test("a callback flagged on itself, or through its $ref, is gone with the event it would list", () => {
+  const cb = { "{$request.body#/url}": { post: { summary: "c", responses: { 200: { description: "ok" } } } } };
+  const raw = {
+    openapi: "3.1.0",
+    info: { title: "t", version: "1" },
+    components: { callbacks: { Hid: { ...cb, "x-internal": true } } },
+    paths: { "/a": { post: { operationId: "a", responses: { 200: { description: "ok" } }, callbacks: { own: { ...cb, "x-internal": true }, viaref: { $ref: "#/components/callbacks/Hid" }, kept: cb } } } },
+  };
+  const pruned = pruneSpec(raw, ["x-internal"]);
+  assert.deepEqual(Object.keys(pruned.paths["/a"].post.callbacks), ["kept"]);
+});

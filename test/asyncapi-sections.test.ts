@@ -38,6 +38,7 @@ function both(api: Record<string, unknown>, ex: ChannelExtras = extras(), raw: o
     sections: doc.sections.map((s) => [s.title, s.tags]),
     titles: doc.tags.map((t) => parseOpenApiTag(t.name, doc.tagLabels).displayName),
     slugs: doc.tags.map((t) => tagSlug(t.name)),
+    descriptions: doc.tags.map((t) => t.description),
     warnings: doc.warnings,
   };
   const build = {
@@ -45,6 +46,7 @@ function both(api: Record<string, unknown>, ex: ChannelExtras = extras(), raw: o
     sections: plan.sections.map((s: { title: string; tags: string[] }) => [s.title, s.tags]),
     titles: pages.map((p: { title: string }) => p.title),
     slugs: pages.map((p: { slug: string }) => p.slug),
+    descriptions: pages.map((p: { description?: string }) => p.description),
     warnings: plan.warnings,
   };
   assert.deepEqual(build, lib);
@@ -127,10 +129,11 @@ function homeless(): string {
 }
 /** Pages and build agree on the plan; returns the page order and which page holds the channel. */
 function place(raw: object, api: Record<string, unknown>) {
-  const { read, extras: ex } = channelExtras(homeless(), raw, api);
+  const placement = channelExtras(homeless(), raw, api);
+  const ex = placement.extras;
   const lib = both(api, ex, raw);
   const doc = normalize(raw, { ...(api as NormalizeOptions), extras: ex });
-  placeChannels(doc, read!, api as NormalizeOptions);
+  placeChannels(doc, placement, api as NormalizeOptions);
   return { ...lib, home: doc.tags.filter((t) => t.channels?.some((c) => c.id === "/firehose")).map((t) => t.name) };
 }
 const undeclared = {
@@ -291,4 +294,158 @@ test("spec tags that collide are still reported when a mergeInto respells one of
     const r = both({ tags: { billing: { mergeInto: "Voices" } } }, NONE, s3);
     assert.ok(r.warnings.some((w) => /share the URL \/api-reference\/voices/.test(w)), `${other}: ${r.warnings.join("\n")}`);
   }
+});
+
+// ── Pages for the tags an AsyncAPI document declares ──────────────────────────
+
+const speechSpec = {
+  openapi: "3.0.0",
+  info: { title: "t", version: "1" },
+  tags: [{ name: "speech" }, { name: "other" }],
+  paths: { "/v1/speech/{id}": { get: op("speech", ["speech"]) }, "/v1/other": { get: op("other", ["other"]) } },
+};
+/** A content folder with this AsyncAPI document (2.x tags; `v3` moves them to info.tags). */
+function declaring(tags: unknown[], channels: Record<string, unknown>, extra: Record<string, unknown> = {}, v3 = false): string {
+  const dir = path.join(tmp, String(n++));
+  fs.mkdirSync(path.join(dir, "api"), { recursive: true });
+  const doc = v3
+    ? { asyncapi: "3.0.0", info: { title: "t", version: "1", tags }, channels, ...extra }
+    : { asyncapi: "2.6.0", info: { title: "t", version: "1" }, tags, channels, ...extra };
+  fs.writeFileSync(path.join(dir, "api", "asyncapi.json"), JSON.stringify(doc));
+  return dir;
+}
+/** Pages and build agree; returns the plan and where each channel landed. */
+function declaredPlace(dir: string, api: Record<string, unknown> = {}) {
+  const placement = channelExtras(dir, speechSpec, api);
+  const lib = both(api, placement.extras, speechSpec);
+  const doc = normalize(speechSpec, { ...(api as NormalizeOptions), extras: placement.extras });
+  placeChannels(doc, placement, api as NormalizeOptions);
+  const where = Object.fromEntries(doc.tags.flatMap((t) => (t.channels ?? []).map((c) => [c.id, t.name])));
+  return { ...lib, where };
+}
+const sub = (tags?: string[]) => ({ subscribe: { ...(tags ? { tags: tags.map((name) => ({ name })) } : {}), message: { name: "m" } } });
+const TAGS = [
+  { name: "Realtime", description: "Live **streams**.", "x-displayName": "Real time" },
+  { name: "Unused", description: "No channels use it." },
+  { name: "Secret", "x-internal": true },
+  { name: "Speech", description: "Not a new page: the spec has speech." },
+];
+const CHANNELS = {
+  // A declared tag beats the path, which would put it on speech.
+  "/v1/speech/{id}/live": sub(["Realtime"]),
+  // No tag: the path decides, as before.
+  "/v1/speech/{id}/stream": sub(),
+  // Its only tag is hidden: hidden with it.
+  "/feed": sub(["Secret"]),
+  // Declared as "Speech", the spec's "speech" page by its URL.
+  "/x": sub(["Speech"]),
+  // An undeclared tag: as before, path or WebSockets.
+  "/y": sub(["loose"]),
+};
+
+test("a declared tag with channels gets a page: after the spec's, before WebSockets, with its label and description", () => {
+  const r = declaredPlace(declaring(TAGS, CHANNELS));
+  assert.deepEqual(r.order, ["speech", "other", "Realtime", "WebSockets"]);
+  assert.deepEqual(r.titles, ["Speech", "Other", "Real time", "WebSockets"]);
+  assert.equal(r.descriptions[2], "Live **streams**.");
+  assert.deepEqual(r.where, {
+    "/v1/speech/{id}/live": "Realtime",
+    "/v1/speech/{id}/stream": "speech",
+    "/x": "speech",
+    "/y": "WebSockets",
+  });
+  // Declared but unused, or hidden: no page, and naming them isn't a mistake.
+  assert.deepEqual(r.warnings, []);
+  const named = declaredPlace(declaring(TAGS, CHANNELS), { tags: { Unused: { label: "U" }, Secret: { label: "S" } } });
+  assert.deepEqual(named.warnings, []);
+  // tagOrder naming it says it has nothing to order, as for an OpenAPI tag without operations.
+  const ordered = declaredPlace(declaring(TAGS, CHANNELS), { tagOrder: ["Unused"] });
+  assert.deepEqual(ordered.warnings, ['[markline] api.tagOrder: "Unused" matches no tag with operations, so it has no effect. Check the spelling.']);
+});
+
+test("api.tags, tagOrder, sections and the document's groups arrange declared-tag pages like any page", () => {
+  const dir = declaring(TAGS, CHANNELS);
+  const renamed = declaredPlace(dir, { tags: { Realtime: { label: "Live", description: "Ours." } } });
+  assert.deepEqual([renamed.titles[2], renamed.descriptions[2]], ["Live", "Ours."]);
+  const merged = declaredPlace(dir, { tags: { Realtime: { mergeInto: "other" } } });
+  assert.deepEqual([merged.order, merged.where["/v1/speech/{id}/live"]], [["speech", "other", "WebSockets"], "other"]);
+  const hidden = declaredPlace(dir, { tags: { Realtime: { hidden: true } } });
+  assert.deepEqual([hidden.order.includes("Realtime"), hidden.where["/v1/speech/{id}/live"]], [false, undefined]);
+  assert.deepEqual(declaredPlace(dir, { tagOrder: ["Realtime"] }).order, ["Realtime", "speech", "other", "WebSockets"]);
+  assert.deepEqual(declaredPlace(dir, { sections: [{ title: "Live", tags: ["Realtime"] }] }).sections, [["Live", ["Realtime"]]]);
+  const grouped = declaredPlace(declaring(TAGS, CHANNELS, { "x-tagGroups": [{ name: "Streaming", tags: ["Realtime", "WebSockets"] }] }));
+  assert.deepEqual(grouped.sections, [["Streaming", ["Realtime", "WebSockets"]]]);
+});
+
+test("3.0 declares tags in info.tags; nested names nest; no channels, no page", () => {
+  const v3 = declaredPlace(
+    declaring([{ name: "live/tts", description: "TTS." }, { name: "Empty" }], { tts: { address: "/live/tts", tags: [{ name: "live/tts" }] } }, {}, true),
+  );
+  assert.deepEqual(v3.order, ["speech", "other", "live/tts"]);
+  assert.deepEqual(v3.where, { tts: "live/tts" });
+  assert.equal(v3.descriptions[2], "TTS.");
+  // A document that declares tags no channel uses changes nothing.
+  const none = declaredPlace(declaring([{ name: "Realtime" }], {}));
+  assert.deepEqual(none.order, ["speech", "other"]);
+});
+
+test("a declared tag merged into another doesn't title it; mergeInto a new name is titled by that name", () => {
+  const tags = [
+    { name: "A", "x-displayName": "AX", description: "AD" },
+    { name: "B", "x-displayName": "BX", description: "BD" },
+  ];
+  const ch = { "/a": sub(["A"]), "/b": sub(["B"]) };
+  const merged = declaredPlace(declaring(tags, ch), { tags: { A: { mergeInto: "B" } } });
+  assert.deepEqual([merged.order, merged.titles[2], merged.descriptions[2]], [["speech", "other", "B"], "BX", "BD"]);
+  assert.deepEqual(merged.where, { "/a": "B", "/b": "B" });
+  // A tag that's merged in only lends its description when the page has none.
+  const plainB = declaredPlace(declaring([tags[0], { name: "B" }], ch), { tags: { A: { mergeInto: "B" } } });
+  assert.deepEqual([plainB.titles[2], plainB.descriptions[2]], ["B", "AD"]);
+  const renamed = declaredPlace(declaring([tags[0]], { "/a": sub(["A"]) }), { tags: { A: { mergeInto: "Streams" } } });
+  assert.deepEqual([renamed.order[2], renamed.titles[2], renamed.descriptions[2]], ["Streams", "Streams", "AD"]);
+});
+
+test("two declared tags with one URL are one page, the first's, and both their channels are on it", () => {
+  const r = declaredPlace(declaring([{ name: "Real time" }, { name: "real-time" }], { "/one": sub(["Real time"]), "/two": sub(["real-time"]) }));
+  assert.deepEqual(r.order, ["speech", "other", "Real time"]);
+  assert.deepEqual(r.where, { "/one": "Real time", "/two": "Real time" });
+  assert.deepEqual(r.warnings, []);
+});
+
+test("declared-tag pages keep the document's order; a name declared twice is the first declaration, hidden flag and all", () => {
+  const order = declaredPlace(declaring([{ name: "Zeta" }, { name: "Alpha" }, { name: "Mid" }], { "/a": sub(["Alpha"]), "/m": sub(["Mid"]), "/z": sub(["Zeta"]) }));
+  assert.deepEqual(order.order, ["speech", "other", "Zeta", "Alpha", "Mid"]);
+  const dupe = declaredPlace(declaring([{ name: "Live", description: "First." }, { name: "Live", description: "Second.", "x-internal": true }], { "/l": sub(["Live"]) }));
+  assert.deepEqual([dupe.order[2], dupe.descriptions[2], dupe.where["/l"]], ["Live", "First.", "Live"]);
+  const dupeHidden = declaredPlace(declaring([{ name: "Live", "x-internal": true }, { name: "Live" }], { "/l": sub(["Live"]) }));
+  assert.deepEqual([dupeHidden.order, dupeHidden.where["/l"]], [["speech", "other"], undefined]);
+});
+
+test("a declared WebSockets tag titles the WebSockets page; tags written as $ref name their page", () => {
+  const ws = declaredPlace(declaring([{ name: "WebSockets", "x-displayName": "Sockets", description: "All of them." }], { "/w": sub(["WebSockets"]) }));
+  assert.deepEqual([ws.order, ws.titles[2], ws.descriptions[2]], [["speech", "other", "WebSockets"], "Sockets", "All of them."]);
+  // 3.0, the components/tags pattern: declared and used by $ref.
+  const v3ref = declaredPlace(
+    declaring(
+      [{ $ref: "#/components/tags/Live" }],
+      { live: { address: "/live", tags: [{ $ref: "#/components/tags/Live" }] } },
+      { components: { tags: { Live: { name: "Live", description: "Live, by reference." } } } },
+      true,
+    ),
+  );
+  assert.deepEqual([v3ref.order, v3ref.where, v3ref.descriptions[2]], [["speech", "other", "Live"], { live: "Live" }, "Live, by reference."]);
+});
+
+test("placeChannels puts a channel's hidden fields out of its page", () => {
+  const dir = declaring(
+    [],
+    { "/v1/speech/{id}/f": { subscribe: { message: { name: "m", payload: { type: "object", properties: { shown: { type: "string" }, secret: { type: "string", "x-internal": true } } } } } } },
+  );
+  const placement = channelExtras(dir, speechSpec, {});
+  const doc = normalize(speechSpec, { extras: placement.extras });
+  placeChannels(doc, placement, {});
+  const payload = doc.tags.find((t) => t.name === "speech")!.channels![0].messages[0].payload!;
+  assert.deepEqual(Object.keys(payload.properties ?? {}), ["shown"]);
+  // What channelExtras read still has it: hiding fields is the page's step.
+  assert.ok(placement.read!.channels[0].messages[0].payload!.properties!.secret);
 });

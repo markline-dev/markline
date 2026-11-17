@@ -2,7 +2,15 @@
 import type { AsyncChannel } from "../lib/asyncapi";
 
 /** What an AsyncAPI document adds to the reference's plan. */
-export type ChannelExtras = { pages: string[]; groups?: unknown[]; known: string[]; labels: Record<string, string>; warnings?: string[] };
+export type ChannelExtras = {
+  pages: string[];
+  groups?: unknown[];
+  known: string[];
+  labels: Record<string, string>;
+  /** Descriptions for the pages only channels make (a declared tag's). */
+  descriptions?: Record<string, string>;
+  warnings?: string[];
+};
 
 export function asyncApiFile(dir: string, api: unknown): string;
 export function isStandIn(spec: unknown): boolean;
@@ -12,7 +20,7 @@ export function channelExtras(
   spec: unknown,
   api: unknown,
 ): {
-  read: { channels: AsyncChannel[]; tagGroups?: unknown[]; warnings: string[] } | null;
+  read: { channels: AsyncChannel[]; tags?: { name: string; description?: string; displayName?: string; hidden?: boolean }[]; tagGroups?: unknown[]; warnings: string[] } | null;
   /** Each page's channels, in the order placeChannels() gives them. */
   placed: Map<string, AsyncChannel[]>;
   extras: ChannelExtras;

@@ -46,9 +46,9 @@ fs.writeFileSync(path.join(dir, "api", "asyncapi.json"), JSON.stringify(asyncDoc
 
 /** What the page renders: each channel's page slug and id. */
 function onPages(api: Record<string, unknown>) {
-  const { read, extras } = channelExtras(dir, spec, api);
-  const doc = normalize(spec, { ...(api as NormalizeOptions), extras });
-  placeChannels(doc, read!, api as NormalizeOptions);
+  const placement = channelExtras(dir, spec, api);
+  const doc = normalize(spec, { ...(api as NormalizeOptions), extras: placement.extras });
+  placeChannels(doc, placement, api as NormalizeOptions);
   return doc.tags.flatMap((tag) => {
     const ids = operationAnchors(tag, doc);
     return (tag.channels ?? []).map((c) => [c.id, `/api-reference/${tagSlug(tag.name)}#${ids.get(c)}`]);

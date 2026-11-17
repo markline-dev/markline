@@ -91,7 +91,10 @@ const asyncSpec = {
   asyncapi: "2.6.0",
   info: { title: "Weight realtime", version: "1" },
   servers: { live: { url: "live.weight.test", protocol: "wss" } },
+  // A declared tag: its channel gets a page of its own, though its path matches "others".
+  tags: [{ name: "Realtime", description: "Declaredtagdesc: live updates." }],
   channels: {
+    "/v1/others/{otherId}/rt": { "x-title": "Rtchannel", subscribe: { tags: [{ name: "Realtime" }], message: { name: "rt", payload: { type: "string" } } } },
     "/v1/others/{otherId}/live": {
       parameters: { otherId: { description: "Which other.", schema: { type: "string" } } },
       bindings: { ws: { query: { type: "object", required: ["token"], properties: { token: { type: "string" }, verbose: { type: "boolean" } } } } },
@@ -380,7 +383,7 @@ test("sections caption the sidebar, lead the order, and leave every URL where it
       .readdirSync(path.join(dist, "api-reference"), { withFileTypes: true })
       // Not "reference"'s version landings (v1.html, v0.html): only it has versions.
       // Nor its WebSockets page: only it has an AsyncAPI document.
-      .filter((e) => e.isFile() && e.name.endsWith(".html") && !/^(v\d+|websockets)\.html$/.test(e.name))
+      .filter((e) => e.isFile() && e.name.endsWith(".html") && !/^(v\d+|websockets|realtime)\.html$/.test(e.name))
       .map((e) => e.name)
       .sort();
   assert.ok(pages(reference).length >= OPERATIONS);
@@ -517,4 +520,20 @@ test("a version whose AsyncAPI document gives no page isn't offered, and has no 
   assert.match(picker, /3\.0 realtime only/);
   assert.doesNotMatch(picker, /4\.0 nothing to show/);
   assert.ok(!fs.existsSync(path.join(reference, "api-reference", "v4", "websockets.html")));
+});
+
+test("a declared AsyncAPI tag has its own page: description, channel, sidebar entry", { skip }, () => {
+  const html = page(reference, "api-reference/realtime");
+  assert.match(html, /<h1>Realtime<\/h1>/);
+  assert.match(html, /Declaredtagdesc: live updates\./);
+  assert.match(html, />Rtchannel<\/h2>/);
+  // In every page's sidebar, after the spec's resources and before WebSockets.
+  const side = (p: string) => {
+    const h = page(reference, p);
+    return h.slice(h.indexOf('class="api-side"'), h.indexOf("</aside>"));
+  };
+  const s = side("api-reference/things");
+  assert.ok(s.indexOf(">Others<") < s.indexOf(">Realtime<") && s.indexOf(">Realtime<") < s.indexOf(">WebSockets<"), s.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 300));
+  // Not on others, though its path matches there (the palette's index lists it, as it lists every channel).
+  assert.doesNotMatch(page(reference, "api-reference/others"), />Rtchannel<\/h2>/);
 });

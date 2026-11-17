@@ -192,9 +192,10 @@ function readable(address) {
   return last ? last[0].toUpperCase() + last.slice(1) : address;
 }
 
-const tagNames = (...lists) => [
+/** Tag names from tag lists: names, tag objects, or `$ref`s to them (3.0's components/tags). */
+const tagNames = (refs, ...lists) => [
   ...new Set(
-    lists.flatMap((l) => (Array.isArray(l) ? l : [])).map((t) => (typeof t === "string" ? t : str(t?.name))).filter((t) => !!t),
+    lists.flatMap((l) => (Array.isArray(l) ? l : [])).map((t) => (typeof t === "string" ? t : str(refs.get(t)?.name))).filter((t) => !!t),
   ),
 ];
 
@@ -233,7 +234,7 @@ function v2(raw, refs, servers, perspective) {
         title: str(ch["x-title"]) ?? said(publish?.summary) ?? said(subscribe?.summary) ?? readable(address),
         summary: said(publish?.summary) ?? said(subscribe?.summary),
         description: str(ch.description) ?? str(publish?.description) ?? str(subscribe?.description),
-        tags: tagNames(publish?.tags, subscribe?.tags, ch.tags),
+        tags: tagNames(refs, publish?.tags, subscribe?.tags, ch.tags),
         servers: channelServers(ch.servers, servers, refs),
         parameters,
         ...wsBinding(ch, refs),
@@ -276,7 +277,7 @@ function v3(raw, refs, servers) {
     const byMessage = directions.get(channelKey) ?? new Map();
     for (const key of named) byMessage.set(key, new Set([...(byMessage.get(key) ?? []), direction]));
     directions.set(channelKey, byMessage);
-    opTags.set(channelKey, tagNames(opTags.get(channelKey), op.tags));
+    opTags.set(channelKey, tagNames(refs, opTags.get(channelKey), op.tags));
     const text = opText.get(channelKey) ?? {};
     opText.set(channelKey, {
       title: text.title ?? str(op.title),
@@ -314,7 +315,7 @@ function v3(raw, refs, servers) {
         title: str(ch.title) ?? said(text.title) ?? said(text.summary) ?? readable(address),
         summary: said(str(ch.summary)) ?? said(text.summary),
         description: str(ch.description) ?? text.description,
-        tags: tagNames(ch.tags, opTags.get(key)),
+        tags: tagNames(refs, ch.tags, opTags.get(key)),
         servers: channelServers(ch.servers, servers, refs),
         parameters,
         ...wsBinding(ch, refs),
@@ -323,6 +324,21 @@ function v3(raw, refs, servers) {
       },
     ];
   });
+}
+
+/**
+ * The tags a document declares, in its order, once each: name, description and
+ * `x-displayName`, and `hidden` when api.hideExtensions flags the tag object.
+ */
+function declaredTags(list, refs) {
+  const out = [];
+  for (const raw of Array.isArray(list) ? list : []) {
+    const t = refs.get(raw);
+    const name = str(t?.name);
+    if (!name || out.some((d) => d.name === name)) continue;
+    out.push({ name, description: str(t.description), displayName: str(t["x-displayName"]), hidden: refs.hidden(raw) || undefined });
+  }
+  return out;
 }
 
 /** Read an AsyncAPI document. One it can't read gives no channels and a warning, never a throw. */
@@ -337,6 +353,8 @@ export function normalizeAsyncApi(input, opts = {}) {
     channels: [],
     // Sidebar groups, as OpenAPI's `x-tagGroups`: `[{ name, tags }]`.
     tagGroups: Array.isArray(raw["x-tagGroups"]) ? raw["x-tagGroups"] : undefined,
+    // The tags the document declares (2.x `tags`, 3.0 `info.tags`): each can have a page.
+    tags: [],
     warnings,
   };
   const major = /^(\d+)\./.exec(version)?.[1];
@@ -364,6 +382,7 @@ export function normalizeAsyncApi(input, opts = {}) {
     warnings.push(`[markline] AsyncAPI 2.x read from the client's side (api.asyncapi.perspective is "client").`);
   }
   out.channels = major === "2" ? v2(raw, refs, servers, perspective) : v3(raw, refs, servers);
+  out.tags = declaredTags(major === "2" ? raw.tags : info.tags, refs);
   return out;
 }
 
@@ -463,8 +482,8 @@ export function readAsyncApiFile(file, { perspective, showDeprecated, hideExtens
     return { channels: [], warnings: [`[markline] ${name} isn't valid JSON, so its channels aren't shown.`] };
   }
   const doc = normalizeAsyncApi(raw, { perspective, hideExtensions });
-  if (showDeprecated !== false) return { channels: doc.channels, tagGroups: doc.tagGroups, warnings: doc.warnings };
+  if (showDeprecated !== false) return { channels: doc.channels, tags: doc.tags, tagGroups: doc.tagGroups, warnings: doc.warnings };
   // Deprecated channels and messages left out, as deprecated operations are.
   const channels = doc.channels.filter((c) => !c.deprecated).map((c) => ({ ...c, messages: c.messages.filter((m) => !m.deprecated) }));
-  return { channels, tagGroups: doc.tagGroups, warnings: doc.warnings };
+  return { channels, tags: doc.tags, tagGroups: doc.tagGroups, warnings: doc.warnings };
 }

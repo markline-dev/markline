@@ -494,12 +494,21 @@ export const WEBSOCKETS_TAG = "WebSockets";
  */
 export function readAsyncApiFile(file, opts = {}) {
   if (!fs.existsSync(file)) return null;
-  const text = fs.readFileSync(file, "utf8");
+  let text;
+  try {
+    text = fs.readFileSync(file, "utf8");
+  } catch (e) {
+    // A folder by that name, or a file that can't be opened: said, never thrown.
+    return { channels: [], tags: [], warnings: [`[markline] ${path.basename(file)} can't be read (${e?.code ?? "error"}), so its channels aren't shown.`] };
+  }
   const digest = createHash("sha1").update(text).digest("hex");
-  const key = JSON.stringify([file, digest, opts.perspective, opts.showDeprecated, opts.hideExtensions]);
-  if (!readCache.has(key)) readCache.set(key, readUncached(file, text, opts));
+  const key = JSON.stringify([digest, opts.perspective, opts.showDeprecated, opts.hideExtensions]);
+  // One reading per file: the latest. Editing the document in a long dev session
+  // replaces its entry rather than piling up old ones.
+  const cached = readCache.get(file);
+  const read = cached?.key === key ? cached.read : readUncached(file, text, opts);
+  readCache.set(file, { key, read });
   // A copy each time: callers add warnings to it.
-  const read = readCache.get(key);
   return { ...read, warnings: [...read.warnings] };
 }
 

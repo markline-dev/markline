@@ -153,3 +153,10 @@ test("api.asyncapi.file naming a missing file is said", () => {
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stderr + r.stdout, /\[markline\] api\.asyncapi\.file is "api\/realtime\.yaml", which doesn't exist, so no channels are shown\./);
 });
+
+test("a folder or unreadable file where the document should be is said, never thrown", () => {
+  const dir = folder({ "api/asyncapi.json/inside.txt": "x" });
+  const read = readAsyncApiFile(path.join(dir, "api", "asyncapi.json"))!;
+  assert.deepEqual(read.channels, []);
+  assert.match(read.warnings[0], /^\[markline\] asyncapi\.json can't be read \(EISDIR\), so its channels aren't shown\.$/);
+});

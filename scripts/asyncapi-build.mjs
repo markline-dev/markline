@@ -5,7 +5,7 @@
 // prints once because the page workers don't.
 import fs from "node:fs";
 import path from "node:path";
-import { attachChannels, readAsyncApiFile, WEBSOCKETS_TAG } from "./asyncapi-core.mjs";
+import { attachChannels, hideChannelFields, readAsyncApiFile, WEBSOCKETS_TAG } from "./asyncapi-core.mjs";
 import { DEFAULT_HIDE_EXTENSIONS, NO_EXTRAS, resolveTag, resourcePages, resourcePlan, slugifyOpId } from "./openapi-order.mjs";
 import { joinUrl } from "./asyncapi-core.mjs";
 import { pageAnchors } from "./apiref-anchors.mjs";
@@ -95,6 +95,10 @@ export function channelExtras(dir, spec, api) {
   const final = attachChannels(read.channels, pages, pageOfTag);
   const placed = new Map(final.byResource);
   if (home && final.rest.length) placed.set(home, [...(placed.get(home) ?? []), ...final.rest]);
+  // The channels as every output shows them: without the fields api.hideExtensions
+  // hides. Pages, search and the llms files all take them from here.
+  const exts = api?.hideExtensions ?? DEFAULT_HIDE_EXTENSIONS;
+  for (const [name, list] of placed) placed.set(name, list.map((c) => hideChannelFields(c, exts)));
 
   // Labels and descriptions for the pages only channels make, as OpenAPI tags get
   // theirs: the title only from the tag the page is named after (a tag merged into
@@ -177,12 +181,34 @@ export function channelRecords(dir, spec, api, toPlainText = (s) => s) {
 
 const DIRECTION = { send: "Send", receive: "Receive", unspecified: "Message" };
 
+/** Example lines llms-full.txt shows before cutting (at a line, with "…"). */
+const LLMS_EXAMPLE_LINES = 40;
+
+/** A schema's top-level fields as markdown list lines: name, type, required, deprecated, description. */
+function fieldLines(schema) {
+  const props = schema && typeof schema === "object" && schema.properties && typeof schema.properties === "object" ? schema.properties : {};
+  const required = new Set(Array.isArray(schema?.required) ? schema.required : []);
+  return Object.entries(props).map(([name, s]) => {
+    const type = Array.isArray(s?.type) ? s.type.join(" | ") : s?.type;
+    const notes = [type, required.has(name) ? "required" : null, s?.deprecated === true ? "deprecated" : null].filter(Boolean);
+    const desc = typeof s?.description === "string" && s.description.trim() ? `: ${s.description.trim().replace(/\s*\n\s*/g, " ")}` : "";
+    return `- \`${name}\`${notes.length ? ` (${notes.join(", ")})` : ""}${desc}`;
+  });
+}
+
+/** An example as a json fence, its first LLMS_EXAMPLE_LINES lines when longer. */
+function exampleFence(value) {
+  const lines = (JSON.stringify(value, null, 2) ?? "").split("\n");
+  const shown = lines.length > LLMS_EXAMPLE_LINES ? [...lines.slice(0, LLMS_EXAMPLE_LINES), "…"] : lines;
+  return `\`\`\`json\n${shown.join("\n")}\n\`\`\``;
+}
+
 /**
  * llms.txt's list of channels and llms-full.txt's section on them: each channel's
- * page link, connection URL, description, path parameters, and its messages'
- * directions, names and descriptions. Not their fields, query, headers or
- * examples: hiding those (api.hideExtensions) happens on the pages only, so
- * they'd be printed here unhidden. `abs` makes a path absolute.
+ * page link, connection URL, description, path and query parameters and headers,
+ * and its messages: direction, name, description, fields and first example. The
+ * channels come from channelExtras() with api.hideExtensions already applied, so
+ * nothing the pages hide is printed here. `abs` makes a path absolute.
  */
 export function channelLlms(dir, spec, api, abs = (u) => u) {
   const pages = channelPages(dir, spec, api);
@@ -199,9 +225,16 @@ export function channelLlms(dir, spec, api, abs = (u) => u) {
     if (c.parameters.length) {
       full += `Path parameters:\n\n${c.parameters.map((p) => `- \`${p.name}\`${p.description ? `: ${p.description}` : ""}`).join("\n")}\n\n`;
     }
-    if (c.messages.length) {
-      const line = (m) => `- ${DIRECTION[m.direction]} \`${m.title ?? m.name}\`${m.deprecated ? " (deprecated)" : ""}${(m.description ?? m.summary) ? `: ${m.description ?? m.summary}` : ""}`;
-      full += `Messages:\n\n${c.messages.map(line).join("\n")}\n\n`;
+    const query = fieldLines(c.query);
+    if (query.length) full += `Query parameters:\n\n${query.join("\n")}\n\n`;
+    const headers = fieldLines(c.headers);
+    if (headers.length) full += `Headers:\n\n${headers.join("\n")}\n\n`;
+    for (const m of c.messages) {
+      full += `### ${DIRECTION[m.direction]}: ${m.title ?? m.name}${m.deprecated ? " (deprecated)" : ""}\n\n`;
+      if (m.description ?? m.summary) full += `${m.description ?? m.summary}\n\n`;
+      const fields = fieldLines(m.payload);
+      if (fields.length) full += `${fields.join("\n")}\n\n`;
+      if (m.examples.length) full += `${exampleFence(m.examples[0])}\n\n`;
     }
   }
   return { index, full };

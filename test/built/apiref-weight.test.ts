@@ -97,7 +97,12 @@ const asyncSpec = {
     "/v1/others/{otherId}/rt": { "x-title": "Rtchannel", subscribe: { tags: [{ name: "Realtime" }], message: { name: "rt", payload: { type: "string" } } } },
     "/v1/others/{otherId}/live": {
       parameters: { otherId: { description: "Which other.", schema: { type: "string" } } },
-      bindings: { ws: { query: { type: "object", required: ["token"], properties: { token: { type: "string" }, verbose: { type: "boolean" } } } } },
+      bindings: {
+        ws: {
+          query: { type: "object", required: ["token"], properties: { token: { type: "string" }, verbose: { type: "boolean" }, qsecret: { type: "string", "x-internal": true } } },
+          headers: { type: "object", properties: { "x-visibleheader": { type: "string" }, "x-hsecret": { type: "string", "x-internal": true } } },
+        },
+      },
       publish: {
         summary: "publish",
         message: { name: "watch", description: "Starts **watching** this other.", payload: { type: "object", properties: { since: { type: "integer" } } } },
@@ -502,8 +507,24 @@ test("every channel link the build writes lands on its id on the page: search re
     const text = fs.readFileSync(path.join(cwd, "public", f), "utf8");
     assert.deepEqual(linksIn(text), [...records].sort(), f);
     // What field hiding covers on the pages isn't in the llms files at all.
-    assert.doesNotMatch(text, /shardsecret|shardvalue|refsecret|refvalue|Internalfeed/, f);
+    assert.doesNotMatch(text, /shardsecret|shardvalue|refsecret|refvalue|Internalfeed|qsecret|x-hsecret/, f);
   }
+  // llms-full.txt does print fields, query, headers and examples: their visible neighbours are there.
+  const full = fs.readFileSync(path.join(cwd, "public", "llms-full.txt"), "utf8");
+  for (const shown of ["`refshown`", "`verbose` (boolean)", "`token` (string, required)", "`x-visibleheader` (string)", '"at": "now"']) assert.ok(full.includes(shown), shown);
+  // A deprecated message is listed, marked, while showDeprecated is on (the default), and gone with it off.
+  assert.match(full, /### Receive: legacychange \(deprecated\)/);
+  const quiet = path.join(tmp, "quiet");
+  fs.cpSync(content, quiet, { recursive: true });
+  const cfgQuiet = JSON.parse(fs.readFileSync(path.join(quiet, "markline.json"), "utf8"));
+  fs.writeFileSync(path.join(quiet, "markline.json"), JSON.stringify({ ...cfgQuiet, api: { ...(cfgQuiet.api ?? {}), showDeprecated: false } }));
+  const cwdQuiet = path.join(tmp, "search-quiet");
+  fs.mkdirSync(path.join(cwdQuiet, "public"), { recursive: true });
+  const rq = spawnSync(process.execPath, [path.join(ROOT, "scripts", "build-search.mjs")], { cwd: cwdQuiet, encoding: "utf8", env: buildEnv({ MARKLINE_CONTENT: quiet }) });
+  assert.equal(rq.status, 0, `${rq.stdout}\n${rq.stderr}`);
+  const fullQuiet = fs.readFileSync(path.join(cwdQuiet, "public", "llms-full.txt"), "utf8");
+  assert.doesNotMatch(fullQuiet, /legacychange/);
+  assert.match(fullQuiet, /### Receive: changed/);
   // The search index's records, as pagefind stored them (gzipped "pagefind_dcd" + JSON).
   const fragments = path.join(cwd, "public", "pagefind", "fragment");
   const indexed = fs

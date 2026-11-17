@@ -91,13 +91,89 @@ test("search records: one per channel, its text, under API reference", () => {
   });
 });
 
-test("llms: a list of channels for llms.txt, and a section for llms-full.txt without fields or examples", () => {
+test("llms: a list of channels for llms.txt, and a section for llms-full.txt with each message's fields and example", () => {
   const { index, full } = channelLlms(dir, spec, {}, (u) => `https://docs.test${u}`);
   assert.match(index, /### WebSocket channels\n\n- \[Stream input\]\(https:\/\/docs\.test\/api-reference\/speech#stream-input-1\): `wss:\/\/api\.acme\.test\/v1\/speech\/\{id\}\/stream-input`/);
   assert.match(full, /# WebSocket channels\n\n## Stream input\n\n\[Speech › Stream input\]\(https:\/\/docs\.test\/api-reference\/speech#stream-input-1\) · `WSS wss:\/\/api\.acme\.test\/v1\/speech\/\{id\}\/stream-input`/);
   assert.match(full, /Path parameters:\n\n- `id`: Which one\./);
-  assert.match(full, /Messages:\n\n- Send `text`: Some text\.\n- Receive `audio` \(deprecated\)/);
-  assert.doesNotMatch(full, /```/);
+  assert.match(full, /### Send: text\n\nSome text\.\n\n/);
+  assert.match(full, /### Receive: audio \(deprecated\)\n\n/);
   // No document, nothing.
   assert.deepEqual(channelLlms(path.join(dir, "none"), spec, {}), { index: "", full: "" });
+});
+
+test("llms-full: query, headers and fields with type, required and deprecated; a long example cut at a line", () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), "markline-asyncapi-llms-"));
+  after(() => fs.rmSync(d, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(d, "api"));
+  const big = { items: Array.from({ length: 30 }, (_, i) => ({ id: i })) };
+  fs.writeFileSync(
+    path.join(d, "api", "asyncapi.json"),
+    JSON.stringify({
+      asyncapi: "2.6.0",
+      info: { title: "t", version: "1" },
+      channels: {
+        "/v1/speech/{id}/q": {
+          bindings: {
+            ws: {
+              query: { type: "object", required: ["token"], properties: { token: { type: "string", description: "Your key." }, mode: { type: ["string", "null"] } } },
+              headers: { type: "object", properties: { "x-trace": { type: "string", deprecated: true } } },
+            },
+          },
+          subscribe: {
+            message: {
+              name: "m",
+              payload: { type: "object", required: ["a"], properties: { a: { type: "integer", description: "The a.\nOn two lines." }, old: { type: "string", deprecated: true } } },
+              examples: [{ payload: big }],
+            },
+          },
+        },
+      },
+    }),
+  );
+  const { full } = channelLlms(d, spec, {});
+  assert.match(full, /Query parameters:\n\n- `token` \(string, required\): Your key\.\n- `mode` \(string \| null\)\n\n/);
+  assert.match(full, /Headers:\n\n- `x-trace` \(string, deprecated\)\n\n/);
+  assert.match(full, /- `a` \(integer, required\): The a\. On two lines\.\n- `old` \(string, deprecated\)\n\n/);
+  const fence = full.match(/```json\n([\s\S]*?)\n```/)![1].split("\n");
+  assert.equal(fence.length, 41);
+  assert.equal(fence[40], "…");
+  assert.deepEqual(fence.slice(0, 40), JSON.stringify(big, null, 2).split("\n").slice(0, 40));
+});
+
+test("llms-full prints fields and examples with the pages' hiding: hidden fields and their values never appear", () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), "markline-asyncapi-llms-hide-"));
+  after(() => fs.rmSync(d, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(d, "api"));
+  fs.writeFileSync(
+    path.join(d, "api", "asyncapi.json"),
+    JSON.stringify({
+      asyncapi: "2.6.0",
+      info: { title: "t", version: "1" },
+      channels: {
+        "/v1/speech/{id}/h": {
+          bindings: { ws: { query: { type: "object", properties: { qshown: { type: "string" }, qsecret: { type: "string", "x-internal": true } } } } },
+          subscribe: {
+            message: {
+              name: "m",
+              payload: {
+                type: "object",
+                properties: {
+                  shownfield: { type: "string" },
+                  secretfield: { type: "string", "x-internal": true },
+                  refsecret: { $ref: "#/components/schemas/Shared", "x-internal": true },
+                  refshown: { $ref: "#/components/schemas/Shared" },
+                },
+              },
+              examples: [{ payload: { shownfield: "seen", secretfield: "secretvalue", refsecret: { code: "refvalue" }, refshown: { code: "ok" } } }],
+            },
+          },
+        },
+      },
+      components: { schemas: { Shared: { type: "object", properties: { code: { type: "string" } } } } },
+    }),
+  );
+  const { full } = channelLlms(d, spec, {});
+  for (const shown of ["`qshown`", "`shownfield`", "`refshown`", '"shownfield": "seen"', '"refshown"']) assert.ok(full.includes(shown), shown);
+  assert.doesNotMatch(full, /qsecret|secretfield|secretvalue|refsecret|refvalue/);
 });

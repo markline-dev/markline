@@ -275,10 +275,11 @@ its resource page.
 
 [`llms.txt`](/llm-files) lists the channels under API reference, each with its
 link and connection URL. `llms-full.txt` ends with a "WebSocket channels"
-section: per channel, its link and URL, description, path parameters, and its
-messages with their direction and description. Message fields, query parameters,
-headers and examples are left out of `llms-full.txt`, so nothing
-`api.hideExtensions` hides on the pages can reach it.
+section: per channel, its link and URL, description, path and query parameters
+and headers, and each message with its direction, description, fields (type,
+whether required or deprecated) and first example, cut at 40 lines. Hiding
+applies there exactly as on the pages: what `api.hideExtensions` or
+`api.showDeprecated` leaves out of a page is left out of `llms-full.txt` too.
 
 ## Build output
 

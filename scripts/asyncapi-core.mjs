@@ -17,6 +17,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { pruneExample, pruneSchema } from "./openapi-prune.mjs";
 
 /** From the client's side: what it sends, what it receives, or (a 3.0 message no operation names) not said. */
 
@@ -454,6 +455,28 @@ export function attachChannels(
     else rest.push(c);
   }
   return { byResource, rest, hidden };
+}
+
+/**
+ * A channel without the fields `api.hideExtensions` flags, as the OpenAPI pruner
+ * leaves an operation: in its query, headers and payloads, and in their
+ * examples. A path parameter stays, without its schema if that's hidden: the URL
+ * needs it. Whole channels and messages were already left out when read.
+ */
+export function hideChannelFields(c, exts) {
+  if (!exts.length) return c;
+  return {
+    ...c,
+    parameters: c.parameters.map((p) => ({ ...p, schema: pruneSchema(p.schema, exts) })),
+    query: pruneSchema(c.query, exts),
+    headers: pruneSchema(c.headers, exts),
+    messages: c.messages.map((m) => {
+      const payload = pruneSchema(m.payload, exts);
+      // A payload hidden whole takes its examples with it.
+      const examples = m.payload && !payload ? [] : m.examples.map((e) => pruneExample(e, m.payload, exts));
+      return { ...m, payload, examples };
+    }),
+  };
 }
 
 /** A server URL and a channel address, with one slash between them: a channel's connection URL. */

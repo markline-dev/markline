@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 // lib/ imports resolve via test/setup.mjs, which `npm test` loads first.
-import { pruneSpec } from "../lib/openapi-prune.ts";
+import { pruneSpec } from "../scripts/openapi-prune.mjs";
 import { normalize, sampleFromSchema } from "../lib/openapi.ts";
 import { schemaFields } from "../lib/openapi-schema.ts";
 import { resolveSchema } from "../lib/openapi.ts";

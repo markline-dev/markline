@@ -20,8 +20,8 @@ import {
   type TagOptions,
   type TagSection,
 } from "./openapi-tag-config";
-import { pruneSpec } from "./openapi-prune";
-import { hideChannelFields, WEBSOCKETS_TAG, type AsyncChannel } from "./asyncapi";
+import { pruneSpec } from "@/scripts/openapi-prune.mjs";
+import { WEBSOCKETS_TAG, type AsyncChannel } from "./asyncapi";
 import { asyncApiFile, channelExtras, isStandIn, readApiSpec, type ChannelExtras } from "@/scripts/asyncapi-build.mjs";
 import { loadConfig } from "./config";
 import { sampleMember } from "./openapi-schema";
@@ -273,15 +273,15 @@ export { WEBSOCKETS_TAG };
 export function placeChannels(
   doc: OpenAPIDoc,
   { read, placed }: Pick<ReturnType<typeof channelExtras>, "read" | "placed">,
-  api: Pick<NormalizeOptions, "hideExtensions">,
+  _api?: Pick<NormalizeOptions, "hideExtensions">,
 ) {
   if (!read) return;
-  const hideExtensions = api.hideExtensions ?? DEFAULT_HIDE_EXTENSIONS;
   doc.warnings.push(...read.warnings);
-  // Where channelExtras() placed each channel, as the build's links have it: the one placement.
+  // Where channelExtras() placed each channel, with hidden fields already gone: the
+  // one placement and pruning, which the build's links and llms files use too.
   for (const tag of doc.tags) {
     const mine = placed.get(tag.name);
-    if (mine?.length) tag.channels = mine.map((c) => hideChannelFields(c, hideExtensions));
+    if (mine?.length) tag.channels = mine;
   }
 }
 

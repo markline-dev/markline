@@ -5,6 +5,9 @@ All notable changes to `@markline/markline` and `@markline/create`.
 ## Unreleased
 
 ### Added
+- **WebSocket channels in full in `llms-full.txt`.** Each channel's query
+  parameters and headers, and each message's fields and first example, with
+  the same hiding as the pages (`api.hideExtensions`, `api.showDeprecated`).
 - **WebSocket channels in search and the LLM files.** Each channel is a search
   result that opens its section; `llms.txt` lists the channels and
   `llms-full.txt` describes them (URL, parameters, messages).

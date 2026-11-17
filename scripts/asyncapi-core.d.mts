@@ -13,6 +13,7 @@ export function attachChannels(
 
 export const WEBSOCKETS_TAG: "WebSockets";
 export function joinUrl(server: string, address: string): string;
+export function hideChannelFields(c: AsyncChannel, exts: readonly string[]): AsyncChannel;
 export function readAsyncApiFile(
   file: string,
   opts?: { perspective?: Perspective; showDeprecated?: boolean; hideExtensions?: readonly string[] },

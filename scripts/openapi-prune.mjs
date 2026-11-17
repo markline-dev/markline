@@ -281,7 +281,12 @@ class Pruner {
       // item does; one left with no path items would still list as an event.
       out.callbacks = Object.fromEntries(
         Object.entries(op.callbacks)
-          .filter(([, cb]) => !this.refGone(cb))
+          .filter(([, cb]) => {
+            if (this.refGone(cb)) return false;
+            // A $ref to a callback component whose path items are all hidden is as empty.
+            const target = typeof cb?.$ref === "string" ? this.resolve(cb) : undefined;
+            return !isNode(target) || Object.keys(this.pathItems(target)).length > 0;
+          })
           .map(([name, cb]) => [name, isNode(cb) && typeof cb.$ref !== "string" ? this.pathItems(cb) : cb])
           .filter(([, cb]) => !isNode(cb) || Object.keys(cb).length > 0),
       );

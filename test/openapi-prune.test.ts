@@ -318,8 +318,22 @@ test("a callback flagged on itself, or through its $ref, is gone with the event 
   const raw = {
     openapi: "3.1.0",
     info: { title: "t", version: "1" },
-    components: { callbacks: { Hid: { ...cb, "x-internal": true } } },
-    paths: { "/a": { post: { operationId: "a", responses: { 200: { description: "ok" } }, callbacks: { own: { ...cb, "x-internal": true }, viaref: { $ref: "#/components/callbacks/Hid" }, kept: cb } } } },
+    components: {
+      callbacks: {
+        Hid: { ...cb, "x-internal": true },
+        // Not flagged itself, but every path item in it is.
+        AllHidden: { "{$request.body#/url}": { "x-internal": true, post: { summary: "c", responses: { 200: { description: "ok" } } } } },
+      },
+    },
+    paths: {
+      "/a": {
+        post: {
+          operationId: "a",
+          responses: { 200: { description: "ok" } },
+          callbacks: { own: { ...cb, "x-internal": true }, viaref: { $ref: "#/components/callbacks/Hid" }, emptyref: { $ref: "#/components/callbacks/AllHidden" }, kept: cb },
+        },
+      },
+    },
   };
   const pruned = pruneSpec(raw, ["x-internal"]);
   assert.deepEqual(Object.keys(pruned.paths["/a"].post.callbacks), ["kept"]);

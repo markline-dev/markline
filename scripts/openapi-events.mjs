@@ -105,20 +105,16 @@ export function parseOperationEvents(op, raw) {
   return out;
 }
 
-/** Merge tag-level and per-operation events for a tag, deduped by name, sorted. */
-export function mergeTagEvents(operations, tagEvents) {
-  const map = new Map();
-  for (const e of tagEvents ?? []) map.set(e.name, e);
-  for (const op of operations) {
-    for (const e of op.events ?? []) {
-      const prev = map.get(e.name);
-      map.set(
-        e.name,
-        prev ? { ...e, ...prev, guideHref: e.guideHref ?? prev.guideHref, payloadSchema: e.payloadSchema ?? prev.payloadSchema } : e,
-      );
-    }
-  }
-  return [...map.values()].sort((a, b) => a.name.localeCompare(b.name));
+/**
+ * Two sources' versions of one event, merged. The first source to name an event
+ * wins each field it gives; a later one only fills in what it lacks (a payload, a
+ * guide, a summary). Sources come in a fixed order (pageEvents), so which one wins
+ * never depends on anything else.
+ */
+export function mergeEvent(first, later) {
+  const out = { ...later };
+  for (const [k, v] of Object.entries(first)) if (v !== undefined) out[k] = v;
+  return out;
 }
 
 /**
@@ -129,12 +125,15 @@ export function mergeTagEvents(operations, tagEvents) {
  *
  * `tags`: the spec's tag objects; `ops`: the page each kept operation is on, in
  * the page's order; `pageOf`: a tag name to its page (after api.tags and slug
- * collisions), or null when hidden. A page's events are its tags' `x-events`, then
- * its operations' (callbacks and `x-events`), then the webhooks tagged for it; a
- * later one with the same name fills in what an earlier one lacks. Sorted by name.
+ * collisions), or null when hidden. A page's events come from, in this order: its
+ * tags' `x-events` (in the spec's tag order, so a tag merged in later only fills
+ * gaps), its operations' callbacks and `x-events` (in the page's operation order),
+ * then the webhooks tagged for it. When several give one event, the first wins
+ * each field it has (mergeEvent). Sorted by name.
  */
 export function pageEvents(raw, { tags, ops, pageOf }) {
   const pages = new Map();
+  const add = (map, e) => map.set(e.name, map.has(e.name) ? mergeEvent(map.get(e.name), e) : e);
   const on = (page) => {
     if (!pages.has(page)) pages.set(page, new Map());
     return pages.get(page);
@@ -142,23 +141,16 @@ export function pageEvents(raw, { tags, ops, pageOf }) {
   for (const t of tags) {
     const page = pageOf(t.name);
     if (!page) continue;
-    for (const e of parseXEvents(t["x-events"])) on(page).set(e.name, e);
+    for (const e of parseXEvents(t["x-events"])) add(on(page), e);
   }
   for (const { page, op } of ops) {
     const map = on(page);
-    for (const e of parseOperationEvents(op, raw)) {
-      const prev = map.get(e.name);
-      map.set(e.name, prev ? { ...e, ...prev, guideHref: e.guideHref ?? prev.guideHref, payloadSchema: e.payloadSchema ?? prev.payloadSchema } : e);
-    }
+    for (const e of parseOperationEvents(op, raw)) add(map, e);
   }
   for (const wh of parseWebhooks(raw)) {
     const whPages = [...new Set(wh.tags.map(pageOf).filter((p) => !!p))];
     const resolved = { ...wh, tags: wh.tags.map(pageOf).filter((p) => !!p) };
-    for (const page of whPages) {
-      const map = on(page);
-      const prev = map.get(wh.name);
-      map.set(wh.name, prev ? { ...resolved, ...prev, payloadSchema: prev.payloadSchema ?? resolved.payloadSchema, guideHref: prev.guideHref ?? resolved.guideHref } : resolved);
-    }
+    for (const page of whPages) add(on(page), resolved);
   }
   return new Map([...pages].map(([page, map]) => [page, [...map.values()].sort((a, b) => a.name.localeCompare(b.name))]));
 }

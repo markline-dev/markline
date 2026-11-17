@@ -224,7 +224,7 @@ const VERB: Record<string, string> = {
 export function operationAnchors(tag: OpenAPITag, doc: Pick<OpenAPIDoc, "webhooks">): Map<OpenAPIOperation | AsyncChannel, string> {
   const slug = tagSlug(tag.name);
   // The page's events, by the one rule the build uses too (pageEvents, set by normalize).
-  const events = (tag.pageEvents ?? []).map((e) => e.name);
+  const events = (tag.events ?? []).map((e) => e.name);
   // Operations, then the resource's WebSocket channels: one set of ids, none repeated.
   const channels = tag.channels ?? [];
   const ids = pageAnchors(slug, tag.operations, channels, events.map(eventAnchor));
@@ -626,7 +626,7 @@ function buildEventView(ev: OpenAPIEvent, root: unknown): EventView {
 
 /**
  * The resource's full event catalog: the tag's merged `x-events`/`callbacks`
- * (already on `tag.events`) plus any root `webhooks`/`x-webhooks` tagged for this
+ * and any root `webhooks`/`x-webhooks` tagged for this (all on `tag.events`, by pageEvents)
  * resource, with `emittedBy` back-links derived from each operation's events.
  */
 function buildResourceEvents(activeTag: OpenAPITag | undefined, doc: OpenAPIDoc, root: unknown): EventView[] {
@@ -634,7 +634,7 @@ function buildResourceEvents(activeTag: OpenAPITag | undefined, doc: OpenAPIDoc,
 
   // The page's events, by the one rule the build uses too (pageEvents, in normalize).
   const merged = new Map<string, OpenAPIEvent>();
-  for (const ev of activeTag.pageEvents ?? []) merged.set(ev.name, ev);
+  for (const ev of activeTag.events ?? []) merged.set(ev.name, ev);
 
   // Which operations emit each event (from per-operation events).
   const anchors = operationAnchors(activeTag, doc);

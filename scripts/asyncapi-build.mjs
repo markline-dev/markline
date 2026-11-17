@@ -141,6 +141,33 @@ export function asyncApiReport(dir, spec, api) {
   return { warnings: read.warnings, pages };
 }
 
+// Each spec's page events, computed once per build for its settings: search and
+// both llms files ask channelPages for the same spec.
+const eventsCache = new WeakMap();
+
+/** The events on each page (their anchors are the page's own ids), by the pages' rule: pageEvents over the pruned spec. */
+function eventsOfPages(spec, api, extras) {
+  const key = JSON.stringify([api ?? null, extras.pages]);
+  const bySettings = eventsCache.get(spec) ?? new Map();
+  eventsCache.set(spec, bySettings);
+  if (!bySettings.has(key)) {
+    const pruned = pruneSpec(spec, api?.hideExtensions ?? DEFAULT_HIDE_EXTENSIONS);
+    const prunedPlan = resourcePlan(pruned, api, extras);
+    bySettings.set(
+      key,
+      pageEvents(pruned, {
+        tags: Array.isArray(pruned.tags) ? pruned.tags.filter((t) => typeof t?.name === "string") : [],
+        ops: prunedPlan.ops.map((o) => ({ page: o.tag, op: o.op })),
+        pageOf: (t) => {
+          const r = resolveTag(t, api);
+          return r && (prunedPlan.alias.get(r) ?? r);
+        },
+      }),
+    );
+  }
+  return bySettings.get(key);
+}
+
 /**
  * Every channel with the page it's on and its id there: `url` is
  * `/api-reference/<page>#<id>`, the anchor the page renders (pageAnchors, after
@@ -150,18 +177,7 @@ export function channelPages(dir, spec, api) {
   const { read, placed, extras } = channelExtras(dir, spec, api);
   if (!read || !spec) return [];
   const plan = resourcePlan(spec, api, extras);
-  // The page's events (their anchors are the page's own ids), by the pages' rule:
-  // pageEvents over the spec with hidden parts pruned, as normalize reads it.
-  const pruned = pruneSpec(spec, api?.hideExtensions ?? DEFAULT_HIDE_EXTENSIONS);
-  const prunedPlan = resourcePlan(pruned, api, extras);
-  const events = pageEvents(pruned, {
-    tags: Array.isArray(pruned.tags) ? pruned.tags.filter((t) => typeof t?.name === "string") : [],
-    ops: prunedPlan.ops.map((o) => ({ page: o.tag, op: o.op })),
-    pageOf: (t) => {
-      const r = resolveTag(t, api);
-      return r && (prunedPlan.alias.get(r) ?? r);
-    },
-  });
+  const events = eventsOfPages(spec, api, extras);
   const out = [];
   for (const page of resourcePages(spec, api, extras)) {
     const channels = placed.get(page.name) ?? [];

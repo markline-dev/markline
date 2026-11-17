@@ -169,7 +169,12 @@ All notable changes to `@markline/markline` and `@markline/create`.
 
 ### Fixed
 - **A callback flagged hidden on itself** (`x-internal` on the callback, or on
-  the component its `$ref` names) is now hidden, with the event it would list.
+  the component its `$ref` names), or a `$ref` to one whose path items are all
+  hidden, is now hidden, with the event it would list.
+- **The API reference's search finds webhooks** tagged for a resource, like the
+  page's own events, and an event given by several sources reads the same in
+  search as on the page: the first source to give a field (the tag's
+  `x-events`, then the operations', then the webhooks) wins it.
 - **Search and LLM links to a WebSocket channel titled like one of its page's
   events** ("Event done" beside the event `done`) land on the channel, numbered
   past the event as the page numbers it.

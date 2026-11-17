@@ -7,6 +7,7 @@ import type { ApiRefView, AttrView, ChannelView, EndpointView, EventColors, Even
 import type { AiPublicConfig } from "@/lib/config";
 import { ApiExplorer, BinaryBody, PlaygroundProvider, usePlayground } from "../playground";
 import { colorizeJsonText } from "@/lib/playground-highlight";
+import { cutHtml } from "@/lib/code-cut";
 import { AskDock, openAskPanel } from "../../ai/ask-dock";
 import { SectionRate } from "../../feedback";
 import { SiteCredit } from "@/components/site-credit";
@@ -490,7 +491,7 @@ export function MarklineApiRef({
                     <span className="cc-title">{r.object.name}</span>
                     <CardTools />
                   </div>
-                  <pre dangerouslySetInnerHTML={{ __html: r.object.sampleHtml }} />
+                  <CodePre html={r.object.sampleHtml} />
                 </div>
               </div>
             </section>
@@ -671,7 +672,7 @@ function EventSection({
                     <span className="cc-title">Example payload</span>
                     <CardTools />
                   </div>
-                  <pre dangerouslySetInnerHTML={{ __html: ev.sampleHtml }} />
+                  <CodePre html={ev.sampleHtml} />
                 </div>
               </div>
             </div>
@@ -763,7 +764,7 @@ function ChannelSection({ ch, aiEnabled, crumbs }: { ch: ChannelView; aiEnabled:
                       <span className="cc-title">{m.name}</span>
                       <CardTools />
                     </div>
-                    <pre dangerouslySetInnerHTML={{ __html: m.html }} />
+                    <CodePre html={m.html} />
                   </div>
                 )}
               </details>
@@ -885,7 +886,7 @@ function ResponseCard({ ep }: { ep: EndpointView }) {
           </span>
           <CardTools />
         </div>
-        <pre dangerouslySetInnerHTML={{ __html: r.html }} />
+        <CodePre html={r.html} />
       </div>
     );
   }
@@ -927,7 +928,7 @@ function ResponseCard({ ep }: { ep: EndpointView }) {
       <div id={scope}>
         {rs.map((r, i) => (
           <div key={r.status} data-panel={r.status} className={i === 0 ? "active" : undefined}>
-            <pre dangerouslySetInnerHTML={{ __html: r.html }} />
+            <CodePre html={r.html} />
           </div>
         ))}
       </div>
@@ -1009,7 +1010,7 @@ function CodePanels({ code, id }: { code: EndpointView["code"]; id: string }) {
     <div id={id}>
       {code.tabs.map((t, i) => (
         <div key={t.key} data-panel={t.key} className={i === 0 ? "active" : undefined}>
-          <pre dangerouslySetInnerHTML={{ __html: t.html }} />
+          <CodePre html={t.html} />
         </div>
       ))}
     </div>
@@ -1161,9 +1162,33 @@ function CardTools() {
 /* ── helpers ───────────────────────────────────────────────────────────── */
 const opLabel = (ep: EndpointView) => `${ep.method.toUpperCase()} ${ep.path}`;
 
-/** The code a card is showing: its active tab's or status's, else its only one. */
+/**
+ * The code a card is showing: its active tab's or status's, else its only one.
+ * For a long example cut to its first lines, the whole of it (the hidden
+ * `pre[data-full]` beside the cut one), so Copy and Expand get everything.
+ */
 function activePre(card: HTMLElement): HTMLElement | null {
-  return card.querySelector<HTMLElement>("[data-panel].active pre") ?? card.querySelector<HTMLElement>("pre");
+  const full = (scope: Element | null) => scope?.querySelector<HTMLElement>("pre[data-full]") ?? scope?.querySelector<HTMLElement>("pre") ?? null;
+  return full(card.querySelector("[data-panel].active")) ?? full(card);
+}
+
+/**
+ * A card's code. A long example shows its first lines (whole lines, cutHtml) and
+ * says how many there are; the whole code is beside it, hidden, for Copy and
+ * Expand, so nothing is lost, and the page doesn't open on hundreds of lines.
+ */
+function CodePre({ html }: { html: string }) {
+  const cut = cutHtml(html);
+  if (!cut) return <pre dangerouslySetInnerHTML={{ __html: html }} />;
+  return (
+    <>
+      <pre data-cut="" dangerouslySetInnerHTML={{ __html: `${cut.html}\n<span class="cc-more">…</span>` }} />
+      <div className="cc-cut">
+        Showing {cut.shown} of {cut.total} lines. Expand or copy for all of it.
+      </div>
+      <pre data-full="" hidden dangerouslySetInnerHTML={{ __html: html }} />
+    </>
+  );
 }
 
 /** "POST /v1/… · Python": the card's own label, then the tab or status showing. */

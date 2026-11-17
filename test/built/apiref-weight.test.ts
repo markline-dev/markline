@@ -61,6 +61,14 @@ const MANY_RESPONSES = {
   "422": { description: "Invalid", content: { "application/json": { schema: { type: "object", properties: { invalidfield: { type: "string" } } } } } },
 };
 
+// An example long enough to be cut to its first lines in its card.
+const BIG_RESPONSE = {
+  "200": {
+    description: "OK",
+    content: { "application/json": { example: { items: Array.from({ length: 260 }, (_, i) => ({ id: i, name: `bigitem${i}` })) } } },
+  },
+};
+
 const op = (i: number, tag: string) => ({
   operationId: `${tag}Op${i}`,
   // others 2 repeats others 1's summary: two operations, one slug.
@@ -69,7 +77,7 @@ const op = (i: number, tag: string) => ({
   description: `${"Describes the operation at some length. ".repeat(10)}${tag === "others" && i === 0 ? NEEDLE : ""}`,
   tags: [tag],
   ...(tag === "others" && i === 1 ? MARKED : {}),
-  responses: tag === "others" && i === 2 ? MANY_RESPONSES : { "200": { description: "OK" } },
+  responses: tag === "others" && i === 2 ? MANY_RESPONSES : tag === "others" && i === 0 ? BIG_RESPONSE : { "200": { description: "OK" } },
 });
 
 const spec = {
@@ -517,4 +525,20 @@ test("a version whose AsyncAPI document gives no page isn't offered, and has no 
   assert.match(picker, /3\.0 realtime only/);
   assert.doesNotMatch(picker, /4\.0 nothing to show/);
   assert.ok(!fs.existsSync(path.join(reference, "api-reference", "v4", "websockets.html")));
+});
+
+test("a long example shows its first lines, whole, and Copy and Expand have all of it", { skip }, () => {
+  const html = page(reference, "api-reference/others");
+  const shown = html.match(/<pre data-cut="">([\s\S]*?)<\/pre>/)?.[1] ?? "";
+  const full = html.match(/<pre data-full="" hidden="">([\s\S]*?)<\/pre>/)?.[1] ?? "";
+  assert.ok(shown && full, "a cut card and its whole code");
+  // 200 lines, then the "…" line; nothing past the cut, and every tag closed.
+  assert.equal(shown.split("\n").length, 201);
+  assert.match(shown, /<span class="cc-more">…<\/span>$/);
+  assert.equal((shown.match(/<span\b/g) ?? []).length, (shown.match(/<\/span>/g) ?? []).length);
+  assert.doesNotMatch(shown, /bigitem259/);
+  assert.match(full, /bigitem259/);
+  assert.match(html, /Showing <!-- -->200<!-- --> of <!-- -->\d+<!-- --> lines/);
+  // Copy and Expand read the card's whole code: the client picks pre[data-full].
+  assert.equal(count(html, "data-full"), 1);
 });

@@ -1,13 +1,13 @@
 "use client";
 
-import { createContext, Fragment, useContext, useEffect, useRef, useState } from "react";
+import { createContext, Fragment, useContext, useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { withEndpoints } from "@/lib/apiref-payload";
 import type { ApiRefView, AttrView, ChannelView, EndpointView, EventColors, EventView, NavTreeNode, NavParent } from "@/lib/apiref-view";
 import type { AiPublicConfig } from "@/lib/config";
 import { ApiExplorer, BinaryBody, PlaygroundProvider, usePlayground } from "../playground";
 import { colorizeJsonText } from "@/lib/playground-highlight";
-import { cutHtml } from "@/lib/code-cut";
+import { cutHtml, fullCodeHtml, fullCodeText, registerCode } from "@/lib/code-cut";
 import { AskDock, openAskPanel } from "../../ai/ask-dock";
 import { SectionRate } from "../../feedback";
 import { SiteCredit } from "@/components/site-credit";
@@ -197,7 +197,7 @@ export function MarklineApiRef({
       if (expand) {
         const card = expand.closest<HTMLElement>(".code-card");
         const pre = card && activePre(card);
-        if (pre) openCodeDialog({ html: pre.innerHTML, label: cardLabel(card!), opener: expand });
+        if (pre) openCodeDialog({ html: fullCodeHtml(pre), label: cardLabel(card!), opener: expand });
         return;
       }
 
@@ -205,7 +205,8 @@ export function MarklineApiRef({
       if (copy) {
         // A code card's Copy reads whichever tab or status is showing, when clicked.
         const card = copy.hasAttribute("data-copy-card") ? copy.closest<HTMLElement>(".code-card") : null;
-        const text = card ? (activePre(card)?.textContent ?? "") : copy.getAttribute("data-copy") || "";
+        const pre = card && activePre(card);
+        const text = card ? (pre ? fullCodeText(pre) : "") : copy.getAttribute("data-copy") || "";
         const restore = copy.getAttribute("data-label-html") ?? copy.innerHTML;
         copy.setAttribute("data-label-html", restore);
         const done = () => {
@@ -1162,31 +1163,34 @@ function CardTools() {
 /* ── helpers ───────────────────────────────────────────────────────────── */
 const opLabel = (ep: EndpointView) => `${ep.method.toUpperCase()} ${ep.path}`;
 
-/**
- * The code a card is showing: its active tab's or status's, else its only one.
- * For a long example cut to its first lines, the whole of it (the hidden
- * `pre[data-full]` beside the cut one), so Copy and Expand get everything.
- */
+/** The code a card is showing: its active tab's or status's, else its only one. Copy and Expand read all of it (fullCode*). */
 function activePre(card: HTMLElement): HTMLElement | null {
-  const full = (scope: Element | null) => scope?.querySelector<HTMLElement>("pre[data-full]") ?? scope?.querySelector<HTMLElement>("pre") ?? null;
-  return full(card.querySelector("[data-panel].active")) ?? full(card);
+  return card.querySelector<HTMLElement>("[data-panel].active pre") ?? card.querySelector<HTMLElement>("pre");
 }
 
 /**
- * A card's code. A long example shows its first lines (whole lines, cutHtml) and
- * says how many there are; the whole code is beside it, hidden, for Copy and
- * Expand, so nothing is lost, and the page doesn't open on hundreds of lines.
+ * A card's code. A very long example (over CUT_LINES lines) shows its first
+ * lines, so the page doesn't build thousands of lines nobody has scrolled to;
+ * "Show all" puts the rest in. Its whole code is this component's prop already,
+ * so it isn't put in the page a second time: it's registered for Copy, Expand
+ * and Markdown, which read it through fullCodeHtml/fullCodeText.
  */
 function CodePre({ html }: { html: string }) {
+  const id = useId();
+  const [all, setAll] = useState(false);
   const cut = cutHtml(html);
+  useEffect(() => (cut ? registerCode(id, html) : undefined), [id, html, cut === null]);
   if (!cut) return <pre dangerouslySetInnerHTML={{ __html: html }} />;
+  const preId = `${id}code`;
   return (
     <>
-      <pre data-cut="" dangerouslySetInnerHTML={{ __html: `${cut.html}\n<span class="cc-more">…</span>` }} />
+      <pre id={preId} data-code={id} dangerouslySetInnerHTML={{ __html: all ? html : cut.html }} />
       <div className="cc-cut">
-        Showing {cut.shown} of {cut.total} lines. Expand or copy for all of it.
+        {all ? `All ${cut.total} lines.` : `Showing ${cut.shown} of ${cut.total} lines.`}{" "}
+        <button type="button" className="cc-showall" aria-expanded={all} aria-controls={preId} onClick={() => setAll((a) => !a)}>
+          {all ? `Show the first ${cut.shown}` : `Show all ${cut.total} lines`}
+        </button>
       </div>
-      <pre data-full="" hidden dangerouslySetInnerHTML={{ __html: html }} />
     </>
   );
 }

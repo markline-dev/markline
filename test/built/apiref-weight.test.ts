@@ -527,18 +527,22 @@ test("a version whose AsyncAPI document gives no page isn't offered, and has no 
   assert.ok(!fs.existsSync(path.join(reference, "api-reference", "v4", "websockets.html")));
 });
 
-test("a long example shows its first lines, whole, and Copy and Expand have all of it", { skip }, () => {
+test("a very long example shows its first 1,000 lines, once, and the rest is a Show all away", { skip }, () => {
   const html = page(reference, "api-reference/others");
-  const shown = html.match(/<pre data-cut="">([\s\S]*?)<\/pre>/)?.[1] ?? "";
-  const full = html.match(/<pre data-full="" hidden="">([\s\S]*?)<\/pre>/)?.[1] ?? "";
-  assert.ok(shown && full, "a cut card and its whole code");
-  // 200 lines, then the "…" line; nothing past the cut, and every tag closed.
-  assert.equal(shown.split("\n").length, 201);
-  assert.match(shown, /<span class="cc-more">…<\/span>$/);
+  const m = html.match(/<pre id="([^"]+)" data-code="([^"]+)">([\s\S]*?)<\/pre>/);
+  assert.ok(m, "a cut card");
+  const [, preId, , shown] = m!;
+  // Exactly 1,000 lines, every tag closed, nothing past the cut.
+  assert.equal(shown.split("\n").length, 1000);
   assert.equal((shown.match(/<span\b/g) ?? []).length, (shown.match(/<\/span>/g) ?? []).length);
   assert.doesNotMatch(shown, /bigitem259/);
-  assert.match(full, /bigitem259/);
-  assert.match(html, /Showing <!-- -->200<!-- --> of <!-- -->\d+<!-- --> lines/);
-  // Copy and Expand read the card's whole code: the client picks pre[data-full].
-  assert.equal(count(html, "data-full"), 1);
+  const total = Number(html.match(/Showing 1000 of (\d+) lines\./)?.[1]);
+  assert.ok(total > 1000, "the note says how many");
+  // A real button that controls the code it expands.
+  assert.match(html, new RegExp(`<button type="button" class="cc-showall" aria-expanded="false" aria-controls="${preId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}">Show all ${total} lines</button>`));
+  // No second copy in the page's markup: the whole code arrives once, as the card's data.
+  assert.equal(count(html, "data-full"), 0);
+  const markup = html.replace(/<script\b[\s\S]*?<\/script>/g, "");
+  assert.doesNotMatch(markup, /bigitem259/);
+  assert.match(html, /bigitem259/);
 });

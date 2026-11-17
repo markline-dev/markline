@@ -396,7 +396,8 @@
 .ml-apiref .cc-copy .ico { width: 13px; height: 13px; }
 /* A long example cut to its first lines (CodePre): the line saying so, under it. */
 .ml-apiref .code-card .cc-cut { padding: 7px 15px 10px; font-family: var(--mono); font-size: 11px; color: #8a8a97; border-top: 1px solid var(--code-line); }
-.ml-apiref .code-card .cc-more { color: #8a8a97; }
+.ml-apiref .code-card .cc-showall { margin-left: 4px; padding: 0; border: 0; background: none; font: inherit; color: var(--accent-ink); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; }
+.ml-apiref .code-card .cc-showall:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 2px; }
 .ml-apiref .code-card pre { padding: 14px 15px; overflow: auto; max-height: 420px; font-family: var(--mono); font-size: 12px; line-height: 1.75; color: var(--code-ink); white-space: pre; }
 .ml-apiref .code-card pre::-webkit-scrollbar { width: 11px; height: 11px; }
 .ml-apiref .code-card pre::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.14); border-radius: 7px; border: 3px solid transparent; background-clip: padding-box; }

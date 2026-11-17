@@ -261,3 +261,41 @@ test("llms-full: a custom api.hideExtensions hides what it names; an example of 
   const fences = [...full.matchAll(/```json\n([\s\S]*?)\n```/g)].map((m) => m[1].split("\n"));
   assert.deepEqual(fences.map((f) => [f.length, f.at(-1)]), [[40, "}"], [41, "…"]]);
 });
+
+test("llms-full: a bare envelope or a payload with a `name` field is a payload, cleaned against the message's schema", () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), "markline-asyncapi-llms-bare-"));
+  after(() => fs.rmSync(d, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(d, "api"));
+  const secret = { type: "string", "x-internal": true };
+  fs.writeFileSync(
+    path.join(d, "api", "asyncapi.json"),
+    JSON.stringify({
+      asyncapi: "2.6.0",
+      info: { title: "t", version: "1" },
+      channels: {
+        "/v1/speech/{id}/benv": {
+          publish: {
+            message: {
+              name: "benv",
+              payload: { type: "object", properties: { type: { type: "string" }, payload: { type: "object", properties: { ok: { type: "string" }, benvsecret: secret } } } },
+              // Written straight under the message, not as { payload: … }: it's the payload.
+              examples: [{ type: "a", payload: { ok: "benvshown", benvsecret: "benvsecretvalue" } }],
+            },
+          },
+        },
+        "/v1/speech/{id}/named": {
+          publish: {
+            message: {
+              name: "named",
+              payload: { type: "object", properties: { name: { type: "string" }, a: { type: "integer" }, namedsecret: secret } },
+              examples: [{ name: "Alice", a: 1, namedsecret: "namedsecretvalue" }],
+            },
+          },
+        },
+      },
+    }),
+  );
+  const { full } = channelLlms(d, spec, {});
+  for (const shown of ['"ok": "benvshown"', '"name": "Alice"', '"a": 1']) assert.ok(full.includes(shown), shown);
+  assert.doesNotMatch(full, /benvsecret|namedsecret/);
+});

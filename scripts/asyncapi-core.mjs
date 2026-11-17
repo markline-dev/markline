@@ -116,16 +116,23 @@ function serverUrl(s) {
 const MESSAGE_EXAMPLE_KEYS = ["name", "summary", "headers", "payload"];
 
 /**
+ * Whether an example is a Message Example Object: every key one of its four. A
+ * payload that merely has a `name`, or a bare envelope with a `payload` key
+ * among others, is a payload, and is cleaned against the payload's schema.
+ */
+const isMessageExample = (e) => isNode(e) && Object.keys(e).length > 0 && Object.keys(e).every((k) => MESSAGE_EXAMPLE_KEYS.includes(k));
+
+/**
  * A message's payload examples. Its `examples` are Message Example Objects: the
  * payload is the `payload` key, and one without it (only `headers`, say) has no
  * payload example. Their `headers` aren't shown anywhere, so they're dropped
- * rather than printed unhidden. An example that's none of those keys is taken
- * as the payload itself, as older documents write it.
+ * rather than printed unhidden. Any other example is taken as the payload
+ * itself, as older documents write it.
  */
 const messageExamples = (m) => {
   if (!Array.isArray(m?.examples)) return m?.example !== undefined ? [m.example] : [];
   return m.examples
-    .map((e) => (isNode(e) && MESSAGE_EXAMPLE_KEYS.some((k) => k in e) ? e.payload : e))
+    .map((e) => (isMessageExample(e) ? e.payload : e))
     .filter((e) => e !== undefined);
 };
 

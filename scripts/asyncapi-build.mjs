@@ -51,38 +51,69 @@ export function channelExtras(dir, spec, api) {
   if (!read) return { read: null, placed: new Map(), extras: NO_EXTRAS };
   const plan = spec ? resourcePlan(spec, api) : { tags: [], ops: [] };
   const resources = plan.tags.map((name) => ({ name, paths: plan.ops.filter((o) => o.tag === name).map((o) => o.path) }));
-  const { byResource, rest } = attachChannels(read.channels, resources, (tag) => resolveTag(tag, api));
+  const plannedAs = (name) => plan.tags.find((t) => slug(t) === slug(name));
+
+  // Declared tags (the document's own tag list) have pages, like OpenAPI tags: each
+  // after api.tags (renamed, merged, hidden), or hidden by a flag on the tag object.
+  // One that's already a page by its URL (an OpenAPI tag "speech" for "Speech") is that page.
+  const declared = (read.tags ?? []).filter((t) => !t.hidden);
+  const hiddenTags = new Set((read.tags ?? []).filter((t) => t.hidden).map((t) => t.name));
+  const declaredPage = new Map();
+  for (const t of declared) {
+    const r = resolveTag(t.name, api);
+    if (r !== null) declaredPage.set(t.name, plannedAs(r) ?? r);
+  }
+  const pageOfTag = (tag) => (hiddenTags.has(tag) ? null : declaredPage.has(tag) ? declaredPage.get(tag) : resolveTag(tag, api));
+  const candidates = [...new Set(declaredPage.values())].filter((p) => !plan.tags.includes(p));
+
+  // A channel joins the first of its tags that names a page (an OpenAPI resource or
+  // a declared tag's), else the resource its path shares most with, else the rest.
+  const first = attachChannels(read.channels, [...resources, ...candidates.map((name) => ({ name, paths: [] }))], pageOfTag);
+  // A declared tag's page exists when a channel is on it.
+  const tagPages = candidates.filter((p) => first.byResource.get(p)?.length);
+
   // The WebSockets page, as api.tags has it: renamed, merged into another page, or
   // hidden. A page the spec already has (its own "WebSockets" tag, a mergeInto
   // target, or a name of the same slug) keeps its place and just takes the channels.
-  const page = rest.length ? resolveTag(WEBSOCKETS_TAG, api) : null;
-  const planned = page === null ? undefined : plan.tags.find((t) => slug(t) === slug(page));
+  const page = first.rest.length ? resolveTag(WEBSOCKETS_TAG, api) : null;
+  const planned = page === null ? undefined : plan.tags.find((t) => slug(t) === slug(page)) ?? tagPages.find((t) => slug(t) === slug(page));
   // A label on "WebSockets" can't reach a page the spec names differently ("websockets").
   const label = api?.tags && Object.prototype.hasOwnProperty.call(api.tags, WEBSOCKETS_TAG) ? api.tags[WEBSOCKETS_TAG]?.label : undefined;
   const warnings =
     planned !== undefined && planned !== page && page === WEBSOCKETS_TAG && typeof label === "string" && label.trim()
       ? [`[markline] api.tags: "${WEBSOCKETS_TAG}" has a label, but the WebSocket channels are on the spec's "${planned}" page, which it doesn't rename. Put the label on "${planned}".`]
       : [];
-  // Where each channel lands, as placeChannels() in lib/openapi.ts puts them: its
-  // resource's, then the rest on the WebSockets page (or wherever api.tags sent it).
-  // A new WebSockets page is a resource there too, so a channel tagged for it joins
-  // it by tag rather than an operation's page by path: attach again with it.
+  // Where each channel lands. This is the one placement: the pages (placeChannels in
+  // lib/openapi.ts) put channels where it says. A new WebSockets page is a resource
+  // too, so a channel tagged for it joins it by tag: attach again with every page.
   const home = planned ?? page;
-  const final =
-    page && planned === undefined
-      ? attachChannels(read.channels, [...resources, { name: page, paths: [] }], (tag) => resolveTag(tag, api))
-      : { byResource, rest };
+  const pages = [...resources, ...tagPages.map((name) => ({ name, paths: [] }))];
+  if (page && planned === undefined) pages.push({ name: page, paths: [] });
+  const final = attachChannels(read.channels, pages, pageOfTag);
   const placed = new Map(final.byResource);
   if (home && final.rest.length) placed.set(home, [...(placed.get(home) ?? []), ...final.rest]);
+
+  // Labels and descriptions for the pages only channels make.
+  const labels = { [WEBSOCKETS_TAG]: WEBSOCKETS_TAG };
+  const descriptions = {};
+  for (const t of declared) {
+    const p = declaredPage.get(t.name);
+    if (!p || !tagPages.includes(p)) continue;
+    if (t.displayName && !(p in labels)) labels[p] = t.displayName;
+    if (t.description && !(p in descriptions)) descriptions[p] = t.description;
+  }
   return {
     read,
     placed,
     extras: {
-      pages: page && planned === undefined ? [page] : [],
+      pages: [...tagPages, ...(page && planned === undefined ? [page] : [])],
       warnings,
       groups: read.tagGroups,
-      known: [WEBSOCKETS_TAG, ...new Set(read.channels.flatMap((c) => c.tags))],
-      labels: { [WEBSOCKETS_TAG]: WEBSOCKETS_TAG },
+      // Names api.tags, tagOrder and sections may use without a warning: the channels'
+      // tags, the declared ones (with or without channels), and WebSockets.
+      known: [WEBSOCKETS_TAG, ...new Set([...read.channels.flatMap((c) => c.tags), ...(read.tags ?? []).map((t) => t.name)])],
+      labels,
+      descriptions,
     },
   };
 }

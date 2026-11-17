@@ -92,6 +92,11 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **Line numbers in the Expand dialog.** Copy still copies only the code.
 
 ### Changed
+- **AsyncAPI channels go to their declared tag's page.** A tag the AsyncAPI
+  document declares (`tags`, or `info.tags` in 3.0) now gets a page, with its
+  description, for the channels that carry it; before, the declaration was
+  ignored and such channels went by their path. Channels with undeclared tags,
+  or no tags, are placed as before.
 - **Every tab and accordion is in the page,** hidden while it isn't showing,
   so search engines see all of it. Tabs have tab and tabpanel roles, and the
   arrow keys move between them.

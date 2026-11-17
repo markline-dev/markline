@@ -9,7 +9,7 @@ export const DEFAULT_HIDE_EXTENSIONS = ["x-hidden", "x-internal"];
 const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 
 /** What an AsyncAPI document adds to the plan: nothing, without one. */
-export const NO_EXTRAS = { pages: [], groups: undefined, known: [], labels: {}, warnings: [] };
+export const NO_EXTRAS = { pages: [], groups: undefined, known: [], labels: {}, descriptions: {}, warnings: [] };
 
 function override(api, name) {
   const tags = api?.tags;
@@ -344,6 +344,7 @@ export function resourcePages(spec, api, extras = NO_EXTRAS) {
     const description =
       override(api, page)?.description ??
       specTags.get(page)?.description ??
+      (Object.prototype.hasOwnProperty.call(extras.descriptions ?? {}, page) ? extras.descriptions[page] : undefined) ??
       merged.map((n) => override(api, n)?.description ?? specTags.get(n)?.description).find((d) => d !== undefined);
     const segments = page.split("/").map((s) => s.trim()).filter(Boolean);
     return {

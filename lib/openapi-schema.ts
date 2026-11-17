@@ -5,7 +5,7 @@
  * `anyOf: [X, {type: "null"}]` and wrap `$ref`s in a one-member `allOf`. Both
  * should read as plain X, marked nullable, with X's own fields underneath.
  * Pure: takes schemas whose `$ref`s are already resolved, and which
- * lib/openapi-prune.ts has already stripped of hidden fields.
+ * scripts/openapi-prune.mjs has already stripped of hidden fields.
  */
 import type { JSONSchema } from "./openapi";
 

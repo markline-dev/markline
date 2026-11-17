@@ -91,10 +91,18 @@ const asyncSpec = {
   asyncapi: "2.6.0",
   info: { title: "Weight realtime", version: "1" },
   servers: { live: { url: "live.weight.test", protocol: "wss" } },
+  // A declared tag: its channel gets a page of its own, though its path matches "others".
+  tags: [{ name: "Realtime", description: "Declaredtagdesc: live updates." }],
   channels: {
+    "/v1/others/{otherId}/rt": { "x-title": "Rtchannel", subscribe: { tags: [{ name: "Realtime" }], message: { name: "rt", payload: { type: "string" } } } },
     "/v1/others/{otherId}/live": {
       parameters: { otherId: { description: "Which other.", schema: { type: "string" } } },
-      bindings: { ws: { query: { type: "object", required: ["token"], properties: { token: { type: "string" }, verbose: { type: "boolean" } } } } },
+      bindings: {
+        ws: {
+          query: { type: "object", required: ["token"], properties: { token: { type: "string" }, verbose: { type: "boolean" }, qsecret: { type: "string", "x-internal": true } } },
+          headers: { type: "object", properties: { "x-visibleheader": { type: "string" }, "x-hsecret": { type: "string", "x-internal": true } } },
+        },
+      },
       publish: {
         summary: "publish",
         message: { name: "watch", description: "Starts **watching** this other.", payload: { type: "object", properties: { since: { type: "integer" } } } },
@@ -124,6 +132,27 @@ const asyncSpec = {
     "/stream": { "x-title": "Things feed", subscribe: { tags: [{ name: "things" }], message: { name: "thing", payload: { type: "string" } } } },
     "/firehose": { subscribe: { message: { name: "everything", payload: { type: "string" } } } },
     "/internal-feed": { "x-title": "Internalfeed", "x-internal": true, subscribe: { message: { name: "x", payload: { type: "string" } } } },
+    // Two example shapes that once leaked: a oneOf kind's own envelope example, and a headers-only message example.
+    "/v1/others/{otherId}/shapes": {
+      "x-title": "Shapeschannel",
+      subscribe: {
+        message: {
+          name: "shapes",
+          headers: { type: "object", properties: { hdrsecretmarker: { type: "string", "x-internal": true } } },
+          payload: {
+            oneOf: [
+              {
+                title: "Envkind",
+                type: "object",
+                properties: { kind: { type: "string" }, payload: { type: "object", properties: { envshown: { type: "string" }, envsecretmarker: { type: "string", "x-internal": true } } } },
+                examples: [{ kind: "k", payload: { envshown: "envvisible", envsecretmarker: "envsecretvalue" } }],
+              },
+            ],
+          },
+        },
+      },
+      publish: { message: { name: "hdronly", examples: [{ name: "e", headers: { hdrsecretmarker: "hdrsecretvalue" } }] } },
+    },
     // Titled like two operations on its page: its id is numbered past theirs.
     "/v1/others/{otherId}/dup": { "x-title": "others operation 1", subscribe: { message: { name: "dup", payload: { type: "string" } } } },
   },
@@ -380,7 +409,7 @@ test("sections caption the sidebar, lead the order, and leave every URL where it
       .readdirSync(path.join(dist, "api-reference"), { withFileTypes: true })
       // Not "reference"'s version landings (v1.html, v0.html): only it has versions.
       // Nor its WebSockets page: only it has an AsyncAPI document.
-      .filter((e) => e.isFile() && e.name.endsWith(".html") && !/^(v\d+|websockets)\.html$/.test(e.name))
+      .filter((e) => e.isFile() && e.name.endsWith(".html") && !/^(v\d+|websockets|realtime)\.html$/.test(e.name))
       .map((e) => e.name)
       .sort();
   assert.ok(pages(reference).length >= OPERATIONS);
@@ -499,8 +528,30 @@ test("every channel link the build writes lands on its id on the page: search re
     const text = fs.readFileSync(path.join(cwd, "public", f), "utf8");
     assert.deepEqual(linksIn(text), [...records].sort(), f);
     // What field hiding covers on the pages isn't in the llms files at all.
-    assert.doesNotMatch(text, /shardsecret|shardvalue|refsecret|refvalue|Internalfeed/, f);
+    assert.doesNotMatch(text, /shardsecret|shardvalue|refsecret|refvalue|Internalfeed|qsecret|x-hsecret|envsecret|hdrsecret/, f);
   }
+  // llms-full.txt does print fields, query, headers and examples: their visible neighbours are there.
+  const full = fs.readFileSync(path.join(cwd, "public", "llms-full.txt"), "utf8");
+  for (const shown of ["`refshown`", "`verbose` (boolean)", "`token` (string, required)", "`x-visibleheader` (string)", '"at": "now"', '"envshown": "envvisible"']) {
+    assert.ok(full.includes(shown), shown);
+  }
+  // And on the page itself, the same shapes show nothing hidden.
+  const shapesPage = page(reference, "api-reference/others");
+  assert.match(shapesPage, />Shapeschannel<\/h2>/);
+  assert.doesNotMatch(shapesPage, /envsecret|hdrsecret/);
+  // A deprecated message is listed, marked, while showDeprecated is on (the default), and gone with it off.
+  assert.match(full, /### Receive: legacychange \(deprecated\)/);
+  const quiet = path.join(tmp, "quiet");
+  fs.cpSync(content, quiet, { recursive: true });
+  const cfgQuiet = JSON.parse(fs.readFileSync(path.join(quiet, "markline.json"), "utf8"));
+  fs.writeFileSync(path.join(quiet, "markline.json"), JSON.stringify({ ...cfgQuiet, api: { ...(cfgQuiet.api ?? {}), showDeprecated: false } }));
+  const cwdQuiet = path.join(tmp, "search-quiet");
+  fs.mkdirSync(path.join(cwdQuiet, "public"), { recursive: true });
+  const rq = spawnSync(process.execPath, [path.join(ROOT, "scripts", "build-search.mjs")], { cwd: cwdQuiet, encoding: "utf8", env: buildEnv({ MARKLINE_CONTENT: quiet }) });
+  assert.equal(rq.status, 0, `${rq.stdout}\n${rq.stderr}`);
+  const fullQuiet = fs.readFileSync(path.join(cwdQuiet, "public", "llms-full.txt"), "utf8");
+  assert.doesNotMatch(fullQuiet, /legacychange/);
+  assert.match(fullQuiet, /### Receive: changed/);
   // The search index's records, as pagefind stored them (gzipped "pagefind_dcd" + JSON).
   const fragments = path.join(cwd, "public", "pagefind", "fragment");
   const indexed = fs
@@ -517,4 +568,20 @@ test("a version whose AsyncAPI document gives no page isn't offered, and has no 
   assert.match(picker, /3\.0 realtime only/);
   assert.doesNotMatch(picker, /4\.0 nothing to show/);
   assert.ok(!fs.existsSync(path.join(reference, "api-reference", "v4", "websockets.html")));
+});
+
+test("a declared AsyncAPI tag has its own page: description, channel, sidebar entry", { skip }, () => {
+  const html = page(reference, "api-reference/realtime");
+  assert.match(html, /<h1>Realtime<\/h1>/);
+  assert.match(html, /Declaredtagdesc: live updates\./);
+  assert.match(html, />Rtchannel<\/h2>/);
+  // In every page's sidebar, after the spec's resources and before WebSockets.
+  const side = (p: string) => {
+    const h = page(reference, p);
+    return h.slice(h.indexOf('class="api-side"'), h.indexOf("</aside>"));
+  };
+  const s = side("api-reference/things");
+  assert.ok(s.indexOf(">Others<") < s.indexOf(">Realtime<") && s.indexOf(">Realtime<") < s.indexOf(">WebSockets<"), s.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 300));
+  // Not on others, though its path matches there (the palette's index lists it, as it lists every channel).
+  assert.doesNotMatch(page(reference, "api-reference/others"), />Rtchannel<\/h2>/);
 });

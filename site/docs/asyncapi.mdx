@@ -87,9 +87,11 @@ Deprecated channels, messages and fields are labelled so (see
 A channel goes on a resource page, so its URL sits beside the operations it
 belongs with. Markline picks the page in this order:
 
-1. **Its tags.** The first tag that names a resource, after
-   [`api.tags`](/openapi#rename-hide-and-merge-tags) renames and merges. When
-   every tag the channel has is hidden, the channel is hidden too.
+1. **Its tags.** The first tag that names a page, after
+   [`api.tags`](/openapi#rename-hide-and-merge-tags) renames and merges: an
+   OpenAPI resource, or a tag the AsyncAPI document declares (see
+   [Declared tags](#declared-tags)). When every tag the channel has is hidden, the
+   channel is hidden too.
 2. **Its path.** The resource whose operations share the longest run of leading
    path segments with the channel's address. Hosts and a leading version segment
    (`/v1`) don't count, `{parameters}` match each other whatever their names,
@@ -102,7 +104,41 @@ belongs with. Markline picks the page in this order:
 So `/v1/text-to-speech/{voice_id}/stream-input` lands on the resource that has
 `/v1/text-to-speech/{voice_id}`, without any tags. Placement never changes the
 URL of an existing page: channels only add sections to pages, and the
-WebSockets page when it's needed.
+WebSockets page or a declared tag's page when it's needed.
+
+### Declared tags
+
+The tags an AsyncAPI document declares (`tags` at the top of a 2.x document,
+`info.tags` in 3.0) get pages, as OpenAPI tags do. A channel carrying one goes on
+its page, with the tag's `description` at the top and `x-displayName`, if set,
+as its title:
+
+```json title="api/asyncapi.json"
+{
+  "asyncapi": "2.6.0",
+  "tags": [{ "name": "Realtime", "description": "Live updates as they happen." }],
+  "channels": {
+    "/v1/speech/{id}/live": { "subscribe": { "tags": [{ "name": "Realtime" }] } }
+  }
+}
+```
+
+- A declared tag gets a page only when at least one channel is on it.
+- One with the same URL as an OpenAPI resource ("Speech" and `speech`), or as a
+  tag declared before it ("Real time" and "real-time"), is that page: its
+  channels join it, and no second page is made.
+- Its title is its own `x-displayName` (or `api.tags` label). A tag merged into
+  another page with `mergeInto` doesn't title that page, but lends its
+  description when the page has none.
+- A tag can be declared once and used by `$ref`, as in 3.0's `components/tags`.
+- A declared tag flagged with an `api.hideExtensions` key (`x-internal`, say) is
+  hidden: a channel whose tags are all hidden is hidden too, even when an OpenAPI
+  resource has the same name.
+- These pages come after the OpenAPI resources and before the WebSockets page.
+  `api.tags`, `api.tagOrder` and `api.sections` arrange them like any page, and
+  names with `/` nest in the sidebar.
+- A tag a channel carries but the document doesn't declare works as before: it
+  joins an OpenAPI resource of that name, else the channel is placed by its path.
 
 ## Titles and message names
 
@@ -239,10 +275,11 @@ its resource page.
 
 [`llms.txt`](/llm-files) lists the channels under API reference, each with its
 link and connection URL. `llms-full.txt` ends with a "WebSocket channels"
-section: per channel, its link and URL, description, path parameters, and its
-messages with their direction and description. Message fields, query parameters,
-headers and examples are left out of `llms-full.txt`, so nothing
-`api.hideExtensions` hides on the pages can reach it.
+section: per channel, its link and URL, description, path and query parameters
+and headers, and each message with its direction, description, fields (type,
+whether required or deprecated) and first example, cut at 40 lines. Hiding
+applies there exactly as on the pages: what `api.hideExtensions` or
+`api.showDeprecated` leaves out of a page is left out of `llms-full.txt` too.
 
 ## Build output
 

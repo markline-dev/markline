@@ -1,8 +1,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import { contentRoot } from "./paths";
-import { mergeTagEvents, parseOperationEvents, parseWebhooks, parseXEvents } from "./openapi-events";
-import { tagLabels, tagSlug, type TagLabels } from "./openapi-tags";
+import { pageEvents, parseOperationEvents, parseWebhooks } from "@/scripts/openapi-events.mjs";
+import { tagLabels, type TagLabels } from "./openapi-tags";
 import { isJsonMediaType, pickMediaType } from "./openapi-media";
 import {
   collisionWarning,
@@ -20,13 +20,13 @@ import {
   type TagOptions,
   type TagSection,
 } from "./openapi-tag-config";
-import { pruneSpec } from "./openapi-prune";
-import { attachChannels, hideChannelFields, WEBSOCKETS_TAG, type AsyncChannel } from "./asyncapi";
+import { pruneSpec } from "@/scripts/openapi-prune.mjs";
+import { WEBSOCKETS_TAG, type AsyncChannel } from "./asyncapi";
 import { asyncApiFile, channelExtras, isStandIn, readApiSpec, type ChannelExtras } from "@/scripts/asyncapi-build.mjs";
 import { loadConfig } from "./config";
 import { sampleMember } from "./openapi-schema";
 
-export { eventAnchor } from "./openapi-events";
+export { eventAnchor } from "@/scripts/openapi-events.mjs";
 
 export type JSONSchema = {
   type?: string | string[];
@@ -134,7 +134,7 @@ export type OpenAPITag = {
   displayName?: string;
   description?: string;
   operations: OpenAPIOperation[];
-  /** Aggregated `x-events` from the tag and its operations. */
+  /** Every event the resource's page shows: its tags' `x-events`, its operations', and the webhooks tagged for it (pageEvents). */
   events: OpenAPIEvent[];
   /** WebSocket channels from the AsyncAPI document that file under this resource. */
   channels?: AsyncChannel[];
@@ -176,7 +176,7 @@ export type NormalizeOptions = TagOptions & {
 const METHODS = ["get", "post", "put", "patch", "delete", "options", "head"] as const;
 
 /** No AsyncAPI document: nothing added to the plan. */
-const NO_EXTRAS: ChannelExtras = { pages: [], known: [], labels: {}, warnings: [] };
+const NO_EXTRAS: ChannelExtras = { pages: [], known: [], labels: {}, descriptions: {}, warnings: [] };
 
 // Parsed-spec cache, keyed by version id ("" = the default/unprefixed version).
 const _cache = new Map<string, OpenAPIDoc>();
@@ -238,7 +238,8 @@ export function loadOpenApi(variantId?: string): OpenAPIDoc {
     return EMPTY_DOC;
   }
   // The AsyncAPI document beside it, read once: what it adds to the plan, then its channels.
-  const { read, extras } = channelExtras(variantDir(variantId), raw, api);
+  const placement = channelExtras(variantDir(variantId), raw, api);
+  const { read, extras } = placement;
   const doc = normalize(raw, {
     tags: api.tags,
     tagOrder: api.tagOrder,
@@ -250,7 +251,7 @@ export function loadOpenApi(variantId?: string): OpenAPIDoc {
     // A non-default version with only an AsyncAPI document would only repeat the default's.
     configChecks: !(variantId && isStandIn(raw)),
   });
-  if (read) placeChannels(doc, read, api);
+  if (read) placeChannels(doc, placement);
   // A build prints these once, from scripts/build-search.mjs; its page workers
   // would each repeat them. Labelled with the version, as the build labels them.
   if (process.env.NODE_ENV !== "production") {
@@ -263,35 +264,23 @@ export function loadOpenApi(variantId?: string): OpenAPIDoc {
 export { WEBSOCKETS_TAG };
 
 /**
- * Put the AsyncAPI document's channels on the reference's resources: a channel
- * joins its tag's resource, or the one its path shares most with, or a
- * "WebSockets" resource after the rest. URLs of existing pages don't change.
- * scripts/asyncapi-build.mjs makes the same choice for the sitemap.
+ * Put the AsyncAPI document's channels on the reference's pages, where
+ * channelExtras() (scripts/asyncapi-build.mjs) placed them: the first of a
+ * channel's tags that names a page (an OpenAPI resource, or a tag the document
+ * declares), else the resource its path shares most with, else the WebSockets
+ * page. The build's links come from the same placement, so they match the pages.
  */
 export function placeChannels(
   doc: OpenAPIDoc,
-  read: NonNullable<ReturnType<typeof channelExtras>["read"]>,
-  api: Pick<NormalizeOptions, "tags" | "hideExtensions">,
+  { read, placed }: Pick<ReturnType<typeof channelExtras>, "read" | "placed">,
 ) {
-  const hideExtensions = api.hideExtensions ?? DEFAULT_HIDE_EXTENSIONS;
+  if (!read) return;
   doc.warnings.push(...read.warnings);
-  const channels = read.channels.map((c) => hideChannelFields(c, hideExtensions));
-  const opts: TagOptions = { tags: api.tags };
-  const { byResource, rest } = attachChannels(
-    channels,
-    doc.tags.map((t) => ({ name: t.name, paths: t.operations.map((o) => o.path) })),
-    (tag) => resolveTag(tag, opts),
-  );
+  // Where channelExtras() placed each channel, with hidden fields already gone: the
+  // one placement and pruning, which the build's links and llms files use too.
   for (const tag of doc.tags) {
-    const mine = byResource.get(tag.name);
+    const mine = placed.get(tag.name);
     if (mine?.length) tag.channels = mine;
-  }
-  // The rest go on the WebSockets page normalize() planned for them, where api.tags put it
-  // (renamed, merged into another page, or hidden with its channels).
-  const home = rest.length ? resolveTag(WEBSOCKETS_TAG, opts) : null;
-  if (home) {
-    const page = doc.tags.find((t) => t.name === home) ?? doc.tags.find((t) => tagSlug(t.name) === tagSlug(home));
-    if (page) page.channels = [...(page.channels ?? []), ...rest];
   }
 }
 
@@ -340,14 +329,9 @@ export function normalize(input: any, opts: NormalizeOptions = {}): OpenAPIDoc {
   const hideExtensions = opts.hideExtensions ?? DEFAULT_HIDE_EXTENSIONS;
   const warnings: string[] = [];
 
-  // Events declared on a spec tag, folded onto the tag it resolves to.
-  const tagEvents: Record<string, OpenAPIEvent[]> = Object.create(null);
-  for (const t of specTags) {
-    const name = resolveTag(t.name, opts);
-    if (name) tagEvents[name] = [...(tagEvents[name] ?? []), ...parseXEvents(t["x-events"])];
-  }
-
   const tagsMap = new Map<string, OpenAPIOperation[]>();
+  // Each operation's spec object, for pageEvents (which reads its callbacks and x-events).
+  const rawOf = new Map<OpenAPIOperation, unknown>();
   const byId: Record<string, OpenAPIOperation> = {};
 
   for (const [pathStr, pathItem] of Object.entries<any>(raw.paths ?? {})) {
@@ -447,6 +431,7 @@ export function normalize(input: any, opts: NormalizeOptions = {}): OpenAPIDoc {
         );
       }
       byId[operationId] = operation;
+      rawOf.set(operation, op);
       if (!tagsMap.has(tag)) tagsMap.set(tag, []);
       tagsMap.get(tag)!.push(operation);
     }
@@ -459,9 +444,10 @@ export function normalize(input: any, opts: NormalizeOptions = {}): OpenAPIDoc {
   for (const page of extras.pages) if (!tagsMap.has(page)) tagsMap.set(page, []);
   const plan = planTags([...tagsMap.keys()], specTags.map((t) => t.name as string), opts, extras.pages);
   const known = new Set([...knownTags(input), ...extras.known]);
-  const extraLabels = Object.entries(extras.labels)
-    .filter(([name]) => !specTags.some((t) => t.name === name))
-    .map(([name, label]) => ({ name, displayName: label }));
+  // Labels and descriptions for pages only channels make (WebSockets, a declared AsyncAPI tag's).
+  const extraLabels = [...new Set([...Object.keys(extras.labels), ...Object.keys(extras.descriptions ?? {})])]
+    .filter((name) => !specTags.some((t) => t.name === name))
+    .map((name) => ({ name, displayName: extras.labels[name], description: extras.descriptions?.[name] }));
   // A mergeInto that only differs from a tag in spelling is reported once, by tagConfigWarnings.
   for (const c of plan.collisions) if (!mergedBySpelling(c, known, opts)) warnings.push(collisionWarning(c));
   // api.tags, api.tagOrder and sections are checked once per site: a version with only
@@ -476,7 +462,6 @@ export function normalize(input: any, opts: NormalizeOptions = {}): OpenAPIDoc {
     for (const op of tagsMap.get(from)!) op.tag = into;
     tagsMap.get(into)!.push(...tagsMap.get(from)!);
     tagsMap.delete(from);
-    tagEvents[into] = [...(tagEvents[into] ?? []), ...(tagEvents[from] ?? [])];
   }
 
   const specLabel = (t: any) => (typeof t["x-displayName"] === "string" ? t["x-displayName"].trim() : "");
@@ -496,9 +481,20 @@ export function normalize(input: any, opts: NormalizeOptions = {}): OpenAPIDoc {
       displayName: described.get(name)?.label,
       description: described.get(name)?.description,
       operations,
-      events: mergeTagEvents(operations, tagEvents[name]),
+      events: [] as OpenAPIEvent[],
     };
   });
+  // Every event on each page, by the one rule the build's links use too.
+  const pageOf = (t: string) => {
+    const r = resolveTag(t, opts);
+    return r && (plan.alias.get(r) ?? r);
+  };
+  const onPages = pageEvents(raw, {
+    tags: specTags,
+    ops: tags.flatMap((t) => t.operations.map((op) => ({ page: t.name, op: rawOf.get(op) }))),
+    pageOf,
+  });
+  for (const t of tags) t.events = onPages.get(t.name) ?? [];
 
   // Labels for every tag path: spec `x-displayName`s (incl. nav-only group
   // tags) and config labels on group paths ("Workspace"), then each page's own.

@@ -46,9 +46,9 @@ fs.writeFileSync(path.join(dir, "api", "asyncapi.json"), JSON.stringify(asyncDoc
 
 /** What the page renders: each channel's page slug and id. */
 function onPages(api: Record<string, unknown>) {
-  const { read, extras } = channelExtras(dir, spec, api);
-  const doc = normalize(spec, { ...(api as NormalizeOptions), extras });
-  placeChannels(doc, read!, api as NormalizeOptions);
+  const placement = channelExtras(dir, spec, api);
+  const doc = normalize(spec, { ...(api as NormalizeOptions), extras: placement.extras });
+  placeChannels(doc, placement);
   return doc.tags.flatMap((tag) => {
     const ids = operationAnchors(tag, doc);
     return (tag.channels ?? []).map((c) => [c.id, `/api-reference/${tagSlug(tag.name)}#${ids.get(c)}`]);
@@ -91,13 +91,211 @@ test("search records: one per channel, its text, under API reference", () => {
   });
 });
 
-test("llms: a list of channels for llms.txt, and a section for llms-full.txt without fields or examples", () => {
+test("llms: a list of channels for llms.txt, and a section for llms-full.txt with each message's fields and example", () => {
   const { index, full } = channelLlms(dir, spec, {}, (u) => `https://docs.test${u}`);
   assert.match(index, /### WebSocket channels\n\n- \[Stream input\]\(https:\/\/docs\.test\/api-reference\/speech#stream-input-1\): `wss:\/\/api\.acme\.test\/v1\/speech\/\{id\}\/stream-input`/);
   assert.match(full, /# WebSocket channels\n\n## Stream input\n\n\[Speech › Stream input\]\(https:\/\/docs\.test\/api-reference\/speech#stream-input-1\) · `WSS wss:\/\/api\.acme\.test\/v1\/speech\/\{id\}\/stream-input`/);
   assert.match(full, /Path parameters:\n\n- `id`: Which one\./);
-  assert.match(full, /Messages:\n\n- Send `text`: Some text\.\n- Receive `audio` \(deprecated\)/);
-  assert.doesNotMatch(full, /```/);
+  assert.match(full, /### Send: text\n\nSome text\.\n\n/);
+  assert.match(full, /### Receive: audio \(deprecated\)\n\n/);
   // No document, nothing.
   assert.deepEqual(channelLlms(path.join(dir, "none"), spec, {}), { index: "", full: "" });
+});
+
+test("llms-full: query, headers and fields with type, required and deprecated; a long example cut at a line", () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), "markline-asyncapi-llms-"));
+  after(() => fs.rmSync(d, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(d, "api"));
+  const big = { items: Array.from({ length: 30 }, (_, i) => ({ id: i })) };
+  fs.writeFileSync(
+    path.join(d, "api", "asyncapi.json"),
+    JSON.stringify({
+      asyncapi: "2.6.0",
+      info: { title: "t", version: "1" },
+      channels: {
+        "/v1/speech/{id}/q": {
+          bindings: {
+            ws: {
+              query: { type: "object", required: ["token"], properties: { token: { type: "string", description: "Your key." }, mode: { type: ["string", "null"] } } },
+              headers: { type: "object", properties: { "x-trace": { type: "string", deprecated: true } } },
+            },
+          },
+          subscribe: {
+            message: {
+              name: "m",
+              payload: { type: "object", required: ["a"], properties: { a: { type: "integer", description: "The a.\nOn two lines." }, old: { type: "string", deprecated: true } } },
+              examples: [{ payload: big }],
+            },
+          },
+        },
+      },
+    }),
+  );
+  const { full } = channelLlms(d, spec, {});
+  assert.match(full, /Query parameters:\n\n- `token` \(string, required\): Your key\.\n- `mode` \(string \| null\)\n\n/);
+  assert.match(full, /Headers:\n\n- `x-trace` \(string, deprecated\)\n\n/);
+  assert.match(full, /- `a` \(integer, required\): The a\. On two lines\.\n- `old` \(string, deprecated\)\n\n/);
+  const fence = full.match(/```json\n([\s\S]*?)\n```/)![1].split("\n");
+  assert.equal(fence.length, 41);
+  assert.equal(fence[40], "…");
+  assert.deepEqual(fence.slice(0, 40), JSON.stringify(big, null, 2).split("\n").slice(0, 40));
+});
+
+test("llms-full prints fields and examples with the pages' hiding: hidden fields and their values never appear", () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), "markline-asyncapi-llms-hide-"));
+  after(() => fs.rmSync(d, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(d, "api"));
+  fs.writeFileSync(
+    path.join(d, "api", "asyncapi.json"),
+    JSON.stringify({
+      asyncapi: "2.6.0",
+      info: { title: "t", version: "1" },
+      channels: {
+        "/v1/speech/{id}/h": {
+          bindings: { ws: { query: { type: "object", properties: { qshown: { type: "string" }, qsecret: { type: "string", "x-internal": true } } } } },
+          subscribe: {
+            message: {
+              name: "m",
+              payload: {
+                type: "object",
+                properties: {
+                  shownfield: { type: "string" },
+                  secretfield: { type: "string", "x-internal": true },
+                  refsecret: { $ref: "#/components/schemas/Shared", "x-internal": true },
+                  refshown: { $ref: "#/components/schemas/Shared" },
+                },
+              },
+              examples: [{ payload: { shownfield: "seen", secretfield: "secretvalue", refsecret: { code: "refvalue" }, refshown: { code: "ok" } } }],
+            },
+          },
+        },
+      },
+      components: { schemas: { Shared: { type: "object", properties: { code: { type: "string" } } } } },
+    }),
+  );
+  const { full } = channelLlms(d, spec, {});
+  for (const shown of ["`qshown`", "`shownfield`", "`refshown`", '"shownfield": "seen"', '"refshown"']) assert.ok(full.includes(shown), shown);
+  assert.doesNotMatch(full, /qsecret|secretfield|secretvalue|refsecret|refvalue/);
+});
+
+test("llms-full: a oneOf kind's own examples are cleaned against that kind; a headers-only example isn't a payload", () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), "markline-asyncapi-llms-shapes-"));
+  after(() => fs.rmSync(d, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(d, "api"));
+  const secret = { type: "string", "x-internal": true };
+  fs.writeFileSync(
+    path.join(d, "api", "asyncapi.json"),
+    JSON.stringify({
+      asyncapi: "2.6.0",
+      info: { title: "t", version: "1" },
+      channels: {
+        "/v1/speech/{id}/kinds": {
+          publish: {
+            message: {
+              name: "kinds",
+              payload: {
+                oneOf: [
+                  // An envelope kind: its example's `payload` is one of its properties, not a message example's.
+                  {
+                    title: "Env",
+                    type: "object",
+                    properties: { type: { type: "string" }, payload: { type: "object", properties: { ok: { type: "string" }, envsecret: secret } } },
+                    examples: [{ type: "a", payload: { ok: "envshown", envsecret: "envsecretvalue" } }],
+                  },
+                ],
+              },
+            },
+          },
+        },
+        "/v1/speech/{id}/hdr": {
+          publish: {
+            message: {
+              name: "hdr",
+              headers: { type: "object", properties: { hdrsecret: secret } },
+              payload: { type: "object", properties: { ok: { type: "string" } } },
+              examples: [{ name: "e", headers: { hdrsecret: "hdrsecretvalue" } }, { payload: { ok: "hdrshown" } }],
+            },
+          },
+        },
+        "/v1/speech/{id}/allof": {
+          publish: {
+            message: {
+              name: "allof",
+              payload: { allOf: [{ type: "object", properties: { ok: { type: "string" } } }, { type: "object", "x-internal": true, properties: { memberkey: { type: "string" } } }] },
+              examples: [{ payload: { ok: "allofshown", memberkey: "membervalue" } }],
+            },
+          },
+        },
+      },
+    }),
+  );
+  const { full } = channelLlms(d, spec, {});
+  for (const shown of ['"type": "a"', '"ok": "envshown"', '"ok": "hdrshown"', '"ok": "allofshown"']) assert.ok(full.includes(shown), shown);
+  assert.doesNotMatch(full, /envsecret|hdrsecret|memberkey|membervalue/);
+});
+
+test("llms-full: a custom api.hideExtensions hides what it names; an example of exactly 40 lines isn't cut", () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), "markline-asyncapi-llms-ext-"));
+  after(() => fs.rmSync(d, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(d, "api"));
+  // 40 lines exactly when pretty-printed: { "items": [ 36 numbers ] } with the braces and brackets.
+  const forty = { items: Array.from({ length: 36 }, (_, i) => i) };
+  assert.equal(JSON.stringify(forty, null, 2).split("\n").length, 40);
+  const fortyOne = { items: Array.from({ length: 37 }, (_, i) => i) };
+  fs.writeFileSync(
+    path.join(d, "api", "asyncapi.json"),
+    JSON.stringify({
+      asyncapi: "2.6.0",
+      info: { title: "t", version: "1" },
+      channels: {
+        "/v1/speech/{id}/a": { publish: { message: { name: "a", payload: { type: "object", properties: { fernfield: { type: "string", "x-fern-ignore": true }, kept: { type: "string" } } }, examples: [{ payload: forty }] } } },
+        "/v1/speech/{id}/b": { publish: { message: { name: "b", examples: [{ payload: fortyOne }] } } },
+      },
+    }),
+  );
+  // The default list doesn't name x-fern-ignore; a site's own list does.
+  assert.match(channelLlms(d, spec, {}).full, /`fernfield`/);
+  const { full } = channelLlms(d, spec, { hideExtensions: ["x-fern-ignore"] });
+  assert.doesNotMatch(full, /fernfield/);
+  assert.match(full, /`kept`/);
+  const fences = [...full.matchAll(/```json\n([\s\S]*?)\n```/g)].map((m) => m[1].split("\n"));
+  assert.deepEqual(fences.map((f) => [f.length, f.at(-1)]), [[40, "}"], [41, "…"]]);
+});
+
+test("llms-full: a bare envelope or a payload with a `name` field is a payload, cleaned against the message's schema", () => {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), "markline-asyncapi-llms-bare-"));
+  after(() => fs.rmSync(d, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(d, "api"));
+  const secret = { type: "string", "x-internal": true };
+  fs.writeFileSync(
+    path.join(d, "api", "asyncapi.json"),
+    JSON.stringify({
+      asyncapi: "2.6.0",
+      info: { title: "t", version: "1" },
+      channels: {
+        "/v1/speech/{id}/benv": {
+          publish: {
+            message: {
+              name: "benv",
+              payload: { type: "object", properties: { type: { type: "string" }, payload: { type: "object", properties: { ok: { type: "string" }, benvsecret: secret } } } },
+              // Written straight under the message, not as { payload: … }: it's the payload.
+              examples: [{ type: "a", payload: { ok: "benvshown", benvsecret: "benvsecretvalue" } }],
+            },
+          },
+        },
+        "/v1/speech/{id}/named": {
+          publish: {
+            message: {
+              name: "named",
+              payload: { type: "object", properties: { name: { type: "string" }, a: { type: "integer" }, namedsecret: secret } },
+              examples: [{ name: "Alice", a: 1, namedsecret: "namedsecretvalue" }],
+            },
+          },
+        },
+      },
+    }),
+  );
+  const { full } = channelLlms(d, spec, {});
+  for (const shown of ['"ok": "benvshown"', '"name": "Alice"', '"a": 1']) assert.ok(full.includes(shown), shown);
+  assert.doesNotMatch(full, /benvsecret|namedsecret/);
 });

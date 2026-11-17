@@ -5,7 +5,7 @@ import os from "node:os";
 import path from "node:path";
 // lib/ imports resolve via test/setup.mjs, which `npm test` loads first.
 import { hideChannelFields, normalizeAsyncApi, readAsyncApiFile, type AsyncChannel } from "../lib/asyncapi.ts";
-import { pruneExample, pruneSchema } from "../lib/openapi-prune.ts";
+import { pruneExample, pruneSchema } from "../scripts/openapi-prune.mjs";
 import { asyncApiReport } from "../scripts/asyncapi-build.mjs";
 
 // What api.hideExtensions and showDeprecated leave of an AsyncAPI document.

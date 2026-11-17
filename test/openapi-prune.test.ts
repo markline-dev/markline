@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 // lib/ imports resolve via test/setup.mjs, which `npm test` loads first.
-import { pruneSpec } from "../lib/openapi-prune.ts";
+import { pruneSpec } from "../scripts/openapi-prune.mjs";
 import { normalize, sampleFromSchema } from "../lib/openapi.ts";
 import { schemaFields } from "../lib/openapi-schema.ts";
 import { resolveSchema } from "../lib/openapi.ts";
@@ -311,4 +311,30 @@ test("a hidden path parameter in components stays, since the URL needs it", () =
   const out = pruneSpec(raw, EXTS) as any;
   assert.deepEqual(out.paths["/items/{id}"].get.parameters, [{ $ref: "#/components/parameters/Id" }]);
   assert.ok(out.components.parameters.Id);
+});
+
+test("a callback flagged on itself, or through its $ref, is gone with the event it would list", () => {
+  const cb = { "{$request.body#/url}": { post: { summary: "c", responses: { 200: { description: "ok" } } } } };
+  const raw = {
+    openapi: "3.1.0",
+    info: { title: "t", version: "1" },
+    components: {
+      callbacks: {
+        Hid: { ...cb, "x-internal": true },
+        // Not flagged itself, but every path item in it is.
+        AllHidden: { "{$request.body#/url}": { "x-internal": true, post: { summary: "c", responses: { 200: { description: "ok" } } } } },
+      },
+    },
+    paths: {
+      "/a": {
+        post: {
+          operationId: "a",
+          responses: { 200: { description: "ok" } },
+          callbacks: { own: { ...cb, "x-internal": true }, viaref: { $ref: "#/components/callbacks/Hid" }, emptyref: { $ref: "#/components/callbacks/AllHidden" }, kept: cb },
+        },
+      },
+    },
+  };
+  const pruned = pruneSpec(raw, ["x-internal"]);
+  assert.deepEqual(Object.keys(pruned.paths["/a"].post.callbacks), ["kept"]);
 });

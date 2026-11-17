@@ -5,6 +5,9 @@ All notable changes to `@markline/markline` and `@markline/create`.
 ## Unreleased
 
 ### Added
+- **WebSocket channels in full in `llms-full.txt`.** Each channel's query
+  parameters and headers, and each message's fields and first example, with
+  the same hiding as the pages (`api.hideExtensions`, `api.showDeprecated`).
 - **WebSocket channels in search and the LLM files.** Each channel is a search
   result that opens its section; `llms.txt` lists the channels and
   `llms-full.txt` describes them (URL, parameters, messages).
@@ -92,6 +95,13 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **Line numbers in the Expand dialog.** Copy still copies only the code.
 
 ### Changed
+- **AsyncAPI channels go to their declared tag's page.** A tag the AsyncAPI
+  document declares (`tags`, or `info.tags` in 3.0) now gets a page, with its
+  description, for the channels that carry it; before, the declaration was
+  ignored and such channels went by their path. Channels with undeclared tags,
+  or no tags, are placed as before. A declared tag flagged hidden (`x-internal`)
+  now hides channels that carry only it, even where an OpenAPI resource has the
+  same name.
 - **Every tab and accordion is in the page,** hidden while it isn't showing,
   so search engines see all of it. Tabs have tab and tabpanel roles, and the
   arrow keys move between them.
@@ -158,6 +168,21 @@ All notable changes to `@markline/markline` and `@markline/create`.
   header's picker.
 
 ### Fixed
+- **A callback flagged hidden on itself** (`x-internal` on the callback, or on
+  the component its `$ref` names), or a `$ref` to one whose path items are all
+  hidden, is now hidden, with the event it would list.
+- **The API reference's search finds webhooks** tagged for a resource, like the
+  page's own events, and an event given by several sources reads the same in
+  search as on the page: the first source to give a field (the tag's
+  `x-events`, then the operations', then the webhooks) wins it.
+- **Search and LLM links to a WebSocket channel titled like one of its page's
+  events** ("Event done" beside the event `done`) land on the channel, numbered
+  past the event as the page numbers it.
+- **AsyncAPI tags written as `$ref`** (3.0's `components/tags`, on a channel or
+  operation) are read by the name they point at, so such a channel now joins
+  the page that tag names (an OpenAPI resource of that name, say) instead of
+  going by its path or to the WebSockets page; a `$ref` that points at nothing
+  is reported once.
 - **"On this page" follows the tab you're on.** It listed the first tab's
   headings only, and kept them after you switched tabs. A link to a heading
   in another tab, or in a closed accordion, now opens it, and find-in-page can

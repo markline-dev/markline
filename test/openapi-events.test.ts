@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { eventAnchor, mergeTagEvents, parseOperationEvents, parseWebhooks, parseXEvents } from "../lib/openapi-events.ts";
+import { eventAnchor, pageEvents, parseOperationEvents, parseWebhooks, parseXEvents } from "../scripts/openapi-events.mjs";
 
 /** A raw operation that emits two events via the `x-events` map (one name-only). */
 const CREATE_PAYMENT = {
@@ -86,10 +86,12 @@ test("parseXEvents (tag-level): no inherited tags, carries summary + guide", () 
   assert.equal(events[0].guideHref, "/guides/refunds");
 });
 
-test("mergeTagEvents: tag-level + per-op events dedupe by name and sort", () => {
-  const tagEvents = parseXEvents({ "payment.refunded": { summary: "Refunded" } });
-  const ops = [{ ...CREATE_PAYMENT, events: parseOperationEvents(CREATE_PAYMENT, {}) }] as any;
-  const merged = mergeTagEvents(ops, tagEvents);
+test("pageEvents: tag-level + per-op events dedupe by name and sort", () => {
+  const merged = pageEvents({}, {
+    tags: [{ name: "Payments", "x-events": { "payment.refunded": { summary: "Refunded" } } } as { name: string }],
+    ops: [{ page: "Payments", op: CREATE_PAYMENT }],
+    pageOf: (t) => t,
+  }).get("Payments")!;
   assert.deepEqual(merged.map((e) => e.name), ["payment.failed", "payment.refunded", "payment.succeeded"]);
 });
 

@@ -13,7 +13,11 @@ export function attachChannels(
 
 export const WEBSOCKETS_TAG: "WebSockets";
 export function joinUrl(server: string, address: string): string;
+export function hideChannelFields(c: AsyncChannel, exts: readonly string[]): AsyncChannel;
 export function readAsyncApiFile(
   file: string,
   opts?: { perspective?: Perspective; showDeprecated?: boolean; hideExtensions?: readonly string[] },
-): { channels: AsyncChannel[]; tagGroups?: unknown[]; warnings: string[] } | null;
+): { channels: AsyncChannel[]; tags?: DeclaredTag[]; tagGroups?: unknown[]; warnings: string[] } | null;
+
+/** A tag an AsyncAPI document declares (2.x `tags`, 3.0 `info.tags`). */
+export type DeclaredTag = { name: string; description?: string; displayName?: string; hidden?: boolean };

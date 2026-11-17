@@ -5,10 +5,12 @@
 // prints once because the page workers don't.
 import fs from "node:fs";
 import path from "node:path";
-import { attachChannels, readAsyncApiFile, WEBSOCKETS_TAG } from "./asyncapi-core.mjs";
+import { attachChannels, hideChannelFields, readAsyncApiFile, WEBSOCKETS_TAG } from "./asyncapi-core.mjs";
 import { DEFAULT_HIDE_EXTENSIONS, NO_EXTRAS, resolveTag, resourcePages, resourcePlan, slugifyOpId } from "./openapi-order.mjs";
 import { joinUrl } from "./asyncapi-core.mjs";
 import { pageAnchors } from "./apiref-anchors.mjs";
+import { eventAnchor, pageEvents } from "./openapi-events.mjs";
+import { pruneSpec } from "./openapi-prune.mjs";
 
 const slug = (s) => String(s).toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 
@@ -51,38 +53,79 @@ export function channelExtras(dir, spec, api) {
   if (!read) return { read: null, placed: new Map(), extras: NO_EXTRAS };
   const plan = spec ? resourcePlan(spec, api) : { tags: [], ops: [] };
   const resources = plan.tags.map((name) => ({ name, paths: plan.ops.filter((o) => o.tag === name).map((o) => o.path) }));
-  const { byResource, rest } = attachChannels(read.channels, resources, (tag) => resolveTag(tag, api));
+  const plannedAs = (name) => plan.tags.find((t) => slug(t) === slug(name));
+
+  // Declared tags (the document's own tag list) have pages, like OpenAPI tags: each
+  // after api.tags (renamed, merged, hidden), or hidden by a flag on the tag object.
+  // One that's already a page by its URL (an OpenAPI tag "speech" for "Speech") is that page.
+  const declared = (read.tags ?? []).filter((t) => !t.hidden);
+  const hiddenTags = new Set((read.tags ?? []).filter((t) => t.hidden).map((t) => t.name));
+  // Two declared tags of one URL ("Real time", "real-time") are one page, the first's.
+  const declaredPage = new Map();
+  for (const t of declared) {
+    const r = resolveTag(t.name, api);
+    if (r === null) continue;
+    const sameUrl = [...declaredPage.values()].find((p) => slug(p) === slug(r));
+    declaredPage.set(t.name, plannedAs(r) ?? sameUrl ?? r);
+  }
+  const pageOfTag = (tag) => (hiddenTags.has(tag) ? null : declaredPage.has(tag) ? declaredPage.get(tag) : resolveTag(tag, api));
+  const candidates = [...new Set(declaredPage.values())].filter((p) => !plan.tags.includes(p));
+
+  // A channel joins the first of its tags that names a page (an OpenAPI resource or
+  // a declared tag's), else the resource its path shares most with, else the rest.
+  const first = attachChannels(read.channels, [...resources, ...candidates.map((name) => ({ name, paths: [] }))], pageOfTag);
+  // A declared tag's page exists when a channel is on it.
+  const tagPages = candidates.filter((p) => first.byResource.get(p)?.length);
+
   // The WebSockets page, as api.tags has it: renamed, merged into another page, or
   // hidden. A page the spec already has (its own "WebSockets" tag, a mergeInto
   // target, or a name of the same slug) keeps its place and just takes the channels.
-  const page = rest.length ? resolveTag(WEBSOCKETS_TAG, api) : null;
-  const planned = page === null ? undefined : plan.tags.find((t) => slug(t) === slug(page));
+  const page = first.rest.length ? resolveTag(WEBSOCKETS_TAG, api) : null;
+  const planned = page === null ? undefined : plan.tags.find((t) => slug(t) === slug(page)) ?? tagPages.find((t) => slug(t) === slug(page));
   // A label on "WebSockets" can't reach a page the spec names differently ("websockets").
   const label = api?.tags && Object.prototype.hasOwnProperty.call(api.tags, WEBSOCKETS_TAG) ? api.tags[WEBSOCKETS_TAG]?.label : undefined;
   const warnings =
     planned !== undefined && planned !== page && page === WEBSOCKETS_TAG && typeof label === "string" && label.trim()
       ? [`[markline] api.tags: "${WEBSOCKETS_TAG}" has a label, but the WebSocket channels are on the spec's "${planned}" page, which it doesn't rename. Put the label on "${planned}".`]
       : [];
-  // Where each channel lands, as placeChannels() in lib/openapi.ts puts them: its
-  // resource's, then the rest on the WebSockets page (or wherever api.tags sent it).
-  // A new WebSockets page is a resource there too, so a channel tagged for it joins
-  // it by tag rather than an operation's page by path: attach again with it.
+  // Where each channel lands. This is the one placement: the pages (placeChannels in
+  // lib/openapi.ts) put channels where it says. A new WebSockets page is a resource
+  // too, so a channel tagged for it joins it by tag: attach again with every page.
   const home = planned ?? page;
-  const final =
-    page && planned === undefined
-      ? attachChannels(read.channels, [...resources, { name: page, paths: [] }], (tag) => resolveTag(tag, api))
-      : { byResource, rest };
+  const pages = [...resources, ...tagPages.map((name) => ({ name, paths: [] }))];
+  if (page && planned === undefined) pages.push({ name: page, paths: [] });
+  const final = attachChannels(read.channels, pages, pageOfTag);
   const placed = new Map(final.byResource);
   if (home && final.rest.length) placed.set(home, [...(placed.get(home) ?? []), ...final.rest]);
+  // The channels as every output shows them: without the fields api.hideExtensions
+  // hides. Pages, search and the llms files all take them from here.
+  const exts = api?.hideExtensions ?? DEFAULT_HIDE_EXTENSIONS;
+  for (const [name, list] of placed) placed.set(name, list.map((c) => hideChannelFields(c, exts)));
+
+  // Labels and descriptions for the pages only channels make, as OpenAPI tags get
+  // theirs: the title only from the tag the page is named after (a tag merged into
+  // it, or renamed by mergeInto, doesn't title it); the description from that tag,
+  // else the first tag merged into it.
+  const labels = { [WEBSOCKETS_TAG]: WEBSOCKETS_TAG };
+  const descriptions = {};
+  for (const p of tagPages) {
+    const own = declared.find((t) => t.name === p);
+    if (own?.displayName) labels[p] = own.displayName;
+    const description = own?.description ?? declared.find((t) => declaredPage.get(t.name) === p && t.description)?.description;
+    if (description) descriptions[p] = description;
+  }
   return {
     read,
     placed,
     extras: {
-      pages: page && planned === undefined ? [page] : [],
+      pages: [...tagPages, ...(page && planned === undefined ? [page] : [])],
       warnings,
       groups: read.tagGroups,
-      known: [WEBSOCKETS_TAG, ...new Set(read.channels.flatMap((c) => c.tags))],
-      labels: { [WEBSOCKETS_TAG]: WEBSOCKETS_TAG },
+      // Names api.tags, tagOrder and sections may use without a warning: the channels'
+      // tags, the declared ones (with or without channels), and WebSockets.
+      known: [WEBSOCKETS_TAG, ...new Set([...read.channels.flatMap((c) => c.tags), ...(read.tags ?? []).map((t) => t.name)])],
+      labels,
+      descriptions,
     },
   };
 }
@@ -98,16 +141,43 @@ export function asyncApiReport(dir, spec, api) {
   return { warnings: read.warnings, pages };
 }
 
+// Each spec's page events, computed once per build for its settings: search and
+// both llms files ask channelPages for the same spec.
+const eventsCache = new WeakMap();
+
+/** The events on each page (their anchors are the page's own ids), by the pages' rule: pageEvents over the pruned spec. */
+function eventsOfPages(spec, api, extras) {
+  const key = JSON.stringify([api ?? null, extras.pages]);
+  const bySettings = eventsCache.get(spec) ?? new Map();
+  eventsCache.set(spec, bySettings);
+  if (!bySettings.has(key)) {
+    const pruned = pruneSpec(spec, api?.hideExtensions ?? DEFAULT_HIDE_EXTENSIONS);
+    const prunedPlan = resourcePlan(pruned, api, extras);
+    bySettings.set(
+      key,
+      pageEvents(pruned, {
+        tags: Array.isArray(pruned.tags) ? pruned.tags.filter((t) => typeof t?.name === "string") : [],
+        ops: prunedPlan.ops.map((o) => ({ page: o.tag, op: o.op })),
+        pageOf: (t) => {
+          const r = resolveTag(t, api);
+          return r && (prunedPlan.alias.get(r) ?? r);
+        },
+      }),
+    );
+  }
+  return bySettings.get(key);
+}
+
 /**
  * Every channel with the page it's on and its id there: `url` is
  * `/api-reference/<page>#<id>`, the anchor the page renders (pageAnchors, after
- * the page's operations in their order). Event anchors (`event-…`) aren't known
- * here; a channel would only miss its link if it were titled like one.
+ * the page's operations in their order, and its events' anchors reserved).
  */
 export function channelPages(dir, spec, api) {
   const { read, placed, extras } = channelExtras(dir, spec, api);
   if (!read || !spec) return [];
   const plan = resourcePlan(spec, api, extras);
+  const events = eventsOfPages(spec, api, extras);
   const out = [];
   for (const page of resourcePages(spec, api, extras)) {
     const channels = placed.get(page.name) ?? [];
@@ -118,7 +188,8 @@ export function channelPages(dir, spec, api) {
       .map((o, i) => ({ i, navOrder: typeof o.op["x-nav-order"] === "number" ? o.op["x-nav-order"] : Infinity, o }))
       .sort((a, b) => a.navOrder - b.navOrder || a.i - b.i)
       .map(({ o }) => ({ summary: o.op.summary, operationId: o.op.operationId ?? slugifyOpId(o.method, o.path) }));
-    const ids = pageAnchors(page.slug, ops, channels).channels;
+    const eventIds = (events.get(page.name) ?? []).map((e) => eventAnchor(e.name));
+    const ids = pageAnchors(page.slug, ops, channels, eventIds).channels;
     channels.forEach((c, i) => out.push({ channel: c, page, id: ids[i], url: `/api-reference/${page.slug}#${ids[i]}` }));
   }
   return out;
@@ -140,12 +211,34 @@ export function channelRecords(dir, spec, api, toPlainText = (s) => s) {
 
 const DIRECTION = { send: "Send", receive: "Receive", unspecified: "Message" };
 
+/** Example lines llms-full.txt shows before cutting (at a line, with "…"). */
+const LLMS_EXAMPLE_LINES = 40;
+
+/** A schema's top-level fields as markdown list lines: name, type, required, deprecated, description. */
+function fieldLines(schema) {
+  const props = schema && typeof schema === "object" && schema.properties && typeof schema.properties === "object" ? schema.properties : {};
+  const required = new Set(Array.isArray(schema?.required) ? schema.required : []);
+  return Object.entries(props).map(([name, s]) => {
+    const type = Array.isArray(s?.type) ? s.type.join(" | ") : s?.type;
+    const notes = [type, required.has(name) ? "required" : null, s?.deprecated === true ? "deprecated" : null].filter(Boolean);
+    const desc = typeof s?.description === "string" && s.description.trim() ? `: ${s.description.trim().replace(/\s*\n\s*/g, " ")}` : "";
+    return `- \`${name}\`${notes.length ? ` (${notes.join(", ")})` : ""}${desc}`;
+  });
+}
+
+/** An example as a json fence, its first LLMS_EXAMPLE_LINES lines when longer. */
+function exampleFence(value) {
+  const lines = (JSON.stringify(value, null, 2) ?? "").split("\n");
+  const shown = lines.length > LLMS_EXAMPLE_LINES ? [...lines.slice(0, LLMS_EXAMPLE_LINES), "…"] : lines;
+  return `\`\`\`json\n${shown.join("\n")}\n\`\`\``;
+}
+
 /**
  * llms.txt's list of channels and llms-full.txt's section on them: each channel's
- * page link, connection URL, description, path parameters, and its messages'
- * directions, names and descriptions. Not their fields, query, headers or
- * examples: hiding those (api.hideExtensions) happens on the pages only, so
- * they'd be printed here unhidden. `abs` makes a path absolute.
+ * page link, connection URL, description, path and query parameters and headers,
+ * and its messages: direction, name, description, fields and first example. The
+ * channels come from channelExtras() with api.hideExtensions already applied, so
+ * nothing the pages hide is printed here. `abs` makes a path absolute.
  */
 export function channelLlms(dir, spec, api, abs = (u) => u) {
   const pages = channelPages(dir, spec, api);
@@ -162,9 +255,16 @@ export function channelLlms(dir, spec, api, abs = (u) => u) {
     if (c.parameters.length) {
       full += `Path parameters:\n\n${c.parameters.map((p) => `- \`${p.name}\`${p.description ? `: ${p.description}` : ""}`).join("\n")}\n\n`;
     }
-    if (c.messages.length) {
-      const line = (m) => `- ${DIRECTION[m.direction]} \`${m.title ?? m.name}\`${m.deprecated ? " (deprecated)" : ""}${(m.description ?? m.summary) ? `: ${m.description ?? m.summary}` : ""}`;
-      full += `Messages:\n\n${c.messages.map(line).join("\n")}\n\n`;
+    const query = fieldLines(c.query);
+    if (query.length) full += `Query parameters:\n\n${query.join("\n")}\n\n`;
+    const headers = fieldLines(c.headers);
+    if (headers.length) full += `Headers:\n\n${headers.join("\n")}\n\n`;
+    for (const m of c.messages) {
+      full += `### ${DIRECTION[m.direction]}: ${m.title ?? m.name}${m.deprecated ? " (deprecated)" : ""}\n\n`;
+      if (m.description ?? m.summary) full += `${m.description ?? m.summary}\n\n`;
+      const fields = fieldLines(m.payload);
+      if (fields.length) full += `${fields.join("\n")}\n\n`;
+      if (m.examples.length) full += `${exampleFence(m.examples[0])}\n\n`;
     }
   }
   return { index, full };

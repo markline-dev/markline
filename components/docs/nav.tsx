@@ -356,7 +356,7 @@ export function DocsSidebar({
         {(searchInSidebar || ai) && (
           <div className="docs-tools">
             {searchInSidebar && <SidebarSearchTrigger />}
-            {ai && <SidebarAskButton />}
+            {ai && <SidebarAskButton label={ai.label} />}
           </div>
         )}
         <SidebarSections sections={sections} pathname={pathname} onNavigate={closeDrawer} />

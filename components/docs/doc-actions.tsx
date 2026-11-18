@@ -211,14 +211,27 @@ function ActionMenu({ copied, onCopy, items }: { copied: boolean; onCopy: () => 
   );
 }
 
-/** Sidebar "Ask AI" button (the design's .docs-ask). Gated on AI being enabled. */
-export function SidebarAskButton() {
+/** Sidebar "Ask AI" button (the design's .docs-ask), labelled with `ai.label`.
+ *  Gated on AI being enabled. A label too long for its half of the row is cut
+ *  with an ellipsis, and then shows in full as the button's tooltip. */
+export function SidebarAskButton({ label = "Ask AI" }: { label?: string }) {
+  const lbl = useRef<HTMLSpanElement>(null);
+  const [cut, setCut] = useState(false);
+  useEffect(() => {
+    const el = lbl.current;
+    if (!el) return;
+    const check = () => setCut(el.scrollWidth > el.clientWidth);
+    check();
+    const ro = new ResizeObserver(check);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [label]);
   return (
-    <button type="button" className="docs-ask" onClick={() => openAskPanel("this page")}>
+    <button type="button" className="docs-ask" title={cut ? label : undefined} onClick={() => openAskPanel("this page")}>
       <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden>
         <path d="M12 3l1.9 4.6L18.5 9l-4.6 1.9L12 15.5 10.1 10.9 5.5 9l4.6-1.4L12 3z" />
       </svg>
-      Ask AI
+      <span ref={lbl} className="docs-ask-lbl">{label}</span>
     </button>
   );
 }
@@ -229,13 +242,20 @@ export function SidebarSearchTrigger() {
     <button
       type="button"
       className="docs-search-trigger"
+      // The visible label shortens in a narrow sidebar; the name doesn't.
+      aria-label="Search docs"
+      aria-keyshortcuts="Meta+K Control+K"
       onClick={() => window.dispatchEvent(new CustomEvent("ml-docs-search-open"))}
     >
       <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} aria-hidden>
         <circle cx="11" cy="11" r="7" />
         <path d="m21 21-4.3-4.3" />
       </svg>
-      Search docs
+      {/* In a narrow sidebar the label drops " docs", then the ⌘K hint goes;
+          the icon always stays (app/docs.css). */}
+      <span className="docs-search-lbl">
+        Search<span className="docs-search-more"> docs</span>
+      </span>
       <span className="kbd">⌘K</span>
     </button>
   );

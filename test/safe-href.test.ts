@@ -25,6 +25,8 @@ test("javascript:, data:, vbscript: and file: aren't links, however they're writ
   for (const u of [
     "javascript:alert(1)", " JavaScript:alert(1)", "java\tscript:alert(1)", "java\nscript:x", "\x01javascript:x",
     "data:text/html,x", "DATA:x", "vbscript:x", "file:///etc/hosts",
+    // Spaces trim() drops before the scheme, which the browser then reads.
+    "\u00a0data:text/html,x", "\ufeffjavascript:x", "\u3000data:x", "\u2028javascript:x", "\u00a0\x01 javascript:x",
   ]) {
     assert.equal(safeHref(u), undefined, JSON.stringify(u));
   }
@@ -46,6 +48,11 @@ test("a page's dropped links are found, with their text, in every form", () => {
     '<a href={"javascript:expr()"}>Expression link</a>',
     "<a href={`data:text/html,tpl`}>Template link</a>",
     '<a {...{ href: "file:///spread", target: "_blank" }}>Spread link</a>',
+    '<a href="/ok" {...{ href: "data:last" }}>Last wins</a>',
+    '<a {...{ href: "/ok" }} href="data:attr-last">Attribute last</a>',
+    '<a href="/ok" {...{ ...{ href: "javascript:nested" } }}>Nested spread</a>',
+    '<a href="data:first" {...props}>Unknown after</a>',
+    '<a href="data:early" href="/fine">Good last</a>',
     "",
     '<Card title="A card" href="javascript:void(0)">body</Card>',
     '<LinkItem href="file:///x" title="An item" />',
@@ -64,6 +71,10 @@ test("a page's dropped links are found, with their text, in every form", () => {
     { text: "Expression link", href: "javascript:expr()" },
     { text: "Template link", href: "data:text/html,tpl" },
     { text: "Spread link", href: "file:///spread" },
+    { text: "Last wins", href: "data:last" },
+    { text: "Attribute last", href: "data:attr-last" },
+    { text: "Nested spread", href: "javascript:nested" },
+    { text: "Unknown after", href: "data:first" },
     { text: "A card", href: "javascript:void(0)" },
     { text: "An item", href: "file:///x" },
     { text: "A path", href: "data:x" },
@@ -78,7 +89,7 @@ test("a page's dropped links are found, with their text, in every form", () => {
 test("remarkSafeLinks turns a dropped JSX <a> into a <span> and reports it once, by file", () => {
   const warned: string[] = [];
   const pipeline = unified().use(remarkParse).use(remarkGfm).use(remarkMdx).use(remarkSafeLinks, { file: "docs/p.mdx", warn: (m: string) => warned.push(m) });
-  const body = '<a href="javascript:x()" title="t">Raw</a> <a href={"data:x"}>Expr</a> <a {...{ href: "file:///s" }}>Spread</a> <a href="/ok">Ok</a> <Card title="C" href="data:c" />';
+  const body = '<a href="javascript:x()" title="t">Raw</a> <a href={"data:x"}>Expr</a> <a {...{ href: "file:///s" }}>Spread</a> <a href="/ok">Ok</a> <Card title="C" href="data:c" /> <a href="/ok" target="_blank" {...{ href: "data:last" }}>Last</a>';
   type N = { type: string; name?: string; attributes?: { name?: string; type: string }[]; children?: N[] };
   const run = () => pipeline.runSync(pipeline.parse(body)) as unknown as N;
   const jsx: N[] = [];
@@ -89,7 +100,7 @@ test("remarkSafeLinks turns a dropped JSX <a> into a <span> and reports it once,
   walk(run());
   assert.deepEqual(
     jsx.map((n) => [n.name, (n.attributes ?? []).map((a) => a.name ?? a.type)]),
-    [["span", ["title"]], ["span", []], ["span", []], ["a", ["href"]], ["Card", ["title", "href"]]],
+    [["span", ["title"]], ["span", []], ["span", []], ["a", ["href"]], ["Card", ["title", "href"]], ["span", ["target"]]],
     "the <a>s lose the href and become spans; a component keeps its own and checks it as it renders",
   );
   assert.deepEqual(warned, [
@@ -97,9 +108,10 @@ test("remarkSafeLinks turns a dropped JSX <a> into a <span> and reports it once,
     `[markline] docs/p.mdx: the link "Expr" goes to "data:x", and ${RULE}; it's shown as text.`,
     `[markline] docs/p.mdx: the link "Spread" goes to "file:///s", and ${RULE}; it's shown as text.`,
     `[markline] docs/p.mdx: the link "C" goes to "data:c", and ${RULE}; it's shown as text.`,
+    `[markline] docs/p.mdx: the link "Last" goes to "data:last", and ${RULE}; it's shown as text.`,
   ]);
   run(); // compiled again, as the dev server does on each request
-  assert.equal(warned.length, 4, "each warning is said once per process");
+  assert.equal(warned.length, 5, "each warning is said once per process");
 });
 
 test("a warning is said once per process", () => {
@@ -156,6 +168,7 @@ test("config links markline won't render are left out, each named by its key pat
         { id: "a", label: "A", href: "/", groups: [{ group: "G", pages: [{ label: "P", href: "/p" }, { label: "X", href: "javascript:x" }, { label: "Folder", href: "data:x", pages: [{ label: "Q", href: "/q" }] }] }] },
         { id: "b", label: "B", href: "javascript:tab", groups: [{ group: "H", pages: [{ label: "Bad first", href: "data:y" }, { label: "R", href: "/r" }] }] },
         { id: "c", label: "C", href: "data:c", groups: [] },
+        { id: "e", label: "E", href: "data:e", groups: [{ group: "Out", pages: [{ label: "Ext", href: "https://ext.dev" }, { label: "In", href: "/in" }] }] },
         { id: "d", label: "D", href: "/d", groups: [{ group: "Empty", pages: [{ label: "Z", href: "data:z" }] }, { group: "Linked folder", pages: [{ label: "L", href: "/l", pages: [{ label: "Y", href: "data:y2" }] }] }] },
       ],
     },
@@ -166,6 +179,7 @@ test("config links markline won't render are left out, each named by its key pat
     tabs: [
       { id: "a", label: "A", href: "/", groups: [{ group: "G", pages: [{ label: "P", href: "/p" }, { label: "Folder", pages: [{ label: "Q", href: "/q" }] }] }] },
       { id: "b", label: "B", href: "/r", groups: [{ group: "H", pages: [{ label: "R", href: "/r" }] }] },
+      { id: "e", label: "E", href: "/in", groups: [{ group: "Out", pages: [{ label: "Ext", href: "https://ext.dev" }, { label: "In", href: "/in" }] }] },
       { id: "d", label: "D", href: "/d", groups: [{ group: "Linked folder", pages: [{ label: "L", href: "/l" }] }] },
     ],
   }, "a tab keeps its sidebar; a group, menu or column with nothing left goes; a folder with a link of its own stays a link");
@@ -184,8 +198,9 @@ test("config links markline won't render are left out, each named by its key pat
     out("navigation.tabs[1].groups[0].pages[0].href", "data:y"),
     out("navigation.tabs[1].href", "javascript:tab", "the tab links to its first page, /r, instead"),
     out("navigation.tabs[2].href", "data:c"),
-    out("navigation.tabs[3].groups[0].pages[0].href", "data:z"),
-    out("navigation.tabs[3].groups[1].pages[0].pages[0].href", "data:y2"),
+    out("navigation.tabs[3].href", "data:e", "the tab links to its first page, /in, instead"),
+    out("navigation.tabs[4].groups[0].pages[0].href", "data:z"),
+    out("navigation.tabs[4].groups[1].pages[0].pages[0].href", "data:y2"),
   ]);
   assert.equal(dropUnsafeLinks(undefined, "footer", warn), undefined);
 });

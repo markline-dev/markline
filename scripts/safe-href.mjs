@@ -16,12 +16,14 @@ function schemeOf(url) {
   return read.match(/^([a-z][a-z0-9+.-]*):/i)?.[1].toLowerCase();
 }
 
-/** `url` as written (trimmed) unless markline won't link to it; else undefined. */
+/** `url` trimmed, unless markline won't link to it; else undefined. The
+ *  scheme is read from what's returned, the string the browser gets: trim()
+ *  also drops no-break spaces, a BOM and other Unicode spaces. */
 export function safeHref(url) {
   if (typeof url !== "string") return undefined;
   const u = url.trim();
   if (!u) return undefined;
-  const scheme = schemeOf(url);
+  const scheme = schemeOf(u);
   return scheme && BLOCKED.has(scheme) ? undefined : u;
 }
 

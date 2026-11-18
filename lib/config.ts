@@ -713,20 +713,19 @@ const DROP = Symbol("drop");
  *  and has no link of its own, goes too. */
 const LINK_LISTS = ["pages", "groups", "items", "links", "columns"];
 
-/** The first page link under `node` (a tab's groups, a folder's pages). */
-function firstHref(node: unknown): string | undefined {
-  if (Array.isArray(node)) {
-    for (const v of node) {
-      const h = firstHref(v);
-      if (h) return h;
-    }
-    return undefined;
-  }
-  if (typeof node !== "object" || node === null) return undefined;
+/** The page links under `node` (a tab's groups, a folder's pages), in order. */
+function hrefsUnder(node: unknown): string[] {
+  if (Array.isArray(node)) return node.flatMap(hrefsUnder);
+  if (typeof node !== "object" || node === null) return [];
   const o = node as Record<string, unknown>;
-  if (typeof o.href === "string") return o.href;
-  return firstHref(o.groups) ?? firstHref(o.pages);
+  return [...(typeof o.href === "string" ? [o.href] : []), ...hrefsUnder(o.groups), ...hrefsUnder(o.pages)];
 }
+
+/** A tab's first page on this site, or its first link if it has none. */
+const firstHref = (node: unknown) => {
+  const all = hrefsUnder(node);
+  return all.find((h) => h.startsWith("/") && !h.startsWith("//")) ?? all[0];
+};
 
 /**
  * Links in the config markline won't render (scripts/safe-href.mjs), each

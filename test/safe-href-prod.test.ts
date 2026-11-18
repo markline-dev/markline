@@ -21,11 +21,12 @@ const body = [
   "",
   "[r]: data:text/html,x",
   "",
-  '<a href="vbscript:x">Raw link</a> <a href={"data:text/html,expr"}>Expression link</a> [Open in VS Code](vscode:extension/x)',
+  '<a href="/guides/a" {...{ href: "data:text/html,last" }}>Last wins link</a> <a href="vbscript:x">Raw link</a> <a href={"data:text/html,expr"}>Expression link</a> [Open in VS Code](vscode:extension/x)',
   "",
   "<CardGroup>",
   '<Card title="Good card" href="/guides/a">ok</Card>',
   '<Card title="Bad card" href="javascript:void(0)">no</Card>',
+  '<Card title="Nbsp card" href="\u00a0data:text/html,nbsp">no</Card>',
   "</CardGroup>",
   "",
   "<LinkList>",
@@ -90,6 +91,8 @@ test("each one keeps its text, in the component's form without a link", { skip }
   assert.match(html, /<span>Bad link<\/span>/);
   assert.match(html, /<span>Ref link<\/span>/);
   assert.match(html, /<span>Raw link<\/span>/);
+  assert.match(html, /<span>Last wins link<\/span>/, "the href JSX ends up with is the one checked");
+  assert.match(html, /<div class="next-card">(?:(?!<\/div><\/div>)[\s\S])*Nbsp card/, "a no-break space before the scheme doesn't hide it");
   assert.match(html, /<div class="next-card">(?:(?!<\/div><\/div>)[\s\S])*Bad card/);
   assert.match(html, /<span class="ml-link"><span class="ml-link-txt"><span class="ml-link-t">Bad item/);
   assert.match(html, /<div class="ml-path-card"><span class="ml-path-num">2<\/span><h3>Bad path<\/h3>/);
@@ -123,7 +126,7 @@ test("the build names each one, and the dev server says exactly the same", { ski
   const fromBuild = linkWarnings(built);
   const rule = "and markline doesn't link to javascript:, data:, vbscript: or file: URLs; it's shown as text.";
   for (const [text, href] of [
-    ["Bad link", "javascript:alert(1)"], ["Ref link", "data:text/html,x"], ["Raw link", "vbscript:x"], ["Bad card", "javascript:void(0)"],
+    ["Bad link", "javascript:alert(1)"], ["Ref link", "data:text/html,x"], ["Raw link", "vbscript:x"], ["Bad card", "javascript:void(0)"], ["Nbsp card", "data:text/html,nbsp"], ["Last wins link", "data:text/html,last"],
     ["Bad item", "file:///x"], ["Bad path", "file:///path"], ["Expression link", "data:text/html,expr"], ["Bad bento", "data:text/html,bento"], ["Bad feature", "data:text/html,feature"],
     ["Bad button", "javascript:go()"],
   ]) {
@@ -134,7 +137,7 @@ test("the build names each one, and the dev server says exactly the same", { ski
   assert.ok(fromBuild.includes(`[markline] changelog/2026-01-02.mdx: the link "Bad entry link" goes to "javascript:entry()", ${rule}`), fromBuild.join("\n"));
   assert.ok(fromBuild.includes(`[markline] api/operations/listThings.mdx: the link "Bad overlay link" goes to "data:text/html,op", ${rule}`), fromBuild.join("\n"));
   assert.ok(fromBuild.some((l) => l.startsWith('[markline] navigation.tabs[0].groups[0].pages[2].href: "javascript:nav()"')), fromBuild.join("\n"));
-  assert.equal(fromBuild.length, 16, fromBuild.join("\n"));
+  assert.equal(fromBuild.length, 18, fromBuild.join("\n"));
 
   const base = await site.serve("dev", "/links");
   await (await fetch(`${base}/links`)).text();

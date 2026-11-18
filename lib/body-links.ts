@@ -34,37 +34,44 @@ function literal(e: Estree | undefined): string | undefined {
 
 const expressionOf = (a: Attr) => a.data?.estree?.body?.[0]?.expression;
 
-/** `href` written in an object literal, as in {...{ href: "x" }}. */
+/** What an object literal sets `href` to, written out, as in
+ *  {...{ href: "x" }}; the last one wins, as in JSX. A value not written out
+ *  ({ href: url }, a computed key, a spread of a variable) isn't known here and
+ *  leaves the last known one standing, so a written-out bad href still counts. */
 function hrefInObject(e: Estree | undefined): string | undefined {
   if (e?.type !== "ObjectExpression") return undefined;
+  let href: string | undefined;
   for (const p of e.properties ?? []) {
-    if (p.type === "Property" && !p.computed && (p.key?.name === "href" || p.key?.value === "href")) return literal(p.value as Estree);
-    if (p.type === "SpreadElement") {
-      const inner = hrefInObject(p.argument);
-      if (inner !== undefined) return inner;
+    if (p.type === "Property" && !p.computed && (p.key?.name === "href" || p.key?.value === "href")) {
+      href = literal(p.value as Estree) ?? href;
+    } else if (p.type === "SpreadElement") {
+      href = hrefInObject(p.argument) ?? href;
     }
   }
-  return undefined;
+  return href;
 }
 
-/** An element's href and the attribute that holds it, when it's written out:
- *  href="x", href={"x"}, href={`x`} or {...{ href: "x" }}. A computed href
- *  ({someVariable}) isn't known here. */
-function hrefOf(node: Node): { href: string; attr: Attr } | undefined {
+/** The href an element ends up with, as far as it's written out (href="x",
+ *  href={"x"}, href={`x`} or {...{ href: "x" }}; the last one wins, as in
+ *  JSX), and every attribute that sets one. A computed href ({someVariable})
+ *  isn't known here. */
+function hrefOf(node: Node): { href: string; attrs: Attr[] } | undefined {
+  let href: string | undefined;
+  const attrs: Attr[] = [];
   for (const a of node.attributes ?? []) {
+    let s: string | undefined;
     if (a.type === "mdxJsxAttribute" && a.name === "href") {
-      if (typeof a.value === "string") return { href: a.value, attr: a };
-      const v = a.value as Attr | undefined;
-      const s = v && typeof v === "object" ? literal(expressionOf(v)) : undefined;
-      if (s !== undefined) return { href: s, attr: a };
+      const v = a.value as Attr | string | null | undefined;
+      s = typeof v === "string" ? v : v && typeof v === "object" ? literal(expressionOf(v)) : undefined;
+    } else if (a.type === "mdxJsxExpressionAttribute") {
+      s = hrefInObject(expressionOf(a)); // {...x} is read as the object { ...x }
     }
-    if (a.type === "mdxJsxExpressionAttribute") {
-      // {...x} is read as the object { ...x }.
-      const s = hrefInObject(expressionOf(a));
-      if (s !== undefined) return { href: s, attr: a };
+    if (s !== undefined) {
+      href = s;
+      attrs.push(a);
     }
   }
-  return undefined;
+  return href === undefined ? undefined : { href, attrs };
 }
 
 function stringAttr(node: Node, name: string): string | undefined {
@@ -103,7 +110,7 @@ function dropLinks(tree: Node): BodyLinkIssue[] {
         // A component checks its href as it renders; a JSX <a> goes straight to the page.
         if (n.name === "a") {
           n.name = "span";
-          n.attributes = n.attributes!.filter((x) => x !== found.attr);
+          n.attributes = n.attributes!.filter((x) => !found.attrs.includes(x));
         }
       }
     }

@@ -211,14 +211,15 @@ function ActionMenu({ copied, onCopy, items }: { copied: boolean; onCopy: () => 
   );
 }
 
-/** Sidebar "Ask AI" button (the design's .docs-ask). Gated on AI being enabled. */
-export function SidebarAskButton() {
+/** Sidebar "Ask AI" button (the design's .docs-ask), labelled with `ai.label`.
+ *  Gated on AI being enabled. */
+export function SidebarAskButton({ label = "Ask AI" }: { label?: string }) {
   return (
-    <button type="button" className="docs-ask" onClick={() => openAskPanel("this page")}>
+    <button type="button" className="docs-ask" title={label} onClick={() => openAskPanel("this page")}>
       <svg className="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} aria-hidden>
         <path d="M12 3l1.9 4.6L18.5 9l-4.6 1.9L12 15.5 10.1 10.9 5.5 9l4.6-1.4L12 3z" />
       </svg>
-      Ask AI
+      <span className="docs-ask-lbl">{label}</span>
     </button>
   );
 }
@@ -235,7 +236,11 @@ export function SidebarSearchTrigger() {
         <circle cx="11" cy="11" r="7" />
         <path d="m21 21-4.3-4.3" />
       </svg>
-      Search docs
+      {/* In a narrow sidebar the label drops " docs", then the ⌘K hint goes;
+          the icon always stays (app/docs.css). */}
+      <span className="docs-search-lbl">
+        Search<span className="docs-search-more"> docs</span>
+      </span>
       <span className="kbd">⌘K</span>
     </button>
   );

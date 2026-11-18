@@ -158,6 +158,12 @@ All notable changes to `@markline/markline` and `@markline/create`.
   header's picker.
 
 ### Fixed
+- **The sidebar's search box fits beside "Ask AI".** In a 240–256px sidebar
+  the magnifier shrank to nothing and the ⌘K hint was cut off at the edge.
+  The box now says "Search" when it's short of room and drops the ⌘K hint
+  when shorter still; the icon keeps its size, and a long label is what
+  gives way. The sidebar's Ask button uses `ai.label`, as the API
+  reference's does, and takes at most half the row.
 - **"On this page" follows the tab you're on.** It listed the first tab's
   headings only, and kept them after you switched tabs. A link to a heading
   in another tab, or in a closed accordion, now opens it, and find-in-page can

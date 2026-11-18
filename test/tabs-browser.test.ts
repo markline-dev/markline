@@ -46,8 +46,7 @@ let browser: Awaited<ReturnType<typeof openBrowser>> | undefined;
 let send: Send = async () => ({});
 
 /** Evaluate `expr` in the page and return its value. */
-const ev = async <T,>(expr: string): Promise<T> =>
-  (await send("Runtime.evaluate", { expression: expr, returnByValue: true, awaitPromise: true })).result?.result?.value as T;
+const ev = <T,>(expr: string) => browser!.ev<T>(expr);
 /** The "On this page" links showing, by target id. */
 const tocIds = () => ev<string[]>(`[...document.querySelectorAll(".docs-toc .toc-list a")].map((a) => a.getAttribute("href").slice(1))`);
 const selected = () => ev<string>(`[...document.querySelectorAll('[role=tab]')].map((b) => b.getAttribute("aria-selected")).join()`);

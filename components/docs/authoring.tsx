@@ -2,7 +2,7 @@ import { Children, cloneElement, isValidElement } from "react";
 import Link from "next/link";
 import { resolveVideo } from "@/lib/video";
 import { calloutIcon } from "@/lib/callout-icon";
-import { titleNodes, type TitleNode } from "@/lib/inline-title";
+import { safeHref, titleNodes, type TitleNode } from "@/lib/inline-title";
 import { hrefAsPath, pathHref } from "@/scripts/url-path.mjs";
 import { isIconPath, navIcon } from "./nav-icons";
 
@@ -131,6 +131,7 @@ export function Card({
   kicker?: string;
   children?: React.ReactNode;
 }) {
+  const to = safeHref(href);
   const inner = (
     <>
       {kicker && <div className="k">{kicker}</div>}
@@ -139,7 +140,7 @@ export function Card({
           {icon && <span aria-hidden className="ml-card-icon">{cardIcon(icon)}</span>}
           {title}
         </span>
-        {href && CardArrow}
+        {to && CardArrow}
       </div>
       {/* A div, not a <p>: in MDX a body on its own line is already wrapped
           in a <p>, and <p>-in-<p> is invalid nesting → a hydration mismatch
@@ -149,8 +150,8 @@ export function Card({
     </>
   );
   const cls = variant === "tile" ? "next-card next-card--tile" : "next-card";
-  return href ? (
-    <Link href={href} className={cls}>{inner}</Link>
+  return to ? (
+    <Link href={to} className={cls}>{inner}</Link>
   ) : (
     <div className={cls}>{inner}</div>
   );
@@ -305,21 +306,25 @@ export function LinkItem({
   icon?: string;
 }) {
   const ic = icon === "none" ? null : icon ? navIcon(icon, 20) ?? PageIcon : PageIcon;
+  const to = safeHref(href);
+  const inner = (
+    <>
+      <span className="ml-link-txt">
+        <span className="ml-link-t">{title}</span>
+        {(meta || description) && (
+          <span className="ml-link-d">
+            {meta && <span className="ml-link-m">{meta}</span>}
+            {meta && description && " · "}
+            {description}
+          </span>
+        )}
+      </span>
+      {ic && <span className="ml-link-ic">{ic}</span>}
+    </>
+  );
   return (
     <li>
-      <Link href={href} className="ml-link">
-        <span className="ml-link-txt">
-          <span className="ml-link-t">{title}</span>
-          {(meta || description) && (
-            <span className="ml-link-d">
-              {meta && <span className="ml-link-m">{meta}</span>}
-              {meta && description && " · "}
-              {description}
-            </span>
-          )}
-        </span>
-        {ic && <span className="ml-link-ic">{ic}</span>}
-      </Link>
+      {to ? <Link href={to} className="ml-link">{inner}</Link> : <span className="ml-link">{inner}</span>}
     </li>
   );
 }

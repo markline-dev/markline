@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { safeHref } from "@/scripts/safe-href.mjs";
 import { Image, ProseImage } from "./prose-image";
 import { Audio, AudioGroup } from "./audio";
 import type { MDXComponents } from "mdx/types";
@@ -68,14 +69,16 @@ export function Paths({ children }: { children: React.ReactNode }) {
 export function Path({
   num, href, arrow, title, children,
 }: { num: number; href: string; arrow: string; title: string; children: React.ReactNode }) {
-  return (
-    <Link href={href} className="ml-path-card">
+  const to = safeHref(href);
+  const inner = (
+    <>
       <span className="ml-path-num">{num}</span>
       <h3>{title}</h3>
       <div className="ml-path-desc">{children}</div>
-      <span className="ml-path-arrow">{arrow}</span>
-    </Link>
+      {to && <span className="ml-path-arrow">{arrow}</span>}
+    </>
   );
+  return to ? <Link href={to} className="ml-path-card">{inner}</Link> : <div className="ml-path-card">{inner}</div>;
 }
 
 type Verb = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -129,7 +132,10 @@ export const mdxComponents: MDXComponents = {
   ul: ({ children }) => <ul>{children}</ul>,
   ol: ({ children }) => <ol>{children}</ol>,
   li: ({ children }) => <li>{children}</li>,
-  a: ({ href, children }) => <Link href={href ?? "#"}>{children}</Link>,
+  a: ({ href, children }) => {
+    const to = safeHref(href);
+    return to ? <Link href={to}>{children}</Link> : <span>{children}</span>;
+  },
   // Bold text that reads like a menu route ("Teach → Playbooks") is one.
   strong: ({ children }) =>
     typeof children === "string" && /\s(?:›|→)\s/.test(children) ? <MenuPath>{children}</MenuPath> : <strong>{children}</strong>,

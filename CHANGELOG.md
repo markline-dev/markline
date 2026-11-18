@@ -92,6 +92,13 @@ All notable changes to `@markline/markline` and `@markline/create`.
 - **Line numbers in the Expand dialog.** Copy still copies only the code.
 
 ### Changed
+- **One rule for every link.** A link to a `javascript:`, `data:`,
+  `vbscript:` or `file:` URL is shown as its text. That covers Markdown, an
+  `<a>`, a card, link-list item, path, bento card, feature or button, and API
+  reference descriptions and overlays. In `markline.json` such a link is left
+  out, and llms.txt leaves it out too. `markline dev` and `markline build`
+  name it by file or config key. Every other link (`tel:`, `vscode:`, …) works
+  as written, step titles and API reference descriptions included.
 - **Every tab and accordion is in the page,** hidden while it isn't showing,
   so search engines see all of it. Tabs have tab and tabpanel roles, and the
   arrow keys move between them.

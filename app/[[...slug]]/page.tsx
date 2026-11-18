@@ -20,6 +20,7 @@ import { HubHero } from "@/components/docs/hub-hero";
 import { LandingPage } from "@/components/landing/landing";
 import { remarkLandingProse } from "@/lib/landing-prose";
 import { remarkCodeGroupTitles } from "@/lib/code-group";
+import { remarkSafeLinks } from "@/lib/body-links";
 import { elementsIn, extractToc, missingTocIds, remarkTocIds, withOffView } from "@/lib/toc";
 import { SiteFooter } from "@/components/site-footer";
 import type { Crumb, PageNavLink } from "@/components/docs/page";
@@ -155,6 +156,7 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
           format: "mdx",
           remarkPlugins: [
             remarkGfm,
+            [remarkSafeLinks, { file: doc.sourcePath }],
             remarkCodeGroupTitles,
             [remarkTocIds, { steps: doc.fm.tocSteps }],
             ...(landing ? [remarkLandingProse] : []),
@@ -273,7 +275,7 @@ async function renderChangelog(slug: string[]) {
       lede={intro?.fm.lede}
       intro={
         intro?.body.trim() && page === 1 ? (
-          <MDXRemote source={intro.body} components={mdxComponents} options={{ mdxOptions: { format: "mdx", remarkPlugins: [remarkGfm, remarkCodeGroupTitles, [remarkTocIds, { reserved }]], rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]] }, blockJS: false }} />
+          <MDXRemote source={intro.body} components={mdxComponents} options={{ mdxOptions: { format: "mdx", remarkPlugins: [remarkGfm, [remarkSafeLinks, { file: intro.sourcePath }], remarkCodeGroupTitles, [remarkTocIds, { reserved }]], rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]] }, blockJS: false }} />
         ) : undefined
       }
       entries={shown}

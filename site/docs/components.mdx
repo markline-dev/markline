@@ -2,6 +2,8 @@
 title: Components
 lede: Rich components available in any MDX page — no import required.
 toc:
+  - id: links
+    label: Links
   - id: callouts
     label: Callouts
   - id: cards
@@ -37,6 +39,29 @@ toc:
   - id: landing-pages
     label: Landing pages
 ---
+
+## Links
+
+A link can go anywhere except a `javascript:`, `data:`, `vbscript:` or
+`file:` URL: a path or `#anchor` on your site, `https:`, `mailto:`, `tel:`, or
+an app's own scheme such as `vscode:` for an "Open in VS Code" button. That
+holds for a Markdown link, an `<a>`, and the `href` of every component below
+that takes one: a card, link-list item, path, bento card, feature or button.
+A link to one of those four is shown as its text, without the link, and
+`markline dev` and `markline build` say which, by file:
+
+```text
+[markline] docs/guide.mdx: the link "Run it" goes to "javascript:run()", and markline doesn't link to javascript:, data:, vbscript: or file: URLs; it's shown as text.
+```
+
+An `href` written out is checked: `href="…"`, ``href={"…"}`` or
+``href={`…`}``, and `{...{ href: "…" }}`. A computed one, such as
+`href={url}`, is only checked as a component renders it, and not on a plain
+`<a>`. Other elements' URLs (`<area>`, an `<iframe>`'s `src`, a `<form>`'s
+`action`) aren't checked.
+
+Links in `markline.json` follow the same rule; see
+[Configuration](/configuration#navigation).
 
 ## Callouts
 

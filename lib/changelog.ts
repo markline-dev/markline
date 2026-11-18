@@ -16,6 +16,8 @@ export type ChangelogEntry = {
   /** Frontmatter `breaking: true`: the release needs readers to change something. */
   breaking: boolean;
   body: string;
+  /** Its file, from the content root ("changelog/2026-11-05.mdx"), for warnings. */
+  file: string;
 };
 
 let cache: ChangelogEntry[] | undefined;
@@ -47,6 +49,7 @@ export function listChangelog(): ChangelogEntry[] {
       tags: Array.isArray(data.tags) ? data.tags.filter((t: unknown) => typeof t === "string") : [],
       breaking: data.breaking === true,
       body: content,
+      file: `changelog/${name}`,
     });
   }
   entries.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));

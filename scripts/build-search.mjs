@@ -17,6 +17,7 @@ import { markdownPath, mdxToMarkdown, pageMarkdown, sectionIds, sectionIndex } f
 import { removeGeneratedFiles, writeManifest } from "./generated-files.mjs";
 import { siteFiles } from "./site-files.mjs";
 import { hrefAsPath, pathHref } from "./url-path.mjs";
+import { safeHref } from "./safe-href.mjs";
 import { CHANGELOG_PER_PAGE, clashMessage, exportClashes } from "./export-names.mjs";
 import { writeGithubStats } from "./github-stats.mjs";
 import { contentRootFrom } from "./content-root.mjs";
@@ -328,8 +329,9 @@ function writeLlms(root) {
     for (const g of tab.groups ?? []) {
       const pages = [];
       // Sidebar items can nest (`pages` inside a page); list them depth first,
-      // in sidebar order. Folders with no `href` contribute only their children.
-      const flatten = (items) => (items ?? []).flatMap((p) => [...(p.href ? [p] : []), ...flatten(p.pages)]);
+      // in sidebar order. Folders with no `href` contribute only their children,
+      // as do links the site leaves out (lib/config.ts dropUnsafeLinks).
+      const flatten = (items) => (items ?? []).flatMap((p) => [...(safeHref(p.href) ? [p] : []), ...flatten(p.pages)]);
       for (const p of flatten(g.pages)) {
         const href = hrefAsPath(p.href).replace(/(^|\/)index$/, "") || "/"; // as lib/config.ts does
         const d = docMap.get(href);

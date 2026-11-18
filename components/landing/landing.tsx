@@ -1,5 +1,6 @@
 import React from "react";
 import Link from "next/link";
+import { safeHref } from "@/scripts/safe-href.mjs";
 import { highlightToHtml } from "@/lib/shiki";
 
 /* ──────────────────────────────────────────────────────────────────────────
@@ -122,8 +123,9 @@ export function BentoCard({
     </>
   );
   const cls = "ml-l-bento-card";
-  return href ? (
-    <Link href={href} className={cls} style={{ gridColumn: `span ${span}` }}>{inner}</Link>
+  const to = safeHref(href);
+  return to ? (
+    <Link href={to} className={cls} style={{ gridColumn: `span ${span}` }}>{inner}</Link>
   ) : (
     <div className={cls} style={{ gridColumn: `span ${span}` }}>{inner}</div>
   );
@@ -142,9 +144,12 @@ export function CTAButton({
   external?: boolean;
   children: React.ReactNode;
 }) {
+  const to = safeHref(href);
+  // A button that goes nowhere reads as broken: just its label.
+  if (!to) return <span>{children}</span>;
   return (
     <Link
-      href={href}
+      href={to}
       {...(external ? { target: "_blank", rel: "noreferrer" } : {})}
       className={`ml-l-btn size-${size} v-${variant}`}
     >
@@ -237,8 +242,9 @@ export function Feature({
       {children && <p>{children}</p>}
     </>
   );
-  return href ? (
-    <Link href={href} className="ml-l-feature linked">{inner}</Link>
+  const to = safeHref(href);
+  return to ? (
+    <Link href={to} className="ml-l-feature linked">{inner}</Link>
   ) : (
     <div className="ml-l-feature">{inner}</div>
   );

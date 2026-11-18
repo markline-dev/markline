@@ -30,6 +30,15 @@ test("mdToHtml drops raw HTML and neutralizes unsafe links", () => {
   assert.match(mdToHtml("[x](https://example.com)"), /href="https:\/\/example\.com"/);
 });
 
+test("a description's links follow the rule every link does", () => {
+  for (const u of ["https://x.dev", "mailto:a@b.c", "tel:+15550100", "vscode:extension/x", "irc://x", "/rel", "#a"]) {
+    assert.equal(mdToHtml(`[l](<${u}>)`), `<a href="${u}">l</a>`, u);
+  }
+  for (const u of ["javascript:alert(1)", "JaVaScRiPt:x", "&#x6A;avascript:x", "data:text/html,x", "vbscript:x", "file:///x"]) {
+    assert.equal(mdToHtml(`[l](<${u}>)`), "<a>l</a>", u);
+  }
+});
+
 test("mdToHtml passes empty/undefined through", () => {
   assert.equal(mdToHtml(undefined), undefined);
   assert.equal(mdToHtml(""), "");

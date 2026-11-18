@@ -3,7 +3,7 @@ import path from "node:path";
 import { contentRoot } from "./paths";
 import { limitOf, MAX_LIMIT } from "./ai/rate-limit";
 import { hrefAsPath } from "@/scripts/url-path.mjs";
-import { ALLOWED_LINKS, quoteHref, safeHref } from "@/scripts/safe-href.mjs";
+import { BLOCKED_LINKS, quoteHref, safeHref } from "@/scripts/safe-href.mjs";
 import { MAX_PROXIES, validIpHeader, validProxies } from "./ai/client-ip";
 import type { TagOverride } from "./openapi-tag-config";
 import { checkTemplateVersions, deepMerge, loadTemplateChain, templateCss, templateOptions } from "./templates";
@@ -709,20 +709,43 @@ export function normalizeNavHrefs<T>(node: T): T {
 
 const DROP = Symbol("drop");
 
+/** Lists of links in the config: a titled item whose list loses every link,
+ *  and has no link of its own, goes too. */
+const LINK_LISTS = ["pages", "groups", "items", "links", "columns"];
+
+/** The first page link under `node` (a tab's groups, a folder's pages). */
+function firstHref(node: unknown): string | undefined {
+  if (Array.isArray(node)) {
+    for (const v of node) {
+      const h = firstHref(v);
+      if (h) return h;
+    }
+    return undefined;
+  }
+  if (typeof node !== "object" || node === null) return undefined;
+  const o = node as Record<string, unknown>;
+  if (typeof o.href === "string") return o.href;
+  return firstHref(o.groups) ?? firstHref(o.pages);
+}
+
 /**
  * Links in the config markline won't render (scripts/safe-href.mjs), each
- * reported by its key path and left out: a link, nav page or tab with one is
- * dropped from its list, and an item that holds `pages` stays as a folder.
- * `footer.socials` values and `editUrl` are links too.
+ * reported by its key path and left out:
+ * - a link or nav page with one is dropped from its list;
+ * - a nav item that holds `pages` stays, as a folder;
+ * - a tab keeps its sidebar and links to its first page instead;
+ * - a menu, column, group or folder left with no links goes too.
+ * `footer.socials` values are links too.
  */
 export function dropUnsafeLinks<T>(node: T, at: string, warn: (msg: string) => void = console.warn): T {
   const out = drop(node, at, warn);
   return (out === DROP ? undefined : out) as T;
 }
 
+const blocked = (p: string, href: unknown, what: string) =>
+  `[markline] ${p}: ${quoteHref(href)}: markline doesn't link to ${BLOCKED_LINKS}; ${what}.`;
+
 function drop(node: unknown, at: string, warn: (msg: string) => void): unknown {
-  const bad = (p: string, href: unknown, what: string) =>
-    warn(`[markline] ${p}: ${quoteHref(href)} isn't a link markline renders (use ${ALLOWED_LINKS}); ${what}.`);
   if (Array.isArray(node)) {
     const kept: unknown[] = [];
     node.forEach((v, i) => {
@@ -733,32 +756,62 @@ function drop(node: unknown, at: string, warn: (msg: string) => void): unknown {
   }
   if (typeof node !== "object" || node === null) return node;
   const obj = node as Record<string, unknown>;
-  const href = obj.href;
-  if (typeof href === "string" && !safeHref(href)) {
-    if (!Array.isArray(obj.pages)) {
-      bad(`${at}.href`, href, "leaving it out");
-      return DROP;
-    }
-    bad(`${at}.href`, href, "keeping the item as a folder");
-  }
   const out: Record<string, unknown> = {};
+  let emptied = false; // a list of links that had some has none left
   for (const [k, v] of Object.entries(obj)) {
-    if (k === "href" && typeof v === "string" && !safeHref(v)) continue;
     const p = at ? `${at}.${k}` : k;
     if (k === "socials" && v && typeof v === "object" && !Array.isArray(v)) {
       out[k] = Object.fromEntries(
         Object.entries(v).filter(([net, url]) => {
           if (typeof url !== "string" || safeHref(url)) return true;
-          bad(`${p}.${net}`, url, "leaving it out");
+          warn(blocked(`${p}.${net}`, url, "leaving it out"));
           return false;
         }),
       );
       continue;
     }
+    if (k === "href") continue; // below, once its children are known
     const r = drop(v, p, warn);
-    if (r !== DROP) out[k] = r;
+    if (r === DROP) continue;
+    if (LINK_LISTS.includes(k) && Array.isArray(v) && v.length && Array.isArray(r) && !r.length) emptied = true;
+    out[k] = r;
   }
-  return out;
+  // A menu, column, group, folder or tab: something titled that holds links.
+  const titled = "title" in obj || "label" in obj || "group" in obj;
+  const href = obj.href;
+  if (typeof href !== "string") return emptied && titled ? DROP : "href" in obj ? { ...out, href } : out;
+  if (safeHref(href)) {
+    // A folder whose pages all went is a plain link now.
+    if (emptied) for (const k of LINK_LISTS) if (Array.isArray(out[k]) && !(out[k] as unknown[]).length) delete out[k];
+    return { ...out, href };
+  }
+  if (Array.isArray(out.pages) && out.pages.length) {
+    warn(blocked(`${at}.href`, href, "keeping the item as a folder"));
+    return out;
+  }
+  const first = Array.isArray(out.groups) ? firstHref(out.groups) : undefined;
+  if (first) {
+    warn(blocked(`${at}.href`, href, `the tab links to its first page, ${first}, instead`));
+    return { ...out, href: first };
+  }
+  warn(blocked(`${at}.href`, href, "leaving it out"));
+  return DROP;
+}
+
+/** Every link in the config, checked: see dropUnsafeLinks. `editUrl` that
+ *  markline won't link to leaves out "Edit this page". */
+export function cleanConfigLinks(config: MarklineConfig, warn: (msg: string) => void = console.warn): MarklineConfig {
+  const c = { ...config };
+  c.topbar = dropUnsafeLinks(c.topbar, "topbar", warn);
+  c.footer = dropUnsafeLinks(c.footer, "footer", warn);
+  c.navigation = dropUnsafeLinks(c.navigation, "navigation", warn);
+  c.versions = dropUnsafeLinks(c.versions, "versions", warn);
+  if (c.i18n) c.i18n = dropUnsafeLinks(c.i18n, "i18n", warn);
+  if (typeof c.editUrl === "string" && !safeHref(c.editUrl)) {
+    warn(blocked("editUrl", c.editUrl, 'leaving out "Edit this page"'));
+    c.editUrl = undefined;
+  }
+  return c;
 }
 
 /** `topbar.githubStars`: "live" unless it's "build" or false. Anything else is
@@ -803,16 +856,7 @@ export function loadConfig(): MarklineConfig {
     // No config file (or invalid) — fall back to defaults so the app still boots.
   }
   const base = withTemplate(DEFAULT_CONFIG, user, path.dirname(file));
-  const config = mergeConfig(base, user);
-  config.topbar = dropUnsafeLinks(config.topbar, "topbar");
-  config.footer = dropUnsafeLinks(config.footer, "footer");
-  config.navigation = dropUnsafeLinks(config.navigation, "navigation");
-  config.versions = dropUnsafeLinks(config.versions, "versions");
-  if (config.i18n) config.i18n = dropUnsafeLinks(config.i18n, "i18n");
-  if (typeof config.editUrl === "string" && !safeHref(config.editUrl)) {
-    console.warn(`[markline] editUrl: ${quoteHref(config.editUrl)} isn't a link markline renders (use ${ALLOWED_LINKS}); leaving out "Edit this page".`);
-    config.editUrl = undefined;
-  }
+  const config = cleanConfigLinks(mergeConfig(base, user));
   config.navigation = normalizeNavHrefs(config.navigation);
   config.versions = normalizeNavHrefs(config.versions);
   if (config.i18n) config.i18n = normalizeNavHrefs(config.i18n);

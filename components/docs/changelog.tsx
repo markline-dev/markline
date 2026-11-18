@@ -76,7 +76,7 @@ function Entry({ entry, linkDate = true }: { entry: ChangelogEntry; linkDate?: b
           source={entry.body}
           components={entryComponents(entry.date)}
           options={{
-            mdxOptions: { format: "mdx", remarkPlugins: [remarkGfm, remarkSafeLinks, remarkCodeGroupTitles, remarkTocIds], rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]] },
+            mdxOptions: { format: "mdx", remarkPlugins: [remarkGfm, [remarkSafeLinks, { file: entry.file }], remarkCodeGroupTitles, remarkTocIds], rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]] },
             blockJS: false,
           }}
         />

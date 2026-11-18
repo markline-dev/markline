@@ -1,46 +1,87 @@
-/* The links in a page's MDX that markline shows as text rather than as links
- * (see scripts/safe-href.mjs), so the build and the dev server can say so.
- * Pure, so it's unit-tested. */
+/* Links in a page's MDX that markline shows as text rather than as links
+ * (scripts/safe-href.mjs). remarkSafeLinks runs in the page's own compile: it
+ * turns an <a> written as JSX into a <span> when its href is one, and says
+ * which links were dropped, by file, so `markline dev` and `markline build`
+ * report the same thing without parsing the page again. */
 
 import remarkGfm from "remark-gfm";
 import remarkMdx from "remark-mdx";
 import remarkParse from "remark-parse";
 import { unified } from "unified";
-import { ALLOWED_LINKS, quoteHref, safeHref } from "@/scripts/safe-href.mjs";
+import { BLOCKED_LINKS, quoteHref, safeHref } from "@/scripts/safe-href.mjs";
 
+type Estree = { type: string; value?: unknown; quasis?: { value: { cooked?: string } }[]; expressions?: unknown[]; properties?: Estree[]; argument?: Estree; key?: Estree & { name?: string }; computed?: boolean; expression?: Estree; body?: Estree[] };
+type Attr = { type: string; name?: string; value?: unknown; data?: { estree?: Estree } };
 type Node = {
   type: string;
   name?: string | null;
   url?: string;
   value?: unknown;
   identifier?: string;
-  attributes?: { type: string; name?: string; value?: unknown }[];
+  attributes?: Attr[];
   children?: Node[];
 };
 
-/** Components whose `href` becomes a link. */
+/** Components whose `href` becomes a link (each checks it again as it renders). */
 const LINKING = new Set(["a", "Card", "LinkItem", "Path", "BentoCard", "Feature", "CTAButton"]);
 
-const parser = unified().use(remarkParse).use(remarkGfm).use(remarkMdx);
+/** A string an estree expression is, written as a literal: "x", 'x' or `x`. */
+function literal(e: Estree | undefined): string | undefined {
+  if (e?.type === "Literal" && typeof e.value === "string") return e.value;
+  if (e?.type === "TemplateLiteral" && !e.expressions?.length) return e.quasis?.[0]?.value.cooked;
+  return undefined;
+}
+
+const expressionOf = (a: Attr) => a.data?.estree?.body?.[0]?.expression;
+
+/** `href` written in an object literal, as in {...{ href: "x" }}. */
+function hrefInObject(e: Estree | undefined): string | undefined {
+  if (e?.type !== "ObjectExpression") return undefined;
+  for (const p of e.properties ?? []) {
+    if (p.type === "Property" && !p.computed && (p.key?.name === "href" || p.key?.value === "href")) return literal(p.value as Estree);
+    if (p.type === "SpreadElement") {
+      const inner = hrefInObject(p.argument);
+      if (inner !== undefined) return inner;
+    }
+  }
+  return undefined;
+}
+
+/** An element's href and the attribute that holds it, when it's written out:
+ *  href="x", href={"x"}, href={`x`} or {...{ href: "x" }}. A computed href
+ *  ({someVariable}) isn't known here. */
+function hrefOf(node: Node): { href: string; attr: Attr } | undefined {
+  for (const a of node.attributes ?? []) {
+    if (a.type === "mdxJsxAttribute" && a.name === "href") {
+      if (typeof a.value === "string") return { href: a.value, attr: a };
+      const v = a.value as Attr | undefined;
+      const s = v && typeof v === "object" ? literal(expressionOf(v)) : undefined;
+      if (s !== undefined) return { href: s, attr: a };
+    }
+    if (a.type === "mdxJsxExpressionAttribute") {
+      // {...x} is read as the object { ...x }.
+      const s = hrefInObject(expressionOf(a));
+      if (s !== undefined) return { href: s, attr: a };
+    }
+  }
+  return undefined;
+}
+
+function stringAttr(node: Node, name: string): string | undefined {
+  const a = node.attributes?.find((x) => x.type === "mdxJsxAttribute" && x.name === name);
+  return typeof a?.value === "string" ? a.value : undefined;
+}
 
 const textOf = (node: Node): string =>
   node.type === "text" || node.type === "inlineCode" ? String(node.value ?? "") : (node.children ?? []).map(textOf).join("");
 
-const attr = (node: Node, name: string) => {
-  const a = node.attributes?.find((x) => x.type === "mdxJsxAttribute" && x.name === name);
-  return typeof a?.value === "string" ? a.value : undefined;
-};
-
 export type BodyLinkIssue = { text: string; href: string };
 
-/** Each link in `body` markline won't render as one, with its text, in order. */
-export function bodyLinkIssues(body: string): BodyLinkIssue[] {
-  let tree: Node;
-  try {
-    tree = parser.parse(body) as Node;
-  } catch {
-    return []; // the page's own render reports a parse error
-  }
+const isJsx = (n: Node) => n.type === "mdxJsxFlowElement" || n.type === "mdxJsxTextElement";
+
+/** The links in a parsed page markline won't render, in order; an <a> with
+ *  one becomes a <span> as they're found. */
+function dropLinks(tree: Node): BodyLinkIssue[] {
   const defs = new Map<string, string>();
   const collect = (n: Node) => {
     if (n.type === "definition" && n.identifier && n.url !== undefined) defs.set(n.identifier, n.url);
@@ -49,14 +90,22 @@ export function bodyLinkIssues(body: string): BodyLinkIssue[] {
   collect(tree);
 
   const issues: BodyLinkIssue[] = [];
-  const check = (href: string | undefined, text: string) => {
-    if (href !== undefined && href.trim() && !safeHref(href)) issues.push({ text: text.trim().replace(/\s+/g, " ") || href, href });
-  };
+  const bad = (href: string | undefined) => href !== undefined && href.trim() !== "" && !safeHref(href);
+  const add = (href: string, text: string) => issues.push({ text: text.trim().replace(/\s+/g, " ") || href, href });
   const walk = (n: Node) => {
-    if (n.type === "link") check(n.url, textOf(n));
-    else if (n.type === "linkReference" && n.identifier) check(defs.get(n.identifier), textOf(n));
-    else if ((n.type === "mdxJsxFlowElement" || n.type === "mdxJsxTextElement") && n.name && LINKING.has(n.name)) {
-      check(attr(n, "href"), attr(n, "title") ?? textOf(n));
+    if (n.type === "link" && bad(n.url)) add(n.url!, textOf(n));
+    else if (n.type === "linkReference" && n.identifier && bad(defs.get(n.identifier))) add(defs.get(n.identifier)!, textOf(n));
+    else if (isJsx(n) && n.name && LINKING.has(n.name)) {
+      const found = hrefOf(n);
+      if (found && bad(found.href)) {
+        // A component's title is its label; an <a>'s is a tooltip.
+        add(found.href, (n.name !== "a" && stringAttr(n, "title")) || textOf(n));
+        // A component checks its href as it renders; a JSX <a> goes straight to the page.
+        if (n.name === "a") {
+          n.name = "span";
+          n.attributes = n.attributes!.filter((x) => x !== found.attr);
+        }
+      }
     }
     n.children?.forEach(walk);
   };
@@ -64,36 +113,36 @@ export function bodyLinkIssues(body: string): BodyLinkIssue[] {
   return issues;
 }
 
-const warned = new Set<string>();
+const parser = unified().use(remarkParse).use(remarkGfm).use(remarkMdx);
 
-/** Say, once each per process, which of a file's links are shown as text. The
- *  build and the dev server both report through this, so they say the same. */
-export function warnBodyLinks(file: string, body: string, warn: (msg: string) => void = console.warn): void {
-  for (const { text, href } of bodyLinkIssues(body)) {
-    const msg = `[markline] ${file}: the link "${text}" goes to ${quoteHref(href)}, which markline doesn't link to (use ${ALLOWED_LINKS}); it's shown as text.`;
-    if (warned.has(msg)) continue;
-    warned.add(msg);
-    warn(msg);
+/** Each link in `body` markline won't render as one, with its text, in order. */
+export function bodyLinkIssues(body: string): BodyLinkIssue[] {
+  try {
+    return dropLinks(parser.parse(body) as Node);
+  } catch {
+    return []; // the page's own render reports a parse error
   }
 }
 
+const warned = new Set<string>();
+
+/** The warning for one dropped link in `file`, said once per process. */
+export function warnBodyLink(file: string, { text, href }: BodyLinkIssue, warn: (msg: string) => void = console.warn): void {
+  const msg = `[markline] ${file}: the link "${text}" goes to ${quoteHref(href)}, and markline doesn't link to ${BLOCKED_LINKS}; it's shown as text.`;
+  if (warned.has(msg)) return;
+  warned.add(msg);
+  warn(msg);
+}
+
 /**
- * Remark plugin: an <a> written as JSX with a literal href markline doesn't
- * render becomes a <span>, keeping its text. (A Markdown link goes through
- * the `a` component, which does the same; JSX tags don't.)
+ * Remark plugin, in every compile of page MDX: an <a> written as JSX whose
+ * href markline won't render becomes a <span>, keeping its text (a Markdown
+ * link goes through the `a` component, which does the same, but JSX tags
+ * don't). With `file`, each dropped link is reported as `file`.
  */
-export function remarkSafeLinks() {
+export function remarkSafeLinks(opts: { file?: string; warn?: (msg: string) => void } = {}) {
   return (tree: Node) => {
-    const walk = (n: Node) => {
-      if ((n.type === "mdxJsxFlowElement" || n.type === "mdxJsxTextElement") && n.name === "a") {
-        const href = n.attributes?.find((x) => x.type === "mdxJsxAttribute" && x.name === "href");
-        if (href && typeof href.value === "string" && !safeHref(href.value)) {
-          n.name = "span";
-          n.attributes = n.attributes!.filter((x) => x !== href);
-        }
-      }
-      n.children?.forEach(walk);
-    };
-    walk(tree);
+    const issues = dropLinks(tree);
+    if (opts.file) for (const issue of issues) warnBodyLink(opts.file, issue, opts.warn);
   };
 }

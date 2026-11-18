@@ -20,7 +20,7 @@ import { HubHero } from "@/components/docs/hub-hero";
 import { LandingPage } from "@/components/landing/landing";
 import { remarkLandingProse } from "@/lib/landing-prose";
 import { remarkCodeGroupTitles } from "@/lib/code-group";
-import { remarkSafeLinks, warnBodyLinks } from "@/lib/body-links";
+import { remarkSafeLinks } from "@/lib/body-links";
 import { elementsIn, extractToc, missingTocIds, remarkTocIds, withOffView } from "@/lib/toc";
 import { SiteFooter } from "@/components/site-footer";
 import type { Crumb, PageNavLink } from "@/components/docs/page";
@@ -100,7 +100,6 @@ export async function generateMetadata({ params }: { params: Promise<{ slug?: st
 /** Pages already warned about <MigrationCallout>, once each per process. */
 const warnedMigration = new Set<string>();
 
-
 export default async function DocsCatchAll({ params }: { params: Promise<{ slug?: string[] }> }) {
   const slug = pageSlug((await params).slug);
   if (slug === null || slug?.[0] === NOT_FOUND_SEGMENT) return uncachedNotFound();
@@ -138,7 +137,6 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
   const { prev, next } = pageNeighbors(tabs, pathname);
 
   // A hand-written "On this page" can drift from the headings it links to.
-  warnBodyLinks(doc.sourcePath, doc.body);
   for (const id of doc.fm.toc ? missingTocIds(doc.body, doc.fm.toc, { steps: doc.fm.tocSteps }) : []) {
     console.warn(`[markline] toc: entry #${id} doesn't match any heading on ${pathname}`);
   }
@@ -158,7 +156,7 @@ export default async function DocsCatchAll({ params }: { params: Promise<{ slug?
           format: "mdx",
           remarkPlugins: [
             remarkGfm,
-            remarkSafeLinks,
+            [remarkSafeLinks, { file: doc.sourcePath }],
             remarkCodeGroupTitles,
             [remarkTocIds, { steps: doc.fm.tocSteps }],
             ...(landing ? [remarkLandingProse] : []),
@@ -269,7 +267,6 @@ async function renderChangelog(slug: string[]) {
   // docs/changelog.mdx, if it exists, supplies the title, lede and an intro,
   // shown on the first page only. Its headings' ids skip the entries' ids there.
   const intro = getDoc(["changelog"]);
-  if (intro && page === 1) warnBodyLinks(intro.sourcePath, intro.body);
   const shown = entries.slice((page - 1) * PER_PAGE, page * PER_PAGE);
   const reserved = changelogToc(shown).map((i) => i.id);
   return shell(
@@ -278,7 +275,7 @@ async function renderChangelog(slug: string[]) {
       lede={intro?.fm.lede}
       intro={
         intro?.body.trim() && page === 1 ? (
-          <MDXRemote source={intro.body} components={mdxComponents} options={{ mdxOptions: { format: "mdx", remarkPlugins: [remarkGfm, remarkSafeLinks, remarkCodeGroupTitles, [remarkTocIds, { reserved }]], rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]] }, blockJS: false }} />
+          <MDXRemote source={intro.body} components={mdxComponents} options={{ mdxOptions: { format: "mdx", remarkPlugins: [remarkGfm, [remarkSafeLinks, { file: intro.sourcePath }], remarkCodeGroupTitles, [remarkTocIds, { reserved }]], rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]] }, blockJS: false }} />
         ) : undefined
       }
       entries={shown}

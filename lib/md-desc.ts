@@ -2,19 +2,32 @@ import { unified } from "unified";
 import remarkParse from "remark-parse";
 import remarkGfm from "remark-gfm";
 import remarkRehype from "remark-rehype";
-import rehypeSanitize from "rehype-sanitize";
+import rehypeSanitize, { defaultSchema } from "rehype-sanitize";
 import rehypeStringify from "rehype-stringify";
+import { safeHref } from "@/scripts/safe-href.mjs";
 
 // Descriptions come from the OpenAPI spec and are injected via
 // dangerouslySetInnerHTML, so the output is sanitized: raw HTML in the source
 // is already dropped (no rehype-raw), and rehype-sanitize's default (GitHub)
-// schema strips unsafe URL schemes like `javascript:` while keeping the
-// elements GFM produces (links, code, tables, lists).
+// schema keeps only the elements and attributes GFM produces (links, code,
+// tables, lists). A link's href follows the rule every link does
+// (scripts/safe-href.mjs): javascript:, data:, vbscript: and file: go, while
+// mailto:, tel: or an app's own scheme stay.
+type Hast = { type: string; properties?: Record<string, unknown>; children?: Hast[] };
+const schema = { ...defaultSchema, protocols: { ...defaultSchema.protocols, href: undefined } };
+const rehypeSafeHrefs = () => (tree: Hast) => {
+  const walk = (n: Hast) => {
+    if (n.type === "element" && n.properties && "href" in n.properties && !safeHref(n.properties.href)) delete n.properties.href;
+    n.children?.forEach(walk);
+  };
+  walk(tree);
+};
 const mdProcessor = unified()
   .use(remarkParse)
   .use(remarkGfm)
   .use(remarkRehype)
-  .use(rehypeSanitize)
+  .use(rehypeSanitize, schema)
+  .use(rehypeSafeHrefs)
   .use(rehypeStringify);
 
 /** Render markdown from spec descriptions to sanitized HTML. Unwraps single paragraphs to keep inline flow. */

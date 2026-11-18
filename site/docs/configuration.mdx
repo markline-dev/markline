@@ -140,11 +140,13 @@ Navigation is a list of tabs, each with grouped pages. A tab can instead set
 }
 ```
 
-Every `href` here, in `topbar`, `banner` and `footer`, a `footer.socials`
-link and `editUrl` is a path or `#anchor` on your site, or an `http:`,
-`https:`, `mailto:` or `tel:` URL. Any other link is left out, with a warning
-that names its key, such as `footer.links[2].href`. A nav item that holds
-`pages` stays, as a folder without a link of its own.
+Links here, in `topbar`, `banner` and `footer`, in `footer.socials` and in
+`editUrl` follow the [rule every link does](/components#links): one to a
+`javascript:`, `data:`, `vbscript:` or `file:` URL is left out, with a
+warning that names its key, such as `footer.links[2].href`.
+- A nav item that holds `pages` stays, as a folder without a link of its own.
+- A tab links to its first page instead.
+- A menu, footer column or nav group left with no links is left out too.
 
 ### Icons, nesting and collapsing
 

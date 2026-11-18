@@ -1,19 +1,28 @@
-// The links markline renders: a path or #anchor on the site, or an http:,
-// https:, mailto: or tel: URL. Anything else (javascript:, data:, file:, …)
-// is shown as its text, with a warning. One rule for links in pages, in
-// components and in markline.json, shared by the pages and the build.
+// The links markline won't render: javascript:, data:, vbscript: and file:
+// URLs, read as a browser reads them. Every other link (a path, #anchor,
+// http(s):, mailto:, tel:, an app's own scheme such as vscode:) is kept as
+// written. One rule for links in pages, in components and in markline.json,
+// shared by the pages and the build. A dropped link is shown as its text.
 
-/** How the allowed links are described in warnings and the docs. */
-export const ALLOWED_LINKS = "a path, a #anchor, or an http:, https:, mailto: or tel: URL";
+const BLOCKED = new Set(["javascript", "data", "vbscript", "file"]);
 
-/** `url` as written if markline renders it as a link, else undefined. */
+/** How the rule is described in warnings and the docs. */
+export const BLOCKED_LINKS = "javascript:, data:, vbscript: or file: URLs";
+
+/** The scheme a URL has as a browser reads it: leading spaces and control
+ *  characters dropped, tabs and newlines removed anywhere. */
+function schemeOf(url) {
+  const read = url.replace(/^[\u0000- ]+/, "").replace(/[\t\n\r]/g, "");
+  return read.match(/^([a-z][a-z0-9+.-]*):/i)?.[1].toLowerCase();
+}
+
+/** `url` as written (trimmed) unless markline won't link to it; else undefined. */
 export function safeHref(url) {
   if (typeof url !== "string") return undefined;
   const u = url.trim();
   if (!u) return undefined;
-  // Relative: /a, #x, ?q, ./a, ../a, or a/b with no scheme before the first / ? #.
-  if (/^[/#?.]/.test(u) || /^[^:/?#]+([/?#]|$)/.test(u)) return u;
-  return /^(https?:|mailto:|tel:)/i.test(u) ? u : undefined;
+  const scheme = schemeOf(url);
+  return scheme && BLOCKED.has(scheme) ? undefined : u;
 }
 
 /** A link as quoted in a warning: as written, cut to 60 characters. */

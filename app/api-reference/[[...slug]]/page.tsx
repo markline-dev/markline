@@ -31,6 +31,9 @@ const prettyCodeOptions = {
 } as const;
 
 /** The `api/` directory for the default version or a named version variant. */
+/** An overlay's MDX and its file, from the content root. */
+type MdxSource = { source: string; file: string };
+
 function apiDir(variantId?: string): string {
   return variantId ? path.join(contentRoot(), variantId, "api") : path.join(contentRoot(), "api");
 }
@@ -54,10 +57,10 @@ function parseVariant(slug?: string[]): { variantId?: string; rest: string[] } {
  * auto-generated parameter/body sections — a dedicated slot for callouts,
  * use-cases, and extended prose.
  */
-function loadOperationMdx(operationId: string, variantId?: string): string | null {
+function loadOperationMdx(operationId: string, variantId?: string): MdxSource | null {
   const file = path.join(apiDir(variantId), "operations", `${operationId}.mdx`);
   try {
-    return fs.readFileSync(file, "utf8");
+    return { source: fs.readFileSync(file, "utf8"), file: path.relative(contentRoot(), file) };
   } catch {
     return null;
   }
@@ -74,17 +77,17 @@ function sectionSlug(name: string): string {
  * resource intro on the API reference — richer than the OpenAPI tag
  * `description` (callouts, tables, links, components).
  */
-function loadSectionMdx(tagName: string, variantId?: string): string | null {
+function loadSectionMdx(tagName: string, variantId?: string): MdxSource | null {
   const file = path.join(apiDir(variantId), "sections", `${sectionSlug(tagName)}.mdx`);
   try {
-    return fs.readFileSync(file, "utf8");
+    return { source: fs.readFileSync(file, "utf8"), file: path.relative(contentRoot(), file) };
   } catch {
     return null;
   }
 }
 
-/** Render an MDX source string with the shared options. */
-function renderMdx(source: string) {
+/** Render an overlay's MDX with the shared options; its links are reported by its file. */
+function renderMdx({ source, file }: MdxSource) {
   return (
     <MDXRemote
       source={source}
@@ -92,7 +95,7 @@ function renderMdx(source: string) {
       options={{
         mdxOptions: {
           format: "mdx",
-          remarkPlugins: [remarkGfm, remarkSafeLinks, remarkCodeGroupTitles, remarkTocIds],
+          remarkPlugins: [remarkGfm, [remarkSafeLinks, { file }], remarkCodeGroupTitles, remarkTocIds],
           rehypePlugins: [[rehypePrettyCode, prettyCodeOptions]],
         },
       }}

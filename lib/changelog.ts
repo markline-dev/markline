@@ -3,7 +3,6 @@ import path from "node:path";
 import matter from "gray-matter";
 import { contentRoot } from "./paths";
 import { entryDate } from "./changelog-core";
-import { warnBodyLinks } from "./body-links";
 
 /**
  * The changelog's entries: one MDX file per release in `<content>/changelog/`,
@@ -17,6 +16,8 @@ export type ChangelogEntry = {
   /** Frontmatter `breaking: true`: the release needs readers to change something. */
   breaking: boolean;
   body: string;
+  /** Its file, from the content root ("changelog/2026-11-05.mdx"), for warnings. */
+  file: string;
 };
 
 let cache: ChangelogEntry[] | undefined;
@@ -42,13 +43,13 @@ export function listChangelog(): ChangelogEntry[] {
       }
       continue;
     }
-    warnBodyLinks(`changelog/${name}`, content);
     entries.push({
       date,
       title: typeof data.title === "string" && data.title.trim() ? data.title.trim() : undefined,
       tags: Array.isArray(data.tags) ? data.tags.filter((t: unknown) => typeof t === "string") : [],
       breaking: data.breaking === true,
       body: content,
+      file: `changelog/${name}`,
     });
   }
   entries.sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0));
